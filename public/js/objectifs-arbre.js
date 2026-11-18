@@ -385,6 +385,7 @@
     var cols = [], want = OBJ_OF[lvl];
     if (lvl === 'activite') {
       var seen = {};
+      ((struct && struct.activities) || []).forEach(function (a) { seen[a.id] = { key: a.id, label: a.name, color: a.color, objs: [], ctx: { level: 'activite', activityId: a.id, label: a.name } }; cols.push(seen[a.id]); }); // chaque activité de l'arbre a sa colonne, même sans objectif
       shown.forEach(function (o) {
         var id = o.activity.id, c = seen[id];
         if (!c) { c = seen[id] = { key: id, label: o.activity.name, color: color(o), objs: [], ctx: { level: 'activite', activityId: id, label: o.activity.name } }; cols.push(c); }
@@ -708,25 +709,14 @@
   }
   // On ne change de niveau QUE par le toucher (descendre) et la flèche de retour : ni pincement ni Ctrl + molette (retirés à la demande d'Émilien).
   // OUVERTURE : le niveau de temps du plus large des objectifs de l'utilisateur (pluriannuel s'il y en a, sinon année, sinon période) ; recalculé à chaque ouverture et chaque retour, rien n'est mémorisé.
-  function applyOpen() {
-    var order = ['pluriannuel', 'annee', 'periode'], best = null;
+  function applyOpen() { // 18 nov. 2026 (Émilien) : chaque activité a son arbre par défaut ; on ouvre TOUJOURS sur toutes les activités en colonnes (jamais figé sur une seule), le toucher descend
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
-    items.forEach(function (o) { var t = lv(o); if (!o.abandoned && (best == null || order.indexOf(t) < order.indexOf(best))) best = t; });
-    picked = null;
-    if (best == null || best === 'pluriannuel') { lvl = 'activite'; focus = null; return; }
-    var cnt = {}, poleCnt = {}; items.forEach(function (o) { if (lv(o) === best && !o.isMacro) { cnt[o.activity.id] = (cnt[o.activity.id] || 0) + 1; if (o.poleKey) poleCnt[o.activity.id + '/' + o.poleKey] = (poleCnt[o.activity.id + '/' + o.poleKey] || 0) + 1; } });
-    var aid = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0];
-    if (aid == null) { lvl = 'activite'; focus = null; return; }
-    aid = Number(aid);
-    if (best === 'annee') { lvl = 'pole'; focus = { activityId: aid }; return; }
-    var act = actOf(aid), pk = Object.keys(poleCnt).filter(function (k) { return k.indexOf(aid + '/') === 0; }).sort(function (a, b) { return poleCnt[b] - poleCnt[a]; })[0], key = pk ? pk.split('/')[1] : (act && act.poles && act.poles[0] ? act.poles[0].key : null);
-    var pl = act && act.poles && act.poles.filter(function (p) { return p.key === key; })[0];
-    lvl = 'secteur'; focus = { activityId: aid, poleKey: key, poleLabel: pl ? pl.label : '', year: new Date().getFullYear() };
+    picked = null; lvl = 'activite'; focus = null;
   }
   function refresh() {
     if (!tree) return Promise.resolve();
     return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
-      items = (rs[0] && rs[0].objectifs) || []; struct = rs[1]; loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
+      struct = rs[1]; var hid = (struct && struct.hidden) || []; items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre'); if (tree) tree.setAttribute('data-hscroll', '.arHScroll');

@@ -2356,6 +2356,8 @@ if (!columnExists('activity_members', 'notifyEnabled')) {
 // Migration additive. Un membre qui active l'un des deux voit les statistiques de TOUS les membres (comportement existant, aucun consentement par membre).
 if (!columnExists('activity_members', 'compareChrono')) db.exec('ALTER TABLE activity_members ADD COLUMN compareChrono INTEGER NOT NULL DEFAULT 0');
 if (!columnExists('activity_members', 'compareTasks')) db.exec('ALTER TABLE activity_members ADD COLUMN compareTasks INTEGER NOT NULL DEFAULT 0');
+// 18 nov. 2026 (Émilien) : « Arbre des objectifs » — chaque activité est dans l'arbre par défaut (0) ; 1 = MASQUÉE de l'arbre (PERSONNEL à chaque membre ; les objectifs restent en base, rétablissable).
+if (!columnExists('activity_members', 'treeHidden')) db.exec('ALTER TABLE activity_members ADD COLUMN treeHidden INTEGER NOT NULL DEFAULT 0');
 // 5 oct. 2026 (Emilien) : mode « gestion de l'IA » par utilisateur — NULL tant que non choisi (pop-up obligatoire
 // à la première capture), puis 'autonome' | 'partiel' | 'absence'.
 // 6 oct. 2026 (Emilien) : activité Publique (défaut) ou Confidentielle — PERSONNEL à chaque membre.

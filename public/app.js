@@ -15371,6 +15371,16 @@
     adv.appendChild(visRow);
     // Statistiques d'activité partagée : deux interrupteurs PERSONNELS (à moi et à cette activité), désactivés par défaut ; allumer l'un donne accès aux statistiques de tous les membres. Enregistrés avec le bouton Enregistrer.
     var cmpPending = {};
+    // « Arbre des objectifs » : allumé = l'activité est dans l'arbre de Feuille de route (défaut) ; éteint = masquée (objectifs gardés, rétablissable). Enregistré avec le bouton Enregistrer.
+    (function () {
+      var tRow = document.createElement('label'); tRow.className = 'activityEditRow activityEditVis';
+      var tWord = document.createElement('span'); tWord.textContent = t('Arbre des objectifs');
+      var tSw = document.createElement('span'); tSw.className = 'toggleSwitch';
+      var tIn = document.createElement('input'); tIn.type = 'checkbox'; tIn.checked = !a.treeHidden; tIn.setAttribute('role', 'switch');
+      var tTrack = document.createElement('span'); tTrack.className = 'toggleSwitchTrack';
+      tSw.appendChild(tIn); tSw.appendChild(tTrack); tRow.appendChild(tWord); tRow.appendChild(tSw); adv.appendChild(tRow);
+      tIn.addEventListener('change', function () { if (!tIn.checked !== !!a.treeHidden) cmpPending.treeHidden = !tIn.checked; else delete cmpPending.treeHidden; markDirty(); });
+    })();
     if (a.membersCount > 1) [['compareChrono', 'Comparer le chrono'], ['compareTasks', 'Comparer les tâches']].forEach(function (k) {
       var cRow = document.createElement('label'); cRow.className = 'activityEditRow activityEditVis';
       var cWord = document.createElement('span'); cWord.textContent = t(k[1]);

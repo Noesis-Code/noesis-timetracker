@@ -177,9 +177,12 @@ function userActivities(userId) {
 function labelsOf(activityId) {
   try { return db.prepare('SELECT label FROM activity_goal_categories WHERE activityId = ? AND removedAt IS NULL').all(activityId).map((r) => r.label); } catch (e) { return []; }
 }
+function hiddenFromTree(userId) { // activités masquées de l'arbre par cet utilisateur (réglage de l'activité) ; leurs objectifs restent en base
+  try { return new Set(db.prepare('SELECT activityId FROM activity_members WHERE userId = ? AND treeHidden = 1').all(userId).map((r) => r.activityId)); } catch (e) { return new Set(); }
+}
 function rankActivities(userId, text) {
-  const tw = new Set(words(text).map(stemOf));
-  return userActivities(userId).map((a) => {
+  const tw = new Set(words(text).map(stemOf)), hid = hiddenFromTree(userId);
+  return userActivities(userId).filter((a) => !hid.has(a.id)).map((a) => {
     const aw = words(a.name + ' ' + labelsOf(a.id).join(' ')).map(stemOf);
     const score = aw.filter((w, i) => aw.indexOf(w) === i && tw.has(w)).length;
     const sr = require('./categorystats').shadeRanks(a.id);
@@ -499,7 +502,8 @@ function levelOf(userId, activityId, body) {
 }
 // Structure pour l'arbre : par activité, ses pôles et leurs secteurs (même source que l'arbre périodique de la page 2).
 function structure(userId) {
-  return { activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
+  const hid = hiddenFromTree(userId);
+  return { hidden: Array.from(hid), activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
  secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }); }) };
 }
 
