@@ -2,9 +2,10 @@
    .goalsGridScroll de css/objectifs-page2-objectif.css) ; ce fichier ne porte que ce qui est propre à la vue d'ensemble (colonnes = activités, états, dépliage, bulles fixes, glisser-déposer). */
 .objArbre { position: fixed; top: var(--ar-top, 160px); bottom: var(--ar-bot, 150px); left: var(--ar-left, 16px); right: var(--ar-right, 16px); display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 0; } /* posé en CSS entre l'en-tête et le haut RÉEL de la barre du bas : bas des titres = haut de la barre − 8 px (gouttière), quel que soit l'appareil */
 /* Tant que l'arbre est affiché la page ne défile pas : aucun élastique, rien ne se déplace sous le doigt. */
-html.arbreOn, html.arbreOn body { overflow: hidden; height: 100%; overscroll-behavior: none; } /* verrou du défilement SANS sortir le corps du flux (plus de position: fixed : sur iPhone elle décalait toute la page vers le haut, 18 nov. 2026) ; le défilement est ramené à 0 par le JS à l'ouverture */
+html.arbreOn, html.arbreOn body { overflow: hidden; overscroll-behavior: none; } /* correctif « A » (18 nov. 2026) : plus de height:100% (sur iPhone installé, innerHeight perdait 48 px = zone de sécurité haute) */ /* verrou du défilement SANS sortir le corps du flux (plus de position: fixed : sur iPhone elle décalait toute la page vers le haut, 18 nov. 2026) ; le défilement est ramené à 0 par le JS à l'ouverture */
 /* BANDE NOIRE EN BAS (iPhone, zone de sécurité basse), onglet Objectifs seulement (18 nov. 2026) : le corps fixe peut laisser à découvert la bande sous la barre des volets, qui montrait le noir uni de <html> (et le voile noir de #app::after). Le fond de <html> porte donc le MÊME halo violet que les autres onglets (.cmpHalo : cercle flou ancré en bas), et le voile noir est retiré ici (aucun rebond à couvrir : overscroll désactivé). */
-html.arbreOn { background: radial-gradient(circle 260px at 50% calc(100% + 70px), var(--halo), transparent) fixed, var(--black); }
+html.arbreOn { background: var(--black); }
+html.arbreOn::before { content: ''; position: fixed; z-index: -1; pointer-events: none; left: 0; right: 0; bottom: 0; height: 260px; background: radial-gradient(circle 260px at 50% calc(100% + 70px), var(--halo), transparent); } /* même halo qu'avant, sans « fixed » dans le background de <html> (correctif « A ») */
 html.arbreOn #app::after { display: none; }
 .arZoomRow { flex: none; margin: 0 0 4px; display: flex; align-items: center; min-height: 26px; }
 .arZoomRow .arBackNav { margin: 0; }

@@ -20,7 +20,7 @@
   }
   function boot() {
 
-  var MAX = 20, sent = 0, timer = null, debounce = null, cacheVersion = '', ok = null;
+  var fixTag = 'A', MAX = 20, sent = 0, timer = null, debounce = null, cacheVersion = '', ok = null;
 
   function rect(el) {
     if (!el) return undefined;
@@ -36,6 +36,18 @@
     document.body.appendChild(t);
     var c = getComputedStyle(t), out = { top: c.paddingTop, right: c.paddingRight, bottom: c.paddingBottom, left: c.paddingLeft };
     t.remove();
+    return out;
+  }
+  function probes() {
+    var out = {}, names = ['100vh', '100dvh', '100svh', '100lvh'];
+    names.forEach(function (n) {
+      var d = document.createElement('div');
+      d.setAttribute('aria-hidden', 'true');
+      d.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;top:0;left:0;width:1px;height:' + n;
+      document.body.appendChild(d);
+      out['h' + n.slice(3)] = d.getBoundingClientRect().height;
+      d.remove();
+    });
     return out;
   }
   function visibleTab() {
@@ -66,6 +78,7 @@
       orientation: (screen.orientation && screen.orientation.type) || (innerWidth > innerHeight ? 'landscape' : 'portrait'),
       innerWidth: innerWidth, innerHeight: innerHeight,
       visualViewport: vv ? { width: vv.width, height: vv.height, offsetTop: vv.offsetTop, offsetLeft: vv.offsetLeft, scale: vv.scale } : undefined,
+      fixTag: fixTag, clientHeight: htm.clientHeight, bodyHeight: document.body.getBoundingClientRect().height, outerHeight: window.outerHeight, availHeight: screen.availHeight, probes: probes(),
       screenWidth: screen.width, screenHeight: screen.height, safeArea: safeArea(), scrollY: window.scrollY,
       htmlClasses: htm.className, htmlBg: bg(htm), bodyBg: bg(document.body),
       rects: { topbar: rect(document.querySelector('.topbar')), goalsPage1Switch: rect(document.getElementById('goalsPage1Switch')),

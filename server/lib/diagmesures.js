@@ -37,6 +37,7 @@ const SCHEMA = {
   rects: { topbar: RECT, goalsPage1Switch: RECT, objArbre: RECT, tabbarPill: RECT, dock: RECT },
   bottomEl: { tag: 's', id: 's', className: 's', bg: 's', parentBg: 's' },
   arbre: { rows: 'n', cols: 'n', dateColWidth: 'n', firstColWidth: 'n', leftToFirstBubble: 'n' },
+  fixTag: 's', clientHeight: 'n', bodyHeight: 'n', outerHeight: 'n', availHeight: 'n', probes: { hvh: 'n', hdvh: 'n', hsvh: 'n', hlvh: 'n' },
   viewRows: 'n', cacheVersion: 's', activeTab: 's',
 };
 
