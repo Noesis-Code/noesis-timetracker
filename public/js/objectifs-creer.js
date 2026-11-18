@@ -910,7 +910,7 @@
     head.appendChild(seg); timeBox.appendChild(head); timeBox.appendChild(timeBody); panelBody.appendChild(timeBox);
     var now = new Date(), jan1 = new Date(now.getFullYear(), 0, 1), doy = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - jan1) / 86400000), p0 = Math.min(12, Math.floor(doy / 28)), ps = new Date(now.getFullYear(), 0, 1 + p0 * 28), pe = p0 < 12 ? new Date(now.getFullYear(), 0, 1 + p0 * 28 + 27) : new Date(now.getFullYear(), 11, 31);
     var base = '/api/category-stats?activityId=' + act.id;
-    function shares(r) { // temps de l'élément dans la fenêtre : { me, kids }
+    function timeShares(r) { // temps de l'élément dans la fenêtre : { me, kids }
       var cats = (r && r.categories) || [], all = r ? r.totalSeconds : 0, me = 0, kids = [];
       if (spec.level === 'activite') { me = all; cats.forEach(function (c) { kids.push({ name: c.parentName || c.name, seconds: c.seconds }); }); }
       else if (spec.level === 'pole') { cats.forEach(function (c) { if (c.category === spec.poleKey || c.parentKey === spec.poleKey) { me += c.seconds; kids.push({ name: c.parentKey === spec.poleKey ? c.name : null, seconds: c.seconds }); } }); }
@@ -925,7 +925,7 @@
         var ms = mr.members || [];
         if (ms.length < 2) { // activité individuelle : seulement toi
           return api('GET', base + winQuery()).then(function (r) {
-            timeBody.textContent = ''; var s0 = shares(r); timeBody.appendChild(line(tr('Temps dépensé'), fmtHours(s0.me)));
+            timeBody.textContent = ''; var s0 = timeShares(r); timeBody.appendChild(line(tr('Temps dépensé'), fmtHours(s0.me)));
             if (spec.level !== 'secteur' && s0.kids.length && s0.me > 0) { // jamais de détail sous un secteur
               var byName = {}; s0.kids.forEach(function (k) { var n = k.name || tr('Sans catégorie'); byName[n] = (byName[n] || 0) + k.seconds; });
               timeBody.appendChild(el('p', 'hint', tr(spec.level === 'activite' ? 'Répartition par pôle' : 'Répartition par secteur')));
@@ -933,7 +933,7 @@
             }
           });
         }
-        return Promise.all(ms.map(function (m) { return api('GET', base + winQuery() + '&memberId=' + encodeURIComponent(m.id)).then(function (r) { return { m: m, v: shares(r).me }; }).catch(function () { return { m: m, v: null }; }); })).then(function (rows) { // activité à plusieurs : une ligne par membre
+        return Promise.all(ms.map(function (m) { return api('GET', base + winQuery() + '&memberId=' + encodeURIComponent(m.id)).then(function (r) { return { m: m, v: timeShares(r).me }; }).catch(function () { return { m: m, v: null }; }); })).then(function (rows) { // activité à plusieurs : une ligne par membre
           timeBody.textContent = ''; rows.forEach(function (x) { timeBody.appendChild(line(x.m.name, x.v == null ? '—' : fmtHours(x.v))); });
         });
       }).catch(function () { timeBody.textContent = ''; timeBody.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
