@@ -637,7 +637,7 @@
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea' + (lvl === 'secteur' ? ' arLvlSecteur' : ''));
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow');
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); if (lvl !== 'secteur') b.style.borderColor = c.color; b.style.setProperty('--ar-c', c.color); if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
