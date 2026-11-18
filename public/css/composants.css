@@ -98,10 +98,7 @@
 /* Croix de retrait dans l'angle haut droit de sa cellule (R32, 30 oct. 2026) : la cellule parente est en position: relative. Remplace toute icône de corbeille. */
 .cmpRemove--corner { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
 /* Variante « + » d'ajout (18 nov. 2026) : même pastille que la croix de retrait, violette, croix tournée de 45° ; seuls la couleur et la rotation changent. */
-.cmpRemove--add { background-color: var(--purple); transform: rotate(45deg); }
-/* Variante « Modifier » (18 nov. 2026) : même pastille violette que le « + », crayon (icône .cmpEdit inchangée, R15) sombre à l'intérieur : lisible sur tout fond de carte. Retour à l'icône violette seule : retirer la classe cmpRemove--edit dans editMark (objectifs-arbre.js). */
-.cmpEdit.cmpRemove--edit { width: 20px; height: 20px; border-radius: 50%; background-color: var(--purple); color: var(--on-action); }
-.cmpEdit.cmpRemove--edit:hover { color: var(--on-action); }
+.cmpRemove--add { background-color: var(--link-blue); transform: rotate(45deg); } /* 18 nov. 2026 : nuance standard plus pâle du violet (--link-blue, R11), moins intense */
 
 /* « + » pointillé large (R19/R23) : bas des listes (pôles, secteurs, activités, règles…) */
 .cmpAdd {
