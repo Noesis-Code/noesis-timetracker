@@ -48,7 +48,7 @@
   // LARGEURS 100 % CSS : une largeur est une expression CSS (jamais des pixels mesurés en JS) ; --ar-w (posée sur la zone qui défile) vaut toute la largeur utile pour UNE colonne, la moitié pour deux ou plus (règle de l'arbre périodique) ; cqw = largeur de cette zone, aucune mesure ni écouteur.
   // Colonne de DROITE « Heures » (lecture) : MOYENNE par semaine de la ligne, total des colonnes affichées (allocation, server/lib/allocation.js) ; violet = heures réglées sur cette ligne, gris = reprend la ligne du dessus.
   var hrsCache = {};
-  function hrsTxt(min) { if (min == null) return TMT.ui.heures(min); var m = Math.max(0, Math.round(min)), h = Math.floor(m / 60), r = m % 60; return h ? h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '') : r + ' min'; } // heures normales (« 1 h 30 », « 45 min », « 12 h ») : même format que fmtMin des stats, affichage seulement
+    function hrsTxt(min) { return TMT.ui.heures(min); } // heures normales (« 1 h 30 », « 45 min », « 12 h ») : un SEUL format partagé (composants.js)
   function rowSpan(rw) { // première et dernière date de la ligne (bloc de 5 ans, année, période de 28 jours)
     if (rw.block) return { start: rw.y + '-01-01', end: rw.y2 + '-12-31' };
     if (rw.w) { var dw = new Date(Date.UTC(rw.y, 0, 1)); dw.setUTCDate(dw.getUTCDate() + (rw.w - 1) * 7); var sw = dw.toISOString().slice(0, 10); dw.setUTCDate(dw.getUTCDate() + 6); return { start: sw, end: dw.toISOString().slice(0, 10) }; }
@@ -648,7 +648,7 @@
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea' + (lvl === 'secteur' ? ' arLvlSecteur' : ''));
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow');
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); if (lvl !== 'secteur') b.style.borderColor = c.color; b.style.setProperty('--ar-c', c.color); if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);

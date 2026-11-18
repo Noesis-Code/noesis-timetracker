@@ -107,7 +107,7 @@
     },
     loader: loader, loaderHtml: loaderHtml, attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
-    heures: function (min) { if (min == null) return '—'; var h = min / 60; return (Number.isInteger(h) ? String(h) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }, // UN SEUL format d'heures (« 6 h », « 2,5 h ») : colonne de droite de l'arbre ET détail par catégorie (R29)
+    heures: function (min) { if (min == null) return '—'; var t = Math.max(0, Math.round(min)), h = Math.floor(t / 60), r = t % 60; return h ? h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '') : r + ' min'; }, // UN SEUL format d'heures NORMALES (« 6 h », « 2 h 30 », « 45 min »), jamais de décimales : colonne de droite de l'arbre ET détail par catégorie (R29)
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
     addBtn: function (label, onClick) {
       var b = btn('cmpAdd', '', onClick);

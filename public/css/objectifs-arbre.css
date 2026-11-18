@@ -180,17 +180,15 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 }
 
 /* Niveau SECTEUR (18 nov. 2026, choix d'Émilien : proposition A) : le titre n'est plus entouré ; un TRAIT COURT de la couleur du pôle sous le nom le distingue du titre de pôle (contour). Les cartes ne changent pas. */
-.arLvlSecteur .arBubble { border-color: transparent; padding-top: 4px; padding-bottom: 12px; }
-.arLvlSecteur .arBubble::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 28px; height: 3px; margin-left: -14px; border-radius: 2px; background: var(--ar-c); pointer-events: none; }
 /* Portrait : l'année à deux chiffres (« 27 ») est un peu plus petite pour tenir à l'aise dans sa pastille (demande d'Émilien, 18 nov. 2026) ; paysage et libellés verticaux inchangés. */
 @media (orientation: portrait) { .goalsRowMarker--ovale:not(.goalsRowMarker--long) { font-size: 11px; } }
 /* Colonne des dates (18 nov. 2026, choix d'Émilien) : du texte simple, SANS contour ; seule la période courante garde sa pastille pleine (blanche). */
 :is(.arGrid, .arRail) .goalsRowMarker.goalsRowMarker--future { box-shadow: none; opacity: 1; }
 /* Cases vides SANS fond ; titres du bas centrés, transparents, contour seul ; heures non affichées = bouton sans contour (18 nov. 2026, Émilien). */
-.arGrid .goalsGridCell--empty { background: transparent; }
+.arGrid .goalsGridCell--empty { background: var(--glass-bg); } /* cases vides en VERRE calme (jeton standard --glass-bg), à tous les niveaux : essai demandé par Émilien le 18 nov. 2026 ; sinon retour au pointillé */
 .arBubble { justify-content: center; text-align: center; background: transparent; }
 .arRailR .arHrs:empty { border-color: transparent; }
 /* Niveau SECTEUR, cases et cartes (18 nov. 2026, Émilien) : case vide = cadre en POINTILLÉ très faible, de la couleur du numéro « N en dessous » (outline : le !important de la grille interdit la bordure) ; carte = le même trait court que sous le titre, pour ressembler au titre du secteur. */
-.arLvlSecteur .goalsGridCell--empty { outline: 1px dashed color-mix(in srgb, var(--text-light) 45%, transparent); outline-offset: -2px; }
-.arLvlSecteur .arCard { position: relative; padding-bottom: 12px; }
-.arLvlSecteur .arCard::after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 28px; height: 3px; margin-left: -14px; border-radius: 2px; background: color-mix(in srgb, var(--text) 70%, transparent); pointer-events: none; }
+/* Niveau SECTEUR (18 nov. 2026, Émilien) : le TITRE garde la bulle du pôle mais son CONTOUR est en pointillé. */
+.arLvlSecteur .arBubble { border-style: dashed; }
+.arRailR .arHrs { border: 0; } .arRailR .arHrs.set { border: 0; } /* colonne des heures sans cadre (18 nov. 2026) */
