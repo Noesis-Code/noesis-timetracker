@@ -1007,7 +1007,14 @@
       function byChanged() { return byShow() && JSON.stringify(form.byDay) !== JSON.stringify(byBase); }
       function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || form.dateFixe !== orig.dateFixe || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || String(form.resume || '').trim() !== orig.resume || partDirty(); }
       var msg = el('p', 'tasksMsg objMsg');
-      function sync() { stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
+      var accRefresh = [];
+      function accRow(label, sum, body) { // ligne qui se déroule sur place (R36) : libellé + résumé à droite + flèche R21
+        var open = false, wrap = el('div', 'objField objGuideRow'), head = btn('objGuideHead cmpToggle', '', function () { open = !open; paint(); if (open) TMT.ui.revealOpened(head); }), tx = el('span', 'objGuideTxt'), sm = el('span', 'hint objGuideRight'), ch = el('span', 'cmpChev');
+        tx.appendChild(el('span', 'cmpBlockTitle', label)); head.appendChild(tx); head.appendChild(sm); head.appendChild(ch); wrap.appendChild(head); wrap.appendChild(body);
+        function paint() { wrap.classList.toggle('open', open); ch.classList.toggle('open', open); body.classList.toggle('hidden', !open); head.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        function refresh() { sm.textContent = sum(); } accRefresh.push(refresh); refresh(); paint(); return wrap;
+      }
+      function sync() { accRefresh.forEach(function (f) { f(); }); stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
       panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
       { // tous les paramètres de la création se modifient : titre (4 champs en haut : titre, description, date, heures)
         var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
@@ -1019,7 +1026,7 @@
       paintG();
       var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
       dateIn.type = 'date'; dateIn.min = o.startDate; dateIn.value = form.endDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
-      dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dueRow.appendChild(dateIn); panelBody.appendChild(dueRow);
+      dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dueRow.appendChild(dateIn); var dueBody = el('div'); dueBody.appendChild(dueRow);
       function paintT() { tBox.textContent = ''; paintTermInto(tBox, form, daysOf(form.endDate), sync); }
       dateIn.addEventListener('change', function () {
         if (!dateIn.value || dateIn.value <= o.startDate) { form.endDate = null; msg.textContent = dateIn.value ? tr('L’échéance ne peut pas être dans le passé.') : ''; sync(); return; }
@@ -1027,12 +1034,12 @@
       });
       var fx = el('label', 'objGridRow'), fxCb = el('input'); fxCb.type = 'checkbox'; fxCb.checked = form.dateFixe === true; // « Date fixe » : même case que la création
       fxCb.addEventListener('change', function () { form.dateFixe = fxCb.checked; sync(); });
-      fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(fxCb); panelBody.appendChild(fx);
-      paintT(); panelBody.appendChild(tBox);
+      fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(fxCb); dueBody.appendChild(fx);
+      paintT(); dueBody.appendChild(tBox); panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody));
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
       hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
-      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); panelBody.appendChild(hRow);
+      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'); hBody.appendChild(hRow); panelBody.appendChild(accRow(tr('Heures par semaine'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
       // Tout le reste sous « Avancé » (replié par défaut ; même composant que l'« Avancé » de la Description) : jours, niveau, parts.
       var advBox = el('div', 'objGuide'), advInner = el('div'), advOpenE = false; panelBody.appendChild(advBox);
       function paintAdvE() {
