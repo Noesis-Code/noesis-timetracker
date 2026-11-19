@@ -1096,16 +1096,26 @@ function assertSansConflit(userId, level, leaves, extras) {
   const kids = leaves.filter((k) => k.id > 0), kidIds = new Set(kids.map((k) => k.id)), cols = columnsOfLeaves(level, leaves, extras);
   if (cols.length < 2 || !kids.length) return;
   const colKey = (c) => level === 'activite' ? String(c.activityId) : level === 'pole' ? c.activityId + '/' + c.poleKey : c.activityId + '/' + c.poleKey + '/' + c.categoryKey, mine = new Set(cols.map(colKey));
-  // transitivité : les groupes déjà fusionnés qui partagent une colonne entrent dans le contrôle (A-B puis B-C : A, B et C ensemble)
-  const groups = macroGroups(userId).filter((g) => g.level === level).map((g) => g.columns.map(colKey)); let grew = true;
-  while (grew) { grew = false; groups.forEach((g) => { if (g.some((k) => mine.has(k)) && g.some((k) => !mine.has(k))) { g.forEach((k) => mine.add(k)); grew = true; } }); }
+  // transitivité PAR LIGNE : les liens sont indépendants et chacun vaut à partir de SA ligne (A-B en haut, puis B-D plus bas : A ne se fond avec B et D qu'à partir de la ligne de A-B). Deux colonnes ne se gênent sur une case que si,
+  // À CETTE LIGNE, elles font partie du même groupe (composante des liens actifs, nouveau lien compris) ; une colonne qui n'est pas encore fusionnée à cette ligne n'entre jamais dans le contrôle.
+  const rangDe = (iso) => { const p = fusion.periodOf(iso); return p.year * 100 + p.number; };
+  const fin = fusion.periodOf(kids.map((k) => k.endDate).sort().pop()), rangFusion = fin.year * 100 + fin.number;
+  const links = liensDirects(userId).filter((l) => l.level === level && isDay(l.endDate)).map((l) => ({ rank: rangDe(l.endDate), cols: l.columns.map(colKey) })).filter((l) => l.cols.length > 1);
+  links.push({ rank: rangFusion, cols: Array.from(mine) });
+  const rootsAt = (rank) => { // racine de groupe de chaque colonne, liens actifs à cette ligne
+    const up = new Map(), find = (x) => { while (up.get(x) !== x) x = up.get(x); return x; };
+    links.filter((l) => l.rank <= rank).forEach((l) => { l.cols.forEach((c) => { if (!up.has(c)) up.set(c, c); }); l.cols.slice(1).forEach((c) => { const a = find(l.cols[0]), b = find(c); if (a !== b) up.set(b, a); }); });
+    return (c) => (up.has(c) ? find(c) : c);
+  };
   const macroIds = new Set(db.prepare('SELECT id FROM user_objectives WHERE userId = ? AND isMacro = 1').all(userId).map((x) => x.id));
-  const fin = fusion.periodOf(kids.map((k) => k.endDate).sort().pop()), rangFusion = fin.year * 100 + fin.number, byCase = {};
+  const byCase = {}, rootsCache = {};
   db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0').all(userId).forEach((r) => {
     if (kidIds.has(r.id) || (r.parentId && macroIds.has(r.parentId)) || (r.level || 'activite') !== level || parseMetaSafe(r).abandoned || !isDay(r.endDate) || !isDay(r.startDate)) return;
-    const k = colKey(columnsOfLeaves(level, [r])[0]); if (!mine.has(k)) return;
+    const k = colKey(columnsOfLeaves(level, [r])[0]);
     const c = caseApres(r); if (c.rank <= rangFusion) return;
-    (byCase[c.k] = byCase[c.k] || []).push({ r, col: k, label: c.label });
+    const root = rootsCache[c.rank] || (rootsCache[c.rank] = rootsAt(c.rank)), rk = root(k);
+    if (!Array.from(mine).some((m) => root(m) === rk)) return; // cette colonne n'est pas dans le groupe du nouveau lien à cette ligne
+    (byCase[c.k + '|' + rk] = byCase[c.k + '|' + rk] || []).push({ r, col: k, label: c.label });
   });
   const clash = Object.keys(byCase).map((c) => byCase[c]).filter((l) => new Set(l.map((x) => x.col)).size > 1);
   if (!clash.length) return;
