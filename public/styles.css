@@ -3099,6 +3099,11 @@ button { -webkit-user-select: none; user-select: none; }
 .catStrategieQ { display: flex; flex-direction: column; gap: 8px; }
 .catStrategieQ .hint, .catStrategieBody > .hint { margin: 0; }
 .catStrategieQ select, .catStrategieQ input { width: 100%; min-height: 44px; }
+.catStrategieR { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.catStrategieV { color: var(--link-blue); font-size: 15px; text-align: right; }
+.catStrategieV.inherited { color: var(--grey-violet); opacity: .7; }
+.catStrategieBody > .catStrategieL:last-of-type > .cmpSepRow::after { display: none; } /* R51 : pas de trait sous la dernière option */
+.catStrategieL > .catStrategieQ { padding: 8px 4px 12px; }
 .catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .catEditForm .catNewPoleActions > .cmpRemove { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, comme les historiques */

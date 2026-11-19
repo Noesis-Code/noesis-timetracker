@@ -7250,48 +7250,54 @@
     function put(patch) {
       api('PUT', url, patch).then(function (d) { data = d; paint(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
     }
-    function seg(question, options, current, field) {
-      var wrap = document.createElement('div'); wrap.className = 'catStrategieQ';
-      var q = document.createElement('p'); q.className = 'hint'; q.textContent = t(question);
-      var s = document.createElement('div'); s.className = 'periodSwitch cmpSeg';
-      options.forEach(function (o) {
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'periodBtn' + (current === o.value ? ' active' : ''); b.textContent = t(o.label);
-        b.disabled = !data.canEdit;
-        b.addEventListener('click', function () { var p = {}; p[field] = current === o.value ? null : o.value; put(p); });
-        s.appendChild(b);
-      });
-      wrap.appendChild(q); wrap.appendChild(s); return wrap;
+    // Une question = une LIGNE d'un bord à l'autre : libellé à gauche, réponse à droite (grise si héritée, « — » si aucune) ; le toucher déroule le choix sur place (R36) ; choisir referme.
+    // Retoucher l'option déjà choisie (ou « — » du menu) remet la réponse à zéro.
+    function line(label, field, options, ownVal, effVal) {
+      var wrap = document.createElement('div'); wrap.className = 'catStrategieL';
+      var row = document.createElement('button'); row.type = 'button'; row.className = 'activityEditRow cmpSepRow';
+      var l = document.createElement('span'); l.textContent = t(label);
+      var shown = ownVal != null ? ownVal : effVal;
+      var found = null; options.forEach(function (o) { if (o.value === shown) found = o; });
+      var v = document.createElement('span'); v.className = 'catStrategieV' + (ownVal == null && found ? ' inherited' : ''); v.textContent = found ? t(found.label) : '—';
+      var hc = TMT.ui.chev(false);
+      var right = document.createElement('span'); right.className = 'catStrategieR'; right.appendChild(v); right.appendChild(hc);
+      row.appendChild(l); row.appendChild(right); wrap.appendChild(row);
+      var panel = document.createElement('div'); panel.className = 'catStrategieQ hidden';
+      var s;
+      if (options.length > 3) {
+        s = document.createElement('select'); s.disabled = !data.canEdit; s.setAttribute('aria-label', t(label));
+        var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '—'; s.appendChild(o0);
+        options.forEach(function (o) { var e = document.createElement('option'); e.value = o.value; e.textContent = t(o.label); s.appendChild(e); });
+        s.value = ownVal || '';
+        s.addEventListener('change', function () { var p = {}; p[field] = s.value || null; put(p); });
+      } else {
+        s = document.createElement('div'); s.className = 'periodSwitch cmpSeg';
+        options.forEach(function (o) {
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'periodBtn' + (ownVal === o.value ? ' active' : ''); b.textContent = t(o.label);
+          b.disabled = !data.canEdit;
+          b.addEventListener('click', function () { var p = {}; p[field] = ownVal === o.value ? null : o.value; put(p); });
+          s.appendChild(b);
+        });
+      }
+      panel.appendChild(s); wrap.appendChild(panel);
+      row.addEventListener('click', function () { var show = panel.classList.toggle('hidden') === false; TMT.ui.setChev(hc, show); });
+      return wrap;
     }
     function paint() {
       body.textContent = '';
       var own = data.own, eff = data.effective, kind = own.kind || eff.kind;
-      var hint = document.createElement('p'); hint.className = 'hint';
-      hint.textContent = t('Facultatif : sans réponse, Noèsis lit la description de la catégorie.') + (!own.kind && eff.kind ? ' ' + t('Hérité') + ' : ' + t(eff.kind === 'projet' ? 'Construire' : 'Progresser') + ' (' + t(eff.origine === 'pôle' ? 'du pôle' : 'de l’activité') + ').' : '');
-      body.appendChild(hint);
-      body.appendChild(seg('Construire ou progresser ?', [{ value: 'projet', label: 'Construire' }, { value: 'progression', label: 'Progresser' }], own.kind, 'kind'));
+      var YN = [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }];
+      body.appendChild(line('Construire ou progresser', 'kind', [{ value: 'projet', label: 'Construire' }, { value: 'progression', label: 'Progresser' }], own.kind, eff.kind));
       if (kind === 'progression') {
-        body.appendChild(seg('Monter, descendre ou maintenir ?', [{ value: 'monter', label: 'Monter' }, { value: 'descendre', label: 'Descendre' }, { value: 'maintenir', label: 'Maintenir' }], own.sens, 'sens'));
+        body.appendChild(line('Monter, descendre, maintenir', 'sens', [{ value: 'monter', label: 'Monter' }, { value: 'descendre', label: 'Descendre' }, { value: 'maintenir', label: 'Maintenir' }], own.sens, eff.sens));
         if (own.sens || eff.sens) {
-          var fw = document.createElement('div'); fw.className = 'catStrategieQ';
-          var fq = document.createElement('p'); fq.className = 'hint'; fq.textContent = t('Qu’est-ce qui progresse ?');
-          var sel = document.createElement('select'); sel.disabled = !data.canEdit; sel.setAttribute('aria-label', t('Qu’est-ce qui progresse ?'));
-          var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '—'; sel.appendChild(o0);
-          data.familles.forEach(function (f) { var o = document.createElement('option'); o.value = f.id; o.textContent = t(f.label); sel.appendChild(o); });
-          sel.value = own.famille || '';
-          sel.addEventListener('change', function () { put({ famille: sel.value || null }); });
-          fw.appendChild(fq); fw.appendChild(sel); body.appendChild(fw);
-          if (own.famille || eff.famille) body.appendChild(seg('Quel rythme ?', [{ value: 'regulier', label: 'Régulier' }, { value: 'espaces', label: 'Par paliers' }, { value: 'libre', label: 'À mon rythme' }], own.rythme, 'rythme'));
+          body.appendChild(line('Ce qui progresse', 'famille', data.familles.map(function (f) { return { value: f.id, label: f.label }; }), own.famille, eff.famille));
+          if (own.famille || eff.famille) body.appendChild(line('Rythme', 'rythme', [{ value: 'regulier', label: 'Régulier' }, { value: 'espaces', label: 'Par paliers' }, { value: 'libre', label: 'À mon rythme' }], own.rythme, eff.rythme));
         }
       } else if (kind === 'projet') {
-        body.appendChild(seg('Date d’arrivée fixe ?', [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }], own.dateFixe, 'dateFixe'));
-        if (own.dateFixe != null) body.appendChild(seg('Quelque chose à corriger avant de construire ?', [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }], own.reformer, 'reformer'));
+        body.appendChild(line('Réparer l’existant d’abord', 'reformer', YN, own.reformer, eff.reformer));
       }
       var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
-      if (data.canEdit && (own.kind || own.sens || own.famille || own.rythme || own.dateFixe != null || own.reformer != null)) {
-        var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'iconBtn'; reset.textContent = t('Effacer mes réponses');
-        reset.addEventListener('click', function () { put({ kind: null, sens: null, famille: null, rythme: null, dateFixe: null, reformer: null }); });
-        body.appendChild(reset);
-      }
     }
     if (open) load();
     return root;
