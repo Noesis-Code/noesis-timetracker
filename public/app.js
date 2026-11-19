@@ -236,6 +236,13 @@
     clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
   } catch (e) { /* ignore — repli serveur sur le fuseau par défaut */ }
 
+  // Portée d'appartenance (19 nov. 2026) : ce que je gère par activité, lu dans GET .../goals/categories (champ managed) ; sert à ne montrer que les actions permises (rien de grisé).
+  var porteeCache = {};
+  function notePortee(url, data) {
+    var m = /^\/api\/activities\/(\d+)\/goals\/categories(\?|$)/.exec(url);
+    if (m && data && data.managed) porteeCache[m[1]] = data.managed;
+  }
+
   // 19 oct. 2026 (anti-rebond IA) : 4e argument facultatif `opts.signal` (AbortController) pour annuler une requête IA devenue obsolète.
   function api(method, url, body, opts) {
     // 25 septembre 2026 (consultation et modifications hors ligne) : voir le
@@ -244,6 +251,7 @@
     // sont mises en file d'attente sans réseau.
     if (method === 'GET') {
       return apiNetwork(method, url, body).then(function (data) {
+        notePortee(url, data);
         offlineCachePut(url, data);
         setOfflineDataBanner(null);
         return data;
@@ -725,6 +733,7 @@
           // Code technique (« offer1_required ») renvoyé par une route réservée : jamais montré tel quel.
           var apiErr = new Error(t(!data.error ? 'Erreur serveur' : /^[a-z0-9_]+$/.test(data.error) ? 'Accès refusé.' : data.error));
           apiErr.status = r.status;
+          if (data.code) apiErr.code = data.code;
           if (data.offline) apiErr.offline = true;
           throw apiErr;
         }
@@ -2685,6 +2694,14 @@
   // (server/lib/goals.js#categoriesForActivity), donc le sélecteur est
   // désormais TOUJOURS proposé (à la différence des sous-projets, absents
   // par défaut).
+  function chronoScopeList(list) {
+    var out = [];
+    (list || []).forEach(function (c) {
+      if (c.inScope === false) (c.secteurs || []).forEach(function (x) { out.push({ key: x.key, label: x.label, secteurs: [] }); });
+      else out.push(c);
+    });
+    return out;
+  }
   function fetchChronoCategories(activityId) {
     // Le .catch garantit qu'une panne d'Objectifs ne bloque jamais le
     // Chrono — même principe que le flux Suivi vis-à-vis des sondages.
@@ -2694,6 +2711,7 @@
       .then(function (data) {
         var list = (data && data.categories) || [], gone = {}, now = new Date(), iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         ((data && data.absorbed) || []).forEach(function (x) { if (x.fromDate <= iso) gone[x.key] = true; }); // fusion : le Chrono ne propose plus que la branche absorbante (le passé reste lisible)
+        list = chronoScopeList(list); // portée : un pôle hors portée (simple conteneur) n'est pas proposé, seuls ses secteurs le sont
         list = list.filter(function (c) { return !gone[c.key]; }).map(function (c) { return c.secteurs && c.secteurs.some(function (x) { return gone[x.key]; }) ? Object.assign({}, c, { secteurs: c.secteurs.filter(function (x) { return !gone[x.key]; }) }) : c; });
         offlineStoreSet('cats:' + activityId, list);
         return list;
@@ -17307,6 +17325,23 @@
   // restent à jour même après connexion/déconnexion ou changement de thème.
   window.TMT.$ = $;
   window.TMT.api = api;
+  window.TMT.portee = {
+    // Créer / modifier / supprimer / déplacer une tâche dans cette catégorie : activité à un seul membre, propriétaire ou responsable de cette portée. Inconnu = permis (le serveur refuse sinon).
+    canWrite: function (activityId, key) {
+      var info = porteeCache[String(activityId)];
+      if (!info) return window.TMT.portee.canManage(activityId);
+      if (!info.shared || info.all) return true;
+      return key != null && key !== '' && info.keys.indexOf(String(key)) >= 0;
+    },
+    // Responsable (propriétaire inclus) d'une activité partagée, ou activité à un seul membre : false = simple membre.
+    canManage: function (activityId) {
+      var a = (activitiesCache || []).filter(function (x) { return String(x.id) === String(activityId); })[0];
+      return !a || a.canManage !== false;
+    },
+    // Au moins une activité où je peux créer (la mienne seule, ou partagée où je suis responsable) ; liste inconnue = oui.
+    anyManage: function () { var l = activitiesCache || []; return !l.length || l.some(function (a) { return a.canManage !== false; }); },
+    note: function (activityId, managed) { if (managed) porteeCache[String(activityId)] = managed; }
+  };
   window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: '' }; }; // fenêtre Activité (activite-stats-taches.js)
   // Page « Tâches par membre » : le filtre de pôle n'y propose pas « Sans pôle » ; couleurs de membres = nuances de l'activité.
   window.TMT.caTasksPage = function () {}; // plus de filtre de pôle dans la fenêtre Activité (les filtres vivent dans la 3e page du Chrono)

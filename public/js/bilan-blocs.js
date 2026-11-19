@@ -20,7 +20,7 @@
   function acts() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
   function num(v) { return v == null ? '—' : String(v).replace('.', ','); }
   function loader(c) { if (TMT.ui && TMT.ui.loader) TMT.ui.loader(c, { seul: true }); }
-  function failed(c) { c.textContent = ''; c.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); }
+  function failed(c, e) { c.textContent = ''; c.appendChild(el('p', 'hint', e && e.status === 403 ? '—' : tr('Impossible pour le moment.'))); } // 403 (données réservées aux responsables) : « — », jamais de message d'erreur
 
   // Tableau de traits : head = colonnes (premier = vide), rows = [{ label, cells }] ; extremes : vert = le plus, rouge = le moins, par ligne.
   function table(head, rows, extremes) {
@@ -58,7 +58,7 @@
       prev.addEventListener('click', function () { offset = Math.max(0, offset - 1); again(); }); next.addEventListener('click', function () { offset += 1; again(); });
       nav.appendChild(prev); nav.appendChild(el('span', 'bbNavLabel', 'P' + r.period + ' · ' + r.year)); nav.appendChild(next); slot.appendChild(nav);
       slot.appendChild(table(['', tr('Période'), tr('Année'), tr('Nombre')], r.weeks.map(function (w) { return { label: w.label, cells: ['P' + w.period, String(w.year), w.count] }; }), false));
-    }).catch(function () { if (my === gen) failed(slot); });
+    }).catch(function (e) { if (my === gen) failed(slot, e); });
   }
   // Une carte des statistiques, une section par activité (nom + contenu seul) : Jours où tu travailles vraiment.
   function perActivity(title, key) {
@@ -104,7 +104,7 @@
       var head = el('div', 'bbHead'), b = el('button', 'iconBtn', tr(jourMode ? 'Jour' : 'Semaine')); b.type = 'button'; b.setAttribute('aria-label', tr('Jour ou semaine'));
       b.addEventListener('click', function () { jourMode = !jourMode; mount.textContent = ''; rAvg(mount, remover); }); head.appendChild(b); slot.appendChild(head);
       slot.appendChild(table([''].concat(jourMode ? DAYS : ['1', '2', '3', '4']), r.rows.map(function (x) { return { label: tr(x.label), cells: jourMode ? x.jour : x.semaine }; }), true));
-    }).catch(function () { if (my === gen) failed(slot); });
+    }).catch(function (e) { if (my === gen) failed(slot, e); });
   }
   function rProp(mount, remover) {
     var sc = scope, c = shell('Proportion réelle contre demandée', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c); loader(slot);
@@ -112,7 +112,7 @@
       if (my !== gen) return; slot.textContent = '';
       if (!r.rows || !r.rows.length) { slot.appendChild(el('p', 'hint', '—')); return; }
       slot.appendChild(table(['', tr('Réelle'), tr('Demandée')], r.rows.map(function (x) { return { label: x.name, cells: [x.realPct == null ? null : x.realPct + ' %', x.wantedPct == null ? null : x.wantedPct + ' %'] }; }), false));
-    }).catch(function () { if (my === gen) failed(slot); });
+    }).catch(function (e) { if (my === gen) failed(slot, e); });
   }
   function rGraph(mount, remover) {
     var inst = TMT.bilanCardInstance(function (d) { mount.textContent = ''; var n = inst.cardFor('graph', d, remover); if (n) mount.appendChild(n); });
@@ -185,7 +185,7 @@
     if (scope === 'all') { if (TMT.bilanPage1) TMT.bilanPage1(true); return; }
     if (TMT.bilanPage1) TMT.bilanPage1(false);
     var a = acts().filter(function (x) { return String(x.id) === scope; })[0], name = a ? a.name : '', my = ++chronoGen;
-    if (!a || !(a.membersCount > 1)) { if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, name); return; }
+    if (!a || !(a.membersCount > 1) || a.canManage === false) { if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, name); return; } // l'option « membre » : responsables (propriétaire inclus) seulement ; un simple membre ne voit que ses données
     var bar = el('div', 'bbHead'); chronoHost.appendChild(bar);
     if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, name, null);
     memberSwitch(bar, name, my);

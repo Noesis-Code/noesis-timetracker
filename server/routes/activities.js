@@ -31,6 +31,7 @@ function serializeActivity(a, userId) {
     isOwner: a.ownerId === userId,
     ownerName: owner ? owner.name : null,
     membersCount: membershipCount(a.id),
+    canManage: (() => { const P = require('../lib/portee'); if (!P.estPartagee(a.id)) return true; const m = P.managed(userId, a.id); return m.all || m.roots.length > 0; })(), // responsable (propriétaire inclus) ou activité à un seul membre ; un simple membre : false
     // notifyEnabled (10 septembre 2026, refonte de la section Notifications
     // de Réglages) : PERSONNEL, comme color juste au-dessus — voir
     // server/db.js. Un membre sans ligne activity_members (ne devrait pas

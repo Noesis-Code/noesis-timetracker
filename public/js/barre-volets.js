@@ -76,6 +76,7 @@
     var onTasks = !!t && t.classList.contains('active'), onObj = !!o && o.classList.contains('active');
     if ((!onTasks && !onObj) || document.documentElement.classList.contains('goalsActOpen')) return null;
     if (shown(byId('goalsDetailPage'))) return null; // une page ouverte par-dessus le volet
+    if (TMT.portee && !TMT.portee.anyManage()) return null; // simple membre partout : rien à créer ni à modifier, le « + » disparaît
     if (onTasks) return shown(byId('goalsTodayView')) && TMT.todayView && TMT.todayView.toggleComposer ? 'tasks' : null;
     return shown(byId('goalsActivitiesView')) ? 'tree' : null;
   }

@@ -199,6 +199,13 @@
     txt.focus();
   }
 
+  // Modifier / supprimer : seulement si la tâche est dans une catégorie où j'ai le droit d'écrire (champ canEdit du serveur, sinon portée connue). Un simple membre ne fait que cocher.
+  function mayEdit(task) {
+    if (task.canEdit != null) return !!task.canEdit;
+    var aid = task.activityId != null ? task.activityId : TMT.currentGoalsActivityId;
+    return !TMT.portee || !aid || TMT.portee.canWrite(aid, task.catKey || task.sectorKey || task.key || task.pole || task.poleKey);
+  }
+
   function buildGoalsTaskRow(task, groupKey, onChanged) { // onChanged (facultatif) : rechargement après coche ou modification ; par défaut, la liste de l'onglet Tâches
     var row = document.createElement('div');
     row.className = 'subProjectItem' + (task.done ? ' done' : '') + (task.grey ? ' goalsDailyGrey' : '');
@@ -284,7 +291,7 @@
       edit.style.display = 'none';
       openGoalsTaskEditPanel(row, task, onChanged);
     });
-    row.appendChild(edit);
+    if (mayEdit(task)) row.appendChild(edit);
 
     return row;
   }

@@ -80,6 +80,7 @@ router.get('/activities/:id/goals/categories', (req, res) => {
       })).filter((c) => sc.all || c.inScope || c.secteurs.length),
       frozenCategories: goals.frozenCategoriesForActivity(activityId).filter((c) => sc.all || sc.has(c.key) || sc.has(c.parentKey)),
       scope: { all: sc.all, roots: sc.roots },
+      managed: (() => { const P = require('../lib/portee'), m = P.managed(userId, activityId); return { shared: P.estPartagee(activityId), all: m.all, keys: m.all ? [] : Array.from(m.keys) }; })(), // ce que je gère : créer/modifier des tâches = propriétaire et responsables seulement dans une activité partagée
       absorbed: (() => { const ab = require('../lib/objectifs-absorption'); ab.appliquer(userId, require('../lib/dates').userToday()); return ab.absorbedOf(userId, activityId); })(), // fusions (pôles/secteurs absorbés à partir d'une date) : le Chrono ne propose plus que l'absorbant ; le passé reste lisible
       maxCategories: goals.MAX_CUSTOM_CATEGORIES, maxSecteurs: goals.MAX_SECTEURS_PER_POLE,
       // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
