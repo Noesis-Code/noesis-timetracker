@@ -77,7 +77,6 @@
 <link rel="stylesheet" href="/css/objectifs-page3.css">
 <link rel="stylesheet" href="/css/stats-avance.css">
 <link rel="stylesheet" href="/css/activite-stats-taches.css">
-<link rel="stylesheet" href="/css/stats-temps.css">
 <link rel="stylesheet" href="/css/connexion-ia.css">
 <link rel="stylesheet" href="/css/trade.css">
 <link rel="stylesheet" href="/css/horaire.css">
@@ -836,16 +835,6 @@
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
       <div id="statsPages"><div id="statsPage1">
-      <div class="statsPeriodMenuWrap caSubProjectFilter">
-        <button type="button" class="caSubProjectBtn" id="statsVisBtn" aria-haspopup="true" aria-expanded="false">
-          <span id="statsVisBtnLabel">Tous</span>
-        </button>
-        <div class="statsPeriodMenu caSubProjectMenu hidden" id="statsVisMenu">
-          <button type="button" class="statsPeriodMenuItem active" data-vis="all">Tous</button>
-          <button type="button" class="statsPeriodMenuItem" data-vis="public">Public</button>
-          <button type="button" class="statsPeriodMenuItem" data-vis="confidential">Confidentiel</button>
-        </div>
-      </div>
       <!-- Section 1 : Feuille de temps (heatmap hebdomadaire, ou calendrier
            mensuel — voir plus bas). Plus de mode plein écran depuis le
            1er septembre 2026 (demande d'Emilien : « supprimer l'option de
@@ -1015,18 +1004,6 @@
         <p id="statsChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
       </div>
-      <!-- 2 oct. 2026 : page 2 « tâches réalisées » (public/js/stats-avance.js), balayage droite → gauche depuis la page 1 -->
-      <div id="statsAvancePage" class="hidden"></div>
-      <!-- Chantier Chrono : 3e page du Chrono (tout à droite) = statistiques des activités partagées. Sélection de l'activité en haut (puces, comme les stats de tâches et d'objectifs) ;
-           Répartition par membre + Graphique : blocs déplacés tels quels depuis la fenêtre Activité (mêmes ids). Logique : public/js/stats-avance.js (puces) et app.js (loadActivityStats). -->
-      <div id="statsSharedPage" class="hidden">
-        <div id="ssChips" class="saChips"></div>
-        <p id="ssEmpty" class="hint hidden">Aucune activité partagée.</p>
-        <div id="ssBody">
-        <!-- 8 nov. 2026 : seuls blocs de cette page (Répartition, Graphique et filtre par pôle retirés) : barres par membre, tableau des temps modifiable, Changements demandés, Historique (public/js/stats-temps.js). -->
-        <div id="ssTemps"></div>
-        </div><!-- /#ssBody -->
-      </div><!-- /#statsSharedPage -->
       </div>
     </section>
 
@@ -1357,7 +1334,7 @@
         </div>
 
         <!-- Fenêtre Activité > Statistiques : seule reste la page « Tâches par membre » (public/js/activite-stats-taches.js, GET /api/stats/activity-members).
-             La Répartition et le Graphique des activités partagées sont dans la 3e page du Chrono (#statsSharedPage) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->
+             Les statistiques de temps par membre sont dans le Bilan (une activité partagée) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->
         <div id="communityActivityMembersPart" data-module="sharing">
         <div id="caStatsPages"><div id="caStatsPage1" class="hidden"></div>
         <div id="caStatsPage2"></div>
@@ -3389,8 +3366,6 @@
 
   </main>
 
-  <!-- Points de pagination des pages de statistiques (gauche de Chrono / de la Feuille de route) : js/stats-avance.js. -->
-  <div id="statsPageDots" class="hidden" role="group"></div>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="tabLens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feImage href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'64'%20height%3D'44'%3E%3Cdefs%3E%3ClinearGradient%20id%3D'x'%20x1%3D'0'%20x2%3D'1'%20y1%3D'0'%20y2%3D'0'%3E%3Cstop%20offset%3D'0'%20stop-color%3D'%23f00'%2F%3E%3Cstop%20offset%3D'1'%20stop-color%3D'%23000'%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D'y'%20x1%3D'0'%20x2%3D'0'%20y1%3D'0'%20y2%3D'1'%3E%3Cstop%20offset%3D'0'%20stop-color%3D'%230f0'%2F%3E%3Cstop%20offset%3D'1'%20stop-color%3D'%23000'%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D'64'%20height%3D'44'%20fill%3D'%23000'%2F%3E%3Crect%20width%3D'64'%20height%3D'44'%20fill%3D'url(%23x)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'64'%20height%3D'44'%20fill%3D'url(%23y)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3C%2Fsvg%3E" x="0" y="0" width="64" height="44" preserveAspectRatio="none" result="carte"/><feDisplacementMap in="SourceGraphic" in2="carte" scale="8" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
   <nav class="tabbar">
    <div class="tabbarPill cmpGlass" id="tabbarPill" role="tablist">
@@ -4059,7 +4034,6 @@
 <script src="/js/aujourdhui.js"></script>
 <script src="/js/activite-stats-taches.js"></script>
 <script src="/js/bilan-blocs.js"></script>
-<script src="/js/stats-temps.js"></script>
 <script src="/js/connexion-ia.js"></script>
 <script src="/js/a11y-popups.js"></script>
 <script src="/js/diag-mesures.js"></script>

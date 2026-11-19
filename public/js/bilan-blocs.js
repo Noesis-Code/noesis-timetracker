@@ -14,7 +14,7 @@
   var api = function (m, u, b) { return TMT.api(m, u, b); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var host = null, chips = null, chronoHost = null, infoHost = null, infoBody = null;
-  var scope = 'all', jourMode = true, offset = 0, gen = 0, adding = false, draft = [];
+  var scope = 'all', jourMode = true, offset = 0, gen = 0, chronoGen = 0, adding = false, draft = [];
   var DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
   function acts() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
@@ -177,8 +177,25 @@
     if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.close();
     if (scope === 'all') { if (TMT.bilanPage1) TMT.bilanPage1(true); return; }
     if (TMT.bilanPage1) TMT.bilanPage1(false);
-    var a = acts().filter(function (x) { return String(x.id) === scope; })[0];
-    if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, a ? a.name : '');
+    var a = acts().filter(function (x) { return String(x.id) === scope; })[0], name = a ? a.name : '', my = ++chronoGen;
+    if (!a || !(a.membersCount > 1)) { if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, name); return; }
+    var bar = el('div', 'bbHead'); chronoHost.appendChild(bar);
+    if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, name, null);
+    memberSwitch(bar, name, my);
+  }
+  // Activité à plusieurs membres : un seul bouton (même composant que Jour / Semaine) fait passer les trois tableaux d'un membre à l'autre, par pôle et par secteur.
+  // Membres : GET /api/member-times (lecture seule) ; temps : mêmes routes que la fenêtre Chrono, avec ?memberId=.
+  function memberSwitch(bar, name, my) {
+    api('GET', '/api/member-times?activityId=' + scope).then(function (d) {
+      if (my !== chronoGen || !d.members || d.members.length < 2) return;
+      var list = d.members.slice().sort(function (x, y) { return (y.userId === d.me) - (x.userId === d.me); }), i = 0;
+      var b = el('button', 'iconBtn', list[0].name); b.type = 'button'; b.setAttribute('aria-label', tr('Membre'));
+      b.addEventListener('click', function () {
+        i = (i + 1) % list.length; b.textContent = list[i].name;
+        if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.open(chronoHost, scope, name, list[i].userId === d.me ? null : list[i].userId);
+      });
+      bar.appendChild(b);
+    }).catch(function () { /* sans le sélecteur, les statistiques personnelles restent affichées */ });
   }
   function paintChips() {
     chips.textContent = '';

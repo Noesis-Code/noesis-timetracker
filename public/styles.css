@@ -3307,8 +3307,8 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 /* Accessibilité (20 oct. 2026, 390 px) : zone tactile >= 44 px sans changer l'apparence (zone invisible autour du bouton). */
 .whoami::after, .topIconBtn::after,
 #tsPeriodBtn::after,
-#statsPieTodayBtn::after, #chartPeriodBtn::after, #statsVisBtn::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
-#statsVisBtn, #tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }
+#statsPieTodayBtn::after, #chartPeriodBtn::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+#tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }
 
 /* Zone tactile >= 44 px des boutons d'en-tête qui ne sont pas des croix (les croix la portent via .cmpClose). */
 .communityMembersModalHeader .menuBtn, .activityPageHeader .menuBtn, .subpageHeader .menuBtn, .goalTaskEditHeader .menuBtn, .profileSubWindowHeader .menuBtn, .profileSquareBtn { position: relative; }

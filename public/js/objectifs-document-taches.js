@@ -767,7 +767,7 @@
     for (var i = 0; i <= nav.s && nav.s > 0; i++) html += '<button type="button" class="goalsDotBtn' + (i === nav.s ? ' on' : '') + '" data-dot="' + i + '" aria-label="Écran ' + (i + 1) + '"' + (i === nav.s ? ' aria-current="true"' : '') + '><span class="goalsDot"></span></button>';
     d.innerHTML = html;
   }
-  // Glissement : même technique que les autres écrans glissants (stats-avance.js, setStatsPage) — l'écran d'arrivée `to`
+  // Glissement : même technique que les autres écrans glissants (stats-avance.js, slidePager) — l'écran d'arrivée `to`
   // entre de dir*100 % à 0, l'écran de départ `from` (posé en absolu) sort de 0 à -dir*100 %. Un seul écran rendu à la fois.
   var pview = null;
   function panes() { return pview ? pview.children : []; }

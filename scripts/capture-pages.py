@@ -25,7 +25,7 @@ POSE = {'attendre': 1500}
 CHRONO = [
     ('accueil', 'Chrono : choix de l\'activité', []),
     ('historique', 'Historique de la semaine', [{'clic': '#chronoHistoryHeader'}, POSE]),
-    ('statistiques', 'Statistiques du temps (camembert)', [{'eval': "TMT.openStats('chrono')"}, {'attendre': 2500}]),
+    ('statistiques', 'Bilan (statistiques du temps)', [{'eval': "TMT.switchTab('bilan')"}, {'attendre': 2500}]),
     ('en-cours', 'Chrono en marche', [{'eval': "document.querySelector('#chronoRunning.hidden') && document.querySelector('.activityChoiceBtn').click()"}, POSE]),
     ('confirmer-arret', 'Confirmer l\'arrêt', [{'eval': "document.querySelector('#chronoRunning.hidden') && document.querySelector('.activityChoiceBtn').click()"}, POSE, {'clic': '#stopBtn'}, {'attendre': 2000}, {'eval': 'document.activeElement && document.activeElement.blur()'}]),
 ]
@@ -39,8 +39,6 @@ OBJECTIFS = [
     ('periode-arbre', 'Page 2 : objectif périodique et hebdomadaires', [{'clic': SCEN}, POSE, {'clic': '.goalsDotBtn:visible >> nth=1'}, POSE]),
     ('annee', 'Page 2 : grille annuelle', [{'clic': SCEN}, POSE, {'clic': '.goalsDotBtn:visible >> nth=2'}, POSE]),
     ('strategie', 'Stratégie de l\'activité', [{'clic': SCEN}, POSE, {'clic': '#goalsStrategyBtn'}, {'attendre': 3500}]),
-    ('stats-taches', 'Statistiques des tâches', [{'eval': "TMT.openStats('goals', 2)"}, {'attendre': 2500}]),
-    ('stats-objectifs', 'Statistiques des objectifs', [{'eval': "TMT.openStats('goals', 3)"}, {'attendre': 2500}]),
 ]
 COMMUNAUTE = [
     ('accueil', 'Communauté : fil et cercles de découverte', []),

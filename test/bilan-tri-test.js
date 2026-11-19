@@ -6,12 +6,12 @@ const sa = rd('public/js/stats-avance.js'), grp = rd('public/js/activite-stats-t
 const keys = (sa.match(/\n      \{ key: '([a-zA-Z]+)'/g) || []).map((x) => x.replace(/[^a-zA-Z]|key/g, '').replace(/^\{/, ''));
 assert(JSON.stringify(keys) === JSON.stringify(['weekdays', 'capacity', 'advance']), 'cartes restantes : Jours où tu travailles vraiment, Capacité par jour, Avancement (' + keys.join(', ') + ')');
 ['Répartition', 'Durée estimée contre durée réelle', 'Charge restante par pôle', 'Tâches reportées plusieurs fois', 'Urgence et échéances', 'Temps cible contre temps fait', 'Où ça glisse'].forEach((t) => assert(!sa.includes("title: '" + t + "'"), 'retirée de l’écran : « ' + t + ' »'));
-assert(!/title: 'Capacité',/.test(sa) && sa.includes('return; /* alerte de capacité retirée'), 'jauge « Capacité » et alerte de capacité (120 %) retirées');
+assert(!/title: 'Capacité',/.test(sa) && !sa.includes('capacityAlert'), 'jauge « Capacité » et alerte de capacité (120 %) retirées');
 assert(!grp.includes("'Qui fait quoi'") || !grp.includes("cardHead(chartCard, 'Qui fait quoi'"), '« Qui fait quoi » retiré du groupe') ;
 assert(!grp.includes("el('p', 'shrDoneTitle', tr('Tâches faites'))"), 'ancien nombre « Tâches faites » du groupe retiré');
 assert(!grp.includes("el('button', 'shrOpen', tr('Partager les tâches'))"), '« Partager les tâches » retiré du Bilan');
 assert(grp.includes("cardHead(card, 'Tâches récurrentes'"), '« Tâches récurrentes » du groupe reste (proposé dans « Ajouter une information »)');
-assert(sa.includes("[page2, sharedEl].forEach(function (p) { if (p) p.classList.add('hidden'); })") && !/bilanShow[\s\S]{0,600}openShared\(\)/.test(sa), 'Bilan : plus de page empilée (partagées, Tâches | Objectifs, Groupe) : seuls les 3 tableaux Chrono d’office');
-assert(css.includes('#statsPages.bilanStack #statsPage1 > .statsPeriodMenuWrap { display: none; }'), 'Bilan : plus de filtre Tous / Public / Confidentiel');
+assert(!/sharedEl|openShared|statsAvancePage/.test(sa), 'Bilan : plus de page empilée (partagées, Tâches | Objectifs, Groupe) : seuls les 3 tableaux Chrono d’office');
+assert(!/statsVis/.test(css + rd('public/index.html') + rd('public/app.js')), 'plus de filtre Tous / Public / Confidentiel (interface et code ; les données restent)');
 assert(sa.includes("var fixed = []; /* profil visité") && !sa.includes("put(byKey('onTime')"), 'profil visité : plus de cartes fixes retirées');
 console.log(failed ? '\n' + failed + ' échec(s)' : 'bilan-tri-test OK'); process.exit(failed ? 1 : 0);

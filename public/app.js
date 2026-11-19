@@ -2243,11 +2243,9 @@
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
   function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : (tabAllowed('horaire') ? 'horaire' : 'community')); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
-  // Page de statistiques (ancien onglet Stats, chantier B 20 oct. 2026) : ctx = 'chrono' (temps : feuille de temps, répartition, graphique)
-  // ou 'goals' (tâches et objectifs, public/js/stats-avance.js). Ne touche pas aux autres onglets : le glissement les gère.
-  function enterStats(ctx) {
-    if (TMT.setStatsContext) TMT.setStatsContext(ctx);
-    if (ctx !== 'chrono' || !modOn('stats')) return;
+  // Page de statistiques du volet Bilan (temps : feuille de temps, répartition, graphique) : on repart d'une Feuille de temps sur la semaine en cours.
+  function enterStats() {
+    if (!modOn('stats')) return;
     loadStats();
     // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
     // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -2270,26 +2268,16 @@
     syncPieTodayBtn();
     loadTimesheet();
   }
-  // Ouvre la page de statistiques sans glissement (points de pagination) ; n = 3 : onglet Objectifs de la page tâches/objectifs.
-  function openStats(ctx, n) {
-    enterStats(ctx);
-    switchTab('stats', { prepared: true });
-    if (ctx === 'goals' && n === 3 && TMT.setStatsPage) TMT.setStatsPage(3, { noAnim: true });
-    if (ctx === 'chrono' && n === 3 && TMT.setSharedPage) TMT.setSharedPage(true, { noAnim: true });
-  }
 
-  function switchTab(tab, opts) {
+  function switchTab(tab) {
     if (!tabAllowed(tab)) tab = firstTab();
-    var bilan = tab === 'bilan'; if (bilan) tab = 'stats'; /* le volet Bilan = la page de statistiques, toutes les pages dans une seule colonne */
-    var fromGoalsStats = !$('tab-stats').classList.contains('hidden') && TMT.statsContext && TMT.statsContext() === 'goals'; // retour des statistiques vers la Feuille de route : on garde la dernière vue (Tâches ou Objectifs)
+    var bilan = tab === 'bilan' || tab === 'stats'; if (bilan) tab = 'stats'; /* le volet Bilan = la page de statistiques, toutes les informations dans une seule colonne */
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
-    // Chantier B (20 oct. 2026) : Stats n'est plus un onglet de la barre, c'est une page à gauche de Chrono (stats de temps) ou de la
-    // Feuille de route (tâches et objectifs) ; l'icône de la barre qui reste allumée est celle du volet d'où l'on vient.
-    var barTab = bilan ? 'bilan' : tab === 'stats' ? ((TMT.statsContext && TMT.statsContext()) === 'goals' ? 'goals' : 'chrono') : tab;
+    var barTab = bilan ? 'bilan' : tab;
     tabButtons.forEach(function (b) {
       b.classList.toggle('active', b.dataset.tab === barTab);
       if (b.dataset.tab === barTab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
@@ -2315,15 +2303,13 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
-      // Page de statistiques à gauche de Chrono (stats de temps) ou de la Feuille de route (tâches/objectifs) : voir enterStats().
-      if (bilan) { enterStats('chrono'); if (TMT.bilanShow) TMT.bilanShow(); }
-      else { if (TMT.bilanHide) TMT.bilanHide(); if (!(opts && opts.prepared)) enterStats('chrono'); }
+      enterStats(); if (TMT.bilanShow) TMT.bilanShow();
       refreshScrollLock();
     }
     else {
       if (TMT.bilanHide) TMT.bilanHide();
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { if (!fromGoalsStats && !TMT.keepGoalsView && TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
+      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -3864,40 +3850,9 @@
     btn.textContent = pieTodayMode ? t('Semaine') : (pieWeekMode ? t('Synchroniser') : t("Aujourd'hui"));
   }
 
-  // 6 oct. 2026 (Emilien) : filtre Public / Confidentiel / Tous de l'onglet Statistiques (temps).
-  var statsVisibility = 'all';
-  function statsVisParam() { return statsVisibility === 'all' ? '' : '&visibility=' + statsVisibility; }
-  function syncStatsVisBtn() {
-    var labels = { all: t('Tous'), public: t('Public'), confidential: t('Confidentiel') };
-    $('statsVisBtnLabel').textContent = labels[statsVisibility];
-    $('statsVisMenu').querySelectorAll('.statsPeriodMenuItem').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-vis') === statsVisibility);
-    });
-  }
-  $('statsVisBtn').addEventListener('click', function (e) {
-    e.stopPropagation();
-    var menu = $('statsVisMenu');
-    var willOpen = menu.classList.contains('hidden');
-    closeAllStatsPeriodMenus();
-    if (willOpen) menu.classList.remove('hidden');
-  });
-  $('statsVisMenu').addEventListener('click', function (e) {
-    var item = e.target.closest('.statsPeriodMenuItem');
-    if (!item) return;
-    this.classList.add('hidden');
-    var v = item.getAttribute('data-vis') || 'all';
-    if (v === statsVisibility) return;
-    statsVisibility = v;
-    syncStatsVisBtn();
-    loadTimesheet();
-    loadChartStats();
-    if (pieTodayMode) loadPieToday(); else if (pieWeekMode) loadPieWeek();
-  });
-  syncStatsVisBtn();
-
   function loadPieToday() {
     if (!profile) return;
-    api('GET', '/api/stats/today?userId=' + profile.id + statsVisParam()).then(function (data) {
+    api('GET', '/api/stats/today?userId=' + profile.id).then(function (data) {
       // L'utilisateur a pu re-cliquer (ou quitter l'onglet) pendant la
       // requête : ne rien peindre si le mode n'est plus actif, sinon une
       // réponse tardive écraserait le camembert resynchronisé.
@@ -3908,7 +3863,7 @@
 
   function loadPieWeek() {
     if (!profile) return;
-    api('GET', '/api/stats/week-so-far?userId=' + profile.id + statsVisParam()).then(function (data) {
+    api('GET', '/api/stats/week-so-far?userId=' + profile.id).then(function (data) {
       if (!pieWeekMode) return;
       renderPieBreakdown(data);
     });
@@ -3931,7 +3886,7 @@
 
   function loadChartStats() {
     if (!profile) return;
-    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity + statsVisParam()).then(function (data) {
+    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity).then(function (data) {
       lastDailyBreakdown = data.dailyBreakdown || [];
       renderChart(lastDailyBreakdown);
     });
@@ -4426,12 +4381,13 @@
   // sans fenêtre : on y réutilise la zone défilante (mêmes ids, mêmes fonctions) puis on la remet dans la fenêtre en quittant.
   var bilanCsHome = null;
   TMT.bilanCategoryStats = {
-    open: function (hostEl, activityId, name) {
+    // memberId : activité à plusieurs membres, statistiques d'UN membre (mêmes routes, ?memberId=) ; absent = les siennes.
+    open: function (hostEl, activityId, name, memberId) {
       var scroll = $('categoryStatsScroll');
       if (!profile || !hostEl || !scroll || categoryStatsMarkupMissing().length) return;
       if (!bilanCsHome) bilanCsHome = { parent: scroll.parentNode, next: scroll.nextSibling };
       hostEl.appendChild(scroll);
-      csCtx = { activityId: Number(activityId), memberId: null, name: name || '' };
+      csCtx = { activityId: Number(activityId), memberId: memberId && memberId !== profile.id ? memberId : null, name: name || '' };
       csPeriod = 'week'; csWeekOffset = 0; csMonthOffset = 0; csTodayMode = false; csLastData = null; csChartGranularity = 'day';
       syncCsTodayBtn();
       syncPeriodMenuActive($('csTsPeriodMenu'), 'week');
@@ -5457,17 +5413,17 @@
   function loadTimesheet() {
     if (!profile) return;
     if (currentTimesheetPeriod === 'year') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=year&yearOffset=' + currentTimesheetYearOffset + statsVisParam()).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=year&yearOffset=' + currentTimesheetYearOffset).then(function (data) {
         renderTimesheetYear(data);
         renderPieFromTimesheet(data);
       });
     } else if (currentTimesheetPeriod === 'month') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset + statsVisParam()).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
       });
     } else {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset + statsVisParam()).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(function (data) {
         renderTimesheetWeek(data);
         renderPieFromTimesheet(data);
       });
@@ -5840,7 +5796,6 @@
   // et l'ensemble ne fait que GRANDIR au fil des réponses reçues — un membre
   // absent d'une période donnée ne décale personne.
   var activityMemberIds = {};   // activityId -> tableau d'identifiants triés
-  var sharedStatsActivityId = ''; // activité affichée dans la 3e page du Chrono (statistiques des activités partagées)
 
   function rememberActivityMembers(activityId, lists) {
     var key = String(activityId);
@@ -5861,7 +5816,7 @@
   // (aucune régression possible : c'est le comportement d'avant).
   function activityMemberColor(userId, fallbackColor, activityId) {
     if (!currentActivityColor || !userId) return fallbackColor;
-    var known = activityMemberIds[String(activityId || sharedStatsActivityId)] || [];
+    var known = activityMemberIds[String(activityId)] || [];
     var index = known.indexOf(String(userId));
     if (index < 0) return fallbackColor;
     // Un seul membre : rien à distinguer, on garde sa couleur telle quelle.
@@ -8813,14 +8768,6 @@
       syncUnreadChipDots();
       // Aucun point sur les icônes de la barre d'onglets (demande d'Émilien, 30 oct. 2026).
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
-  }
-
-  // 3e page du Chrono (chantier Chrono) : statistiques de l'activité partagée choisie par les puces (public/js/stats-avance.js).
-  // Répartition, Graphique et filtre par pôle retirés le 8 nov. 2026 (Émilien) : seuls les blocs de public/js/stats-temps.js restent.
-  function selectSharedStats(a) {
-    sharedStatsActivityId = a ? String(a.id) : '';
-    if (!a) return;
-    if (TMT.statsTempsLoad) TMT.statsTempsLoad(a.id); // barres par membre + tableau des temps (public/js/stats-temps.js)
   }
 
   // ----- Plein écran retiré le 3 septembre 2026 (Activité — général),
@@ -15462,7 +15409,7 @@
       }
       chain.then(function () {
         activityEditId = null;
-        return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); });
+        return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
     if ((acts || []).length > 1) row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs ; absente quand il ne reste qu'une activité (la dernière ne se supprime pas)
@@ -17352,7 +17299,6 @@
   // restent à jour même après connexion/déconnexion ou changement de thème.
   window.TMT.$ = $;
   window.TMT.api = api;
-  window.TMT.selectSharedStats = selectSharedStats;
   window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: '' }; }; // fenêtre Activité (activite-stats-taches.js)
   // Page « Tâches par membre » : le filtre de pôle n'y propose pas « Sans pôle » ; couleurs de membres = nuances de l'activité.
   window.TMT.caTasksPage = function () {}; // plus de filtre de pôle dans la fenêtre Activité (les filtres vivent dans la 3e page du Chrono)
@@ -17368,8 +17314,6 @@
   window.TMT.readableTextOn = readableTextOn;
   window.TMT.appendLinkified = appendLinkified;
   window.TMT.switchTab = switchTab;
-  window.TMT.enterStats = enterStats;
-  window.TMT.openStats = openStats;
   // Bascule d'un module (Réglages > Modules) : l'interface se met à jour sans recharger l'app.
   function onModulesChange() {
     var active = document.querySelector('.tabBtn.active');

@@ -10,7 +10,7 @@ assert(!/zone: goalsZone/.test(stats), 'plus de balayage sur la page 1 de la Feu
 assert(!/ctx: 'goals', idx: 0/.test(stats), 'plus de points de pagination sur la Feuille de route');
 assert(!/noFollow/.test(stats), 'le contenu suit le doigt (aucun mode sans suivi) : sélecteur, liste et barre glissent d\'un bloc avec la page Statistiques');
 const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
-assert(/fromGoalsStats/.test(app) && /!fromGoalsStats && !TMT.keepGoalsView && TMT\.resetGoalsPage1View/.test(app), 'retour des statistiques : dernière vue (Tâches ou Objectifs) gardée ; Tâches par défaut seulement après un autre module');
+assert(!/fromGoalsStats|keepGoalsView/.test(app) && /if \(TMT\.resetGoalsPage1View\) TMT\.resetGoalsPage1View\(\)/.test(app), 'arrivée dans la Feuille de route : toujours Tâches par défaut (plus de page de statistiques à gauche, donc plus de vue à conserver)');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
 assert(/#goalsCapturePage\) \{[^}]*overflow-x: clip[^}]*touch-action: pan-y/.test(css), 'Tâches et Objectifs : contenu fixe horizontalement (pas de défilement latéral)');
 const css2 = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
@@ -20,7 +20,7 @@ const p2 = read('objectifs-page2-taches.js');
 assert(p2.includes("GOALS_PAGE2_ORDER = ['goals']"), 'dans l activité : Objectifs seul (la page 3 Calendrier est retirée : le calendrier est dans la vue Tâches)');
 assert(!p2.includes('data-dot='), 'plus de points de pagination sur la page 2 de la Feuille de route');
 assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.test(p2), 'une activité s\'ouvre sur Objectifs');
-assert(/TMT\.keepGoalsView = target === 'goals'/.test(stats) && /!TMT\.keepGoalsView/.test(app), 'retour au doigt depuis Statistiques : le pager signale la conservation de la vue (il masque les statistiques avant switchTab)');
+assert(!/keepGoalsView/.test(stats), 'plus de pager Statistiques : rien à signaler au retour vers la Feuille de route');
 const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
 assert(/resetSort: function/.test(today) && /todayView\.resetSort\(\)/.test(page1) && !/localStorage\.getItem\(SORT_KEY\)/.test(today), 'arrivée dans la Feuille de route : toujours Tâches + tri Aujourd\'hui (tri mémorisé ignoré)');
 assert(/ui\.dockKeyboard = dockKeyboard/.test(compo) && /TMT\.ui\.dockKeyboard\(dock, ui\.text\)/.test(today) && /TMT\.ui\.dockKeyboard\(dock, panelBody\)/.test(creer), 'barres « Nouvelle tâche » et « Nouvel objectif » : même code de positionnement au-dessus du clavier');

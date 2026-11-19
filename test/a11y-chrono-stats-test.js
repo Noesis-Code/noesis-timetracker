@@ -29,7 +29,7 @@ ok(/chronoHistoryHeader'\)\.setAttribute\('aria-expanded'/.test(app), 'aria-expa
 ok(/role'\) !== 'button'[\s\S]{0,200}t\.click\(\)/.test(pop) && /e\.key !== 'Enter' && e\.key !== ' '/.test(pop), 'Entrée / Espace activent tout role=button non natif (lignes de légende, en-têtes)');
 
 // Menus : aria-haspopup + aria-expanded suivi.
-for (const id of ['statsVisBtn', 'tsPeriodBtn', 'chartPeriodBtn']) ok(/aria-haspopup/.test(tag(id)) && /aria-expanded="false"/.test(tag(id)), id + ' : aria-expanded');
+for (const id of ['tsPeriodBtn', 'chartPeriodBtn']) ok(/aria-haspopup/.test(tag(id)) && /aria-expanded="false"/.test(tag(id)), id + ' : aria-expanded');
 ok(/function syncMenus/.test(pop), 'aria-expanded suit l\'ouverture du menu');
 
 // Onglet courant annoncé, champs nommés.
@@ -41,6 +41,6 @@ ok(/function chartSummary/.test(app) && /svg\.setAttribute\('role', 'img'\)[\s\S
 ok(/aria-label', \(\(ids && ids\.ariaLabel\)[\s\S]{0,400}formatHM\(a\.seconds\)[\s\S]{0,200}formatHM\(totalSeconds\)/.test(app), 'camembert : résumé de chaque part et du total');
 
 // Zones tactiles >= 44 px (zone invisible), traductions des nouvelles chaînes.
-for (const id of ['tsPeriodBtn', 'chartPeriodBtn', 'statsPieTodayBtn', 'statsVisBtn']) ok(new RegExp('#' + id + '(::after|::before)?[,\\s{]').test(css.slice(css.indexOf('Accessibilité (20 oct. 2026, 390 px)'))), id + ' : zone tactile 44 px');
+for (const id of ['tsPeriodBtn', 'chartPeriodBtn', 'statsPieTodayBtn']) ok(new RegExp('#' + id + '(::after|::before)?[,\\s{]').test(css.slice(css.indexOf('Accessibilité (20 oct. 2026, 390 px)'))), id + ' : zone tactile 44 px');
 for (const k of ['Chronomètre', 'Temps écoulé', 'Graphique du temps par jour']) ok(new RegExp("'" + k + "':").test(i18n), 'traduit : ' + k);
 process.exit(bad ? 1 : 0);

@@ -1,12 +1,5 @@
-/* Statistiques — page 2 « tâches réalisées ». Voir public/js/stats-avance.js. */
+/* Statistiques : cartes d'information (Bilan, profil visité). Voir public/js/stats-avance.js. */
 #statsPages { position: relative; }
-#statsPageDots {
-  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
-  bottom: var(--tabbar-h, 64px); display: flex; gap: 0;
-}
-#statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
-#statsPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
-#statsAvancePage, #statsSharedPage { padding-bottom: calc(var(--tabbar-h, 64px) + 40px); }
 .saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .saChips::-webkit-scrollbar { display: none; }
 .saChip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 13px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
@@ -71,8 +64,6 @@
 .saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
 .saApply { border: 1px solid var(--purple); background: transparent; color: var(--text); font-weight: 600; }
 
-/* zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
-#statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 /* bouton ⋮ sans fond (comme dans .statsSection, verre-calme.css : seul le liseré le distingue). */
 :root .saGlass .menuBtn { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
@@ -106,7 +97,7 @@
 
 /* statistiques d'un profil visité — deux pages horizontales + points de pagination. */
 #viewProfileStatsPages { position: relative; }
-/* points fixes au premier plan (même technique que #statsPageDots), ne bougent pas au défilement. */
+/* points fixes au premier plan, ne bougent pas au défilement. */
 .vpsDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 200; bottom: env(safe-area-inset-bottom, 0px); display: flex; gap: 0; }
 .vpsDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 .vpsDots .goalsDot { box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
@@ -132,8 +123,8 @@
 .saSheetCard .saModalFixed { flex: 0 0 auto; }
 .saSheetCard .saModalScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .saSheetCard .saModalScroll > .saCard { margin-bottom: 0; }
-/* Pages Temps | Tâches | Objectifs glissantes : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
-#statsAvancePage, #statsSharedPage, #viewProfileStatsPage2 { position: relative; }
+/* Pages Temps | Tâches | Objectifs du profil visité : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
+#viewProfileStatsPage2 { position: relative; }
 
 /* sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
 /* Haut du bouton d'année = haut de la 1re carte de la page Temps (mesuré : 126 px) ; les infos dessous ne bougent pas. */
@@ -179,6 +170,5 @@
 .bbTable td.bbC { color: var(--text); }
 .bbTable td.bbMax { color: var(--good); font-weight: 600; }
 .bbTable td.bbMin { color: var(--danger); font-weight: 600; }
-#statsPages.bilanStack #statsPage1 > .statsPeriodMenuWrap { display: none; } /* Bilan : pas de filtre Tous / Public / Confidentiel */
 /* Bilan, vue d'une activité : le contenu de la fenêtre Chrono est posé dans la page (aucune fenêtre, aucun défilement propre) */
 #bilanBlocs #categoryStatsScroll { overflow: visible; padding: 0; }
