@@ -45,4 +45,5 @@ assert(css.includes('--ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, t
   assert.strictEqual(descended.length, 0, 'édition : on ne descend pas');
   editOn = false; handler({ target }); assert.deepStrictEqual(opened, [7], 'hors édition : pas de modification'); assert.strictEqual(descended.length, 1, 'hors édition : on descend');
 }
+{ const css = fs.readFileSync(__dirname + '/../public/css/objectifs-arbre.css', 'utf8'); assert(css.includes('.arLvlSecteur .arBubble { border-style: none; outline: var(--cmp-dashed); outline-color: var(--ar-c, currentColor); outline-offset: -2px; }') && !css.includes('cmp-dashed-lg'), 'titre de secteur : pointillé 1 px des cases vides (--cmp-dashed), couleur du secteur'); }
 console.log('arbre-propre-test (retouches) OK');

@@ -33,8 +33,8 @@
   --transition-fast: 0.15s ease;
   --veil: rgba(0, 0, 0, 0.5);
   --cmp-dash: rgba(243, 238, 232, 0.28);    /* pointillés des boutons « + » */
-  --cmp-dashed-lg: 1.5px dashed;    /* épaisseur et motif du pointillé du « + » de la barre des volets et des titres de secteur de l'arbre (la couleur se pose à part) */
-  --cmp-dashed: 1px dashed var(--cmp-dash);    /* trait pointillé unique du « + » d'ajout (.cmpAdd) et des titres de secteur de l'arbre (18 nov. 2026) */
+  --cmp-dashed-lg: 1.5px dashed;    /* épaisseur et motif du pointillé du « + » de la barre des volets (la couleur se pose à part) */
+  --cmp-dashed: 1px dashed var(--cmp-dash);    /* trait pointillé unique du « + » d'ajout (.cmpAdd) et des titres de secteur de l'arbre (couleur du secteur posée à part) */
   --good: #6FC9A0;                          /* R12 : semaine atteinte */
   /* Verre (R14/R17, S1 étape 2) : UNE seule recette de verre calme pour toute l'app, TimeTracker, Expansion et Trade Tracker. */
   --glass-bg: rgba(243, 238, 232, .05);
