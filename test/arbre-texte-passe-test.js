@@ -9,9 +9,9 @@ assert(src.indexOf('b.style.color = c.color;') < src.indexOf("b.style.color = TM
 // 2. cartes pleines : texte en creux (couleur du fond), centré, léger, 5 lignes, 13 px (> 12 px)
 assert(src.includes("b.style.color = 'var(--bg)'") && !/paint[\s\S]{0,400}readableTextOn\(c\)/.test(extract('paint')), 'paint : texte de la couleur du fond');
 const nom = rule('.arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText)');
-assert(/-webkit-line-clamp: 5/.test(nom) && /font-weight: 300/.test(nom) && /text-align: center/.test(nom) && /inset: 0/.test(nom) && /-webkit-box-pack: center/.test(nom), 'titre : 5 lignes, léger, centré, remplit la carte (vertical par box-pack)');
+assert(/-webkit-line-clamp: 5/.test(nom) && /font-weight: 300/.test(nom) && /text-align: center/.test(nom) && /top: 50%/.test(nom) && /translateY[(]-50%[)]/.test(nom) && !/box-pack/.test(nom), 'titre : 5 lignes, léger, centré ; boîte à la hauteur du texte, centrée à 50 % / -50 % (vertical exact, 1 à 5 lignes)');
 assert(Number((nom.match(/font-size: (\d+)px/) || [])[1]) >= 12, 'taille jamais sous 12 px');
-assert(/padding: var\(--ar-vpad\) 4px/.test(nom) && /clip-path: inset\(var\(--ar-vpad\) 0\)/.test(nom), 'marges latérales minimales (4 px) ; zone de texte = 5 lignes exactes');
+assert(/left: 4px; right: 4px/.test(nom) && /padding: 0/.test(nom) && /left: 24px; right: 24px/.test(css), 'marges latérales symétriques (4 px ; 24 px en édition pour le crayon) : le titre reste centré');
 assert(rule('.arGrid .arCard > .goalsGridCellText').includes('container-type: size'), 'le titre lit la hauteur de la carte');
 assert(Number((css.match(/--ar-row-min: (\d+)px/) || [])[1]) >= 80, 'rangée assez haute pour 5 lignes');
 // 3. jauge : dégradé net à p % découpé dans le texte : bas (rempli) = fond, haut (vide) = couleur du secteur ; plus de couleur posée par le script

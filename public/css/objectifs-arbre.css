@@ -49,7 +49,7 @@ html.arbreOn #app::after { display: none; }
 .arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
 .arNode.arDropBad { opacity: .45; }
 /* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité) ; touchable sur toute sa surface (ajouter un objectif). */
-.arHole { --ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, transparent); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+.arHole { cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
 .arHole:disabled { cursor: default; opacity: 1; }
 /* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
 .arCard.ar-dropped { opacity: .4; }
@@ -124,6 +124,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* ARBRE PROPRE (18 nov. 2026, Émilien) : hors édition une case vide n'affiche RIEN, sauf le NOMBRE d'objectifs dessous (grand, gris, sans pastille) ; en édition, un grand PLUS gris à bords carrés prend sa place. */
 .arHoleCount { color: var(--ar-hole-mark); font-size: 30px; font-weight: 600; line-height: 1; pointer-events: none; }
 .arHolePlus { display: none; color: var(--ar-hole-mark); line-height: 0; pointer-events: none; }
+.arHolePlus svg { display: block; flex: none; width: 30px; height: 30px; } /* même plus en portrait et en paysage : jamais redimensionné par la case */
 .arEdit .arHoleCount { display: none; }
 .arEdit .arHolePlus { display: block; }
 /* Colonne de droite « Heures » : lecture seule ; violet = heures réglées sur la ligne, gris = reprend la ligne du dessus (aucune nouvelle couleur) */
@@ -192,25 +193,23 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 /* Niveau SECTEUR (18 nov. 2026, Émilien) : le TITRE garde la bulle du pôle mais son CONTOUR est en pointillé. */
 .arLvlSecteur .arBubble { border-style: none; outline: var(--cmp-dashed); outline-offset: -1px; } /* même pointillé que le « + » d'ajout (.cmpAdd, jeton --cmp-dashed) ; outline car la couleur du contour est posée en ligne par le script */
 .arRailR .arHrs { border: 0; } .arRailR .arHrs.set { border: 0; } /* colonne des heures sans cadre (18 nov. 2026) */
-/* EN ÉDITION seulement : le crayon Modifier standard (R15) est un TROU dans la carte (masque : plein XOR icône ; on voit le fond à travers, ni violet ni pastille) ; le bouton reste la zone de toucher de 44 px. */
-.arEdit .arCard > .cmpEdit { display: block; color: transparent; }
-.arEdit:not(.arExtending) .arCard:not(.arGaugeLow) { -webkit-mask: linear-gradient(#000 0 0), var(--ar-edit-mask) no-repeat right 5px top 5px / 18px 18px; -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0), var(--ar-edit-mask) no-repeat right 5px top 5px / 18px 18px; mask-composite: exclude; }
-.arEdit .arGaugeLow > .cmpEdit { color: var(--ar-c); } /* jauge presque vide : le crayon est sur le vide, dessiné en plein de la couleur du pôle */
+/* EN ÉDITION seulement (18 nov. 2026, Émilien) : le crayon Modifier standard (R15, EDIT_SVG), au même endroit, est du MÊME GRIS que le grand « + » des cases vides (jeton --ar-edit-mark = les mêmes 22 % du gris sable, posés sur le fond de l'app pour rester lisibles sur une carte pleine, y compris sur la jauge) ; le bouton reste la zone de toucher de 44 px. Plus de trou dans la carte. */
+.arEdit .arCard > .cmpEdit { display: block; color: var(--ar-edit-mark); }
+.arEdit .arCard > .cmpEdit svg { width: 18px; height: 18px; }
 .arEdit.arExtending .arCard > .cmpEdit { display: none; }
 /* JAUGE du niveau SECTEUR : la partie pleine (bas) est de la couleur du pôle (nuance de son pôle, fond posé par le script) ; contour COMPLET plein de 1 px de la même teinte (outline : la grille impose des bordures transparentes en !important), sans fond pour le vide ; 100 % = carte pleine comme un pôle. */
 .arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; outline: 1px solid var(--ar-c); outline-offset: -1px; }
-.arEdit .arGaugeLow > .cmpEdit svg { width: 18px; height: 18px; } /* même taille que le crayon en creux */
 /* TEXTE DES CARTES (18 nov. 2026, Émilien) : titre CENTRÉ (horizontal et vertical), poids LÉGER, sur toute la largeur et la hauteur utiles, 5 lignes visibles au moins (13 px, jamais sous 12 px) ; la rangée est assez haute pour les 5 lignes (jeton --ar-row-min). */
-.objArbre { --ar-row-min: 84px; --ar-past-op: .45; --ar-past-sat: .5; }
+.objArbre { --ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, transparent); --ar-edit-mark: color-mix(in srgb, var(--text-light) 22%, var(--bg)); --ar-row-min: 84px; --ar-past-op: .45; --ar-past-sat: .5; }
 /* Le titre REMPLIT la boîte de texte (posé en absolu : un -webkit-box enfant d'un flex perd son line-clamp), centré en vertical par -webkit-box-pack ; les marges latérales sont portées par le titre (4 px, 24 px en édition pour le crayon). */
 .arGrid .arCard > .goalsGridCellText { display: block; position: relative; flex: 1 1 auto; align-self: stretch; padding: 0; text-align: center; container-type: size; } /* container-type: size : le titre lit la hauteur de la carte (cqh) ; le titre couvre toute la carte (le dégradé de jauge s'y cale), sa marge verticale ramène la zone de texte à 5 lignes EXACTES (aucune 6e ligne ne dépasse), centrée */
 .arGrid .arCard.arMacro > .goalsGridCellText { position: static; flex: none; padding: 0 4px; }
-.arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText) { position: absolute; inset: 0; box-sizing: border-box; --ar-vpad: max(0px, calc((100cqh - 5.75em) / 2)); padding: var(--ar-vpad) 4px; clip-path: inset(var(--ar-vpad) 0); display: -webkit-box; -webkit-box-orient: vertical; -webkit-box-pack: center; -webkit-line-clamp: 5; overflow: hidden; text-align: center; font-size: 13px; font-weight: 300; line-height: 1.15; }
-.arEdit .arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText) { padding-left: 24px; padding-right: 24px; }
+.arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText) { position: absolute; left: 4px; right: 4px; top: 50%; transform: translateY(-50%); box-sizing: border-box; padding: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; text-align: center; font-size: 13px; font-weight: 300; line-height: 1.15; } /* la boîte a la hauteur de son texte (1 à 5 lignes) et se centre dans la carte ENTIÈRE : même marge en haut et en bas, même marge à gauche et à droite */
+.arEdit .arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText) { left: 24px; right: 24px; } /* marges SYMÉTRIQUES : le titre reste centré dans la carte, le crayon se superpose */
 .arGrid .arMacro .arCardName { -webkit-line-clamp: 5; text-align: center; font-weight: 300; font-size: 13px; line-height: 1.15; }
 .arGrid .arCardMeta { text-align: center; font-weight: 300; }
 /* TEXTE EN CREUX : le texte d'une carte pleine est de la couleur du FOND de l'app (--bg, posée par le script) : technique retenue = couleur unie, la seule fiable sur Safari iOS (un vrai masque de texte ne l'est pas). */
 /* NIVEAU SECTEUR : le texte suit la jauge. La boîte du titre couvre toute la carte (pas de marge verticale) : un dégradé net à p % (--ar-p) découpé dans les lettres (background-clip: text) = fond sous p % (partie remplie, en creux), couleur du secteur au-dessus (partie vide). 0 % = tout en couleur du secteur, 100 % = tout en creux. */
-.arGauge .arCardName { background: linear-gradient(0deg, var(--bg) var(--ar-p, 0%), var(--ar-c) var(--ar-p, 0%)); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+.arGauge .arCardName { background: linear-gradient(0deg, var(--bg) var(--ar-p, 0%), var(--ar-c) var(--ar-p, 0%)) 0 50% / 100% 100cqh no-repeat; /* dégradé aussi haut que la CARTE (100cqh), recalé sur elle quelle que soit la hauteur du texte */ -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
 /* OBJECTIFS PASSÉS : cartes (secteur, pôle, activité, fusionnées) beaucoup plus ternes ; le présent et le futur gardent leur éclat. */
 .arGrid .arPastRow .goalsGridCell--filled { opacity: var(--ar-past-op); filter: saturate(var(--ar-past-sat)); }

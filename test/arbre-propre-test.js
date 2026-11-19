@@ -18,14 +18,14 @@ assert(/function go\(l, f\) \{\s*setEdit\(false\);/.test(src) && src.includes("i
 // 3. jauge : 0 / 40 / 100 %
 function gaugeFor(progress, level) {
   const st = {}, b = { classList: { add(c) { (st.cls = st.cls || []).push(c); }, toggle(c, on) { if (on) (st.cls = st.cls || []).push(c); } }, style: { setProperty(k, v) { st[k] = v; } } };
-  new Function('lvl', 'b', 'o', 'c', 'TMT', extract('gauge').replace('function gauge(b, o, c)', 'return (function (b, o, c)') + ')(b, o, c);')(level, b, { progress }, '#A04B52', { readableTextOn: () => '#15111C' });
+  new Function('lvl', 'b', 'o', 'c', 'TMT', extract('gauge').replace('function gauge(b, o, c)', 'return (function (b, o, c)') + ')(b, o, c);')(level, b, { taskProgress: progress }, '#A04B52', { readableTextOn: () => '#15111C' });
   return { st, b };
 }
 let g = gaugeFor(0, 'secteur'); assert.strictEqual(g.st['--ar-p'], '0%'); assert(g.b.style.background.includes('#A04B52 0%, transparent 0%'), '0 % : rien de plein'); assert(g.st.cls.includes('arGaugeLow'));
 g = gaugeFor(0.4, 'secteur'); assert.strictEqual(g.st['--ar-p'], '40%'); assert(g.b.style.background.includes('linear-gradient(0deg, #A04B52 40%, transparent 40%)'), '40 % : le bas est plein'); assert(g.st.cls.includes('arGaugeLow'));
 g = gaugeFor(1, 'secteur'); assert.strictEqual(g.st['--ar-p'], '100%'); assert(g.b.style.background.includes('#A04B52 100%'), '100 % : plein'); assert(!g.st.cls.includes('arGaugeLow') && g.st.cls.includes('arGauge'));
 g = gaugeFor(0.4, 'pole'); assert(!g.st.cls && !g.b.style.background, 'hors niveau secteur : aucune jauge');
-assert(src.includes('o.progress') && !/progress\s*=\s*.*done/i.test(extract('gauge')), 'pourcentage = progress du serveur (shape de objectifs.js), jamais recalculé ici');
+assert(src.includes('o.taskProgress') && !/progress\s*=\s*.*done/i.test(extract('gauge')), 'pourcentage = taskProgress du serveur (tâches faites / attribuées), jamais recalculé ici');
 // 4. CSS : pointillé des cases vides à tous les niveaux, jauge, tiret des heures, plus de verre
 assert(css.includes('.arGrid .goalsGridCell--empty { background: none; outline: 1px dashed') && !css.includes('arLvlSecteur .goalsGridCell') && !/backdrop-filter|--glass-bg/.test(css), 'cases vides : pointillé sans fond ni verre, tous niveaux');
 assert(css.includes('.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; outline: 1px solid var(--ar-c); outline-offset: -1px; }') && !css.includes('arGauge::before') && !css.includes('clip-path: inset(0 0 var(--ar-p) 0)'), 'jauge : plein en bas, contour plein 1 px de la teinte du pôle, plus de pointillés');
