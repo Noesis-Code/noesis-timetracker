@@ -13,3 +13,8 @@ const clash = vars.filter((v) => fns.has(v));
 assert.deepStrictEqual(clash, [], 'variable qui masque une fonction de la fiche : ' + clash.join(', '));
 assert(/function timeShares\(r\)/.test(body) && /timeShares\(r\)\.me/.test(body), 'le calcul du temps garde son nom propre');
 console.log('fiche-temps-depense-test : OK');
+// Temps dépensé : seulement pour une activité partagée (2 membres ou plus), sans chemin gris au-dessus.
+assert(!/spec\.path/.test(body), 'plus de ligne de chemin dans la fiche');
+assert(/length >= 2\) \{ panelBody\.insertBefore\(timeBox[^;]*; paintTime\(\)/.test(body), 'bloc Temps dépensé rendu seulement si au moins 2 membres');
+assert(!/panelBody\.appendChild\(timeBox\)/.test(body), 'le bloc n\'est jamais ajouté sans condition');
+console.log('fiche-temps-depense (partagée seulement) : OK');

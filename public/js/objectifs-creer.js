@@ -901,13 +901,12 @@
   function openFiche(spec, onEnd) {
     var act = spec.activity, msg = el('p', 'tasksMsg objMsg'), win = 'week', plan = null; // plan : temps PRÉVU (heures par semaine) modifiable au niveau pôle
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.title; panelForm = { edit: true }; setBack(null);
-    panelBody.appendChild(el('p', 'hint', spec.path));
     function line(label, value) { var r = el('div', 'objTimeRow'); r.appendChild(el('span', null, label)); r.appendChild(el('span', 'objHoursVal', value)); return r; }
     // 1. Temps dépensé : UN sélecteur simple (semaine / période / année) en haut à droite ; activité à UN membre = toi seul, à plusieurs = une ligne par membre ; pôle = le pôle et ses secteurs ; secteur = SEULEMENT ce secteur
     var timeBox = el('div', 'objField'), head = el('div', 'objDueRow'), seg = el('div', 'cmpSeg'), timeBody = el('div'); seg.style.cssText = 'width:auto;margin:0;flex:none';
     head.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé')));
     [['week', tr('Semaine')], ['period', tr('Période')], ['year', tr('Année')]].forEach(function (w) { var bt = btn('', w[1], function () { win = w[0]; Array.prototype.forEach.call(seg.children, function (x) { x.classList.toggle('active', x === bt); }); paintTime(); }); if (w[0] === win) bt.classList.add('active'); bt.style.cssText = 'flex:none;overflow:visible;text-overflow:clip;white-space:nowrap;padding-left:10px;padding-right:10px'; seg.appendChild(bt); });
-    head.appendChild(seg); timeBox.appendChild(head); timeBox.appendChild(timeBody); panelBody.appendChild(timeBox);
+    head.appendChild(seg); timeBox.appendChild(head); timeBox.appendChild(timeBody); // ajouté à la fiche seulement pour une activité partagée (plus bas)
     var now = new Date(), jan1 = new Date(now.getFullYear(), 0, 1), doy = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - jan1) / 86400000), p0 = Math.min(12, Math.floor(doy / 28)), ps = new Date(now.getFullYear(), 0, 1 + p0 * 28), pe = p0 < 12 ? new Date(now.getFullYear(), 0, 1 + p0 * 28 + 27) : new Date(now.getFullYear(), 11, 31);
     var base = '/api/category-stats?activityId=' + act.id;
     function timeShares(r) { // temps de l'élément dans la fenêtre : { me, kids }
@@ -923,22 +922,12 @@
       timeBody.textContent = ''; TMT.ui.loader(timeBody, { seul: true });
       membersP.then(function (mr) {
         var ms = mr.members || [];
-        if (ms.length < 2) { // activité individuelle : seulement toi
-          return api('GET', base + winQuery()).then(function (r) {
-            timeBody.textContent = ''; var s0 = timeShares(r); timeBody.appendChild(line(tr('Temps dépensé'), fmtHours(s0.me)));
-            if (spec.level !== 'secteur' && s0.kids.length && s0.me > 0) { // jamais de détail sous un secteur
-              var byName = {}; s0.kids.forEach(function (k) { var n = k.name || tr('Sans catégorie'); byName[n] = (byName[n] || 0) + k.seconds; });
-              timeBody.appendChild(el('p', 'hint', tr(spec.level === 'activite' ? 'Répartition par pôle' : 'Répartition par secteur')));
-              Object.keys(byName).sort(function (p, q) { return byName[q] - byName[p]; }).forEach(function (n) { timeBody.appendChild(line(n, fmtHours(byName[n]) + ' · ' + Math.round(byName[n] / s0.me * 100) + ' %')); });
-            }
-          });
-        }
         return Promise.all(ms.map(function (m) { return api('GET', base + winQuery() + '&memberId=' + encodeURIComponent(m.id)).then(function (r) { return { m: m, v: timeShares(r).me }; }).catch(function () { return { m: m, v: null }; }); })).then(function (rows) { // activité à plusieurs : une ligne par membre
           timeBody.textContent = ''; rows.forEach(function (x) { timeBody.appendChild(line(x.m.name, x.v == null ? '—' : fmtHours(x.v))); });
         });
       }).catch(function () { timeBody.textContent = ''; timeBody.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     }
-    paintTime();
+    membersP.then(function (mr) { if ((mr.members || []).length >= 2) { panelBody.insertBefore(timeBox, panelBody.firstChild); paintTime(); } }); // activité individuelle : ni bloc ni requête /api/category-stats
     // Temps PRÉVU (heures par semaine), au niveau pôle seulement (le prévu se règle par pôle ; un secteur remonte au pôle) : une ligne par membre ; un responsable règle celui des autres, un non-responsable ne règle que le sien
     // (droits vérifiés côté serveur par changePlanned) ; le temps enregistré par le Chrono ne change jamais. Route existante POST /api/member-times (historique, origines, notification déjà prévus).
     var plans = {};
