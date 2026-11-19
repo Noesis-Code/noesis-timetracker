@@ -54,7 +54,20 @@
     });
     return out.sort(function (a, b) { return a.members[0] - b.members[0]; });
   }
-  var api = { MSG: MSG, key: key, refuse: refuse, chain: chain, groupsAt: groupsAt };
+  // COULEUR DU GROUPE (Émilien, 18 nov. 2026) : sur CHAQUE ligne où un groupe existe (la ligne du lien et toutes celles du dessus, quel que soit le niveau de la ligne), la case du groupe prend la couleur de sa colonne dominante ; jamais celle d'un membre absorbé.
+  // ranks = rang de chaque ligne ; colors = couleur de chaque colonne (indices) ; rend { 'indiceLigne:premierMembre': couleur }.
+  function recolorMap(links, ranks, colors) {
+    var out = {};
+    (ranks || []).forEach(function (rk, r) { groupsAt(links, rk).forEach(function (g) { if (colors[g.anchor] != null) out[r + ':' + g.members[0]] = colors[g.anchor]; }); });
+    return out;
+  }
+  // DESCENTE D'UN GROUPE : toucher une case fusionnée descend vers TOUTES les colonnes du groupe (pas seulement la dominante) ; union dédoublonnée des colonnes du lien (a) puis des membres de la ligne (b).
+  function unionColumns(level, a, b) {
+    var seen = {}, out = [];
+    (a || []).concat(b || []).forEach(function (c) { var k = key(level, c); if (!seen[k]) { seen[k] = true; out.push(c); } });
+    return out;
+  }
+  var api = { MSG: MSG, key: key, refuse: refuse, chain: chain, groupsAt: groupsAt, recolorMap: recolorMap, unionColumns: unionColumns };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) { root.TMT = root.TMT || {}; root.TMT.liaison = api; }
 })(typeof window !== 'undefined' ? window : null);

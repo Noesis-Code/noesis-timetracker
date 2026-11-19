@@ -74,13 +74,13 @@
     if (lvl !== 'secteur') return; var p = Math.max(0, Math.min(100, Math.round((o.progress || 0) * 100)));
     b.classList.add('arGauge'); b.classList.toggle('arGaugeLow', p < 85); b.style.setProperty('--ar-p', p + '%'); /* arGaugeLow : le crayon se trouve sur le vide (sans fond) : en édition il est dessiné en plein, pas en creux */ b.style.background = 'linear-gradient(0deg, ' + c + ' ' + p + '%, transparent ' + p + '%)'; b.style.color = p >= 50 && TMT.readableTextOn ? TMT.readableTextOn(c) : 'var(--text)';
   }
-  function card(o, today, all, mode, w, onTap, extCol, colColor) {
-    var st = stateOf(o, today), c = objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); gauge(b, o, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
+  function card(o, today, all, mode, w, onTap, extCol, colColor, members) {
+    var st = stateOf(o, today), c = colColor || objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); gauge(b, o, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     /* 18 nov. 2026 (Émilien) : la carte ne montre que son TITRE ; durée, état et rattachements ne s'affichent plus, l'échéance se lit en modifiant la case */
     b.appendChild(t); b.appendChild(editMark(o));
     b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(o.id); return; } // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
-      if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
+      if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)), null, members);
     });
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { // APPUI LONG : le menu d'actions (Relier = le mode de liaison actuel, Modifier, Supprimer)
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
@@ -110,13 +110,13 @@
     for (var i = c0; i <= c1; i++) { var x = cols[i] && (cols[i].col ? cols[i].col.ctx : cols[i].ctx); if (x && m.activity && x.activityId === m.activity.id && (lvl !== 'secteur' || x.poleKey === m.poleKey) && (lvl === 'activite' || x.poleKey === m.poleKey || m.poleKey == null)) { best = i; break; } }
     return cols[best] ? cols[best].color : null;
   }
-  function macroCard(m, today, c0, c1, W, cols, ov) {
+  function macroCard(m, today, c0, c1, W, cols, ov, members) {
     var st = stateOf(m, today), span = c1 - c0 + 1, w = spanW(W, span);
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w); var ec = ov || eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t); b.appendChild(editMark(m));
-    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(m.id); return; } descend(c0, null, null, m); }); // toucher COURT = descendre d'un niveau (règle générale)
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(m.id); return; } descend(c0, null, null, m, members); }); // toucher COURT = descendre d'un niveau (règle générale)
     if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées / Séparer (mode Étendre existant)
     return b;
   }
@@ -247,14 +247,14 @@
     var k = aid + ':' + year; if (!resumeCache[k]) resumeCache[k] = TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + aid + '&year=' + year).then(function (r) { return r && r.text ? String(r.text) : ''; }).catch(function () { return ''; });
     return resumeCache[k];
   }
-  function summaryCard(os, color, w, year, ci) {
+  function summaryCard(os, color, w, year, ci, members) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-ids', os.map(function (x) { return x.id; }).join(',')); cellSize(b, w); paint(b, 'now', color);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); b.appendChild(editMark(bigOf(os))); /* case occupée = crayon, même à plusieurs objectifs (celui qui englobe les autres) */
     resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
     });
-    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(bigOf(os).id); return; } descend(ci, null, year); }); // toucher = descendre d'un niveau
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(bigOf(os).id); return; } descend(ci, null, year, null, members); }); // toucher = descendre d'un niveau (case d'un groupe fusionné : vers toutes ses colonnes)
     if (TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le menu d'actions
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {
@@ -497,8 +497,9 @@
   }
   function openFiche(ci) { if (TMT.objectifsView && TMT.objectifsView.openFiche) TMT.objectifsView.openFiche(ficheOf(ci)); }
   document.addEventListener('click', function (e) { lastTap = [e.clientX, e.clientY]; }, true); // où l'on a touché : origine du zoom de descente
-  function descend(ci, block, year, macro) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
+  function descend(ci, block, year, macro, members) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return; if (lvl === 'activite' && block == null && year != null && !macro) block = blockStart(year + '-06-01'); /* case d'un bloc qui résume plusieurs objectifs : SON bloc fixe (jamais celui du présent) */ dive = !(macro || ext); /* 18 nov. 2026 (Émilien) : AUCUN zoom en touchant une bulle fusionnée ni en mode fusion */ // transition de zoom (arZoomIn) : on entre dans la bulle touchée
+    if (members && members.length > 1 && lvl !== 'secteur') macro = { endDate: macro && macro.endDate, macroColumns: TMT.liaison.unionColumns(lvl, macro && macro.macroColumns, members.map(colPayload)) }; /* case d'un GROUPE fusionné : on descend vers les catégories de TOUS ses membres (jamais la seule dominante) */
     if (macro && block == null && macro.endDate) block = blockStart(macro.endDate); // la vue des années d'un macro : le bloc FIXE de 5 ans de SON échéance, jamais l'étendue de ses enfants
     if (lvl === 'activite') {
       var order = ((struct && struct.activities) || []).map(function (x) { return x.id; }), ids = [];
@@ -609,7 +610,7 @@
     // avant la ligne d'un lien ses branches restent séparées. La dominante donne sa couleur ; les colonnes absorbées n'ont plus de case sur la ligne, leurs objectifs vont dans la case du groupe (aucun n'est caché).
     var recolor = {}, rowGroups = list.map(function () { return []; }), links = [];
     Object.keys(macrosAt).forEach(function (k) { macrosAt[k].forEach(function (mm) { if (!(mm.m.id > 0) || mm.m.mergePast) return; var d = directIdx(mm.m); if (d.length > 1) links.push({ id: mm.m.id, rank: Number(k), cols: d }); }); });
-    if (TMT.liaison && TMT.liaison.groupsAt) list.forEach(function (rw2, r2) { rowGroups[r2] = TMT.liaison.groupsAt(links, rw2.rank); rowGroups[r2].forEach(function (g) { recolor[r2 + ':' + g.members[0]] = curCols[g.anchor].color; }); });
+    if (TMT.liaison && TMT.liaison.groupsAt) { list.forEach(function (rw2, r2) { rowGroups[r2] = TMT.liaison.groupsAt(links, rw2.rank); }); recolor = TMT.liaison.recolorMap(links, list.map(function (rw2) { return rw2.rank; }), curCols.map(function (cc) { return cc.color; })); } // couleur de la dominante du groupe sur chaque ligne où il existe, au-dessus comprise
     function groupOf(r2, q) { return rowGroups[r2].filter(function (g) { return g.members.indexOf(q) >= 0; })[0] || null; }
     var grid = el('div', 'goalsGrid arGrid' + (zoom !== 'period' && zoom !== 'week' ? ' arCompact' : '') + (animate ? ' arEnter' : '')); // années et blocs de 5 ans : rangées COMPACTES (moins de hauteur) animate = false;
     
@@ -618,7 +619,7 @@
       var rowMark = marker(rw, here, null); row.appendChild(rowMark);
       var macs = macrosAt[rw.rank] || [], skip = {}, extra = [];
       macs.sort(function (x, y) { return (x.m.endDate < y.m.endDate ? 1 : -1); }); // le macro le plus lointain d'abord : un macro peut avoir un autre macro pour enfant (A+B puis (A+B)+C), les cartes larges s'empilent
-      macs.forEach(function (mm) { var g0 = mm.m.id > 0 && !mm.m.mergePast ? groupOf(r, (directIdx(mm.m))[0]) : null; if (g0) { mm.c0 = g0.members[0]; mm.c1 = g0.members[g0.members.length - 1]; mm.ov = curCols[g0.anchor].color; } /* le groupe de la ligne : la carte du lien couvre toutes ses colonnes, couleur de la dominante */ // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
+      macs.forEach(function (mm) { var g0 = mm.m.id > 0 && !mm.m.mergePast ? groupOf(r, (directIdx(mm.m))[0]) : null; if (g0) { mm.c0 = g0.members[0]; mm.c1 = g0.members[g0.members.length - 1]; mm.ov = recolor[r + ':' + g0.members[0]] || curCols[g0.anchor].color; mm.members = g0.members; } /* le groupe de la ligne : la carte du lien couvre toutes ses colonnes, couleur de la dominante */ // inline si aucune carte ni autre macro n'occupe les colonnes traversées dans cette case ; sinon dans une rangée de macro juste au-dessus (signalé)
         var free = true; for (var q = mm.c0; q <= mm.c1; q++) if (skip[q] || cells[r][q].some(function (e) { return e.o.parentId !== mm.m.id && !(mm.m.id < 0 && ext && ext.base && e.o.id === ext.base.id); })) free = false; // seuls ses propres enfants peuvent être incorporés dans sa case
         if (free) for (var q3 = mm.c0; q3 <= mm.c1; q3++) cells[r][q3] = []; // l'objectif incorporé n'a plus de carte à lui dans cette rangée : la carte du macro la remplace
         if (free) for (var q2 = mm.c0; q2 <= mm.c1; q2++) skip[q2] = mm; else if (mm.m.id > 0) mm.fuse = true; /* aucune nouvelle ligne : les objectifs existants restent dans leurs lignes, titres fusionnés, couleur de l'absorbante */ else extra.push(mm);
@@ -632,7 +633,7 @@
         var mrow = el('div', 'goalsGridRow arMacroRow'); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
         data.forEach(function (c2, cj) {
           var hit = mr.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
-          if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols, hit.ov)); return; }
+          if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols, hit.ov, hit.members)); return; }
           var gap = el('div', 'arGap'); cellSize(gap, W); mrow.appendChild(gap);
         });
         grid.appendChild(mrow);
@@ -640,14 +641,14 @@
       if (mrows.length) rowMark.style.visibility = 'hidden'; // le repère de la période est porté par la rangée du macro, juste au-dessus
       data.forEach(function (c, ci) {
         var es = cells[r][ci];
-        if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols, skip[ci].ov)); return; }
+        if (skip[ci]) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols, skip[ci].ov, skip[ci].members)); return; }
         var gr = groupOf(r, ci), Wc = W; if (gr && gr.members[0] !== ci) return; // colonne absorbée sur cette ligne : plus de case, ses objectifs sont dans celle du groupe
         if (gr) { es = []; gr.members.forEach(function (q) { es = es.concat(cells[r][q]); }); Wc = spanW(W, gr.members.length); } // une SEULE colonne, sur toute la largeur des colonnes liées
         var grTitle = gr && es.length > 1 ? es.map(function (e) { return fused[e.o.id] || e.o.title; }).filter(function (v, i2, a2) { return a2.indexOf(v) === i2; }).join(' · ') : null; // tous les objectifs du groupe sur la ligne, jamais l'un caché derrière l'autre
         var made = null;
         if (!es.length) row.appendChild(made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); })); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
-        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(made = summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
-        else row.appendChild(made = card(grTitle || fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: grTitle || fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color));
+        else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) row.appendChild(made = summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci, gr ? gr.members : null)); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
+        else row.appendChild(made = card(grTitle || fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: grTitle || fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color, gr ? gr.members : null));
         if (made && gr) made.setAttribute('data-span', String(gr.members.length)); // numéro de colonne des cases suivantes (data-col)
       });
       if (!row.querySelector('.goalsGridCell--filled')) row.classList.add('arEmptyRow'); // rangée sans objectif : elle prend sa part du reste (CSS)
