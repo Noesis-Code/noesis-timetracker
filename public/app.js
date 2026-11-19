@@ -7227,14 +7227,18 @@
       if (f && f.scrollIntoView) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
-  // ---------- Stratégie d'une catégorie (18 nov. 2026, décision d'Émilien) ----------
-  // Panneau « Stratégie » PAR CATÉGORIE (activité, pôle, secteur) : questions FACULTATIVES, une à la fois (la suivante apparaît après la réponse), 4 au plus ; réponses stockées par catégorie (PUT /api/activities/:id/strategie-categorie/:key,
-  // « _ » = l'activité), héritage secteur -> pôle -> activité si vide. La ligne se déroule sur place (R36) ; composants existants : .activityEditRow, .cmpSeg, select. Seul le propriétaire modifie.
+  // ---------- Stratégie d'une catégorie (18 nov. 2026, décision d'Émilien) puis MODÈLE MODULABLE (19 nov. 2026) ----------
+  // Ligne « Stratégie » de la fiche d'une catégorie (activité, pôle, secteur), PAR CATÉGORIE : elle se déroule sur place (R36) en SIX lignes de famille (Nature, Temps, Tâches, Objectifs, Personne, Ajustement) ;
+  // chaque famille se déroule sur place et montre ses variables. Valeur de Noèsis (ou vide) en gris atténué ; valeur modifiée en violet clair avec un petit point ; « Revenir à la valeur de Noèsis » quand ce niveau l'a modifiée.
+  // La ligne Ajustement porte le mode (Propose | Auto) et la liste des RÈGLES « signal, seuil, durée, action » : règles de Noèsis (désactivables, jamais supprimables) et règles « À moi » (croix rouge).
+  // Seules les règles dont le moteur existe sont actives ; les autres sont enregistrées et dites « pas encore active ». L'héritage descend (activité -> pôle -> secteur), le niveau inférieur ne change jamais le supérieur.
+  // ENREGISTREMENT : à chaque choix (comme avant ; un bouton du bas ne servirait qu'aux champs numériques et la fiche a déjà celui de la Répartition). Voir docs/ia/strategie-modele.md.
+  // Composants existants : .activityEditRow, .cmpSepRow, .cmpSeg, .cmpChev (TMT.ui.chev), .cmpAdd (TMT.ui.addBtn), .cmpRemove, .objTimeRow, .toggleSwitch. Écriture : propriétaire et responsables de la catégorie (le serveur décide).
   function buildStrategieBlock(activityId, key, open) {
     var url = '/api/activities/' + activityId + '/strategie-categorie/' + (key || '_');
     var root = document.createElement('div'); root.className = 'catStrategie';
     var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
-    var data = null, loading = false;
+    var data = null, loading = false, openIds = {};
     if (!open) {
       var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow cmpSepRow'; // R22 : trait d'un bord à l'autre sous « Stratégie » (comme sous « Responsables ») ; aucun trait sous la dernière option
       var hl = document.createElement('span'); hl.textContent = t('Stratégie');
@@ -7247,57 +7251,166 @@
       if (loading) return; loading = true;
       api('GET', url).then(function (d) { data = d; paint(); }).catch(function (e) { body.textContent = e.message; }).then(function () { loading = false; });
     }
-    function put(patch) {
-      api('PUT', url, patch).then(function (d) { data = d; paint(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
+    function put(doc) { // doc : patch du document de stratégie de CETTE catégorie ; null efface (retour à la valeur du dessus ou de Noèsis)
+      return api('PUT', url, { doc: doc }).then(function (d) { data = d; paint(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
     }
-    // Une question = une LIGNE d'un bord à l'autre : libellé à gauche, réponse à droite (grise si héritée, « — » si aucune) ; le toucher déroule le choix sur place (R36) ; choisir referme.
-    // Retoucher l'option déjà choisie (ou « — » du menu) remet la réponse à zéro.
-    function line(label, field, options, ownVal, effVal) {
-      var wrap = document.createElement('div'); wrap.className = 'catStrategieL';
-      var row = document.createElement('button'); row.type = 'button'; row.className = 'activityEditRow cmpSepRow';
-      var l = document.createElement('span'); l.textContent = t(label);
-      var shown = ownVal != null ? ownVal : effVal;
-      var found = null; options.forEach(function (o) { if (o.value === shown) found = o; });
-      var v = document.createElement('span'); v.className = 'catStrategieV' + (ownVal == null && found ? ' inherited' : ''); v.textContent = found ? t(found.label) : '—';
-      var hc = TMT.ui.chev(false);
-      var right = document.createElement('span'); right.className = 'catStrategieR'; right.appendChild(v); right.appendChild(hc);
+    function patch(fam, field, v) { var f = {}, d = {}; f[field] = v; d[fam] = f; return put(d); }
+    function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+    function val(fam, f) { var o = data.doc[fam]; return o ? o[f] : undefined; }
+    function srcOf(fam, f) { return data.source[fam + '.' + f] || null; }
+    function mod(fam, f) { return !!data.modifie[fam + '.' + f]; }
+    function mine(fam, f) { return srcOf(fam, f) === 'propre'; }
+    function valueSpan(text, modified) { return el('span', 'catStrategieV' + (modified ? ' modified' : ' inherited'), text == null || text === '' ? '—' : text); }
+    function revert(onClick) { var b = el('button', 'linkBtn catRevert', t('Revenir à la valeur de Noèsis')); b.type = 'button'; b.addEventListener('click', onClick); return b; }
+    // Une ligne qui se déroule sur place (R36) : libellé à gauche, résumé de la valeur + chevron à droite (R21) ; l'état ouvert survit au rafraîchissement.
+    function fold(id, label, summary, build, cls) {
+      var wrap = el('div', 'catStrategieL' + (cls ? ' ' + cls : ''));
+      var row = el('button', 'activityEditRow cmpSepRow'); row.type = 'button';
+      var l = typeof label === 'string' ? el('span', null, label) : label;
+      var hc = TMT.ui.chev(!!openIds[id]);
+      var right = el('span', 'catStrategieR'); if (summary) right.appendChild(summary); right.appendChild(hc);
       row.appendChild(l); row.appendChild(right); wrap.appendChild(row);
-      var panel = document.createElement('div'); panel.className = 'catStrategieQ hidden';
-      var s;
-      if (options.length > 3) {
-        s = document.createElement('select'); s.disabled = !data.canEdit; s.setAttribute('aria-label', t(label));
-        var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '—'; s.appendChild(o0);
-        options.forEach(function (o) { var e = document.createElement('option'); e.value = o.value; e.textContent = t(o.label); s.appendChild(e); });
-        s.value = ownVal || '';
-        s.addEventListener('change', function () { var p = {}; p[field] = s.value || null; put(p); });
-      } else {
-        s = document.createElement('div'); s.className = 'periodSwitch cmpSeg';
-        options.forEach(function (o) {
-          var b = document.createElement('button'); b.type = 'button'; b.className = 'periodBtn' + (ownVal === o.value ? ' active' : ''); b.textContent = t(o.label);
-          b.disabled = !data.canEdit;
-          b.addEventListener('click', function () { var p = {}; p[field] = ownVal === o.value ? null : o.value; put(p); });
-          s.appendChild(b);
-        });
-      }
-      panel.appendChild(s); wrap.appendChild(panel);
-      row.addEventListener('click', function () { var show = panel.classList.toggle('hidden') === false; TMT.ui.setChev(hc, show); });
+      var panel = el('div', 'catStrategieQ' + (openIds[id] ? '' : ' hidden')); build(panel); wrap.appendChild(panel);
+      row.addEventListener('click', function () { var show = panel.classList.toggle('hidden') === false; openIds[id] = show; TMT.ui.setChev(hc, show); });
       return wrap;
     }
+    var YN = [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }];
+    function optLabel(options, v) { var f = null; options.forEach(function (o) { if (o.value === v) f = o; }); return f ? t(f.label) : null; }
+    // Variable à choix : bascule (3 options au plus) ou menu ; retoucher le choix du niveau l'efface.
+    function choice(fam, f, label, options) {
+      var cur = val(fam, f), m = mod(fam, f);
+      return fold(fam + '.' + f, label, valueSpan(optLabel(options, cur), m && cur != null), function (panel) {
+        var s;
+        if (options.length > 3) {
+          s = el('select'); s.disabled = !data.canEdit; s.setAttribute('aria-label', t(label));
+          var o0 = el('option', null, '—'); o0.value = ''; s.appendChild(o0);
+          options.forEach(function (o, i) { var e = el('option', null, t(o.label)); e.value = String(i); s.appendChild(e); });
+          s.value = ''; options.forEach(function (o, i) { if (mine(fam, f) && o.value === cur) s.value = String(i); });
+          s.addEventListener('change', function () { patch(fam, f, s.value === '' ? null : options[Number(s.value)].value); });
+        } else {
+          s = el('div', 'periodSwitch cmpSeg');
+          options.forEach(function (o) {
+            var b = el('button', 'periodBtn' + (mine(fam, f) && cur === o.value ? ' active' : ''), t(o.label)); b.type = 'button'; b.disabled = !data.canEdit;
+            b.addEventListener('click', function () { patch(fam, f, mine(fam, f) && cur === o.value ? null : o.value); });
+            s.appendChild(b);
+          });
+        }
+        panel.appendChild(s);
+        if (mine(fam, f) && data.canEdit) panel.appendChild(revert(function () { patch(fam, f, null); }));
+      });
+    }
+    // Variable à plusieurs choix (jours, phases) : boutons à cocher dans une bascule.
+    function multi(fam, f, label, options) {
+      var cur = val(fam, f) || [], m = mod(fam, f);
+      var txt = cur.length ? options.filter(function (o) { return cur.indexOf(o.value) >= 0; }).map(function (o) { return t(o.label); }).join(' ') : null;
+      return fold(fam + '.' + f, label, valueSpan(txt, m && cur.length > 0), function (panel) {
+        var s = el('div', 'periodSwitch cmpSeg');
+        options.forEach(function (o) {
+          var on = cur.indexOf(o.value) >= 0, b = el('button', 'periodBtn' + (on ? ' active' : ''), t(o.label)); b.type = 'button'; b.disabled = !data.canEdit;
+          b.addEventListener('click', function () { var n = cur.filter(function (x) { return x !== o.value; }); if (!on) n.push(o.value); patch(fam, f, n.length ? n : null); });
+          s.appendChild(b);
+        });
+        panel.appendChild(s);
+        if (mine(fam, f) && data.canEdit) panel.appendChild(revert(function () { patch(fam, f, null); }));
+      });
+    }
+    // Variable numérique ou texte : champ de la ligne « .objTimeRow » ; enregistrée quand on quitte le champ.
+    function field(fam, f, label, unit, kind) {
+      var cur = val(fam, f), m = mod(fam, f);
+      return fold(fam + '.' + f, label, valueSpan(cur == null ? null : cur + (unit ? ' ' + unit : ''), m && cur != null), function (panel) {
+        var r = el('div', 'objTimeRow'), l = el('span', null, t(label));
+        var i = el('input'); i.type = 'text'; i.autocomplete = 'off'; i.disabled = !data.canEdit; i.setAttribute('aria-label', t(label));
+        if (kind === 'text') i.maxLength = 300; else { i.inputMode = 'decimal'; i.maxLength = 6; }
+        i.value = mine(fam, f) && cur != null ? String(cur) : '';
+        i.addEventListener('change', function () {
+          var raw = i.value.trim(), v = raw === '' ? null : kind === 'text' ? raw : parseFloat(raw.replace(',', '.'));
+          if (v !== null && kind !== 'text' && !isFinite(v)) { i.value = ''; return; }
+          if (v !== null && kind === 'int') v = Math.round(v);
+          patch(fam, f, v);
+        });
+        r.appendChild(l); r.appendChild(i); panel.appendChild(r);
+        if (mine(fam, f) && data.canEdit) panel.appendChild(revert(function () { patch(fam, f, null); }));
+      });
+    }
+    var SIG = { chrono_vs_prevu: 'Chrono contre prévu', planifie_vs_prevu: 'Tâches contre prévu', retard_periode: 'Retard de la période', surcharge_jour: 'Surcharge d’un jour', taches_en_retard: 'Tâches en retard', taches_reportees: 'Tâches reportées', regularite: 'Régularité', duree_reelle_vs_estimee: 'Durée réelle', objectif_atteint: 'Objectif non atteint', difficulte_declaree: 'Difficulté déclarée', objectif_modifie: 'Objectif modifié' };
+    var ACT = { proposer_temps: 'Proposer le temps', reporter_suivante: 'Reporter à la suite', marquer: 'Marquer', proposer_taches: 'Proposer des tâches', proposer_reduction: 'Proposer moins', proposer_revision: 'Proposer une révision', avertir: 'Prévenir' };
+    var UNIT = { '%': '%', n: '', j: 'j', sem: 'sem' };
+    function menu(label, items, cur, labels, disabled, onPick) {
+      var r = el('div', 'objTimeRow'), l = el('span', null, t(label)), s = el('select'); s.disabled = disabled; s.setAttribute('aria-label', t(label));
+      items.forEach(function (id) { var o = el('option', null, t(labels[id] || id)); o.value = id; s.appendChild(o); }); s.value = cur;
+      s.addEventListener('change', function () { onPick(s.value); }); r.appendChild(l); r.appendChild(s); return r;
+    }
+    function numRow(label, cur, unit, disabled, onPick) {
+      var r = el('div', 'objTimeRow'), l = el('span', null, t(label)), i = el('input'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 5; i.autocomplete = 'off'; i.disabled = disabled; i.value = String(cur); i.setAttribute('aria-label', t(label));
+      var u = el('span', 'catStrategieU', unit || ''); i.addEventListener('change', function () { var v = parseFloat(i.value.replace(',', '.')); if (!isFinite(v) || v < 0) { i.value = String(cur); return; } onPick(v); });
+      var box = el('span', 'objHoursVal'); box.appendChild(i); if (unit) box.appendChild(u); r.appendChild(l); r.appendChild(box); return r;
+    }
+    function ruleFold(r) {
+      var sg = data.signaux.filter(function (s) { return s.id === r.signal; })[0] || {}, unit = UNIT[sg.unite] || '';
+      var title = el('span', 'catRuleTitle'); title.appendChild(el('span', null, t(SIG[r.signal] || r.signal) + ' → ' + t(ACT[r.action] || r.action)));
+      if (r.pasActive) title.appendChild(el('small', null, t('pas encore active')));
+      var sum = el('span', 'catRuleTag' + (r.actif ? '' : ' off'), r.origine === 'moi' ? t('À moi') : 'Noèsis');
+      var w = fold('regle.' + r.id, title, sum, function (panel) {
+        var ro = !data.canEdit, nr = r.origine === 'noesis';
+        function pr(c, v) { var o = {}; o[c] = v; var q = {}; q[r.id] = o; return put({ ajustement: { regles: q } }); }
+        panel.appendChild(menu('Si', Object.keys(SIG), r.signal, SIG, ro || nr, function (v) { pr('signal', v); }));
+        panel.appendChild(numRow('dépasse', r.seuil, unit, ro, function (v) { pr('seuil', v); }));
+        panel.appendChild(numRow('pendant (sem.)', r.duree, '', ro, function (v) { pr('duree', Math.round(v)); }));
+        panel.appendChild(menu('alors', data.actions, r.action, ACT, ro || nr, function (v) { pr('action', v); }));
+        var sr = el('div', 'objTimeRow'), sl = el('span', null, t('Active')), sw = el('label', 'toggleSwitch'), inp = el('input'); inp.type = 'checkbox'; inp.checked = r.actif; inp.disabled = ro; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', t('Active'));
+        inp.addEventListener('change', function () { pr('actif', inp.checked); }); sw.appendChild(inp); sw.appendChild(el('span', 'toggleSwitchTrack')); sr.appendChild(sl); sr.appendChild(sw); panel.appendChild(sr);
+        if (r.pasActive) panel.appendChild(el('p', 'hint', t('Pas encore active : enregistrée seulement.')));
+        if (nr && r.modifie && !ro) panel.appendChild(revert(function () { var q = {}; q[r.id] = null; put({ ajustement: { regles: q } }); }));
+      }, 'catRule' + (r.origine === 'moi' ? ' catRuleMine' : ''));
+      if (r.origine === 'moi' && data.canEdit) { var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', t('Retirer')); x.addEventListener('click', function () { var q = {}; q[r.id] = null; put({ ajustement: { regles: q } }); }); w.appendChild(x); }
+      return w;
+    }
+    function rulesFold() {
+      var n = data.regles.length;
+      return fold('regles', t('Règles'), valueSpan(String(n), data.regles.some(function (r) { return r.origine === 'moi' || r.modifie; })), function (panel) {
+        data.regles.forEach(function (r) { panel.appendChild(ruleFold(r)); });
+        if (data.canEdit && data.regles.filter(function (r) { return r.origine === 'moi'; }).length < 12) {
+          var a = TMT.ui.addBtn(t('Ajouter une règle'), function () {
+            var id = 'u_' + Math.random().toString(36).slice(2, 8), q = {}; q[id] = { signal: 'taches_reportees', seuil: 1, duree: 0, action: 'avertir', actif: true }; openIds['regle.' + id] = true; put({ ajustement: { regles: q } });
+          });
+          panel.appendChild(a);
+        }
+      });
+    }
+    function famille(id, label, summary, vars) {
+      return fold('fam.' + id, t(label), summary, function (panel) { panel.classList.add('catStrategieF'); vars.forEach(function (v) { panel.appendChild(v); }); });
+    }
+    function sumOf(fam, f, options, unit) { var v = val(fam, f); var txt = options ? optLabel(options, v) : (v == null ? null : v + (unit ? ' ' + unit : '')); return valueSpan(txt, mod(fam, f) && v != null); }
     function paint() {
       body.textContent = '';
-      var own = data.own, eff = data.effective, kind = own.kind || eff.kind;
-      var YN = [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }];
-      body.appendChild(line('Construire ou progresser', 'kind', [{ value: 'projet', label: 'Construire' }, { value: 'progression', label: 'Progresser' }], own.kind, eff.kind));
+      var kind = val('nature', 'kind');
+      var KIND = [{ value: 'projet', label: 'Construire' }, { value: 'progression', label: 'Progresser' }];
+      var SENS = [{ value: 'monter', label: 'Monter' }, { value: 'descendre', label: 'Descendre' }, { value: 'maintenir', label: 'Maintenir' }];
+      var RYT = [{ value: 'regulier', label: 'Régulier' }, { value: 'espaces', label: 'Par paliers' }, { value: 'libre', label: 'À mon rythme' }];
+      var STR = [{ value: 'lineaire', label: 'Linéaire' }, { value: 'paliers', label: 'Par paliers' }, { value: 'libre', label: 'Libre' }];
+      var nat = [choice('nature', 'kind', 'Construire ou progresser', KIND)];
       if (kind === 'progression') {
-        body.appendChild(line('Monter, descendre, maintenir', 'sens', [{ value: 'monter', label: 'Monter' }, { value: 'descendre', label: 'Descendre' }, { value: 'maintenir', label: 'Maintenir' }], own.sens, eff.sens));
-        if (own.sens || eff.sens) {
-          body.appendChild(line('Ce qui progresse', 'famille', data.familles.map(function (f) { return { value: f.id, label: f.label }; }), own.famille, eff.famille));
-          if (own.famille || eff.famille) body.appendChild(line('Rythme', 'rythme', [{ value: 'regulier', label: 'Régulier' }, { value: 'espaces', label: 'Par paliers' }, { value: 'libre', label: 'À mon rythme' }], own.rythme, eff.rythme));
+        nat.push(choice('nature', 'sens', 'Monter, descendre, maintenir', SENS));
+        if (val('nature', 'sens')) {
+          nat.push(choice('nature', 'famille', 'Ce qui progresse', data.familles.map(function (f) { return { value: f.id, label: f.label }; })));
+          if (val('nature', 'famille')) { nat.push(choice('nature', 'rythme', 'Rythme', RYT)); nat.push(field('nature', 'unite', 'Unité', '', 'text')); nat.push(choice('nature', 'structure', 'Structure', STR)); }
         }
-      } else if (kind === 'projet') {
-        body.appendChild(line('Réparer l’existant d’abord', 'reformer', YN, own.reformer, eff.reformer));
-      }
-      var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
+      } else if (kind === 'projet') nat.push(choice('nature', 'reformer', 'Réparer l’existant d’abord', YN));
+      var DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(function (d, i) { return { value: i + 1, label: d }; });
+      var PH = [{ value: 'reformer', label: 'Réformer' }, { value: 'developper', label: 'Développer' }, { value: 'maintenir', label: 'Maintenir' }];
+      var DEC = [{ value: 'aucun', label: 'Aucun' }, { value: 'periodes', label: 'Périodes' }, { value: 'semaines', label: 'Semaines' }];
+      var NIV = [{ value: 'debutant', label: 'Débutant' }, { value: 'intermediaire', label: 'Intermédiaire' }, { value: 'avance', label: 'Avancé' }];
+      var MOD = [{ value: 'propose', label: 'Propose' }, { value: 'auto', label: 'Auto' }];
+      var FRQ = [{ value: 'hebdo', label: 'Chaque semaine' }, { value: 'mensuel', label: 'Chaque mois' }, { value: 'periode', label: 'Chaque période' }];
+      var modeFold = choice('ajustement', 'mode', 'Mode', MOD);
+      if (val('ajustement', 'mode') === 'auto') modeFold.lastChild.appendChild(el('p', 'hint', t('Auto : pas encore actif, Noèsis propose toujours.')));
+      body.appendChild(famille('nature', 'Nature', sumOf('nature', 'kind', KIND), nat));
+      body.appendChild(famille('temps', 'Temps', sumOf('temps', 'heuresSemaine', null, 'h'), [field('temps', 'heuresSemaine', 'Heures par semaine', 'h', 'num'), multi('temps', 'jours', 'Jours', DAYS)]));
+      body.appendChild(famille('taches', 'Tâches', sumOf('taches', 'parSemaine', null, '/sem'), [field('taches', 'parSemaine', 'Nombre par semaine', '', 'int'), field('taches', 'tailleMin', 'Taille (min)', 'min', 'int'), multi('taches', 'phases', 'Phases', PH), choice('taches', 'maintenance', 'Maintenance', YN)]));
+      body.appendChild(famille('objectifs', 'Objectifs', sumOf('objectifs', 'decoupage', DEC), [choice('objectifs', 'decoupage', 'Découpage', DEC), field('objectifs', 'jalons', 'Jalons', '', 'int')]));
+      body.appendChild(famille('personne', 'Personne', sumOf('personne', 'niveau', NIV), [choice('personne', 'niveau', 'Niveau', NIV), field('personne', 'dispoHeures', 'Disponibilités (h/sem)', 'h', 'num'), field('personne', 'contraintes', 'Contraintes', '', 'text')]));
+      body.appendChild(famille('ajustement', 'Ajustement', sumOf('ajustement', 'mode', MOD), [modeFold, choice('ajustement', 'frequence', 'Révision', FRQ), field('ajustement', 'ampleurMaxPct', 'Ampleur max (%)', '%', 'int'), rulesFold()]));
+      var msg = el('p', 'msg'); body.appendChild(msg);
     }
     if (open) load();
     return root;

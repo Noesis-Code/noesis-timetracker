@@ -3104,6 +3104,20 @@ button { -webkit-user-select: none; user-select: none; }
 .catStrategieV.inherited { color: var(--grey-violet); opacity: .7; }
 .catStrategieBody > .catStrategieL:last-of-type > .cmpSepRow::after { display: none; } /* R51 : pas de trait sous la dernière option */
 .catStrategieL > .catStrategieQ { padding: 8px 4px 12px; }
+/* Modèle modulable (19 nov. 2026) : familles imbriquées, valeur modifiée = violet clair + petit point, étiquette de règle (texte, aucune couleur nouvelle). Écarts de 8, 12 px. */
+.catStrategieQ.catStrategieF { padding-left: 12px; padding-right: 0; gap: 0; }
+.catStrategieF > .catStrategieL:last-of-type > .cmpSepRow::after, .catStrategieF > .catStrategieL:last-of-type > .catStrategieQ:empty { display: none; }
+.catStrategieV.modified::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: middle; }
+.catStrategieU { color: var(--grey-violet); }
+.catRevert { align-self: flex-start; background: none; border: 0; padding: 12px 0; font: inherit; font-size: 13px; color: var(--purple); text-decoration: underline; cursor: pointer; }
+.catRule.catRuleMine > .cmpSepRow { padding-right: 32px; }
+.catRule { position: relative; }
+.catRuleTitle { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.catRuleTitle small { font-size: 13px; color: var(--grey-violet); }
+.catRuleTag { font-size: 13px; color: var(--grey-violet); }
+.catRuleTag.off { opacity: .5; }
+.catStrategieQ .objTimeRow select, .catStrategieQ .objTimeRow input { width: auto; max-width: 60%; }
+.catStrategieQ .objTimeRow .objHoursVal input { width: 64px; text-align: right; }
 .catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .catEditForm .catNewPoleActions > .cmpRemove { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, comme les historiques */
