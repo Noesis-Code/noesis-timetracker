@@ -953,13 +953,13 @@
       var msg = el('p', 'tasksMsg objMsg');
       function sync() { stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
       panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
-      panelBody.appendChild(el('p', 'hint', o.activity.name + (o.isMacro ? '' : ' · ' + o.title))); // l'activité est affichée, jamais modifiable
       { // tous les paramètres de la création se modifient : titre (4 champs en haut : titre, description, date, heures)
         var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
         tIn.addEventListener('input', function () { form.title = tIn.value; sync(); }); panelBody.appendChild(field(tr('Titre'), tIn));
       }
       var guideBox = el('div', 'objGuide'); panelBody.appendChild(descHead('Description pour Noèsis', 'Sert à ranger tes tâches et à proposer des objectifs')); panelBody.appendChild(guideBox);
-      function paintG(f) { paintGuideInto(guideBox, form, function () { sync(); }, f); }
+      var restBox = el('div', 'objGuide'); // les six autres questions : sous « Avancé » (comme à la création)
+      function paintG(f) { paintGuideInto(guideBox, form, function () { sync(); }, f, 'main'); }
       paintG();
       var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
       dateIn.type = 'date'; dateIn.min = o.startDate; dateIn.value = form.endDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
@@ -985,9 +985,9 @@
         headA.setAttribute('aria-expanded', advOpenE ? 'true' : 'false');
         var txA = el('span', 'objGuideTxt'); txA.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
         headA.appendChild(txA); headA.appendChild(el('span', 'cmpChev' + (advOpenE ? ' open' : ''))); wrapA.appendChild(headA); advBox.appendChild(wrapA);
-        if (advOpenE) advBox.appendChild(advInner);
+        if (advOpenE) { advBox.appendChild(advInner); paintGuideInto(restBox, form, function () { sync(); }, undefined, 'rest'); }
       }
-      var dayBox = el('div'); advInner.appendChild(dayBox);
+      advInner.appendChild(restBox); var dayBox = el('div'); advInner.appendChild(dayBox);
       function durSentence(m) { return m < 60 ? m + ' min' : hh(m); }
       function byRefresh(hoursChanged) { // les heures par semaine ont changé : les jours reprennent la répartition par défaut (ou suivent proportionnellement les jours déjà réglés)
         window.clearTimeout(byTimer);
