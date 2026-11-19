@@ -847,10 +847,10 @@
   // S1 : une ligne par catégorie de la ligne touchée + Total ; toucher une catégorie = S2 dans le même pop-up : les membres qui ont du Chrono dans cette catégorie (fil « 2027 › TiMeTracker », ✕ ferme).
   // Données : POST /api/objectifs/allocation/repartition. Les responsables existent par activité mais aucun lien « membre sous son responsable » : liste simple de membres (marqués resp.).
   function openHeures(spec, row, label) {
-    var m = openModal(tr('Heures par semaine') + ' · ' + label), res = null;
+    var m = null, res = null; // le pop-up ne s'ouvre que s'il y a des données (19 nov. 2026, Émilien)
     function sum(rows, k) { var n = 0, any = false; rows.forEach(function (r) { if (r[k] != null) { n += r[k]; any = true; } }); return any ? n : null; }
     // Tableau commun aux deux écrans (mêmes classes que objTable) : nom | Chrono (objectif en cours seulement) | Objectif ; r.avant = texte déjà formaté, r.sub = petite ligne sous le nom
-    function table(rows, onTap, totalTxt, chrono) {
+    function table(rows, onTap, totalTxt, chrono, canTap) {
       var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
       head.appendChild(el('span', 'objGridName', '')); if (chrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif'))); body.appendChild(head);
       rows.forEach(function (r, i) {
@@ -858,7 +858,7 @@
         if (r.sub) { name.appendChild(document.createElement('br')); name.appendChild(el('small', 'objGridSub', r.sub)); }
         rowEl.appendChild(name); if (chrono) rowEl.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : TMT.ui.heures(r.chrono)));
         obj.appendChild(el('span', 'objGridAvant', r.avant)); rowEl.appendChild(obj);
-        if (onTap) { rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); }
+        if (onTap && (!canTap || canTap(i))) { rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); }
         body.appendChild(rowEl);
       });
       node.appendChild(body);
@@ -869,7 +869,7 @@
       m.head.textContent = ''; m.head.appendChild(el('p', 'sectionTitle', tr('Heures par semaine') + ' · ' + label));
       m.body.textContent = '';
       var cats = res.categories, total = sum(cats.map(function (c) { return { v: c.heuresMin }; }), 'v');
-      m.body.appendChild(table(cats.map(function (c) { return { label: c.label, chrono: c.chronoMin, avant: TMT.ui.heures(c.heuresMin) + (total && c.heuresMin != null ? ' · ' + Math.round(c.heuresMin * 100 / total) + ' %' : '') }; }), function (i) { s2(cats[i]); }, TMT.ui.heures(total), !!res.enCours));
+      m.body.appendChild(table(cats.map(function (c) { return { label: c.label, chrono: c.chronoMin, avant: TMT.ui.heures(c.heuresMin) + (total && c.heuresMin != null ? ' · ' + Math.round(c.heuresMin * 100 / total) + ' %' : '') }; }), function (i) { s2(cats[i]); }, TMT.ui.heures(total), !!res.enCours, function (i) { return (cats[i].membres || []).length > 0; }));
     }
     function s2(c) { // membres : réel (Chrono) contre prévu, et nombre de tâches attribuées, seulement pour un objectif en cours
       m.head.textContent = ''; var crumbs = el('nav', 'arCrumbs'), back = el('button', 'arCrumb', label); back.type = 'button'; back.addEventListener('click', s1);
@@ -878,7 +878,7 @@
       var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), sub: res.enCours && x.tasks ? x.tasks + ' ' + tr(x.tasks > 1 ? 'tâches' : 'tâche') : '', chrono: x.chronoMin, avant: TMT.ui.heures(x.plannedMin) }; });
       m.body.appendChild(table(rows, null, null, !!res.enCours));
     }
-    TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; s1(); }).catch(function () { m.close(); });
+    TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); }).catch(function () { if (m) m.close(); });
   }
   // POP-UP DES 4 SEMAINES d'une période (maquette C, 19 nov. 2026, Émilien) : le dernier niveau de l'arbre. Une ligne par semaine = un TITRE ; toucher la ligne déplie le titre et un DESCRIPTIF modifiable
   // que l'IA lit pour ranger les tâches dans la bonne semaine. Même gabarit que la fiche (panneau + Enregistrer décollé, R50) ; rien n'est écrit avant « Enregistrer ».
