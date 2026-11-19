@@ -25,6 +25,7 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
   - `journal/diagnostic-mesures-iphone.md` : mode diagnostic invisible (mesures de mise en page iPhone sur staging, `?diag=1`).
 - `simplifications/` : `propositions.md`, liste vivante unique des propositions de simplification (S1 à S15 et suivantes).
 - `fonctionnalites/` : `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier), `tiroir-taches.md` (tiroir des tâches mis de côté le 6 nov. 2026, code au repos dans `repos-tiroir/`).
+- [ia/strategie-modele.md](ia/strategie-modele.md) : stratégie d'une catégorie en modèle modulable (six familles, règles signal/seuil/action, défauts Noèsis, héritage, ce qui est actif).
 - `img/`, `maquettes/` : images et maquettes.
 - [legal/propositions-comptes-entreprise-2026-10-30.md](legal/propositions-comptes-entreprise-2026-10-30.md) : propositions de mise à jour des CGU et de la politique pour les comptes entreprise (à faire relire par un juriste)
 - [legal/adresses-publiques.md](legal/adresses-publiques.md) : adresses web publiques de la politique, des CGU et des mentions légales (App Store, Google Play), générées sans dupliquer le texte
