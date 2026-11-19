@@ -983,6 +983,7 @@
           row.appendChild(body);
         }
         list.appendChild(row);
+        if (isOpen) window.setTimeout(function () { row.scrollIntoView({ block: 'nearest' }); }, 0); // la ligne dépliée et ses questions restent visibles dans le panneau qui défile
       });
       sync();
     }

@@ -229,9 +229,10 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .respRow .respLevel { margin: 0; }
 
 /* Pop-up des 4 semaines (19 nov. 2026) : une ligne = un titre, trois questions à puces se déplient dessous ; aucun trait sous la dernière ligne (R51) ; titre sans bulle, « + » et ✕ standards */
-.objSemGen { margin-bottom: 12px; }
+.objSemGen { margin-bottom: 4px; flex: none; }
+.objSemGen:empty { display: none; }
 .objSemGenBtn { width: 100%; }
-.objSemList { border: 1px solid var(--glass-border); background: var(--glass-bg); border-radius: var(--radius-xl); overflow: hidden; }
+.objSemList { flex: none; border: 1px solid var(--glass-border); background: var(--glass-bg); border-radius: var(--radius-xl); overflow: hidden; }
 .objSemRow { border-bottom: 1px solid var(--glass-border); }
 .objSemRow:last-child { border-bottom: 0; }
 .objSemHead { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px 0 14px; color: var(--text); cursor: pointer; }

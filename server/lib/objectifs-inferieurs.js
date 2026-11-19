@@ -414,6 +414,19 @@ function appliquer(userId, body) {
   return { created, changed };
 }
 
+// Repli sans IA du bouton « Génère tes objectifs hebdomadaires » : une ligne par semaine encore vide de la période, titre « S47 · titre de l'objectif ».
+function weeksFallback(userId, body, today) {
+  const skip = { skip: true }, level = body.level;
+  const act = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
+  if (!act || !(body.rateMin > 0) || !O.isDay(body.endDate)) return skip;
+  const pk = level === 'activite' ? null : (body.poleKey || null), ck = level === 'secteur' ? (body.categoryKey || null) : null;
+  const weeks = weeksOfPeriod(body.startDate, body.endDate).filter((w) => w.endDate >= today), rows = liveRows(userId, act.id);
+  const out = weeks.filter((w) => !rows.some((r) => (r.level || 'activite') === level && (r.poleKey || null) === pk && (r.categoryKey || null) === ck && isWeeklyRow(r) && O.mondayOf(r.endDate) === w.ws)).map((w, i) => {
+    const row = { index: i, label: w.label, weeks: 1, start: w.ws, endDate: w.endDate, kind: 'nouveau', hoursMin: rq(body.rateMin), fromMin: null, checked: true, chiffre: null, existingId: null, existingTitle: null, poleKey: pk, categoryKey: ck, subs: [], choose: false };
+    setTitle(row, w.label + ' · ' + cleanText(body.title, 200)); return row;
+  });
+  return out.length ? { skip: false, level: 'semaine', parentLevel: level, rateMin: Math.round(body.rateMin), chiffre: null, rows: out, totalMin: out.reduce((t, r) => t + r.hoursMin, 0) } : skip;
+}
 // « Générer les inférieurs » d'un objectif EXISTANT (fiche de modification, 17 nov. 2026) : mêmes règles que la fin de la création (règle du trou, 8 lignes au plus, titres par l'IA dans le plafond du compte, heures prédites par l'IA, repli : heures du parent).
 // Rien n'est écrit : la personne valide, puis appliquer() crée seulement les lignes gardées. Jamais d'erreur affichée : sans proposition possible, { skip: true }.
 async function genererPour(userId, id, today) {
@@ -422,6 +435,12 @@ async function genererPour(userId, id, today) {
   const m = parseMeta(r), type = T.typeOfRow(r);
   if (!['pluriannuel', 'annuel', 'periodique'].includes(type)) return { skip: true };
   const hpw = Number(m.hoursPerWeek) > 0 ? Number(m.hoursPerWeek) : 1;
+  if (type === 'periodique') { // 19 nov. 2026 : un objectif périodique se décline en SES SEMAINES (pop-up des 4 semaines), pas dans le « trou » avant lui (qui renvoyait « Rien à proposer »)
+    const body = { type, title: r.title, description: m.description || '', activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, rateMin: Math.round(hpw * 60) };
+    const pl = await planWeekly(userId, body, today || require('./dates').userToday());
+    if (!pl.skip || process.env.ANTHROPIC_API_KEY) return pl;
+    return weeksFallback(userId, body, today || require('./dates').userToday()); // sans IA : titres « S47 · titre de l'objectif », descriptif vide (jamais de blocage)
+  }
   return planTrouRows(userId, { trou: true, parentId: r.parentId || undefined, type, title: r.title, description: m.description || '', activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, rateMin: Math.round(hpw * 60) }, today || require('./dates').userToday());
 }
 module.exports = { shortTitle, genererPour, FEATURE, weeksIn, casesOf, divideCumulative, divideAdditive, planHours, validate, plan, appliquer };
