@@ -292,8 +292,8 @@
     'Activités partagées': 'Shared activities',
     'Feuille de route': 'Roadmap',
     // Barre des volets (chantier B, 20 oct. 2026).
-    'Ajouter un onglet': 'Add a tab',
-    'Retirer de la barre': 'Remove from the bar',
+    'Ajouter un volet': 'Add a tab',
+    'Modifier l’arbre': 'Edit the tree',
     'Assistant IA': 'AI assistant',
     'Temps': 'Time',
     'Optionnel': 'Optional',

@@ -641,6 +641,11 @@ textarea {
 }
 .notifRow:last-child { border-bottom: none; }
 .notifRowLabel { font-size: 14px; color: var(--text); }
+/* Réglages > Modules : liste des volets réordonnable (poignée ≡ à gauche, libellé qui prend la place) ; .catDropLine se positionne dans la liste. */
+#modulesList { position: relative; }
+#modulesList .cmpAdd { margin-bottom: 8px; }
+.modulesRowLabel { flex: 1 1 auto; }
+.modulesRows .notifRow.dragging { opacity: .75; background: var(--card); }
 .toggleSwitch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
 .toggleSwitch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .toggleSwitchTrack {

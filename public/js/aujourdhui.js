@@ -53,7 +53,16 @@
   function viewKey() { return viewDay === 'all' ? 'all' : dayIso(); }
   function dayKind() { var d = dayIso(), t = localIso(); return d < t ? 'past' : d > t ? 'future' : 'today'; }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
+  // La zone d'écriture n'apparaît que par le bouton « + » de la barre des volets (18 nov. 2026, Émilien) ; une proposition ou l'étape Enregistrer d'Expansion la garde affichée.
+  var composerOpen = false;
+  function flowOn() { return !!dock && (dock.classList.contains('expSave') || (ui.proposal && !ui.proposal.classList.contains('hidden'))); }
+  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length && (composerOpen || flowOn()))); }
+  function setComposer(v) {
+    v = !!v; if (v === composerOpen) return;
+    composerOpen = v; syncDock();
+    if (v && dock) { dock.classList.remove('tasksDockIn'); void dock.offsetWidth; dock.classList.add('tasksDockIn'); if (ui.text) ui.text.focus(); } // apparition de droite à gauche (css/aujourdhui.css)
+    try { document.dispatchEvent(new CustomEvent('tmt:composer')); } catch (e) { /* vieux navigateur */ }
+  } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
   function build(container) {
     root = el('div', 'tasksToday');
     listBox = el('div', 'tasksPopList tasksTree');
@@ -1108,6 +1117,8 @@
       if (lastData) render(lastData);
     },
     syncDock: syncDock,
+    toggleComposer: function () { setComposer(!composerOpen); },
+    composerOpen: function () { return composerOpen; },
     // Arrivée depuis l'arbre des objectifs (TMT.ouvrirCalendrierTaches) : filtre posé sur ce pôle / secteur, calendrier au bon mois, puis la vue Tâches s'affiche. -> Promise<boolean> ; échec : le filtre d'avant est remis.
     openCalendar: function (o) {
       o = o || {}; if (o.activityId == null || !o.poleKey) return Promise.resolve(false);
@@ -1127,6 +1138,6 @@
       });
     },
     show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); syncCalendar(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; setComposer(false); resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
