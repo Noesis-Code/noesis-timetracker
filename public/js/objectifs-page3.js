@@ -946,18 +946,7 @@
       .catch(function (err) { daySend.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   // Fenêtre de l'objectif périodique : la carte et l'éditeur existants, avec les dates de la période (éditeur de dates existant).
-  // En haut de la page : « P12 » et l'état de réalisation de la période.
-  function renderGoalsTopLine(period) {
-    var ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
-    // Couleur DÉRIVÉE des semaines (le bouton P12 ne se clique pas) : toutes réussies = vert ; majorité non réussies = rouge ; sinon (mélange, partiel) = jaune.
-    if (ws.length) { var okN = ws.filter(function (w) { return w.status === 'atteint'; }).length, badN = ws.filter(function (w) { return w.status !== 'atteint' && w.status !== 'partiel'; }).length; st = okN === ws.length ? 'atteint' : badN * 2 > ws.length ? 'non_atteint' : 'partiel'; }
-    // Transparent tant que la période n'a pas commencé ou n'a aucune tâche ; sinon coloré.
-    var hasTasks = ws.some(function (w) { return w.taskTotal > 0; }), pState = period.startDate <= isoToday() && hasTasks ? st : null;
-    var tagHost = $('activityGoalsPeriodTitle'); tagHost.textContent = '';
-    tagHost.appendChild(TMT.ui.statusBtn('P' + TMT.calNums.period(period.startDate), pState)); // sans clic : suit ses semaines
-
-    // Le titre de l'objectif périodique ne s'affiche JAMAIS dans le volet Tâches (Émilien, 19 nov. 2026) : seul « P12 » reste ; le titre se lit dans l'arbre des Objectifs.
-  }
+  // Ni le numéro ni le titre de la période ne s'affichent en haut du volet Tâches (Émilien, 19 nov. 2026) : le numéro reste seulement à côté des lignes de semaines.
   // Changer de période : un seul contrôle (chevron ›) = période suivante (la dernière ramène à la première) ; le calendrier se pose sur son premier jour.
   $('goalsPeriodNext').addEventListener('click', function () {
     var ps = ((TMT.currentGoalsPlanning && TMT.currentGoalsPlanning.periods) || []).slice().sort(function (a, b) { return a.startDate < b.startDate ? -1 : 1; });
@@ -989,7 +978,6 @@
     var period = goalPeriodByNumber(TMT.currentGoalsPlanning, TMT.currentGoalsViewPeriodNumber);
     if (!period) return;
 
-    renderGoalsTopLine(period);
     renderGoalsMonthCal();
 
     // le nom de la catégorie se place désormais ici (en dessous de la
