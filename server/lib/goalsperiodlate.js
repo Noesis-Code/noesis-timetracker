@@ -48,7 +48,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectif_retards (
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const sum = (list) => list.reduce((s, t) => s + num(t.minutes), 0);
-const limiteDe = (cap) => Math.round(Math.max(0, num(cap)) * LIMITE);
+const limiteDe = (cap, limite) => Math.round(Math.max(0, num(cap)) * (limite == null ? LIMITE : limite));
 // Une tâche : { id, minutes, week (semaine actuelle, indice), dueDate?, ...rang (tier, maintType, estimatedMinutes, hasObjective, periodEnd, periodNumber, weekIndex, score?) }.
 const cmp = (a, b) => taskkind.comparePlacement(a, b);
 
@@ -56,13 +56,14 @@ const cmp = (a, b) => taskkind.comparePlacement(a, b);
 // ce qui dépasse passe à la semaine suivante (mêlé à ses tâches), en cascade ; après la dernière semaine (échéance de la période) : débordement.
 // Seule exception : une tâche seule, plus longue que la limite, entre dans une semaine vide (elle reste étalée sur plusieurs jours).
 // Renvoie { assign: { id: indice de semaine }, overflow: [tâches non placées] }.
-function placerSemaines(weeks, tasks) {
+function placerSemaines(weeks, tasks, limite) {
+  const lim_ = limite == null ? LIMITE : limite;
   const n = weeks.length, assign = {}, overflow = [];
   if (!n) return { assign, overflow: tasks.slice() };
   const buckets = weeks.map(() => []);
   tasks.forEach((t) => buckets[Math.min(n - 1, Math.max(0, Math.round(num(t.week))))].push(t));
   for (let w = 0; w < n; w += 1) {
-    const lim = limiteDe(weeks[w]);
+    const lim = limiteDe(weeks[w], lim_);
     let used = 0;
     buckets[w].sort(cmp).forEach((t) => {
       const m = num(t.minutes);
@@ -83,7 +84,8 @@ function evaluerRetard(input) {
   const capTotal = (p) => p.weeks.reduce((s, c) => s + num(c), 0);
   const clampW = (t, weeks) => Math.min(weeks.length - 1, Math.max(0, Math.round(num(t.week))));
   const cur = periods[0];
-  const r0 = placerSemaines(cur.weeks, cur.tasks);
+  const lim = input && input.limite; // capacité max d'une semaine (1,2 = 120 %), de la stratégie de la catégorie ; absente : le défaut de Noèsis
+  const r0 = placerSemaines(cur.weeks, cur.tasks, lim);
   const charge0 = cur.weeks.map(() => 0);
   cur.tasks.forEach((t) => {
     if (r0.assign[t.id] == null) return;
@@ -101,7 +103,7 @@ function evaluerRetard(input) {
     const existing = new Set(p.tasks.map((t) => t.id));
     const mixed = p.tasks.concat(carry);
     if (first) { out.depassementPct = pct(sum(mixed), capTotal(p)); first = false; }
-    const r = placerSemaines(p.weeks, mixed);
+    const r = placerSemaines(p.weeks, mixed, lim);
     const charge = p.weeks.map(() => 0);
     mixed.forEach((t) => {
       if (r.assign[t.id] == null) return;
@@ -120,12 +122,12 @@ function evaluerRetard(input) {
 }
 
 // PURE. Reprise des tâches retirées : chacune (dans l'ordre du classement) au premier créneau où elle tient dans les 120 % ; charges : minutes par période et par semaine (modifié).
-function reprendre(periods, charges, retirees) {
+function reprendre(periods, charges, retirees, limite) {
   const out = [];
   retirees.slice().sort(cmp).forEach((t) => {
     for (let i = 0; i < periods.length; i += 1) {
       for (let w = 0; w < periods[i].weeks.length; w += 1) {
-        const lim = limiteDe(periods[i].weeks[w]), used = charges[i][w], m = num(t.minutes);
+        const lim = limiteDe(periods[i].weeks[w], limite), used = charges[i][w], m = num(t.minutes);
         if (used + m <= lim || (used === 0 && lim > 0 && m > lim)) { charges[i][w] += m; out.push({ id: t.id, period: i, week: w }); return; }
       }
     }
@@ -219,12 +221,14 @@ function evaluerObjectif(userId, row, day, dayCaps) {
     });
     return { weeks: caps, tasks };
   });
-  const res = evaluerRetard({ periods });
+  const CS = require('./categorie-strategie'), regle = CS.regleActive(row.activityId, CS.keyOfObjective(row), 'retard-periode');
+  const limite = regle.actif ? 1 + regle.seuil / 100 : LIMITE; // règle désactivée : le défaut de Noèsis (le report ne peut pas s'arrêter)
+  const res = evaluerRetard({ periods, limite });
   const totalWeeks = wins.reduce((s, w) => s + w.length, 0) || 1;
   const total = sum(mine) + sum(theirs.filter((t) => t.dueDate <= plist[plist.length - 1].endDate));
-  const necessaire = Math.ceil(total / (LIMITE * totalWeeks)); // temps par semaine pour que tout rentre sous 120 % avant l'échéance de l'objectif
+  const necessaire = Math.ceil(total / (limite * totalWeeks)); // temps par semaine pour que tout rentre sous 120 % avant l'échéance de l'objectif
   return { ...res, objectifId: row.id, activityId: row.activityId, poleKey: row.poleKey || null, categoryKey: row.categoryKey || null, pole,
-    period: { n: plist[0].n, startDate: plist[0].startDate, endDate: plist[0].endDate }, wins, periods, mine, retired, tempsPoleMinutes: weekly, necessaireMinutes: necessaire };
+    period: { n: plist[0].n, startDate: plist[0].startDate, endDate: plist[0].endDate }, wins, periods, mine, retired, tempsPoleMinutes: weekly, necessaireMinutes: necessaire, limite };
 }
 
 const titreDe = (ev, id) => { const t = ev.mine.find((x) => x.id === id); return { id, titre: t ? t.label : '', minutes: t ? t.minutes : 0 }; };
@@ -267,7 +271,7 @@ function appliquer(userId, ev) {
   if (ev.decision === 'rentre' || ev.decision === 'report') { // de la place : les tâches retirées plus tôt sont reprises, par priorité
     const charges = ev.charges.map((c) => c.slice());
     const ranks = taskkind.rankInfoMany(ev.retired.map((t) => t.id), 0, (id) => (ev.retired.find((t) => t.id === id) || {}).minutes);
-    reprises = reprendre(ev.periods, charges, ev.retired.map((t) => ({ ...ranks[t.id], id: t.id, minutes: t.minutes })));
+    reprises = reprendre(ev.periods, charges, ev.retired.map((t) => ({ ...ranks[t.id], id: t.id, minutes: t.minutes })), ev.limite);
     placements = placements.concat(reprises);
   }
   ecrire(ev, placements, retirees);

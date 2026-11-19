@@ -31,7 +31,7 @@ Règle : `{ signal, seuil, duree, action, actif, label? }`. Règles Noèsis (id 
 | `retard-periode` | `retard_periode` : travail qui ne rentre pas dans la capacité d'une semaine | seuil 20 % (capacité 120 %), durée 0 | `reporter_suivante` | ACTIF (`goalsperiodlate.js`) |
 | `surcharge-jour` | `surcharge_jour` : charge d'un jour contre la référence | seuil 20 %, durée 0 | `marquer` | ACTIF (`goalsoverload.js`) |
 
-Un règle de l'utilisateur est enregistrée mais « pas encore active » (le moteur ne lit que les quatre règles Noèsis).
+Une règle de l'utilisateur est enregistrée mais « pas encore active » (le moteur ne lit que les quatre règles Noèsis).
 
 ## Inventaire des signaux (catalogue)
 Signal | unité | lu aujourd'hui par le moteur ?
@@ -52,7 +52,8 @@ Signal | unité | lu aujourd'hui par le moteur ?
 - 20 % durées planifiées : `server/lib/objectifs-ajuste.js:10` (`THRESHOLD`), test `:44`.
 - 120 % de capacité hebdomadaire (retard de période, report, reprise) : `server/lib/goalsperiodlate.js:17` (`LIMITE`), `:51`, `:65`, `:128`, `:225`.
 - 20 % de surcharge d'un jour : `server/lib/goalsoverload.js:126` (`TOLERANCE`), `:133`, `:210`.
-- Non câblés, stockés seulement : `MIN_OBSERVED_DAYS = 7` et `MIN_BUDGET_MINUTES = 60` (`goalsoverload.js:26,126`), `MARGIN = 1.15` et `HORIZON = 60` (`goalscarryover.js:10-11`), `MAX_TOURS = 3` (`objectifs-boucle.js:5`), `MIN_PROPOSITIONS = 8` (`objectifs-trou.js:10`), 80 % de durées identiques (`documenttasks.js:455`), `MAX_TASKS = 80` (`documenttasks.js:27`).
+- CÂBLÉS le 19 nov. 2026 (lecture de la valeur effective par catégorie ; défaut = constante, donc aucun changement sans modification) : 20 %, durée en semaines et activation de `chrono-ecart` (`objectifs-ecart.js`, `evaluate`) ; 20 % de `planifie-ecart` (`objectifs-ajuste.js`, `plannedFor`) ; capacité 1 + seuil/100 de `retard-periode` (`goalsperiodlate.js`, `evaluerObjectif` vers `evaluerRetard`/`reprendre`) ; tolérance de `surcharge-jour` (`goalsoverload.js`, `toleranceFor`). Une règle désactivée ne s'applique pas, sauf `retard-periode` (le report ne peut pas s'arrêter : retour au défaut).
+- Non câblés, stockés seulement : `RODAGE_DAYS = 14` (`objectifs-ecart.js:9`), `MIN_OBSERVED_DAYS = 7` et `MIN_BUDGET_MINUTES = 60` (`goalsoverload.js:26,126`), `MARGIN = 1.15` et `HORIZON = 60` (`goalscarryover.js:10-11`), `MAX_TOURS = 3` (`objectifs-boucle.js:5`), `MIN_PROPOSITIONS = 8` (`objectifs-trou.js:10`), 80 % de durées identiques (`documenttasks.js:455`), `MAX_TASKS = 80` (`documenttasks.js:27`).
 - 50 % (révision obligatoire) : RETIRÉ par Émilien le 10 nov. 2026 (un seul test, un seul message) ; aucune constante dans le code, donc aucun défaut inventé. Idem « 3 reports » : aucune constante trouvée.
 
 ## Actif / stocké

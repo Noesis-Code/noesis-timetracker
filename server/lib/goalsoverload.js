@@ -130,14 +130,16 @@ function referenceFor(activityId, userId, poleKey, nowMs) {
   let obs = null; try { obs = require('./efficiencyprofile').observedDailyMinutes(activityId, userId, minutesOfRow(activityId), nowMs); } catch (e) { obs = null; }
   return obs && obs.days >= MIN_OBSERVED_DAYS && obs.median > 0 ? Math.max(MIN_BUDGET_MINUTES, Math.round(obs.median)) : budget;
 }
-function isOverloaded(load, reference) { return load > reference * (1 + TOLERANCE); }
+function isOverloaded(load, reference, tolerance) { return load > reference * (1 + (tolerance != null ? tolerance : TOLERANCE)); }
+// Tolérance du jour de la catégorie (règle « surcharge-jour » de la stratégie) ; sans stratégie posée : TOLERANCE (20 %). Règle désactivée : défaut de Noèsis.
+function toleranceFor(activityId, key) { const r = require('./categorie-strategie').regleActive(activityId, key || '_', 'surcharge-jour'); return r.actif ? r.seuil / 100 : TOLERANCE; }
 // Secteurs/pôles dont la charge d'AUJOURD'HUI dépasse encore la tolérance (après rééquilibrage) : { clé: true }.
 function overloadMarks(userId, activityId) {
   const today = todayLocal(), marks = {};
   goals.categoriesForActivity(activityId).forEach((pole) => {
     const ref = referenceFor(activityId, userId, pole.key);
     const todays = loadTasks(activityId, ref, today, pole.key).filter((t) => !t.long && (t.dueDate < today ? today : t.dueDate) === today);
-    if (!isOverloaded(todays.reduce((s, t) => s + (t.maxMinutes || t.minutes), 0), ref)) return; // alerte : borne haute des durées
+    if (!isOverloaded(todays.reduce((s, t) => s + (t.maxMinutes || t.minutes), 0), ref, toleranceFor(activityId, pole.key))) return; // alerte : borne haute des durées
     marks[pole.key] = true; todays.forEach((t) => { if (t.category) marks[t.category] = true; });
   });
   return marks;
@@ -207,7 +209,7 @@ function buildProposal(userId, activityId, poleKey) {
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
   const budget = referenceFor(activityId, userId, poleKey); // référence adaptative au rythme tenu
   const tasks = loadTasks(activityId, budget, today, poleKey);
-  const p = computeProposal({ today, budgetMinutes: Math.round(budget * (1 + TOLERANCE)), tasks }); // dépassement léger (20 %) toléré, rien décalé en dessous
+  const p = computeProposal({ today, budgetMinutes: Math.round(budget * (1 + toleranceFor(activityId, poleKey))), tasks }); // dépassement léger (20 % par défaut, stratégie de la catégorie) toléré, rien décalé en dessous
   // Plafonds de temps : appliqués APRÈS le plan de surcharge, mêmes règles
   // (proposé seulement, dates posées par le moteur uniquement).
   const afterOverload = new Map();

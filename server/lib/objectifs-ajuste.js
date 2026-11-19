@@ -37,11 +37,11 @@ function periodKey(row, today) {
 }
 
 // PURE. Planifié par semaine (minutes) = somme des durées / semaines restantes ; fenêtre si plus de 20 % au-dessus du temps de l'objectif.
-function evaluatePlanned(totalMinutes, weeksLeft, hoursPerWeek) {
+function evaluatePlanned(totalMinutes, weeksLeft, hoursPerWeek, threshold) {
   const hpwMin = Math.round(Number(hoursPerWeek) * 60);
   if (!(hpwMin > 0) || !(totalMinutes > 0) || !(weeksLeft > 0)) return null;
   const perWeek = Math.ceil(totalMinutes / weeksLeft);
-  if (!(perWeek > hpwMin * (1 + THRESHOLD))) return null;
+  if (!(perWeek > hpwMin * (1 + (threshold != null ? threshold : THRESHOLD)))) return null;
   return { objectifMin: hpwMin, mesureMin: perWeek, pct: Math.round((perWeek - hpwMin) / hpwMin * 100) };
 }
 
@@ -53,7 +53,9 @@ function plannedFor(userId, row, today) {
   const tasks = require('./goalsperiodlate').taskRows(row.activityId, ids).filter((t) => !t.dueDate || t.dueDate <= row.endDate);
   const total = tasks.reduce((s, t) => s + (Number(t.minutes) || 0), 0);
   const weeksLeft = Math.max(1, Math.ceil((daysBetween(today, row.endDate) + 1) / 7));
-  return evaluatePlanned(total, weeksLeft, meta.hoursPerWeek);
+  const CS = require('./categorie-strategie'), reg = CS.regleActive(row.activityId, CS.keyOfObjective(row), 'planifie-ecart'); // seuil et activation de la stratégie de la catégorie
+  if (!reg.actif) return null;
+  return evaluatePlanned(total, weeksLeft, meta.hoursPerWeek, reg.seuil / 100);
 }
 
 function labelsOf(row) {

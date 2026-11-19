@@ -21,19 +21,21 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectif_ecart_refus (
 )`);
 
 // Les 4 dernières semaines COMPLÈTES (lundi à dimanche) avant la semaine en cours : [{ start, end }] de la plus ancienne à la plus récente.
-function lastWeeks(today) {
+function lastWeeks(today, n) {
   const m = mondayOf(today), out = [];
-  for (let i = WEEKS; i >= 1; i -= 1) out.push({ start: addDays(m, -7 * i), end: addDays(m, -7 * i + 6) });
+  for (let i = n || WEEKS; i >= 1; i -= 1) out.push({ start: addDays(m, -7 * i), end: addDays(m, -7 * i + 6) });
   return out;
 }
 // PUR. Évalue une unité : weeks = [{ planned (minutes), real (minutes) }] sur 4 semaines. -> null ou { direction: 'depasse' | 'sous', pct, deltaMin (moyenne par semaine, signée), realMin, plannedMin }.
-function evaluateWeeks(weeks) {
-  if (!Array.isArray(weeks) || weeks.length !== WEEKS || weeks.some((w) => !(w.planned > 0))) return null; // pas d'heures prévues une semaine : rien à comparer
+// opts (stratégie de la catégorie, règle « chrono-ecart ») : { threshold (fraction), weeks } ; sans opts : les défauts de Noèsis ci-dessus.
+function evaluateWeeks(weeks, opts) {
+  const TH = opts && opts.threshold != null ? opts.threshold : THRESHOLD, N = (opts && opts.weeks) || WEEKS;
+  if (!Array.isArray(weeks) || weeks.length !== N || weeks.some((w) => !(w.planned > 0))) return null; // pas d'heures prévues une semaine : rien à comparer
   const d = weeks.map((w) => (w.real - w.planned) / w.planned);
-  const over = d.every((x) => x > THRESHOLD), under = d.every((x) => x < -THRESHOLD);
+  const over = d.every((x) => x > TH), under = d.every((x) => x < -TH);
   if (!over && !under) return null; // pas quatre semaines de suite dans le même sens, de plus de 20 %
   const P = weeks.reduce((a, w) => a + w.planned, 0), R = weeks.reduce((a, w) => a + w.real, 0);
-  return { direction: over ? 'depasse' : 'sous', pct: Math.round(Math.abs(R - P) / P * 100), deltaMin: Math.round((R - P) / WEEKS), realMin: Math.round(R / WEEKS), plannedMin: Math.round(P / WEEKS) };
+  return { direction: over ? 'depasse' : 'sous', pct: Math.round(Math.abs(R - P) / P * 100), deltaMin: Math.round((R - P) / N), realMin: Math.round(R / N), plannedMin: Math.round(P / N) };
 }
 // Clés du Chrono d'une catégorie : un secteur est seul ; un pôle cumule ses secteurs ; l'activité (null) cumule tout.
 function keysOf(o) {
@@ -50,11 +52,13 @@ function realIn(userId, activityId, keys, start, end) {
 // Évaluation de tous les objectifs actifs du membre : { objectifId, titre, activityId, activite, level, poleKey, categoryKey, categorie, direction, pct, deltaMin, realMin, plannedMin }.
 function evaluate(userId, today) {
   today = today || require('./dates').userToday();
-  const goals = require('./goals'), weeks = lastWeeks(today), out = [];
+  const goals = require('./goals'), CS = require('./categorie-strategie'), out = [];
   db.prepare('SELECT * FROM user_objectives WHERE userId = ? AND isMacro = 0 AND endDate >= ? AND startDate <= ?').all(userId, today, today).forEach((o) => {
     const m = parseMeta(o), hpw = Number(m.hoursPerWeek); if (m.abandoned || !(hpw > 0)) return;
+    const reg = CS.regleActive(o.activityId, CS.keyOfObjective(o), 'chrono-ecart'); if (!reg.actif) return; // règle désactivée dans la stratégie de la catégorie
+    const nw = Math.max(1, reg.duree), weeks = lastWeeks(today, nw);
     const ws = weeks.map((w) => ({ planned: o.startDate <= w.end && o.endDate >= w.start && addDays(o.startDate, RODAGE_DAYS) <= w.start ? hpw * 60 : 0, real: realIn(userId, o.activityId, keysOf(o), w.start, w.end) }));
-    const ev = evaluateWeeks(ws); if (!ev) return;
+    const ev = evaluateWeeks(ws, { threshold: reg.seuil / 100, weeks: nw }); if (!ev) return;
     const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(o.activityId) || {};
     let cat = null; try { const k = o.level === 'secteur' ? o.categoryKey : o.level === 'pole' ? o.poleKey : null; cat = k ? goals.categoryLabelFor(o.activityId, k) : null; } catch (e) { cat = null; }
     out.push(Object.assign({ objectifId: o.id, titre: o.title, activityId: o.activityId, activite: act.name || '', level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, categorie: cat }, ev));
