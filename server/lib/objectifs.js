@@ -672,6 +672,7 @@ function creer(userId, body) {
   const niv = require('./objectifs-niveau').readAnswers(body.niveau, textlimits.clean, (m) => { throw err(m); }); if (niv) meta0.niveau = niv; const ty = typeof body.niveauType === 'string' ? textlimits.clean(body.niveauType, { max: 40, word: 'Type' }) : null; if (ty && !ty.error && ty.text) meta0.type = ty.text; // type court écrit par l'IA (similarité des objectifs) ; // trois réponses guidées + niveau déduit (débutant, intermédiaire, avancé), propre à cet objectif
   const sug = require('./objectifs-heures').readStored(body.suggestion); if (sug) meta0.suggestion = sug; // suggestion d'heures de l'IA (milieu, fourchette, facteur) gardée pour apprendre ; le choix de la personne = hoursPerWeek
   if (body.nature === 'maintenance' || body.nature === 'developpement') meta0.nature = body.nature; // choix facultatif de la personne (Avancé) : vide = l'IA décide en silence pour chaque tâche
+  if (body.resume) { const rs = String(body.resume).replace(/\s+/g, ' ').trim().slice(0, 300); if (rs) meta0.resume = rs; } // « Résumé » : relu en lecture seule par les niveaux inférieurs ; jamais lu par l'IA
   if (body.description) meta0.description = String(body.description).trim().slice(0, 900); // description libre de l'objectif (étape « Description »)
   if (algo) meta0.algo = { cas: algo.cas, parentId: algo.parent ? algo.parent.id : null, mur: algo.wall.why, depart: algo.start };
   if (body.dateFixe === true) meta0.dateFixe = true; // case « Date fixe » (algorithme v46) : mur et parent possible
@@ -895,7 +896,7 @@ function shape(r, full) {
     id: r.id, title: r.title, activity: { id: act.id, name: act.name, color: act.color },
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
     level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, category: meta.category || null,
-    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, bridgeFailed: !!meta.bridgeFailed, position: r.position == null ? null : r.position, description: meta.description || '',
+    periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, bridgeFailed: !!meta.bridgeFailed, position: r.position == null ? null : r.position, description: meta.description || '', resume: meta.resume || '',
     status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     taskProgress: tasks.length ? tasks.filter((t) => t.done).length / tasks.length : 0, taskCount: tasks.length, // JAUGE de l'arbre (18 nov. 2026, Émilien) : tâches attribuées FAITES / tâches attribuées ; aucune = 0 ; `progress` (semaines) reste celui du Bilan
@@ -1312,6 +1313,15 @@ function decrire(userId, id, text) {
   setImmediate(() => { expandHints(userId, r.id); });
   return get(userId, r.id);
 }
+// « Résumé » (300 au plus, retiré si vide) : métadonnée propre, aucune lecture par l'IA.
+function resumer(userId, id, text) {
+  const r = rowOf(userId, id), d = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+  if (d.length > 300) throw err('Résumé trop long (300 caractères au plus).');
+  const meta = JSON.parse(r.metaJson || '{}');
+  if (d) meta.resume = d; else delete meta.resume;
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+  return get(userId, r.id);
+}
 // E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
 function abandonner(userId, id, on) {
   const r = rowOf(userId, id), meta = JSON.parse(r.metaJson || '{}');
@@ -1349,4 +1359,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { liensDirects, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { resumer, liensDirects, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

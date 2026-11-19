@@ -108,6 +108,12 @@
     return { overlay: overlay, body: body, foot: foot, close: close, head: titleBox };
   }
   function field(label, node) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', label)); w.appendChild(node); return w; }
+  function resumeField(form, onChange) { // « Résumé » (sous « Avancé », facultatif, 300 au plus) : lu seulement par les responsables d'un niveau inférieur ; champ séparé de la Description, jamais lu par l'IA
+    var inp = el('input'); inp.type = 'text'; inp.maxLength = 300; inp.value = form.resume || ''; inp.setAttribute('aria-label', tr('Résumé pour les membres'));
+    inp.addEventListener('input', function () { form.resume = inp.value; if (onChange) onChange(); });
+    var w = field(tr('Résumé pour les membres'), inp); w.appendChild(el('p', 'hint', tr("Lu seulement par les responsables d'un niveau inférieur"))); return w;
+  }
+  function descHead(title, hint) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', tr(title))); if (hint) w.appendChild(el('p', 'hint', tr(hint))); return w; } // titre de bloc (+ aide d'une ligne) de la Description pour Noèsis
   function seg(options, current, onPick, label) {
     var s = el('div', 'cmpSeg'); s.setAttribute('role', 'group'); if (label) s.setAttribute('aria-label', label);
     options.forEach(function (o) {
@@ -332,7 +338,7 @@
       });
     }
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
-    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
+    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(descHead('Description pour Noèsis', 'Sert à ranger tes tâches et à proposer des objectifs')); boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
@@ -340,7 +346,7 @@
       head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
       var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
       head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
-      if (advOpen) { advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc, undefined, 'rest'); }
+      if (advOpen) { advBox.appendChild(descHead('Suite de la description pour Noèsis')); advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc, undefined, 'rest'); advBox.appendChild(resumeField(form)); }
     }
     function paintGuide(f) { paintGuideInto(mainBox, form, composeDesc, undefined, 'main'); if (advOpen) paintGuideInto(guideBox, form, composeDesc, f, 'rest'); }
     paintAdv();
@@ -809,7 +815,7 @@
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
             .then(function (activityId) {
-              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, dateFixe: form.dateFixe === true, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, resume: String(form.resume || '').trim() || undefined, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, dateFixe: form.dateFixe === true, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
             })
             .then(function (cr) { if (cr && cr.id) first = cr; });
         })
@@ -929,11 +935,11 @@
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
       var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
-      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0, dateFixe: o.dateFixe === true };
+      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0, dateFixe: o.dateFixe === true, resume: o.resume || '' };
       guideParse(form, o.description || '');
       var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
       if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
-      var orig = { title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim(), dateFixe: form.dateFixe };
+      var orig = { resume: String(o.resume || '').trim(), title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim(), dateFixe: form.dateFixe };
       function inner() { return multiOf(daysOf(form.endDate)) ? form.innerGoals : 'hebdomadaires'; }
       // Réglage « jour par jour » (volet « Avancé » sous les heures par semaine) : visible seulement si le Prévu diffère du Passé ; Σ des jours = heures par semaine, sinon « Enregistrer » reste grisé.
       var bd = o.byDay || null, byOrig = o.hoursByDay ? o.hoursByDay.slice() : null, byBase = bd ? (byOrig || bd.default.slice()) : null, byTimer = 0, byDirtyFlag = false, byLoading = false;
@@ -943,7 +949,7 @@
       function bySum() { return form.byDay ? form.byDay.reduce(function (a, b) { return a + b; }, 0) : 0; }
       function byOk() { return !byShow() || (!byLoading && bySum() === hoursMin()); }
       function byChanged() { return byShow() && JSON.stringify(form.byDay) !== JSON.stringify(byBase); }
-      function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || form.dateFixe !== orig.dateFixe || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || partDirty(); }
+      function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || form.dateFixe !== orig.dateFixe || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || String(form.resume || '').trim() !== orig.resume || partDirty(); }
       var msg = el('p', 'tasksMsg objMsg');
       function sync() { stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
       panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
@@ -952,7 +958,7 @@
         var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
         tIn.addEventListener('input', function () { form.title = tIn.value; sync(); }); panelBody.appendChild(field(tr('Titre'), tIn));
       }
-      var guideBox = el('div', 'objGuide'); panelBody.appendChild(guideBox);
+      var guideBox = el('div', 'objGuide'); panelBody.appendChild(descHead('Description pour Noèsis', 'Sert à ranger tes tâches et à proposer des objectifs')); panelBody.appendChild(guideBox);
       function paintG(f) { paintGuideInto(guideBox, form, function () { sync(); }, f); }
       paintG();
       var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
@@ -1020,7 +1026,7 @@
       }
       paintDays();
       var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
-      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); advInner.appendChild(field(tr('Ton niveau actuel'), sIn));
+      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); advInner.appendChild(field(tr('Ton niveau actuel'), sIn)); advInner.appendChild(resumeField(form, sync));
       // Parts d'un grand objectif (proportionnelles au temps prévu) : MODIFIABLES. Changer une part change le temps du sous-objectif et rééquilibre les autres (total constant) ; l'avant / après est montré
       // sous chaque ligne avant d'enregistrer ; « Enregistrer » applique le tout (serveur : une seule transaction).
       var partsBox = el('div', 'objField'), partRows = {}, partEdit = null, partPreview = null, partTimer = 0, partSeq = 0;
@@ -1082,6 +1088,7 @@
         if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
         if (form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
         if (guideCompose(form) !== orig.desc) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: guideCompose(form) }); });
+        if (String(form.resume || '').trim() !== orig.resume) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/resume', { resume: String(form.resume || '').trim() }); });
         if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
         calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim(), dateFixe: form.dateFixe }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
         stepBtn.disabled = true; msg.textContent = '';

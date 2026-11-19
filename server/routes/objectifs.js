@@ -59,6 +59,7 @@ router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.sema
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
 router.put('/objectifs/:id/colonnes-vides', run((req) => objectifs.setEmptyColumns(req.userId, req.params.id, (req.body || {}).emptyColumns)));
 router.put('/objectifs/:id/titre', run((req) => objectifs.renommer(req.userId, req.params.id, (req.body || {}).title)));
+router.put('/objectifs/:id/resume', run((req) => objectifs.resumer(req.userId, req.params.id, (req.body || {}).resume)));
 router.put('/objectifs/:id/description', run((req) => objectifs.decrire(req.userId, req.params.id, (req.body || {}).description)));
 router.post('/objectifs/:id/parts/apercu', run((req) => objectifs.changerPart(req.userId, req.params.id, req.body || {}, false)));
 router.put('/objectifs/:id/parts', run((req) => objectifs.changerPart(req.userId, req.params.id, req.body || {}, true)));
