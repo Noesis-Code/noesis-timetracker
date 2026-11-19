@@ -390,7 +390,7 @@
     function apply(on) {
       if (req !== goalsAddReq) return;
       goalsHasExpansion = on; btn.classList.remove('hidden');
-      btn.classList.toggle('barPaid', on); var tbp = document.querySelector('.tabbar .tabBtnAdd'); if (tbp && document.documentElement.classList.contains('tabbarHasPlus')) tbp.classList.toggle('barPaid', on);
+      btn.classList.toggle('barPaid', on);
       btn.setAttribute('aria-label', on ? t('Modifications proposées, nouvelles tâches et Drive') : t('Découvrir Expansion')); btn.title = btn.getAttribute('aria-label');
       if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, on);
     }
@@ -413,8 +413,8 @@
   TMT.setGoalsPage2Mode = setGoalsPage2Mode;
   // La page de l'activité laisse voir la barre habituelle de l'application (roue, profil) : classe sur <html> tant qu'elle est ouverte (CSS : .topbar passe au-dessus).
   // Un toucher sur la barre des volets (restée visible) ferme d'abord la page de l'activité, puis l'onglet choisi s'ouvre normalement.
-  (function () { var bar = document.querySelector('.tabbar'); if (bar) bar.addEventListener('click', function (e) { var de = document.documentElement; if (!de.classList.contains('goalsActOpen')) return; if (de.classList.contains('tabbarHasPlus') && e.target.closest && e.target.closest('.tabBtnAdd')) { e.preventDefault(); e.stopPropagation(); var pb = $('goalsPage2AddBtn'); if (pb) pb.click(); return; } TMT.showGoalsCapturePage(); }, true); })(); // le « + » déjà présent dans la barre sert à Expansion dans l'activité ; tout autre toucher ferme l'activité
-  (function () { var sw = $('goalsActivitySwitcher'); if (!sw || typeof MutationObserver !== 'function') return; function sync() { var de = document.documentElement, open = !sw.classList.contains('hidden'), was = de.classList.contains('goalsActOpen'), tb = document.querySelector('.tabbar .tabBtnAdd'); if (open && !was) { de.classList.toggle('tabbarHasPlus', !!tb && getComputedStyle(tb).display !== 'none'); if (tb) tb.dataset.wasPaid = tb.classList.contains('barPaid') ? '1' : ''; } if (!open && was && tb && de.classList.contains('tabbarHasPlus')) tb.classList.toggle('barPaid', tb.dataset.wasPaid === '1'); de.classList.toggle('goalsActOpen', open); } new MutationObserver(sync).observe(sw, { attributes: true, attributeFilter: ['class'] }); sync(); })();
+  (function () { var bar = document.querySelector('.tabbar'); if (bar) bar.addEventListener('click', function (e) { var de = document.documentElement; if (!de.classList.contains('goalsActOpen')) return; TMT.showGoalsCapturePage(); }, true); })(); // un toucher sur la barre ferme l'activité
+  (function () { var sw = $('goalsActivitySwitcher'); if (!sw || typeof MutationObserver !== 'function') return; function sync() { document.documentElement.classList.toggle('goalsActOpen', !sw.classList.contains('hidden')); } new MutationObserver(sync).observe(sw, { attributes: true, attributeFilter: ['class'] }); sync(); })();
 
   // voir
   // le commentaire du bouton dans index.html. Déplacé ici depuis

@@ -43,16 +43,6 @@
 @supports (backdrop-filter: url(#tabLens)) {
   :root[data-theme] .tabbar .tabBtn.active::before { backdrop-filter: url(#tabLens) blur(.4px) saturate(1.1); }
 }
-/* Ajout direct (demande d'Émilien, 25 oct. 2026) : le « + » déploie dans la barre les volets pas encore installés, en cercles pointillés ; un « + » vert (le vert « atteint ») remplace la croix rouge ; un tap installe le volet. */
-:root[data-theme] .tabbar .tabBtn.barGhost { display: flex; flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; border: 1.5px dashed var(--cmp-dash); }
-.tabbar.barSolo.barAdding .tabbarPill { display: flex; }
-:root[data-theme] .tabbar.barEdit .tabBtn.barGhost { border-style: dashed; } /* en mode ajout, les volets absents restent en pointillés */
-.tabbar .barPlus { position: absolute; top: -2px; right: -2px; }
-.cmpAddBadge {
-  flex-shrink: 0; width: 13px; height: 13px; box-sizing: border-box; border-radius: 50%; pointer-events: none;
-  background-color: var(--good); background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M6.5 3.2v6.6M3.2 6.5h6.6' stroke='%2315111C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-}
 /* Retirés de la barre : Stats et Activité (leurs contenus migrent, chantier B) ; onglets non ajoutés. */
 .tabbar .tabBtn[data-tab="stats"], .tabbar .tabBtn[data-tab="activity"], .tabbar .tabBtn.barOut { display: none; }
 
@@ -62,43 +52,20 @@
   align-items: center; justify-content: center;
   border: 1.5px dashed var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
 }
-/* Un seul volet restant (règle Q1) : la barre ne montre que le « + », même cercle pointillé gris, calé à droite. */
 /* Profil : seulement avec le volet Communauté dans la barre. */
 html.noCommunityBar #whoami { display: none; }
-.tabbar.barSolo .tabbarPill { display: none; }
-.tabbar.barSolo .tabBtnAdd { margin-left: auto; }
-/* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
-.tabbar .tabBtnAdd.barPaid, .barAddBtn.barPaid {
+/* Variante « extension payée » (« + » d'Expansion de la page d'une activité) : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
+.barAddBtn.barPaid {
   border: 1px solid rgba(243, 238, 232, .2); color: var(--text, #F3EEE8);
   background: linear-gradient(180deg, rgba(243, 238, 232, .16), rgba(243, 238, 232, .07));
   box-shadow: inset 0 1px 0 rgba(243, 238, 232, .25);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
 .tabbar .tabBtnAdd svg, .barAddBtn svg { width: 22px; height: 22px; }
+/* Bouton d'action enfoncé (zone d'écriture ouverte, mode édition de l'arbre actif) : le verre de l'onglet actif (jetons --glass-*), sans nouvelle couleur. */
+.tabbar .tabBtnAdd[aria-pressed="true"] { border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text, #F3EEE8); }
 
-/* Mode édition (appui long ; demande d'Émilien, 25 oct. 2026) : chaque volet, même l'actif, dans un cercle plein de la taille du « + » pointillé (52 px), sans ovale ; ils tremblent et la petite croix rouge apparaît en haut à droite (R12, R18). */
-.tabbar.barEdit .tabbarPill { justify-content: space-evenly; padding: 0; }
-:root[data-theme] .tabbar.barEdit .tabBtn,
-:root[data-theme] .tabbar.barEdit .tabBtn.active {
-  flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; background: none; box-shadow: none;
-  border: 1.5px solid var(--cmp-dash);
-  -webkit-backdrop-filter: none; backdrop-filter: none;
-}
-/* L'ovale du volet actif rétrécit et se referme en rond : il devient lui-même le cercle de ce volet. */
-:root[data-theme] .tabbar.barEdit .tabBtn.active { border-color: transparent; }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::before { top: 0; bottom: 0; background-color: transparent; border: 1.5px solid var(--cmp-dash); }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
-.tabbar.barEdit .tabBtn { transform: rotate(2deg); animation: tabJiggle .26s ease-in-out infinite alternate; }
-.tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); animation-delay: -.13s; }
 @keyframes tabJiggle { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg); } }
-.tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; animation: none; scale: 1.08; box-shadow: none; }
-.tabbar .barX {
-  position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
-}
-/* Zone de toucher de la croix : 44 px (R25, composant .cmpRemove). Elle recouvre l'icône : un glisser qui commence sur la croix déplace l'icône (barre-volets.js), seul un tap court retire. */
-.tabbar .tabBtn.dragging .barX { display: none; }
-
-
 /* Pages de statistiques à gauche de Chrono / de la Feuille de route : le geste de glissement doit marcher aussi dans la zone vide sous le contenu. */
 #tab-chrono, #tab-stats, #tab-goals { min-height: 70vh; }
 
