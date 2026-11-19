@@ -1,10 +1,10 @@
 /* Barre des volets (chantier B, 20 oct. 2026 ; R18 de docs/regles/regles-rangement.md).
- * Barre fixe, toujours visible : pilule de 4 icônes au plus, centrées et réparties ; le « + » à droite est le BOUTON D'ACTION du volet affiché
+ * Barre fixe, toujours visible : pilule de 5 icônes au plus, centrées et réparties ; le « + » à droite est le BOUTON D'ACTION du volet affiché
  * (18 nov. 2026, Émilien) et n'existe que là où il a une action : volet Tâches = fait apparaître la zone d'écriture d'une nouvelle tâche ;
  * volet Objectifs = bascule le mode édition de l'arbre (TMT.objectifsArbre.setEdit) ; partout ailleurs il est absent.
  * Tâches et Objectifs sont DEUX volets indépendants (18 nov. 2026) ; l'ancien volet « Feuille de route » (identifiant « goals ») est migré en Tâches + Objectifs aux mêmes places.
  * Plus d'appui long ni de « + » d'ajout : ajouter, retirer et ordonner les volets se fait UNIQUEMENT dans Réglages > Modules (js/modules.js, via TMT.navBar).
- * Règle Q1 : au moins un des volets Chrono, Tâches, Objectifs ou Horaire reste dans la barre ; 4 volets visibles au plus, le reste défile.
+ * Règle Q1 : au moins un des volets Chrono, Tâches, Objectifs ou Horaire reste dans la barre ; 5 volets visibles au plus (18 nov. 2026), le reste défile.
  * L'ordre est mémorisé par compte (localStorage) ; l'app s'ouvre sur l'onglet le plus à gauche (modules.js → TMT.navBar.firstTab).
  * Trade Tracker est un onglet ajoutable : l'ajouter connecte le module « trade » (TMT.modules.setTrade).
  * 26 oct. 2026 (Émilien) : volet Horaire (module « horaire »). */
@@ -62,8 +62,8 @@
       b.tabIndex = on ? 0 : -1;
     });
     var nShown = visibleOrder().length;
-    pill.classList.toggle('barScroll', nShown > 4); // plus de 4 volets : 4 visibles, le reste défile
-    var act = pill.querySelector('.tabBtn.active'); if (act && nShown > 4 && act.scrollIntoView) { try { act.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) { /* navigateur ancien */ } }
+    pill.classList.toggle('barScroll', nShown > 5); // plus de 5 volets : 5 visibles, le reste défile (rien ne disparaît)
+    var act = pill.querySelector('.tabBtn.active'); if (act && nShown > 5 && act.scrollIntoView) { try { act.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) { /* navigateur ancien */ } }
     syncAction();
   }
 
@@ -83,14 +83,12 @@
     if (kind === 'tasks') return !!(TMT.todayView && TMT.todayView.composerOpen && TMT.todayView.composerOpen());
     return kind === 'tree' && treeEdit;
   }
-  var paid = false, paidAsked = false;
   var LABELS = { tasks: 'Nouvelle tâche', tree: 'Modifier l’arbre' };
   function syncAction() {
     var kind = actionKind();
     addBtn.classList.toggle('barNoAdd', !kind);
     if (!kind) { addBtn.removeAttribute('aria-pressed'); return; }
     addBtn.setAttribute('aria-label', tr(LABELS[kind]));
-    if (TMT.expansionPaid && !paidAsked) { paidAsked = true; TMT.expansionPaid().then(function (on) { paidAsked = false; if (on !== paid) { paid = on; addBtn.classList.toggle('barPaid', on); } }); } // R17 bis : verre fort si Expansion payée, sinon pointillé gris
     addBtn.setAttribute('aria-pressed', pressed(kind) ? 'true' : 'false');
   }
   addBtn.addEventListener('click', function () {
