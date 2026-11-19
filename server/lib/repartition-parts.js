@@ -2,8 +2,7 @@
 // Une catégorie (activité '', pôle, secteur) peut porter des PARTS en pour cent par membre (« toi 60 %, Gaspard 40 % »).
 //  - HÉRITAGE : une catégorie sans réponse reprend la part de la catégorie du dessus.
 //  - CALCUL : la part d'une catégorie = moyenne des parts de ses sous-catégories PONDÉRÉE par leur temps alloué ; elle doit retomber sur la part de la catégorie du dessus.
-//  - ÉQUILIBRAGE : quand une part change, on PROPOSE d'ajuster les autres sous-catégories (même parent) pour retomber sur la part du dessus.
-//    Impossible (moins de 0 % ou plus de 100 % quelque part) : aucune erreur, on propose de modifier la part de la catégorie du dessus.
+//  - COORDINATION (19 nov. 2026) : quand les parts d'un niveau changent, on PROPOSE d'ajuster les niveaux INFÉRIEURS ; jamais l'inverse.
 // nodes : [{ key, parent (clé du dessus ; null pour l'activité), minutes (temps alloué, 0 si aucun), own: { userId: pct } | null }] ; l'activité a la clé ''.
 const EPS = 0.5; // tolérance en points (les parts affichées sont entières)
 
@@ -44,32 +43,15 @@ function round100(shares, members) {
 }
 const same = (a, b, members) => members.every((u) => Math.abs((a[u] || 0) - (b[u] || 0)) < EPS);
 
-// Après le changement de la part de changedKey : { statut: 'rien' | 'ok' | 'proposition' | 'impossible', lignes: [{ key, avant, apres }], suggestion?: { key, avant, apres } }.
-//  - 'ok' : la moyenne pondérée retombe déjà sur la part du dessus ; 'proposition' : lignes à valider une à une (les autres sous-catégories du même dessus) ;
-//  - 'impossible' : aucun ajustement des autres ne suffit ; suggestion = modifier la part de la catégorie du dessus (activité comprise) pour qu'elle suive la moyenne.
+// Après le changement des parts de changedKey (19 nov. 2026, règle d'Émilien : le niveau SUPÉRIEUR change les niveaux inférieurs, JAMAIS l'inverse) : { statut: 'rien' | 'ok' | 'proposition', lignes: [{ key, avant, apres }] }.
+//  - on PROPOSE d'ajuster les niveaux INFÉRIEURS (sous-catégories de tous rangs) qui ont leurs propres parts et qui diffèrent : chaque ligne se valide ou se refuse ; ceux qui n'ont rien reprennent déjà la part du dessus ;
+//  - modifier un niveau inférieur ne propose jamais de modifier le niveau supérieur (ni les catégories voisines).
 function ajuster(nodes, members, changedKey) {
   const m = byKey(nodes), ch = m[changedKey];
-  if (!ch || ch.parent == null || !m[ch.parent] || members.length < 2) return { statut: 'rien', lignes: [] };
-  const parentKey = ch.parent, target = effective(nodes, parentKey);
-  if (!target) return { statut: 'rien', lignes: [] };
-  const T = target.shares, kids = childrenOf(nodes, parentKey);
-  const cur = computed(nodes, parentKey, members);
-  if (cur && same(cur, T, members)) return { statut: 'ok', lignes: [] };
-  const w = weightsOf(kids), W = w.reduce((a, b) => a + b, 0);
-  const iCh = kids.findIndex((k) => k.key === changedKey), eCh = effective(nodes, changedKey);
-  const wo = W - w[iCh];
-  const q = {}; let possible = wo > 0 && !!eCh;
-  members.forEach((u) => { if (!possible) return; q[u] = (W * (T[u] || 0) - w[iCh] * (eCh.shares[u] || 0)) / wo; if (q[u] < -1e-9 || q[u] > 100 + 1e-9) possible = false; });
-  if (!possible) {
-    const apres = round100(cur || T, members), avant = {}; members.forEach((u) => { avant[u] = T[u] || 0; });
-    return { statut: 'impossible', lignes: [], suggestion: { key: parentKey, avant, apres } };
-  }
-  const apres = round100(q, members), lignes = [];
-  kids.forEach((k) => {
-    if (k.key === changedKey) return;
-    const e = effective(nodes, k.key), avant = e ? e.shares : {};
-    if (!e || !same(avant, apres, members)) { const a = {}; members.forEach((u) => { a[u] = avant[u] || 0; }); lignes.push({ key: k.key, avant: a, apres: Object.assign({}, apres) }); }
-  });
+  if (!ch || members.length < 2 || !hasOwn(ch)) return { statut: 'rien', lignes: [] };
+  const apres = round100(ch.own, members), lignes = [];
+  const walk = (key, guard) => { if (guard > 10) return; childrenOf(nodes, key).forEach((k) => { if (hasOwn(k) && !same(k.own, apres, members)) { const av = {}; members.forEach((u) => { av[u] = k.own[u] || 0; }); lignes.push({ key: k.key, avant: av, apres: Object.assign({}, apres) }); } walk(k.key, guard + 1); }); };
+  walk(changedKey, 0);
   return { statut: lignes.length ? 'proposition' : 'ok', lignes };
 }
 

@@ -21,11 +21,27 @@ db.exec(`CREATE TABLE IF NOT EXISTS category_share_refusals (
   PRIMARY KEY (activityId, signature)
 )`);
 
+db.exec(`CREATE TABLE IF NOT EXISTS task_share_pct (
+  activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pct INTEGER NOT NULL,
+  PRIMARY KEY (activityId, userId)
+)`); // ancien bloc « Part des tâches (%) » : table gardée (lecture pour la migration), même définition que bilan.js
+
+try { db.exec('ALTER TABLE category_shares ADD COLUMN hours REAL'); } catch (e) { /* colonne déjà là */ } // 19 nov. 2026 : heures par semaine de chaque membre (le pourcentage en est calculé) ; NULL = parts sans heures (anciennes données, lignes acceptées)
+
+db.exec('CREATE TABLE IF NOT EXISTS task_share_pct_migre (activityId INTEGER PRIMARY KEY)');
+
 const storeKey = (key) => (key === '_' || key == null ? '' : String(key));
 const bad = (m) => Object.assign(new Error(m), { statusCode: 400 });
 
 function membres(activityId) {
   return db.prepare('SELECT u.id AS userId, u.name AS name FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY COALESCE(am.position, 0), am.joinedAt, u.id').all(activityId);
+}
+function tableHours(activityId) {
+  const out = {};
+  db.prepare('SELECT key, userId, hours FROM category_shares WHERE activityId = ? AND hours IS NOT NULL').all(activityId).forEach((r) => { (out[r.key] = out[r.key] || {})[r.userId] = r.hours; });
+  return out;
 }
 function tableOwn(activityId) {
   const out = {};
@@ -48,12 +64,12 @@ function noeuds(activityId) {
 const ids = (activityId) => membres(activityId).map((m) => m.userId);
 const signature = (key, apres) => storeKey(key) + '|' + Object.keys(apres).sort().map((u) => u + ':' + apres[u]).join(',');
 
-function ecrire(activityId, key, shares) {
+function ecrire(activityId, key, shares, hours) {
   const k = storeKey(key), now = new Date().toISOString();
   db.exec('BEGIN');
   try {
     db.prepare('DELETE FROM category_shares WHERE activityId = ? AND key = ?').run(activityId, k);
-    if (shares) Object.keys(shares).forEach((u) => db.prepare('INSERT INTO category_shares (activityId, key, userId, pct, updatedAt) VALUES (?, ?, ?, ?, ?)').run(activityId, k, u, shares[u], now));
+    if (shares) Object.keys(shares).forEach((u) => db.prepare('INSERT INTO category_shares (activityId, key, userId, pct, updatedAt, hours) VALUES (?, ?, ?, ?, ?, ?)').run(activityId, k, u, shares[u], now, hours && hours[u] != null ? hours[u] : null));
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
@@ -68,25 +84,44 @@ function valider(activityId, shares) {
   return out;
 }
 
-// Lecture d'une catégorie : parts propres, parts en vigueur (héritées sinon), moyenne calculée des sous-catégories.
-function lire(activityId, key) {
+// Heures saisies -> { hours (1 décimale), shares (pour cent, total 100) } ; au moins une heure > 0.
+function depuisHeures(activityId, hours) {
+  const ms = ids(activityId);
+  if (ms.length < 2) throw bad('La répartition existe seulement pour une activité à plusieurs membres.');
+  if (!hours || typeof hours !== 'object') throw bad('Heures invalides.');
+  const h = {};
+  Object.keys(hours).forEach((u) => { if (!ms.includes(u)) throw bad('Membre inconnu.'); const v = Number(String(hours[u]).replace(',', '.')); if (!Number.isFinite(v) || v < 0 || v > 1000) throw bad('Les heures vont de 0 à 1000.'); h[u] = Math.round(v * 10) / 10; });
+  ms.forEach((u) => { if (h[u] == null) h[u] = 0; });
+  const total = ms.reduce((s, u) => s + h[u], 0); if (!(total > 0)) throw bad('Le total des heures doit être supérieur à 0.');
+  const brut = {}; ms.forEach((u) => { brut[u] = h[u] * 100 / total; });
+  return { hours: h, shares: P.round100(brut, ms) };
+}
+
+// Lecture d'une catégorie : parts propres, parts en vigueur (héritées sinon), moyenne calculée des sous-catégories ; heures propres / héritées ; pour un pôle sans heures, le temps prévu déjà saisi (member-times) en repli.
+function lire(activityId, key, userId) {
+  migrerPartsSaisies(activityId);
   const nodes = noeuds(activityId), ms = membres(activityId), k = storeKey(key), me = nodes.find((n) => n.key === k);
   const eff = P.effective(nodes, k), cal = P.computed(nodes, k, ms.map((m) => m.userId));
   const round = (o) => (o ? P.round100(o, ms.map((m) => m.userId)) : null);
-  return { multi: ms.length > 1, membres: ms, own: me && me.own ? me.own : null, effective: eff ? eff.shares : null, origine: eff ? (eff.origin === k ? 'propre' : (eff.origin === '' ? 'activité' : 'pôle')) : null, calculee: round(cal) };
+  const th = tableHours(activityId), ownHours = th[k] || null, effHours = eff && eff.origin !== k ? (th[eff.origin] || null) : null;
+  let planned = null;
+  if (!ownHours && me && me.parent === '' && userId) { // niveau pôle : le temps prévu par semaine déjà saisi (Temps prévu, retiré de la fiche) initialise les heures
+    try { const t = require('./tempsmembres').tableFor(activityId, userId), lv = ((t && t.levels) || []).find((l) => l.key === k), o = {}; ((lv && lv.rows) || []).forEach((r) => { if (r.plannedMin > 0) o[r.userId] = Math.round(r.plannedMin / 6) / 10; }); if (Object.keys(o).length) planned = o; } catch (e) { planned = null; }
+  }
+  return { multi: ms.length > 1, membres: ms, hours: ownHours, effectiveHours: effHours, plannedHours: planned, own: me && me.own ? me.own : null, effective: eff ? eff.shares : null, origine: eff ? (eff.origin === k ? 'propre' : (eff.origin === '' ? 'activité' : 'pôle')) : null, calculee: round(cal) };
 }
 
 // Pose (ou efface, shares null) les parts d'une catégorie, puis calcule l'équilibrage : { lecture, proposition: { statut, lignes, suggestion } } ; les lignes déjà refusées ne reviennent pas.
-function poser(activityId, key, shares) {
+function poser(activityId, key, shares, hours, userId) {
   const k = storeKey(key);
-  if (shares == null) ecrire(activityId, k, null); else ecrire(activityId, k, valider(activityId, shares));
+  if (hours != null) { const d = depuisHeures(activityId, hours); ecrire(activityId, k, d.shares, d.hours); shares = d.shares; } // heures + pourcentages calculés
+  else if (shares == null) ecrire(activityId, k, null); else ecrire(activityId, k, valider(activityId, shares));
   const nodes = noeuds(activityId), ms = ids(activityId);
   const prop = shares == null ? { statut: 'rien', lignes: [] } : P.ajuster(nodes, ms, k);
   const refus = new Set(db.prepare('SELECT signature FROM category_share_refusals WHERE activityId = ?').all(activityId).map((r) => r.signature));
   const nom = (key) => (nodes.find((n) => n.key === key) || {}).label || '';
   const lignes = (prop.lignes || []).filter((l) => !refus.has(signature(l.key, l.apres))).map((l) => Object.assign({ nom: nom(l.key) }, l));
-  const suggestion = prop.suggestion && !refus.has(signature(prop.suggestion.key, prop.suggestion.apres)) ? Object.assign({ nom: nom(prop.suggestion.key) }, prop.suggestion) : null;
-  return { lecture: lire(activityId, k), proposition: { statut: prop.statut === 'proposition' && !lignes.length ? 'ok' : (prop.statut === 'impossible' && !suggestion ? 'rien' : prop.statut), lignes, suggestion } };
+  return { lecture: lire(activityId, k, userId), proposition: { statut: prop.statut === 'proposition' && !lignes.length ? 'ok' : prop.statut, lignes } };
 }
 // Lignes ACCEPTÉES une à une : [{ key, apres }] ; chacune est écrite telle que montrée. Refusées : mémorisées pour ne pas être reproposées.
 function appliquer(activityId, userId, acceptees, refusees) {
@@ -111,4 +146,19 @@ function partsEnVigueur(activityId, categoryKey, poleKey) {
   } catch (err) { return null; }
 }
 
-module.exports = { lire, poser, appliquer, partsEnVigueur, membres, noeuds, signature };
+// Parts DEMANDÉES de l'activité (niveau « _ ») : lues par la comparaison du Bilan (« Proportion réelle contre demandée »). null sans répartition posée.
+function partsActivite(activityId) { return tableOwn(activityId)[''] || null; }
+// Migration sans perte (19 nov. 2026) : l'ancien bloc « Part des tâches (%) » (task_share_pct) est fusionné dans la Répartition des tâches. Sans répartition au niveau « _ », les parts déjà saisies y sont copiées
+// (ramenées à 100 % si leur total était inférieur) ; la table d'origine n'est jamais effacée. Retourne true si une copie a eu lieu.
+function migrerPartsSaisies(activityId) {
+  try {
+    const ms = ids(activityId); if (ms.length < 2 || partsActivite(activityId) || db.prepare('SELECT 1 FROM task_share_pct_migre WHERE activityId = ?').get(activityId)) return false;
+    const rows = db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(activityId).filter((r) => ms.includes(r.userId) && r.pct > 0);
+    const total = rows.reduce((s, r) => s + r.pct, 0); if (!total) return false;
+    const brut = {}; rows.forEach((r) => { brut[r.userId] = r.pct * 100 / total; });
+    ecrire(activityId, '', P.round100(brut, ms)); db.prepare('INSERT OR IGNORE INTO task_share_pct_migre (activityId) VALUES (?)').run(activityId); return true; // marqué : « Reprendre celle du dessus » ne ressuscite pas l'ancienne saisie
+  } catch (e) { return false; }
+}
+function migrerToutes() { try { db.prepare('SELECT DISTINCT activityId FROM task_share_pct').all().forEach((r) => migrerPartsSaisies(r.activityId)); } catch (e) { /* table absente : rien à migrer */ } }
+
+module.exports = { lire, poser, appliquer, partsEnVigueur, membres, noeuds, signature, partsActivite, migrerPartsSaisies, migrerToutes };

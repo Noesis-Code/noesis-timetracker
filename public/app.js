@@ -7236,11 +7236,11 @@
     var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
     var data = null, loading = false;
     if (!open) {
-      var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow';
+      var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow cmpSepRow'; // R22 : trait d'un bord à l'autre sous « Stratégie » (comme sous « Responsables ») ; aucun trait sous la dernière option
       var hl = document.createElement('span'); hl.textContent = t('Stratégie');
-      var hc = document.createElement('span'); hc.className = 'cmpChev'; hc.setAttribute('aria-hidden', 'true');
+      var hc = TMT.ui.chev(false);
       head.appendChild(hl); head.appendChild(hc); root.appendChild(head);
-      head.addEventListener('click', function () { var show = body.classList.toggle('hidden') === false; if (show && !data) load(); });
+      head.addEventListener('click', function () { var show = body.classList.toggle('hidden') === false; TMT.ui.setChev(hc, show); if (show && !data) load(); });
     }
     root.appendChild(body);
     function load() {
@@ -7297,35 +7297,49 @@
     return root;
   }
   // ---------- Répartition des tâches par membre (18 nov. 2026, décision d'Émilien) ----------
-  // Ligne « Répartition des tâches » JUSTE APRÈS la Stratégie, par catégorie (activité, pôle, secteur), seulement si l'activité a plusieurs membres : un pourcentage par membre (le total fait 100 %), héritage
+  // Ligne « Répartition des tâches » (19 nov. 2026 : tableau, enregistré par le bouton du bas de la fiche ; remplace aussi l'ancien « Part des tâches (%) », lu par le Bilan) JUSTE APRÈS la Stratégie, par catégorie (activité, pôle, secteur), seulement si l'activité a plusieurs membres : un pourcentage par membre (le total fait 100 %), héritage
   // du dessus si vide. Quand une part change, l'app PROPOSE d'ajuster les autres catégories : chaque ligne se valide ou se refuse (refus mémorisé) ; si c'est impossible, elle propose de changer la part du dessus
   // (aucun message d'erreur). Ces parts décident le responsable des tâches rangées. Composants existants : .activityEditRow, .cmpChev, .iconBtn ; seul le propriétaire modifie.
-  function buildRepartitionBlock(activityId, key, open) {
+  function buildRepartitionBlock(activityId, key, open, onChange) {
     var url = '/api/activities/' + activityId + '/repartition/' + (key || '_');
     var root = document.createElement('div'); root.className = 'catStrategie hidden';
     var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
-    var data = null, edit = {}, prop = null;
+    var data = null, edit = {}, baseH = {}, prop = null;
     if (!open) {
       var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow';
       var hl = document.createElement('span'); hl.textContent = t('Répartition des tâches');
-      var hc = document.createElement('span'); hc.className = 'cmpChev'; hc.setAttribute('aria-hidden', 'true');
+      var hc = TMT.ui.chev(false);
       head.appendChild(hl); head.appendChild(hc); root.appendChild(head);
-      head.addEventListener('click', function () { body.classList.toggle('hidden'); });
+      head.addEventListener('click', function () { var show = body.classList.toggle('hidden') === false; TMT.ui.setChev(hc, show); });
     }
     root.appendChild(body);
-    function show(d) { data = d; edit = {}; (d.membres || []).forEach(function (m) { var v = (d.own || d.effective || {})[m.userId]; edit[m.userId] = v == null ? '' : String(v); }); paint(); }
+    // 19 nov. 2026 : TABLEAU SIMPLE de CETTE catégorie : nom | heures par semaine (modifiable) | pourcentage (calculé = heures / total, lecture seule) ; ligne Total. Les heures sont persistées côté serveur (category_shares.hours),
+    // les pourcentages restent écrits dans la répartition existante. Plus de bouton « Enregistrer » propre au bloc : root.rep donne son état au bouton du bas de la fiche (R50, R35). Le niveau supérieur propose d'ajuster les niveaux
+    // inférieurs (Accepter / Refuser) ; un niveau inférieur ne propose jamais de changer celui du dessus.
+    function show(d) {
+      data = d; edit = {}; baseH = {};
+      var src = d.hours ? { m: d.hours, b: d.hours } : d.plannedHours ? { m: d.plannedHours, b: {} } : d.effectiveHours ? { m: d.effectiveHours, b: d.effectiveHours } : { m: {}, b: {} }; // propres, sinon temps prévu déjà saisi (pôle, à enregistrer), sinon hérités
+      baseH = src.b; (d.membres || []).forEach(function (m) { var v = src.m[m.userId]; edit[m.userId] = v == null ? '' : String(v); });
+      paint(); if (onChange) onChange();
+    }
+    function hrs(u) { var x = parseFloat(String(edit[u] == null ? '' : edit[u]).replace(',', '.')); return x > 0 ? Math.round(x * 10) / 10 : 0; }
+    function totalH() { return data.membres.reduce(function (s, m) { return s + hrs(m.userId); }, 0); }
+    function pcts() { // pour cent de chaque membre : calculés sur les heures (somme 100, plus grand reste) ; sans heures, les parts déjà posées (lecture seule)
+      var T = totalH(), ids = data.membres.map(function (m) { return m.userId; }), o = {};
+      if (T > 0) { var base = {}, rest = [], miss; ids.forEach(function (u) { var v = hrs(u) * 100 / T; base[u] = Math.floor(v); rest.push([u, v - base[u]]); }); miss = 100 - ids.reduce(function (s, u) { return s + base[u]; }, 0); rest.sort(function (a, b) { return b[1] - a[1]; }).forEach(function (r) { if (miss > 0) { base[r[0]]++; miss--; } }); return base; }
+      var st = data.own || data.effective || {}; ids.forEach(function (u) { o[u] = st[u] == null ? null : st[u]; }); return o;
+    }
     function names(o) { return data.membres.map(function (m) { return m.name + ' ' + (o[m.userId] || 0) + ' %'; }).join(' · '); }
-    function sum() { return data.membres.reduce(function (s, m) { return s + (Number(edit[m.userId]) || 0); }, 0); }
-    function changed() { var o = data.own || {}; return data.membres.some(function (m) { return (Number(edit[m.userId]) || 0) !== (o[m.userId] || 0); }) || (!data.own && sum() > 0); }
+    function changed() { if (!data || !data.canEdit) return false; return data.membres.some(function (m) { return hrs(m.userId) !== (baseH[m.userId] || 0); }); }
+    function valid() { return !!data && totalH() > 0; }
     function err(m) { var e = body.querySelector('.msg'); if (e) e.textContent = m || ''; }
-    function save(shares) {
-      api('PUT', url, { shares: shares }).then(function (d) { prop = d.proposition || null; show(d); }).catch(function (e) { err(e.message); });
+    function save(payload) {
+      api('PUT', url, payload).then(function (d) { prop = d.proposition || null; show(d); }).catch(function (e) { err(e.message); });
     }
     function applyLines(lines, accept) {
       var p = accept ? { acceptees: lines.map(function (l) { return { key: l.key, apres: l.apres }; }) } : { refusees: lines.map(function (l) { return { key: l.key, apres: l.apres }; }) };
       api('POST', url + '/appliquer', p).then(function (d) {
         prop.lignes = (prop.lignes || []).filter(function (x) { return lines.indexOf(x) < 0; });
-        if (prop.suggestion && lines.indexOf(prop.suggestion) >= 0) prop.suggestion = null;
         show(d);
       }).catch(function (e) { err(e.message); });
     }
@@ -7339,36 +7353,35 @@
     }
     function paint() {
       body.textContent = '';
-      var hint = document.createElement('p'); hint.className = 'hint';
-      hint.textContent = t('Part des tâches de chaque membre. Sans réponse, la catégorie reprend celle du dessus.') + (!data.own && data.effective ? ' ' + t('Hérité') + ' : ' + names(data.effective) + '.' : '');
-      body.appendChild(hint);
+      if (!data.own && data.effective) { var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = t('Hérité'); body.appendChild(hint); }
+      var tH = document.createElement('b'), tP = document.createElement('b'), pc = {};
+      function refresh() { var p = pcts(), s = 0, any = false; data.membres.forEach(function (m) { var n = pc[m.userId]; if (n) n.textContent = p[m.userId] == null ? '' : p[m.userId] + ' %'; if (p[m.userId] != null) { s += p[m.userId]; any = true; } }); var T = totalH(); tH.textContent = T > 0 ? (Math.round(T * 10) / 10) + ' h' : ''; tP.textContent = any ? s + ' %' : ''; }
       data.membres.forEach(function (m) {
-        var w = document.createElement('div'); w.className = 'catStrategieQ';
-        var q = document.createElement('p'); q.className = 'hint'; q.textContent = m.name + ' (%)'; w.appendChild(q);
-        var i = document.createElement('input'); i.type = 'text'; i.inputMode = 'numeric'; i.maxLength = 3; i.autocomplete = 'off'; i.value = edit[m.userId]; i.disabled = !data.canEdit; i.setAttribute('aria-label', m.name + ' (%)');
-        i.addEventListener('input', function () {
-          edit[m.userId] = i.value;
-          if (data.membres.length === 2) { var o = data.membres.filter(function (x) { return x.userId !== m.userId; })[0]; var v = Math.max(0, Math.min(100, Number(i.value) || 0)); edit[o.userId] = String(100 - v); var oi = body.querySelector('input[data-u="' + o.userId + '"]'); if (oi) oi.value = edit[o.userId]; }
-          refreshSave();
-        });
-        i.setAttribute('data-u', m.userId); w.appendChild(i); body.appendChild(w);
+        var r = document.createElement('div'); r.className = 'objTimeRow';
+        var v = document.createElement('span'); v.className = 'objHoursVal';
+        var i = document.createElement('input'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 5; i.autocomplete = 'off'; i.value = edit[m.userId]; i.disabled = !data.canEdit; i.setAttribute('aria-label', m.name + ' (h)'); i.setAttribute('data-u', m.userId);
+        i.addEventListener('input', function () { edit[m.userId] = i.value; refresh(); if (onChange) onChange(); });
+        var hu = document.createElement('span'); hu.textContent = 'h'; v.appendChild(i); v.appendChild(hu);
+        var nm = document.createElement('span'); nm.textContent = m.name;
+        var pp = document.createElement('span'); pp.className = 'repPct'; pc[m.userId] = pp;
+        r.appendChild(nm); r.appendChild(v); r.appendChild(pp); body.appendChild(r);
       });
+      var tr0 = document.createElement('div'); tr0.className = 'objTimeRow'; var tl = document.createElement('b'); tl.textContent = t('Total');
+      var tv = document.createElement('span'); tv.className = 'objHoursVal'; tv.appendChild(tH); var tpw = document.createElement('span'); tpw.className = 'repPct'; tpw.appendChild(tP);
+      tr0.appendChild(tl); tr0.appendChild(tv); tr0.appendChild(tpw); body.appendChild(tr0); refresh();
       var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
-      if (data.canEdit) {
-        var sv = document.createElement('button'); sv.type = 'button'; sv.className = 'iconBtn btnBrique'; sv.textContent = t('Enregistrer'); sv.setAttribute('data-role', 'save'); body.appendChild(sv);
-        sv.addEventListener('click', function () { var s = {}; data.membres.forEach(function (m) { s[m.userId] = Number(edit[m.userId]) || 0; }); save(s); });
-        if (data.own) { var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'iconBtn'; rs.textContent = t('Reprendre celle du dessus'); rs.addEventListener('click', function () { save(null); }); body.appendChild(rs); }
-        refreshSave();
-      }
+      if (data.canEdit && data.own) { var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'activityEditRow'; rs.textContent = t('Reprendre celle du dessus'); rs.addEventListener('click', function () { save({ shares: null }); }); body.appendChild(rs); }
       if (prop && prop.lignes && prop.lignes.length) {
         var pt = document.createElement('p'); pt.className = 'hint'; pt.textContent = t('Pour garder le total, ajuster :'); body.appendChild(pt);
         prop.lignes.forEach(function (l) { body.appendChild(proposalLine(l, l.nom + ' : ' + names(l.avant) + ' → ' + names(l.apres))); });
-      } else if (prop && prop.suggestion) {
-        body.appendChild(proposalLine(prop.suggestion, t('Changer la part de') + ' ' + (prop.suggestion.nom || t('l’activité')) + ' : ' + names(prop.suggestion.avant) + ' → ' + names(prop.suggestion.apres)));
       }
       root.classList.remove('hidden');
     }
-    function refreshSave() { var sv = body.querySelector('[data-role="save"]'); if (sv) sv.disabled = !(changed() && sum() === 100); }
+    root.rep = {
+      changed: changed, valid: valid,
+      // Enregistre les heures modifiées (bouton du bas de la fiche) ; résout vrai si l'app propose d'ajuster des niveaux inférieurs (la fiche reste alors ouverte pour les valider ou les refuser).
+      save: function () { var h = {}; data.membres.forEach(function (m) { h[m.userId] = hrs(m.userId); }); return api('PUT', url, { hours: h }).then(function (d) { prop = d.proposition || null; show(d); return !!(prop && prop.lignes && prop.lignes.length); }); }
+    };
     api('GET', url).then(function (d) { if (d.multi) show(d); }).catch(function () { /* reste masquée */ });
     return root;
   }

@@ -15,6 +15,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS task_share_pct (
   PRIMARY KEY (activityId, userId)
 )`);
 
+try { require('./repartition-membres').migrerToutes(); } catch (e) { /* jamais bloquant au démarrage */ } // 19 nov. 2026 : les parts déjà saisies passent dans la Répartition des tâches (niveau « _ »)
+
 const DAY = 86400000;
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 const addDays = (d, n) => iso(Date.parse(d + 'T00:00:00Z') + n * DAY);
@@ -83,8 +85,9 @@ function proportion(userId, activityId, today) {
   const wantedRows = {}; try { db.prepare('SELECT userId, minutes FROM task_share_wanted WHERE activityId = ?').all(act.id).forEach((r) => { wantedRows[r.userId] = r.minutes; }); } catch (e) { /* table créée par partagetaches.js */ }
   const entered = {}; db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(act.id).forEach((r) => { entered[r.userId] = r.pct; });
   const hasEntered = Object.keys(entered).length > 0;
+  const RM = require('./repartition-membres'); RM.migrerPartsSaisies(act.id); const rep = RM.partsActivite(act.id); // la part demandée vient de la Répartition des tâches de l'activité (niveau « _ »)
   const wTotal = mem.reduce((a, m) => a + (wantedRows[m.id] > 0 ? wantedRows[m.id] : 0), 0);
-  return { activityId: act.id, rows: mem.map((m) => ({ userId: m.id, name: m.name, realPct: total ? Math.round(done.filter((x) => resp(x) === m.id).length / total * 100) : null, wantedPct: hasEntered ? (entered[m.id] != null ? entered[m.id] : null) : (wTotal && wantedRows[m.id] > 0 ? Math.round(wantedRows[m.id] / wTotal * 100) : null), enteredPct: entered[m.id] != null ? entered[m.id] : null })) };
+  return { activityId: act.id, rows: mem.map((m) => ({ userId: m.id, name: m.name, realPct: total ? Math.round(done.filter((x) => resp(x) === m.id).length / total * 100) : null, wantedPct: rep ? (rep[m.id] != null ? rep[m.id] : null) : hasEntered ? (entered[m.id] != null ? entered[m.id] : null) : (wTotal && wantedRows[m.id] > 0 ? Math.round(wantedRows[m.id] / wTotal * 100) : null), enteredPct: entered[m.id] != null ? entered[m.id] : null })) };
 }
 
 // Écriture de la proportion demandée (fiche de l'activité dans l'arbre) : parts = { userId: pourcentage 0 à 100 } ; un responsable règle celle de tous, un non-responsable seulement la sienne ; somme <= 100. null retire la valeur.

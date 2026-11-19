@@ -869,7 +869,7 @@
   // cfg : { title (null = pas de champ), hint, canSave(), onTitle(t), onSave(), onCancel() } -> { setTitle, setHint, setEnabled }
   function openExtend(cfg) { // plus de panneau : seule la barre « Nouvel objectif… » devient le bouton Enregistrer (Séparer sur une fusion existante), gris tant que rien n'a changé (R35)
     panel.classList.add('hidden'); panelForm = { extend: true }; setBack(null);
-    dock.classList.add('expSave', 'expExtend'); stepLabel.textContent = cfg.label; stepPos.textContent = ''; stepBtn.setAttribute('aria-label', cfg.label); stepBtn.disabled = !cfg.canSave();
+    dock.classList.add('expSave', 'expExtend', 'objDockBar'); stepLabel.textContent = cfg.label; stepPos.textContent = ''; stepBtn.setAttribute('aria-label', cfg.label); stepBtn.disabled = !cfg.canSave();
     advance = function () { var s = cfg.onSave; extendCancel = null; s(); }; extendCancel = cfg.onCancel;
     return { setLabel: function (t) { stepLabel.textContent = t; stepBtn.setAttribute('aria-label', t); }, setEnabled: function (b) { stepBtn.disabled = !b; } };
   }
@@ -902,56 +902,19 @@
     // 1. Responsables (premier paramètre) : TMT.responsables.categoryBlock (js/responsables-ui.js), droits décidés par le serveur ; la fiche ne s'ouvre que pour un responsable (arbre).
     var catKey = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey;
     if (catKey && TMT.responsables && TMT.responsables.categoryBlock) panelBody.appendChild(TMT.responsables.categoryBlock(act.id, catKey, function (m) { msg.textContent = m || ''; }));
-    var membersP = api('GET', '/api/activities/' + act.id + '/responsables').catch(function () { return { members: [] }; });
-    // Temps PRÉVU (heures par semaine), au niveau pôle seulement (le prévu se règle par pôle ; un secteur remonte au pôle) : une ligne par membre ; un responsable règle celui des autres, un non-responsable ne règle que le sien
-    // (droits vérifiés côté serveur par changePlanned) ; le temps enregistré par le Chrono ne change jamais. Route existante POST /api/member-times (historique, origines, notification déjà prévus).
-    var plans = {};
-    var shares = {}; /* part des tâches demandée (%) par membre : fiche de l'activité partagée */
-    function dirty() { return Object.keys(plans).some(function (k) { return plans[k].value !== plans[k].orig; }) || Object.keys(shares).some(function (k) { return shares[k].value !== shares[k].orig; }); }
-    function sync() { stepBtn.disabled = !dirty(); }
-    var planKey = spec.level === 'activite' ? null : spec.poleKey;
-    if (spec.level === 'pole' || (spec.suggestPlannedMin != null && (spec.level === 'activite' || spec.level === 'secteur'))) {
-      var planBox = el('div', 'objField'); planBox.appendChild(el('p', 'cmpBlockTitle', tr('Temps prévu (heures par semaine)'))); panelBody.appendChild(planBox);
-      api('GET', '/api/member-times?activityId=' + act.id).then(function (t) {
-        var lv = (t.levels || []).filter(function (l) { return l.key === planKey; })[0], names = {}; (t.members || []).forEach(function (m) { names[m.userId] = m.name; });
-        ((lv && lv.rows) || []).forEach(function (row) {
-          var mine = row.userId === t.me, h = row.plannedMin != null ? Math.round(row.plannedMin / 6) / 10 : null, r = el('div', 'objTimeRow'), v = el('span', 'objHoursVal'), inp = el('input');
-          plans[row.userId] = { value: h, orig: h };
-          inp.type = 'text'; inp.inputMode = 'decimal'; inp.maxLength = 4; inp.value = h != null ? String(h) : ''; inp.setAttribute('aria-label', tr('Heures par semaine') + ' ' + (names[row.userId] || ''));
-          inp.disabled = !(mine || t.isResponsable); // seul un responsable règle le temps d'un autre membre
-          inp.addEventListener('input', function () { var x = parseFloat(String(inp.value).replace(',', '.')); plans[row.userId].value = x >= 0 && x <= 80 ? Math.round(x * 10) / 10 : plans[row.userId].orig; sync(); });
-          if (mine && spec.suggestPlannedMin != null) { var sg = Math.round(spec.suggestPlannedMin / 6) / 10; inp.value = String(sg); plans[row.userId].value = sg; } /* temps réel du Chrono (moyenne des 4 semaines) déjà proposé */
-          v.appendChild(inp); v.appendChild(el('span', null, 'h')); r.appendChild(el('span', null, (names[row.userId] || '') + (mine ? ' (' + tr('toi') + ')' : ''))); r.appendChild(v); planBox.appendChild(r);
-        });
-        sync();
-      }).catch(function () { planBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
-    }
+    // Le temps prévu : retiré de la fiche (19 nov. 2026), absorbé par la Répartition des tâches (heures par membre ; au niveau pôle, le temps prévu déjà saisi les initialise).
+    var repBlock = null; /* Répartition des tâches (bloc de app.js) : ses heures modifiées rejoignent le bouton Enregistrer du bas (R50, R35), enregistrable seulement si le total d'heures est > 0 */
+    function repOn() { return !!(repBlock && repBlock.rep && repBlock.rep.changed()); }
+    function sync() { stepBtn.disabled = !(repOn() && repBlock.rep.valid()); }
     // 4. Stratégie et Répartition des tâches de CETTE catégorie (18 nov. 2026, Émilien : réglages de la catégorie, plus de Réglages > activité) : mêmes blocs que partout (app.js), la ligne se déroule sur place ; Répartition : activité à plusieurs membres seulement.
-    if (TMT.buildStrategieBlock) { if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false)); panelBody.appendChild(TMT.buildRepartitionBlock(act.id, catKey, false)); } }
-    // Part des tâches demandée (« toi 60 %, moi 40 % ») : fiche d'une activité partagée ; lue par le bloc « proportion réelle contre demandée » du Bilan. Un responsable règle celle de tous, un membre seulement la sienne ; total <= 100 (serveur).
-    if (spec.level === 'activite') membersP.then(function (mr) {
-      var ms = mr.members || []; if (ms.length < 2) return;
-      var me = (TMT.getProfile && TMT.getProfile() || {}).id;
-      return api('GET', '/api/bilan/proportion?activityId=' + act.id).then(function (pr) {
-        var box = el('div', 'objField'); box.appendChild(el('p', 'cmpBlockTitle', tr('Part des tâches (%)')));
-        ms.forEach(function (m) {
-          var cur = ((pr.rows || []).filter(function (x) { return x.userId === m.id; })[0] || {}).enteredPct, row = el('div', 'objTimeRow'), v = el('span', 'objHoursVal'), inp = el('input');
-          shares[m.id] = { value: cur == null ? null : cur, orig: cur == null ? null : cur };
-          inp.type = 'text'; inp.inputMode = 'numeric'; inp.maxLength = 3; inp.value = cur == null ? '' : String(cur); inp.setAttribute('aria-label', tr('Part des tâches (%)') + ' ' + (m.name || ''));
-          inp.disabled = !(m.id === me || mr.canManage);
-          inp.addEventListener('input', function () { var t = String(inp.value).trim(), x = parseInt(t, 10); shares[m.id].value = t === '' ? null : (x >= 0 && x <= 100 ? x : shares[m.id].orig); sync(); });
-          v.appendChild(inp); v.appendChild(el('span', null, '%')); row.appendChild(el('span', null, (m.name || '') + (m.id === me ? ' (' + tr('toi') + ')' : ''))); row.appendChild(v); box.appendChild(row);
-        });
-        panelBody.appendChild(box);
-      });
-    }).catch(function () { /* jamais bloquant */ });
+    if (TMT.buildStrategieBlock) { if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false)); repBlock = TMT.buildRepartitionBlock(act.id, catKey, false, sync); panelBody.appendChild(repBlock); } }
     function save() {
-      if (!dirty()) return;
+      if (stepBtn.disabled) return;
       stepBtn.disabled = true; msg.textContent = '';
-      var chain = Promise.resolve(); var shareParts = {}; Object.keys(shares).forEach(function (k) { if (shares[k].value !== shares[k].orig) shareParts[k] = shares[k].value; }); if (Object.keys(shareParts).length) chain = chain.then(function () { return api('PUT', '/api/bilan/proportion', { activityId: act.id, parts: shareParts }); }); Object.keys(plans).filter(function (k) { return plans[k].value !== plans[k].orig; }).forEach(function (k) { chain = chain.then(function () { return api('POST', '/api/member-times', { activityId: act.id, poleKey: planKey, memberId: k, afterMin: Math.round(plans[k].value * 60), origin: 'ajout' }); }); });
-      TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+      var proposal = false, chain = repBlock.rep.save().then(function (p) { proposal = p; });
+      TMT.ui.attente(chain).then(function () { load(); if (!proposal) { endFlow(); return; } sync(); /* l'app propose d'ajuster des niveaux inférieurs : la fiche reste ouverte pour les valider ou les refuser */ }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
-    dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
+    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
   }
   // À la fin d'une MODIFICATION : l'app PROPOSE (fenêtre « Modifications proposées », jamais écrit seul) de réordonner ce qui suit l'objectif modifié ; Non = rien ne change.
   function proposeReorg(id) {
@@ -1125,7 +1088,7 @@
         var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
         TMT.ui.attente(chain).then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
       }
-      dock.classList.add('expSave'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
+      dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
     }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
   }
 

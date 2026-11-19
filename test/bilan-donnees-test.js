@@ -53,7 +53,7 @@ assert(bad('u1', { u1: 80 }) && bad('u1', { u1: 101 }) && bad('u1', { u1: -5 }),
 setP('u1', { u2: null }); setP('u1', { u1: null });
 assert(B.proportion('u1', A.id, TODAY).rows.every((x) => x.enteredPct === null), 'une part retirée (null) est effacée');
 const crSrc = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
-assert(crSrc.includes("tr('Part des tâches (%)')") && crSrc.includes("api('PUT', '/api/bilan/proportion'") && crSrc.includes("if (spec.level === 'activite') membersP.then"), 'fiche de l’activité dans l’arbre : champ « Part des tâches (%) » modifiable par membre, enregistré avec le bouton Enregistrer');
+assert(!crSrc.includes("tr('Part des tâches (%)')") && !crSrc.includes("api('PUT', '/api/bilan/proportion'") && crSrc.includes('buildRepartitionBlock'), 'fiche de l’activité : plus de « Part des tâches (%) » (doublon), la Répartition des tâches la remplace (19 nov. 2026)');
 // routes
 const rt = fs.readFileSync(path.join(__dirname, '..', 'server/routes/bilan.js'), 'utf8'), ix = fs.readFileSync(path.join(__dirname, '..', 'server/index.js'), 'utf8');
 assert(rt.includes("'/bilan/moyenne-taches'") && rt.includes("'/bilan/urgentes'") && rt.includes("'/bilan/proportion'") && ix.includes("require('./routes/bilan')"), 'routes montées');

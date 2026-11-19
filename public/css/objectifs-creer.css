@@ -218,5 +218,8 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objDock.objDockBar .objStepBtn { height: 52px; }
 
 /* Fiche d’une catégorie, menu Responsables (18 nov. 2026) : une ligne par responsable, croix officielle .cmpRemove--corner en haut à droite (R32), séparateur .cmpSepRow (R22). */
+.catStrategieBody .objTimeRow { align-items: center; min-height: 44px; }
+.catStrategieBody .objTimeRow > :first-child { flex: 1; min-width: 0; }
+.catStrategieBody .repPct { min-width: 48px; text-align: right; color: var(--text); } /* pourcentage calculé (lecture seule) */ /* tableau de la Répartition des tâches (19 nov. 2026) : une ligne par membre, mêmes 44 px de toucher que les autres champs de la fiche */
 .respRow { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 40px 8px 4px; box-sizing: border-box; font-size: 15px; color: var(--text); }
 .respRow .respLevel { margin: 0; }

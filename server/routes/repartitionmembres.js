@@ -22,19 +22,19 @@ const fail = (res, e) => res.status(e.statusCode || 500).json({ error: e.statusC
 
 router.get('/activities/:id/repartition/:key', requireAuth, (req, res) => {
   const a = access(req, res); if (!a) return;
-  res.json(Object.assign(RM.lire(a.id, a.key), { canEdit: a.isOwner }));
+  res.json(Object.assign(RM.lire(a.id, a.key, req.userId), { canEdit: a.isOwner }));
 });
 
 router.put('/activities/:id/repartition/:key', requireAuth, (req, res) => {
   const a = access(req, res); if (!a) return;
   if (!a.isOwner) return res.status(403).json({ error: 'Seul le propriétaire de l’activité peut modifier la répartition.' });
-  try { const r = RM.poser(a.id, a.key, req.body && req.body.shares === null ? null : (req.body || {}).shares); res.json(Object.assign(r.lecture, { canEdit: true, proposition: r.proposition })); } catch (e) { fail(res, e); }
+  try { const r = RM.poser(a.id, a.key, req.body && req.body.shares === null ? null : (req.body || {}).shares, (req.body || {}).hours, req.userId); res.json(Object.assign(r.lecture, { canEdit: true, proposition: r.proposition })); } catch (e) { fail(res, e); }
 });
 
 router.post('/activities/:id/repartition/:key/appliquer', requireAuth, (req, res) => {
   const a = access(req, res); if (!a) return;
   if (!a.isOwner) return res.status(403).json({ error: 'Seul le propriétaire de l’activité peut modifier la répartition.' });
-  try { RM.appliquer(a.id, req.userId, (req.body || {}).acceptees, (req.body || {}).refusees); res.json(Object.assign(RM.lire(a.id, a.key), { canEdit: true })); } catch (e) { fail(res, e); }
+  try { RM.appliquer(a.id, req.userId, (req.body || {}).acceptees, (req.body || {}).refusees); res.json(Object.assign(RM.lire(a.id, a.key, req.userId), { canEdit: true })); } catch (e) { fail(res, e); }
 });
 
 module.exports = router;

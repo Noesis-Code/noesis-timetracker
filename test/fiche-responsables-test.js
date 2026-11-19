@@ -16,7 +16,7 @@ assert(!/function (fmtHours|isoDay)\(/.test(src), 'fonctions du temps dépensé 
 const fns = new Set([...body.matchAll(/^\s*function (\w+)\(/gm)].map((m) => m[1]));
 const clash = [...body.matchAll(/\bvar (\w+)\b/g)].map((m) => m[1]).filter((v) => fns.has(v));
 assert(clash.length === 0, 'aucune variable ne masque une fonction de la fiche');
-assert(body.indexOf('categoryBlock') > 0 && body.indexOf('categoryBlock') < body.indexOf('Temps prévu'), 'Responsables est le premier paramètre (avant le temps prévu)');
+assert(body.indexOf('categoryBlock') > 0 && body.indexOf('categoryBlock') < body.indexOf('buildRepartitionBlock'), 'Responsables est le premier paramètre (avant le temps prévu)');
 const ui = fs.readFileSync('public/js/responsables-ui.js', 'utf8');
 assert(/activityEditRow/.test(ui) && /cmpChev|TMT\.ui\.chev/.test(ui) && /cmpRemove cmpRemove--corner/.test(ui) && /TMT\.ui\.addBtn/.test(ui) && /TMT\.ui\.dockEnregistrer/.test(ui) && /TMT\.ui\.confirm\([^)]*retirer ce responsable/.test(ui), 'composants existants : ligne + chevron, croix .cmpRemove, .cmpAdd, dock R50, confirmation');
 assert(/danger: true/.test(ui), 'confirmation : bouton rouge pour retirer seulement');
