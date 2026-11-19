@@ -878,6 +878,7 @@
         if (r.sub) { name.appendChild(document.createElement('br')); name.appendChild(el('small', 'objGridSub', r.sub)); }
         rowEl.appendChild(name); if (chrono) rowEl.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : TMT.ui.heures(r.chrono)));
         obj.appendChild(el('span', 'objGridAvant', r.avant)); rowEl.appendChild(obj);
+        if (onTap && canTap && !canTap(i)) rowEl.addEventListener('click', function () { m.foot.textContent = tr('Aucun membre pour cette catégorie.'); setTimeout(function () { m.foot.textContent = ''; }, 3200); });
         if (onTap && (!canTap || canTap(i))) { rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); }
         body.appendChild(rowEl);
       });
@@ -898,7 +899,7 @@
       var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), sub: res.enCours && x.tasks ? x.tasks + ' ' + tr(x.tasks > 1 ? 'tâches' : 'tâche') : '', chrono: x.chronoMin, avant: TMT.ui.heures(x.plannedMin) }; });
       m.body.appendChild(table(rows, null, null, !!res.enCours));
     }
-    TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); }).catch(function () { if (m) m.close(); });
+    return TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return false; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); return true; }).catch(function () { if (m) m.close(); return false; });
   }
   // POP-UP DES 4 SEMAINES d'une période (19 nov. 2026, Émilien) : le dernier niveau de l'arbre, la semaine la plus ancienne EN BAS. Une ligne = un TITRE (touchée, elle se déplie : le titre s'écrit sur place) ;
   // dessous, trois questions à puces (Que faire ? Avec quoi ? Quel résultat ?) qui composent le descriptif « Libellé : réponse · … » lu par l'IA (même format que la création, GUIDE_GROUPS). « + » = ajouter, ✕ = supprimer
@@ -1266,7 +1267,7 @@
     confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, function (e) { if (TMT.objectifsArbre && TMT.objectifsArbre.say) TMT.objectifsArbre.say((e && e.message) || tr('Impossible pour le moment.')); }, isMacro); }, // un refus du serveur (ex. « Fusion passée : impossible de délier. ») s'affiche en message court
     openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
     createAt: function (o) { createAt(o); },
-    openHeures: function (spec, row, label) { openHeures(spec, row, label); },
+    openHeures: function (spec, row, label) { return openHeures(spec, row, label); },
     dock: function () { return dock; },
     openFiche: function (spec, onEnd) { openFiche(spec, onEnd); },
     openSemaines: function (spec, onEnd) { openSemaines(spec, onEnd); },
