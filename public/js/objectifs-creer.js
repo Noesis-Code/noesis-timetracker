@@ -887,8 +887,7 @@
     var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1;
     var rows = spec.weeks.map(function (w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; });
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.label; panelForm = { edit: true }; setBack(null);
-    panelBody.appendChild(el('p', 'objSub', tr('Donne un titre et un descriptif à chaque semaine : l’IA s’en sert pour ranger tes tâches dans la bonne semaine.')));
-    var list = el('div', 'objSemList'); panelBody.appendChild(list);
+    var list = el('div', 'objSemList'); panelBody.appendChild(list); // la semaine la plus ancienne EN BAS, la plus récente en haut (l'arbre monte)
     function changed(r) { return r.t.trim() !== r.t0.trim() || r.d.trim() !== r.d0.trim(); }
     function valid(r) { return !changed(r) || !!r.w.obj || !!r.t.trim(); } // une nouvelle semaine ne s'enregistre pas sans titre
     function sync() { stepBtn.disabled = !rows.some(changed) || !rows.every(valid); }
