@@ -38,7 +38,7 @@
     // Carte PLEINE de la couleur de la colonne TELLE QUELLE (comme l'arbre périodique original), quel que soit l'état : aucun mélange, aucune variation de teinte ; sans liseré de couleur (le contour est celui du fond).
     // Aucune marque ni variation par état : seule la couleur de l'activité compte (demande d'Émilien). Texte lisible via TMT.readableTextOn.
     b.style.background = c; b.style.borderWidth = '2px'; b.style.borderStyle = 'solid'; b.style.borderColor = c; b.style.setProperty('--ar-c', c); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important)
-    b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c) : 'inherit';
+    b.style.color = 'var(--bg)'; /* texte EN CREUX : de la couleur du fond de l'app (18 nov. 2026) */
   }
   // L03 : un objectif ne se rattache qu'à un objectif de la MÊME ACTIVITÉ (toutes colonnes confondues : pôles et secteurs d'une activité sont des colonnes d'une même activité).
   var kidsAll = {};
@@ -72,7 +72,7 @@
   // JAUGE (niveau secteur) : la carte se remplit de bas en haut de la couleur du pôle ; contour plein de la même teinte (CSS : .arGauge). Pourcentage = o.progress du serveur (semaines cochées / semaines prévues, le calcul de l'Avancement du Bilan), jamais recalculé ici.
   function gauge(b, o, c) {
     if (lvl !== 'secteur') return; var p = Math.max(0, Math.min(100, Math.round((o.progress || 0) * 100)));
-    b.classList.add('arGauge'); b.classList.toggle('arGaugeLow', p < 85); b.style.setProperty('--ar-p', p + '%'); /* arGaugeLow : le crayon se trouve sur le vide (sans fond) : en édition il est dessiné en plein, pas en creux */ b.style.background = 'linear-gradient(0deg, ' + c + ' ' + p + '%, transparent ' + p + '%)'; b.style.color = p >= 50 && TMT.readableTextOn ? TMT.readableTextOn(c) : 'var(--text)';
+    b.classList.add('arGauge'); b.classList.toggle('arGaugeLow', p < 85); b.style.setProperty('--ar-p', p + '%'); /* arGaugeLow : le crayon se trouve sur le vide (sans fond) : en édition il est dessiné en plein, pas en creux */ b.style.background = 'linear-gradient(0deg, ' + c + ' ' + p + '%, transparent ' + p + '%)'; /* le texte suit la jauge : dégradé coupé à p % (CSS .arGauge .arCardName), aucune couleur posée ici */
   }
   function card(o, today, all, mode, w, onTap, extCol, colColor, members) {
     var st = stateOf(o, today), c = colColor || objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); gauge(b, o, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
@@ -332,6 +332,7 @@
     return { k: 'B' + s0, rank: s0 * 100, y: s0, y2: s0 + 4, p: 0, block: true };
   }
   function rowOfRank(rk) { if (zoom === 'week') return { k: Math.floor(rk / 100) + 'S' + (rk % 100), rank: rk, y: Math.floor(rk / 100), w: rk % 100 }; return zoom === 'period' ? { k: Math.floor(rk / 100) + 'P' + (rk % 100), rank: rk, y: Math.floor(rk / 100), p: rk % 100 } : zoom === 'year' ? { k: String(rk / 100), rank: rk, y: rk / 100, p: 0 } : { k: 'B' + rk / 100, rank: rk, y: rk / 100, y2: rk / 100 + 4, p: 0, block: true }; }
+  var MAX_ROWS = { block: 5, year: 5, period: 13 }; /* PLAFONDS de lignes (18 nov. 2026) : 5 blocs pluriannuels, 5 années, 13 périodes ; jamais plus, en portrait comme en paysage */ function buildRows(lo, far, byRank) { var out = [], cap = MAX_ROWS[zoom] || 1e9; for (var rk = lo; rk <= far && out.length < cap; rk = nextRank(rk)) out.push(byRank[rk] || rowOfRank(rk)); return out; }
   function bucketOf(o, today) { var late = o.endDate < today && !o.abandoned && o.status !== 'atteint'; return rowKey(late ? today : o.endDate); }
   function nextRank(r) { // case suivante, vers le futur
     if (zoom === 'year') return r + 100;
@@ -591,9 +592,9 @@
     if (blockYears) farRank = hi;
     if (periodYear) { var y1 = periodYear * 100 + 1, y13 = periodYear * 100 + PER_YEAR; lo = y1; hi = y13; /* les 13 périodes de l'année : toujours toutes, passées incluses */ farRank = hi; } // vue des périodes : le cycle (l'année, 13 périodes) a une fin FIXE ; on n'affiche que les périodes qui RESTENT du présent à cette fin (aucune période de l'année suivante)
     var list = [];
-    for (var rk = lo; rk <= farRank; rk = nextRank(rk)) list.push(byRank[rk] || rowOfRank(rk));
+    list = buildRows(lo, farRank, byRank);
     var cycleEnd = blockYears || !!periodYear; // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)
-    while (!cycleEnd && list.length < (isLand() ? 7 : MIN_ROWS)) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
+    while (!cycleEnd && list.length < Math.min(isLand() ? 7 : MIN_ROWS, MAX_ROWS[zoom] || 1e9)) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
     if (wk) { list = []; for (var wi = 1; wi <= 4; wi++) list.push(rowOfRank(wk.y * 100 + (wk.p - 1) * 4 + wi)); } // les 4 semaines de la période
     list.reverse();
     // cellules des colonnes : [rangée][colonne] -> entrées
@@ -632,7 +633,7 @@
         if (mr) mr.push(mm); else mrows.push([mm]);
       });
       mrows.forEach(function (mr) {
-        var mrow = el('div', 'goalsGridRow arMacroRow'); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
+        var mrow = el('div', 'goalsGridRow arMacroRow' + (rw.rank < here.rank ? ' arPastRow' : '')); mrow.setAttribute('data-rank', String(rw.rank)); var sp = marker(rw, here, null); if (mr !== mrows[0]) sp.style.visibility = 'hidden'; mrow.appendChild(sp); // un macro est TOUJOURS dans sa période : sa rangée porte le repère de la période (alignée sur lui), collée à la rangée des cases de cette même période
         data.forEach(function (c2, cj) {
           var hit = mr.filter(function (mm) { return cj >= mm.c0 && cj <= mm.c1; })[0];
           if (hit) { if (hit.c0 === cj) mrow.appendChild(macroCard(hit.m, today, hit.c0, hit.c1, W, curCols, hit.ov, hit.members)); return; }
@@ -661,12 +662,12 @@
     var rowIdx = {}; list.forEach(function (rw, r) { rowIdx[rw.rank] = r; });
     grid.querySelectorAll('.goalsGridRow').forEach(function (row) { var k = 0, r = rowIdx[Number(row.getAttribute('data-rank'))]; Array.prototype.forEach.call(row.children, function (ch) { if (ch.classList.contains('arMacro')) k += Number(ch.getAttribute('data-span')) || 1; else if (ch.classList.contains('arGap')) k += 1; else if (ch.classList.contains('goalsGridCell')) { ch.setAttribute('data-col', String(k)); k += Number(ch.getAttribute('data-span')) || 1; } }); }); // colonne de chaque cellule (un macro ou un groupe de la ligne en couvre plusieurs)
     if (ext) Array.prototype.forEach.call(grid.querySelectorAll('[data-col]'), function (ch) { var cj = Number(ch.getAttribute('data-col')), on = !!ext.cols[cj]; var rr = ch.closest('.goalsGridRow'), inRow = !!rr && Number(rr.getAttribute('data-rank')) === ext.rank; ch.classList.toggle('arExtOn', on && inRow); ch.classList.toggle('arExtOff', !(inRow && extEligible(cj)));
-      if (on && inRow && !ch.classList.contains('arBubble')) { var dc = curCols[domCol()], dcol = dc && (dc.col || dc).color; if (dcol) { ch.style.background = dcol; ch.style.borderColor = dcol; ch.style.setProperty('--ar-c', dcol); ch.style.color = TMT.readableTextOn ? TMT.readableTextOn(dcol) : ''; } } /* case ou carte choisie de la ligne : REMPLIE de la couleur de la dominante (la première touchée), la même pour toutes ; retirée au décochage (la grille est redessinée) */ }); // seules les cases de la LIGNE de la carte touchée (colonnes éligibles) restent éclairées
+      if (on && inRow && !ch.classList.contains('arBubble')) { var dc = curCols[domCol()], dcol = dc && (dc.col || dc).color; if (dcol) { ch.style.background = dcol; ch.style.borderColor = dcol; ch.style.setProperty('--ar-c', dcol); ch.style.color = 'var(--bg)'; } } /* case ou carte choisie de la ligne : REMPLIE de la couleur de la dominante (la première touchée), la même pour toutes ; retirée au décochage (la grille est redessinée) */ }); // seules les cases de la LIGNE de la carte touchée (colonnes éligibles) restent éclairées
     scroller = el('div', 'goalsGridScroll arScroll');
     var column = el('div', 'arColumn'); gridArea = el('div', 'arGridArea' + (lvl === 'secteur' ? ' arLvlSecteur' : ''));
     var baseWrap = el('div', 'goalsGrid arBaseWrap'), baseRow = el('div', 'goalsGridRow arBaseRow');
     data.forEach(function (c, ci) {
-      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
+      var b = el('button', 'arBubble' + (ext ? (ext.cols[ci] ? ' arExtOn' : ' arExtOff') : '')); b.type = 'button'; cellSize(b, W); b.style.borderColor = c.color; b.style.color = c.color; /* titre de colonne = couleur de la catégorie (activité : celle de l'activité) */ if (ext && ext.cols[ci]) { b.style.background = c.color; b.style.color = TMT.readableTextOn ? TMT.readableTextOn(c.color) : ''; } // titre choisi en mode fusion : REMPLI de la couleur de l'activité (du pôle), plus de contour violet ; étiquette d'activité : fond non rempli (verre), CONTOUR de la couleur de la colonne + pastille
       b.appendChild(el('span', null, c.col.label)); b.title = c.col.label;
       b.addEventListener('click', function () { openFiche(ci); }); // toucher le TITRE d'une colonne : la fiche (jamais un changement d'arbre ni le calendrier) ; on descend uniquement en touchant une case // niveau secteurs : toucher le NOM d'un secteur ouvre son calendrier (aujourd'hui) ; ailleurs : descendre d'un niveau
       baseRow.appendChild(b);
