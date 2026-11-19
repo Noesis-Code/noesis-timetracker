@@ -197,8 +197,9 @@ function membres(userId, c, start, end, today) {
     return mem.map((m) => {
       let chrono = null;
       if (weeks) { let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?', args = [m.userId, act, start, stop]; if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); } const v = db.prepare(q).get(...args).s / 60 / weeks; chrono = v > 0 ? Math.round(v) : null; }
+      let tasks = 0; try { let q = 'SELECT COUNT(*) AS n FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE sp.activityId = ? AND i.plannedUserId = ? AND i.done = 0', args = [act, m.userId]; if (keys) { q += ' AND sp.goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); } tasks = db.prepare(q).get(...args).n; } catch (e) { tasks = 0; } // tâches non faites qui lui sont attribuées dans la catégorie
       const pr = lvl ? (lvl.rows.find((x) => x.userId === m.userId) || {}).plannedMin : undefined;
-      return { userId: m.userId, name: m.name || null, plannedMin: pr == null ? null : pr, chronoMin: chrono, isResponsable: resp.indexOf(m.userId) >= 0 };
+      return { userId: m.userId, name: m.name || null, plannedMin: pr == null ? null : pr, chronoMin: chrono, isResponsable: resp.indexOf(m.userId) >= 0, tasks };
     }).filter((m) => m.chronoMin != null || (m.plannedMin != null && m.plannedMin > 0));
   } catch (e) { return null; }
 }
@@ -211,7 +212,7 @@ function repartition(userId, spec, row, today) {
     const label = c.level === 'activite' ? (db.prepare('SELECT name FROM activities WHERE id = ?').get(c.activityId) || {}).name : ((c.level === 'pole' ? goals.categoriesForActivity(c.activityId) : goals.secteursForPole(c.activityId, c.poleKey)) || []).find((x) => x.key === (c.level === 'pole' ? c.poleKey : c.categoryKey));
     return { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, label: label && label.label ? label.label : (label || ''), alloueMin: a.minutes, heuresMin: tot.parts[j], own: a.own, objectifsMin: objectifsAvg(userId, c, rr.start, rr.end), chronoMin: chronoAvg(userId, c, rr.start, rr.end, t), membres: membres(userId, c, rr.start, rr.end, t) };
   });
-  return { start: rr.start, end: rr.end, level: spec.level, categories: cols, totalMin: tot.totalMin };
+  return { start: rr.start, end: rr.end, enCours: rr.start <= t && t <= rr.end, level: spec.level, categories: cols, totalMin: tot.totalMin };
 }
 
 module.exports = { MAX_MIN, START, effective, set, column, average, lignes, repartition, migrateLegacy };

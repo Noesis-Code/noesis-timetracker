@@ -849,24 +849,34 @@
   function openHeures(spec, row, label) {
     var m = openModal(tr('Heures par semaine') + ' · ' + label), res = null;
     function sum(rows, k) { var n = 0, any = false; rows.forEach(function (r) { if (r[k] != null) { n += r[k]; any = true; } }); return any ? n : null; }
-    function table(rows, onTap) {
-      var t = objTable({ levelLabel: '', rows: rows.map(function (r) { return { label: r.label, chrono: r.chrono, avant: r.avant }; }), total: false, noChrono: true, fmt: TMT.ui.heures }); /* 18 nov. 2026 (Émilien) : plus de colonne Chrono (pas encore de chrono) */
-      Array.prototype.forEach.call(t.node.querySelectorAll('.objGridRow'), function (rowEl, i) { if (!onTap) return; rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); });
-      var tot = el('div', 'objGridTotal'), to = el('span', 'objGridObj'); to.appendChild(el('span', 'objGridApres', TMT.ui.heures(sum(rows, 'avant'))));
-      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(to); t.node.appendChild(tot);
-      return t.node;
+    // Tableau commun aux deux écrans (mêmes classes que objTable) : nom | Chrono (objectif en cours seulement) | Objectif ; r.avant = texte déjà formaté, r.sub = petite ligne sous le nom
+    function table(rows, onTap, totalTxt, chrono) {
+      var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
+      head.appendChild(el('span', 'objGridName', '')); if (chrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif'))); body.appendChild(head);
+      rows.forEach(function (r, i) {
+        var rowEl = el('div', 'objGridRow'), name = el('span', 'objGridName', r.label), obj = el('span', 'objGridObj');
+        if (r.sub) { name.appendChild(document.createElement('br')); name.appendChild(el('small', 'objGridSub', r.sub)); }
+        rowEl.appendChild(name); if (chrono) rowEl.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : TMT.ui.heures(r.chrono)));
+        obj.appendChild(el('span', 'objGridAvant', r.avant)); rowEl.appendChild(obj);
+        if (onTap) { rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); }
+        body.appendChild(rowEl);
+      });
+      node.appendChild(body);
+      if (totalTxt) { var tot = el('div', 'objGridTotal'), to = el('span', 'objGridObj'); to.appendChild(el('span', 'objGridApres', totalTxt)); tot.appendChild(el('span', 'objGridName', tr('Total'))); if (chrono) tot.appendChild(el('span', 'objGridChrono', '')); tot.appendChild(to); node.appendChild(tot); }
+      return node;
     }
-    function s1() {
+    function s1() { // 19 nov. 2026 (Émilien) : heures + part en % par catégorie ; Chrono par catégorie seulement pour un objectif en cours (sinon non pertinent)
       m.head.textContent = ''; m.head.appendChild(el('p', 'sectionTitle', tr('Heures par semaine') + ' · ' + label));
       m.body.textContent = '';
-      m.body.appendChild(table(res.categories.map(function (c) { return { label: c.label, chrono: c.chronoMin, avant: c.heuresMin }; }), function (i) { s2(res.categories[i]); }));
+      var cats = res.categories, total = sum(cats.map(function (c) { return { v: c.heuresMin }; }), 'v');
+      m.body.appendChild(table(cats.map(function (c) { return { label: c.label, chrono: c.chronoMin, avant: TMT.ui.heures(c.heuresMin) + (total && c.heuresMin != null ? ' · ' + Math.round(c.heuresMin * 100 / total) + ' %' : '') }; }), function (i) { s2(cats[i]); }, TMT.ui.heures(total), !!res.enCours));
     }
-    function s2(c) {
+    function s2(c) { // membres : réel (Chrono) contre prévu, et nombre de tâches attribuées, seulement pour un objectif en cours
       m.head.textContent = ''; var crumbs = el('nav', 'arCrumbs'), back = el('button', 'arCrumb', label); back.type = 'button'; back.addEventListener('click', s1);
       crumbs.appendChild(back); crumbs.appendChild(el('span', 'arCrumbSep', '›')); crumbs.appendChild(el('b', 'arCrumbNow', c.label)); m.head.appendChild(crumbs);
       m.body.textContent = '';
-      var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), chrono: x.chronoMin, avant: x.plannedMin }; });
-      m.body.appendChild(table(rows, null));
+      var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), sub: res.enCours && x.tasks ? x.tasks + ' ' + tr(x.tasks > 1 ? 'tâches' : 'tâche') : '', chrono: x.chronoMin, avant: TMT.ui.heures(x.plannedMin) }; });
+      m.body.appendChild(table(rows, null, null, !!res.enCours));
     }
     TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; s1(); }).catch(function () { m.close(); });
   }
