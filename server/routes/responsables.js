@@ -17,4 +17,7 @@ router.put('/activities/:id/responsables', run((req) => resp.ajouter(req.userId,
 router.delete('/activities/:id/responsables/:userId', run((req) => resp.retirer(req.userId, req.params.id, req.params.userId)));
 router.get('/activities/:id/categories/:key/responsable', run((req) => resp.categorie(req.userId, req.params.id, req.params.key, req.query.poleKey)));
 router.put('/activities/:id/categories/:key/responsable', run((req) => resp.definirCategorie(req.userId, req.params.id, req.params.key, req.body && req.body.userId, req.body && req.body.poleKey)));
+router.get('/activities/:id/categories/:key/responsables', run((req) => resp.listeCategorie(req.userId, req.params.id, req.params.key)));
+router.put('/activities/:id/categories/:key/responsables', run((req) => resp.ajouterCategorie(req.userId, req.params.id, req.params.key, req.body && req.body.userId)));
+router.delete('/activities/:id/categories/:key/responsables/:userId', run((req) => resp.retirerCategorie(req.userId, req.params.id, req.params.key, req.params.userId)));
 module.exports = router;

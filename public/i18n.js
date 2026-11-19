@@ -733,6 +733,11 @@
     'Paramètres du membre': 'Member settings',
     'Ajouter comme responsable': 'Add as manager',
     'Retirer comme responsable': 'Remove as manager',
+    'Responsables': 'Managers',
+    'Ajouter un responsable': 'Add a manager',
+    'Voulez-vous vraiment retirer ce responsable ?': 'Do you really want to remove this manager?',
+    'propriétaire': 'owner',
+    'activité': 'activity',
     'Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.':
       'Exclude {name} from "{activity}"? This person will keep their already recorded history, in their own personal activity. They will no longer be part of "{activity}" afterwards.',
     '{from} t\'invite sur « {activity} ».': '{from} invites you to "{activity}".',

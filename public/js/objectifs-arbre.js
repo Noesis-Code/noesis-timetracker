@@ -498,7 +498,11 @@
     var label = c.col ? c.col.label : c.label, path = lvl === 'activite' ? (tr('Activité')) : (a.name + (lvl === 'secteur' && x.poleLabel ? '' : '') + ' · ' + (x.label ? String(x.label).split(' · ').slice(1).join(' · ') : label));
     return { level: lvl, title: label, path: path || a.name, activity: { id: a.id, name: a.name, color: a.color || c.color }, poleKey: x.poleKey, categoryKey: x.categoryKey, objectives: { count: mine.length, next: next, late: mine.filter(function (o) { return o.endDate < today; }).length } };
   }
-  function openFiche(ci) { if (TMT.objectifsView && TMT.objectifsView.openFiche) TMT.objectifsView.openFiche(ficheOf(ci)); }
+  function openFiche(ci) { // 18 nov. 2026 : la fiche n'est ouverte que pour un responsable de la catégorie (ou d'un niveau supérieur) ou le propriétaire ; un simple membre : rien ne se passe, aucun message
+    var spec = ficheOf(ci), key = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey;
+    if (!key || !(TMT.objectifsView && TMT.objectifsView.openFiche) || !(TMT.responsables && TMT.responsables.canOpenCategory)) return;
+    TMT.responsables.canOpenCategory(spec.activity.id, key).then(function (ok) { if (ok) TMT.objectifsView.openFiche(spec); });
+  }
   document.addEventListener('click', function (e) { lastTap = [e.clientX, e.clientY]; }, true); // où l'on a touché : origine du zoom de descente
   function descend(ci, block, year, macro, members) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
     var c = curCols[ci]; if (!c) return; if (lvl === 'activite' && block == null && year != null && !macro) block = blockStart(year + '-06-01'); /* case d'un bloc qui résume plusieurs objectifs : SON bloc fixe (jamais celui du présent) */ dive = !(macro || ext); /* 18 nov. 2026 (Émilien) : AUCUN zoom en touchant une bulle fusionnée ni en mode fusion */ // transition de zoom (arZoomIn) : on entre dans la bulle touchée

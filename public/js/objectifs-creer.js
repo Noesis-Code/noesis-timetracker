@@ -894,40 +894,15 @@
   // Même format que la création : un panneau juste au-dessus de la barre, UN seul bouton « Enregistrer » (R35 : gris tant que rien n'a changé, violet ensuite). Mêmes blocs que la création
   // (description guidée, date d'échéance, terme et objectifs inclus). L'activité ne se modifie pas (supprimer puis recréer) ; la fusion se fait par l'appui long dans l'arbre, jamais d'ici.
   // ---------- FICHE d'un titre de colonne (activité, pôle, secteur) : même panneau que « Modifier l'objectif » (au-dessus de la barre du bas, ✕, Enregistrer grisé tant que rien n'a changé) ----------
-  // Contenu : temps dépensé (routes existantes /api/category-stats), objectifs en cours (données de l'arbre), réglages de l'activité (nom, couleur : mêmes champs, même route et mêmes pastilles que Réglages > Activités).
-  // Responsables / chefs de projet : ils n'existent pas dans les réglages d'activité actuels : rien d'inventé ici.
-  function fmtHours(sec) { var h = sec / 3600; return (h >= 10 ? String(Math.round(h)) : String(Math.round(h * 10) / 10).replace('.', ',')) + ' h'; }
-  function isoDay(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  // Contenu : responsables de la catégorie (premier paramètre), temps prévu, stratégie, répartition, part des tâches. Le temps dépensé est dans le Bilan, les objectifs en cours n'ont plus de place ici (18 nov. 2026).
+  // Accès : seulement les responsables de la catégorie (ou d'un niveau supérieur) et le propriétaire (contrôle dans l'arbre et côté serveur).
   function openFiche(spec, onEnd) {
-    var act = spec.activity, msg = el('p', 'tasksMsg objMsg'), win = 'week', plan = null; // plan : temps PRÉVU (heures par semaine) modifiable au niveau pôle
+    var act = spec.activity, msg = el('p', 'tasksMsg objMsg');
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.title; panelForm = { edit: true }; setBack(null);
-    function line(label, value) { var r = el('div', 'objTimeRow'); r.appendChild(el('span', null, label)); r.appendChild(el('span', 'objHoursVal', value)); return r; }
-    // 1. Temps dépensé : UN sélecteur simple (semaine / période / année) en haut à droite ; activité à UN membre = toi seul, à plusieurs = une ligne par membre ; pôle = le pôle et ses secteurs ; secteur = SEULEMENT ce secteur
-    var timeBox = el('div', 'objField'), head = el('div', 'objDueRow'), seg = el('div', 'cmpSeg'), timeBody = el('div'); seg.style.cssText = 'width:auto;margin:0;flex:none';
-    head.appendChild(el('p', 'cmpBlockTitle', tr('Temps dépensé')));
-    [['week', tr('Semaine')], ['period', tr('Période')], ['year', tr('Année')]].forEach(function (w) { var bt = btn('', w[1], function () { win = w[0]; Array.prototype.forEach.call(seg.children, function (x) { x.classList.toggle('active', x === bt); }); paintTime(); }); if (w[0] === win) bt.classList.add('active'); bt.style.cssText = 'flex:none;overflow:visible;text-overflow:clip;white-space:nowrap;padding-left:10px;padding-right:10px'; seg.appendChild(bt); });
-    head.appendChild(seg); timeBox.appendChild(head); timeBox.appendChild(timeBody); // ajouté à la fiche seulement pour une activité partagée (plus bas)
-    var now = new Date(), jan1 = new Date(now.getFullYear(), 0, 1), doy = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - jan1) / 86400000), p0 = Math.min(12, Math.floor(doy / 28)), ps = new Date(now.getFullYear(), 0, 1 + p0 * 28), pe = p0 < 12 ? new Date(now.getFullYear(), 0, 1 + p0 * 28 + 27) : new Date(now.getFullYear(), 11, 31);
-    var base = '/api/category-stats?activityId=' + act.id;
-    function timeShares(r) { // temps de l'élément dans la fenêtre : { me, kids }
-      var cats = (r && r.categories) || [], all = r ? r.totalSeconds : 0, me = 0, kids = [];
-      if (spec.level === 'activite') { me = all; cats.forEach(function (c) { kids.push({ name: c.parentName || c.name, seconds: c.seconds }); }); }
-      else if (spec.level === 'pole') { cats.forEach(function (c) { if (c.category === spec.poleKey || c.parentKey === spec.poleKey) { me += c.seconds; kids.push({ name: c.parentKey === spec.poleKey ? c.name : null, seconds: c.seconds }); } }); }
-      else { cats.forEach(function (c) { if (c.category === spec.categoryKey) me += c.seconds; }); }
-      return { me: me, kids: kids };
-    }
-    function winQuery() { return win === 'week' ? '&period=week' : win === 'year' ? '&period=year' : '&from=' + isoDay(ps) + '&to=' + isoDay(pe); }
+    // 1. Responsables (premier paramètre) : TMT.responsables.categoryBlock (js/responsables-ui.js), droits décidés par le serveur ; la fiche ne s'ouvre que pour un responsable (arbre).
+    var catKey = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey;
+    if (catKey && TMT.responsables && TMT.responsables.categoryBlock) panelBody.appendChild(TMT.responsables.categoryBlock(act.id, catKey, function (m) { msg.textContent = m || ''; }));
     var membersP = api('GET', '/api/activities/' + act.id + '/responsables').catch(function () { return { members: [] }; });
-    function paintTime() {
-      timeBody.textContent = ''; TMT.ui.loader(timeBody, { seul: true });
-      membersP.then(function (mr) {
-        var ms = mr.members || [];
-        return Promise.all(ms.map(function (m) { return api('GET', base + winQuery() + '&memberId=' + encodeURIComponent(m.id)).then(function (r) { return { m: m, v: timeShares(r).me }; }).catch(function () { return { m: m, v: null }; }); })).then(function (rows) { // activité à plusieurs : une ligne par membre
-          timeBody.textContent = ''; rows.forEach(function (x) { timeBody.appendChild(line(x.m.name, x.v == null ? '—' : fmtHours(x.v))); });
-        });
-      }).catch(function () { timeBody.textContent = ''; timeBody.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
-    }
-    membersP.then(function (mr) { if ((mr.members || []).length >= 2) { panelBody.insertBefore(timeBox, panelBody.firstChild); paintTime(); } }); // activité individuelle : ni bloc ni requête /api/category-stats
     // Temps PRÉVU (heures par semaine), au niveau pôle seulement (le prévu se règle par pôle ; un secteur remonte au pôle) : une ligne par membre ; un responsable règle celui des autres, un non-responsable ne règle que le sien
     // (droits vérifiés côté serveur par changePlanned) ; le temps enregistré par le Chrono ne change jamais. Route existante POST /api/member-times (historique, origines, notification déjà prévus).
     var plans = {};
@@ -951,25 +926,8 @@
         sync();
       }).catch(function () { planBox.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); });
     }
-    // 2. Objectifs en cours
-    var ob = spec.objectives || {}, objBox = el('div', 'objField'); objBox.appendChild(el('p', 'cmpBlockTitle', tr('Objectifs en cours')));
-    objBox.appendChild(line(tr('Objectifs actifs'), String(ob.count))); objBox.appendChild(line(tr('Prochaine échéance'), ob.next || '—')); objBox.appendChild(line(tr('En retard'), String(ob.late))); if (spec.objectives) panelBody.appendChild(objBox); // sans données d'objectifs (pop-up de retard), le bloc n'est pas affiché
-    // 3. Responsables : mêmes lignes et même menu « ⋯ » que la liste des membres de l'activité (TMT.responsables + TMT.ui.dotsMenu, jamais recopiés). Un non-responsable n'apparaît que si je peux en ajouter.
-    var respBox = el('div', 'objField'); panelBody.appendChild(respBox);
-    function paintResp(r) {
-      respBox.textContent = ''; respBox.appendChild(el('p', 'cmpBlockTitle', tr('Responsables')));
-      var ms = r.members || [];
-      ms.filter(function (m) { return m.manager || r.canManage; }).forEach(function (m) {
-        var row = el('div', 'objTimeRow'); row.appendChild(el('span', null, m.name + (m.owner ? ' (' + tr('propriétaire') + ')' : m.manager ? '' : ' · ' + tr('membre'))));
-        var its = TMT.responsables ? TMT.responsables.items(act.id, r, m.id, function (e) { if (e) msg.textContent = e.message; TMT.responsables.load(act.id).then(paintResp); }) : [];
-        if (its.length && TMT.ui.dotsMenu) row.appendChild(TMT.ui.dotsMenu(tr('Paramètres du membre'), its));
-        respBox.appendChild(row);
-      });
-      if (!ms.length) respBox.appendChild(el('p', 'hint', '—'));
-    }
-    membersP.then(paintResp);
     // 4. Stratégie et Répartition des tâches de CETTE catégorie (18 nov. 2026, Émilien : réglages de la catégorie, plus de Réglages > activité) : mêmes blocs que partout (app.js), la ligne se déroule sur place ; Répartition : activité à plusieurs membres seulement.
-    if (TMT.buildStrategieBlock) { var catKey = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey; if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false)); panelBody.appendChild(TMT.buildRepartitionBlock(act.id, catKey, false)); } }
+    if (TMT.buildStrategieBlock) { if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false)); panelBody.appendChild(TMT.buildRepartitionBlock(act.id, catKey, false)); } }
     // Part des tâches demandée (« toi 60 %, moi 40 % ») : fiche d'une activité partagée ; lue par le bloc « proportion réelle contre demandée » du Bilan. Un responsable règle celle de tous, un membre seulement la sienne ; total <= 100 (serveur).
     if (spec.level === 'activite') membersP.then(function (mr) {
       var ms = mr.members || []; if (ms.length < 2) return;

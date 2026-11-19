@@ -216,3 +216,7 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 :root.objBarOn .tabbar { visibility: hidden; }
 .objDock.objDockBar { bottom: max(16px, env(safe-area-inset-bottom)); }
 .objDock.objDockBar .objStepBtn { height: 52px; }
+
+/* Fiche d’une catégorie, menu Responsables (18 nov. 2026) : une ligne par responsable, croix officielle .cmpRemove--corner en haut à droite (R32), séparateur .cmpSepRow (R22). */
+.respRow { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 40px 8px 4px; box-sizing: border-box; font-size: 15px; color: var(--text); }
+.respRow .respLevel { margin: 0; }
