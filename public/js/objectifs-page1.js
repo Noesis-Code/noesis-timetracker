@@ -15,11 +15,7 @@
            la tâche est répertoriée dans toutes les activités choisies ; texte vide + clic sur une puce = ouvre la page 2
            de cette activité. Badge violet = tâches capturées pas encore vues (jamais un compteur cumulatif). -->
       <div id="goalsCapturePage" class="goalsCapturePage">
-        <!-- 27 oct. 2026 (Émilien) : deux boutons en haut ; « Aujourd'hui » = tâches du jour + barre d'ajout (js/aujourdhui.js), « Activités » = choix de l'activité pour organiser ses tâches. -->
-        <div id="goalsPage1Switch" class="periodSwitch cmpSeg goalsPage1Switch">
-          <button type="button" class="periodBtn active" data-view="today">Tâches</button>
-          <button type="button" class="periodBtn" data-view="activities">Objectifs</button>
-        </div>
+        <!-- 18 nov. 2026 (Émilien) : plus de bascule Tâches | Objectifs ; ce sont deux volets de la barre. #goalsTodayView = volet Tâches (js/aujourdhui.js), #goalsActivitiesView = volet Objectifs. -->
         <div id="goalsTodayView"></div>
         <div id="goalsActivitiesView" class="hidden">
         <div id="goalsCaptureBubbleWrap" class="goalsCaptureBubbleWrap"></div>
@@ -1090,7 +1086,6 @@
     var today = goalsPage1View === 'today';
     $('goalsTodayView').classList.toggle('hidden', !today);
     $('goalsActivitiesView').classList.toggle('hidden', today);
-    Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) { b.classList.toggle('active', b.getAttribute('data-view') === goalsPage1View); });
     if (TMT.todayView) {
       if (today) {
         TMT.todayView.mount($('goalsTodayView')); TMT.todayView.show();
@@ -1099,11 +1094,8 @@
     if (!today) renderGoalsCaptureActivities();
     if (TMT.objectifsView) { if (today) TMT.objectifsView.hide(); else TMT.objectifsView.show(); } // vue Objectifs : liste + barre « Nouvel objectif… » (js/objectifs-creer.js)
   }
-  Array.prototype.forEach.call(document.querySelectorAll('#goalsPage1Switch .periodBtn'), function (b) {
-    b.addEventListener('click', function () { setGoalsPage1View(b.getAttribute('data-view')); });
-  });
   TMT.setGoalsPage1View = setGoalsPage1View;
-  TMT.resetGoalsPage1View = function () { goalsPage1View = 'today'; if (TMT.todayView && TMT.todayView.resetSort) TMT.todayView.resetSort(); };
+  TMT.resetGoalsPage1View = function (v) { goalsPage1View = v === 'activities' ? 'activities' : 'today'; /* le volet ouvert décide : Tâches = « today », Objectifs = « activities » */ if (TMT.todayView && TMT.todayView.resetSort) TMT.todayView.resetSort(); };
   window.addEventListener('load', function () { if (goalsPage1View === 'today' && TMT.todayView) setGoalsPage1View('today'); }); // aujourdhui.js se charge après cette page
 
   function showGoalsCapturePage() {

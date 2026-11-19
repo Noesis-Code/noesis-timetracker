@@ -33,7 +33,7 @@
     if (tab === 'chrono') return on('stats');
     if (tab === 'stats') return on('stats') || on('stats-tasks');  // « Temps » off : l'onglet Stats ne garde que les stats des tâches (ensemble B)
     if (tab === 'bilan') return on('stats') || on('stats-tasks');
-    if (tab === 'goals') return on('roadmap');
+    if (tab === 'tasks' || tab === 'objectives' || tab === 'goals') return on('roadmap'); // « goals » = ancien identifiant du volet Feuille de route
     if (tab === 'community') return on('community');
     if (tab === 'trade') return !!state && state.trade === true;
     if (tab === 'horaire') return !!state && state.horaire === true;
@@ -58,7 +58,7 @@
   // Calendrier et Assistant IA se rattachent à « Tâches et objectifs » ; partage et notifications restent actifs (noyau), sans interrupteur.
   var ROWS = [
     { label: 'Chrono', ids: ['stats'], anchor: 'stats', bundle: true },
-    { label: 'Feuille de route', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
+    { label: 'Tâches et objectifs', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
     { label: 'Horaire', ids: ['horaire'], anchor: 'horaire', bundle: true },
     { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
   ];
@@ -91,7 +91,7 @@
   // Réglages > Modules = l'UNIQUE endroit pour ajouter, retirer et ordonner les volets de la barre (18 nov. 2026, Émilien) : l'ordre de haut en bas = l'ordre de gauche à droite.
   // Une ligne par volet de la barre : poignée ≡ (glisser-déposer, TMT.ui.groupDrag) et interrupteur (éteint = le volet quitte la barre ; Chrono, Feuille de route et Horaire
   // coupent leur module, au moins l'un des trois reste, le serveur refuse sinon). « Ajouter un volet » (composant .cmpAdd) en haut déroule les volets absents.
-  var TAB_ROWS = { chrono: ROWS[0], goals: ROWS[1], horaire: ROWS[2], community: ROWS[3], bilan: { label: 'Bilan' }, trade: { label: 'Trade Tracker' } };
+  var TAB_ROWS = { chrono: ROWS[0], tasks: { label: 'Tâches' }, objectives: { label: 'Objectifs' }, horaire: ROWS[2], community: ROWS[3], bilan: { label: 'Bilan' }, trade: { label: 'Trade Tracker' } };
   var addOpen = false;
   function addButton(label, onClick) {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'cmpAdd';
@@ -204,7 +204,7 @@
     // Active le module d'un volet ajouté par le « + » de la barre (26 oct. 2026, Émilien : chaque volet s'ajoute comme Trade Tracker).
     // Même retour que setTrade : { ok } ou { ok: false, message }.
     setTab: function (tab) {
-      var ids = { chrono: ['stats'], goals: ['roadmap', 'stats-tasks'], community: ['community', 'profile'], horaire: ['horaire'] }[tab];
+      var ids = { chrono: ['stats'], tasks: ['roadmap', 'stats-tasks'], objectives: ['roadmap', 'stats-tasks'], community: ['community', 'profile'], horaire: ['horaire'] }[tab];
       if (tab === 'trade') return TMT.modules.setTrade(true);
       if (!ids) return Promise.resolve({ ok: true });
       var patch = {}; ids.forEach(function (id) { patch[id] = true; });

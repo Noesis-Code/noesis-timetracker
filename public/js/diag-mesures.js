@@ -81,7 +81,7 @@
       fixTag: fixTag, clientHeight: htm.clientHeight, bodyHeight: document.body.getBoundingClientRect().height, outerHeight: window.outerHeight, availHeight: screen.availHeight, probes: probes(),
       screenWidth: screen.width, screenHeight: screen.height, safeArea: safeArea(), scrollY: window.scrollY,
       htmlClasses: htm.className, htmlBg: bg(htm), bodyBg: bg(document.body),
-      rects: { topbar: rect(document.querySelector('.topbar')), goalsPage1Switch: rect(document.getElementById('goalsPage1Switch')),
+      rects: { topbar: rect(document.querySelector('.topbar')),
         objArbre: rect(arbreRoot()), tabbarPill: rect(document.getElementById('tabbarPill')), dock: rect(document.querySelector('.objDock')) },
       bottomEl: el ? { tag: el.tagName, id: el.id, className: String(el.className || ''), bg: bg(el), parentBg: bg(el.parentElement) } : undefined,
       arbre: a, viewRows: a ? a.rows : (tab ? document.querySelectorAll('#' + tab + ' li').length : 0),

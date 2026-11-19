@@ -1,9 +1,10 @@
 /* Barre des volets (chantier B, 20 oct. 2026 ; R18 de docs/regles/regles-rangement.md).
  * Barre fixe, toujours visible : pilule de 4 icônes au plus, centrées et réparties ; le « + » à droite est le BOUTON D'ACTION du volet affiché
- * (18 nov. 2026, Émilien) et n'existe que là où il a une action : Feuille de route > Tâches = fait apparaître la zone d'écriture d'une nouvelle tâche ;
- * Feuille de route > Objectifs = bascule le mode édition de l'arbre (TMT.objectifsArbre.setEdit) ; partout ailleurs il est absent.
+ * (18 nov. 2026, Émilien) et n'existe que là où il a une action : volet Tâches = fait apparaître la zone d'écriture d'une nouvelle tâche ;
+ * volet Objectifs = bascule le mode édition de l'arbre (TMT.objectifsArbre.setEdit) ; partout ailleurs il est absent.
+ * Tâches et Objectifs sont DEUX volets indépendants (18 nov. 2026) ; l'ancien volet « Feuille de route » (identifiant « goals ») est migré en Tâches + Objectifs aux mêmes places.
  * Plus d'appui long ni de « + » d'ajout : ajouter, retirer et ordonner les volets se fait UNIQUEMENT dans Réglages > Modules (js/modules.js, via TMT.navBar).
- * Règle Q1 : au moins un des volets Chrono, Feuille de route ou Horaire reste dans la barre.
+ * Règle Q1 : au moins un des volets Chrono, Tâches, Objectifs ou Horaire reste dans la barre ; 4 volets visibles au plus, le reste défile.
  * L'ordre est mémorisé par compte (localStorage) ; l'app s'ouvre sur l'onglet le plus à gauche (modules.js → TMT.navBar.firstTab).
  * Trade Tracker est un onglet ajoutable : l'ajouter connecte le module « trade » (TMT.modules.setTrade).
  * 26 oct. 2026 (Émilien) : volet Horaire (module « horaire »). */
@@ -15,8 +16,8 @@
   var pill = document.getElementById('tabbarPill');
   var addBtn = document.getElementById('tabbarAdd');
   if (!nav || !pill || !addBtn) return;
-  var ALL = ['chrono', 'goals', 'bilan', 'horaire', 'community', 'trade'];
-  var KEEP = ['chrono', 'goals', 'horaire']; // au moins un de ces trois doit rester dans la barre (26 oct. 2026)
+  var ALL = ['chrono', 'tasks', 'objectives', 'bilan', 'horaire', 'community', 'trade'];
+  var KEEP = ['chrono', 'tasks', 'objectives', 'horaire']; // au moins un de ces trois doit rester dans la barre (26 oct. 2026)
   var treeEdit = false; // mode édition de l'arbre (événement « tmt:arbre-edit »)
 
   function pid() { var p = typeof TMT.getProfile === 'function' ? TMT.getProfile() : null; return p && p.id; }
@@ -26,13 +27,19 @@
   function tradeOn() { var m = mods(); return !!(m && m.tradeOn && m.tradeOn()); }
   function btnOf(tab) { return pill.querySelector('.tabBtn[data-tab="' + tab + '"]'); }
 
-  function defaults() { var d = ['chrono', 'goals', 'bilan', 'horaire', 'community']; if (tradeOn()) d.push('trade'); return d; }
+  function defaults() { var d = ['chrono', 'tasks', 'objectives', 'community', 'bilan', 'horaire']; if (tradeOn()) d.push('trade'); return d; }
   function load() {
     var list = null;
     try { list = JSON.parse(localStorage.getItem(key()) || 'null'); } catch (e) { /* illisible : défaut */ }
     if (!Array.isArray(list)) return defaults();
+    // Migration (18 nov. 2026) : l'ancien volet « goals » (Feuille de route) devient Tâches puis Objectifs, à la même place ; aucun autre réglage touché.
+    if (list.indexOf('goals') !== -1) {
+      var mig = [];
+      list.forEach(function (x) { if (x === 'goals') { if (mig.indexOf('tasks') === -1) mig.push('tasks'); if (mig.indexOf('objectives') === -1) mig.push('objectives'); } else mig.push(x); });
+      list = mig; save(list);
+    }
     list = list.filter(function (x, i) { return ALL.indexOf(x) !== -1 && list.indexOf(x) === i; });
-    try { if (list.length && list.indexOf('bilan') === -1 && !localStorage.getItem(key() + ':bilan')) { var gi = list.indexOf('goals'); list.splice(gi === -1 ? list.length : gi + 1, 0, 'bilan'); localStorage.setItem(key() + ':bilan', '1'); localStorage.setItem(key(), JSON.stringify(list)); } } catch (e) { /* stockage indisponible : le volet reste ajoutable dans Réglages > Modules */ } /* une seule fois par compte : le volet Bilan apparaît après la Feuille de route ; le retirer ensuite reste possible */
+    try { if (list.length && list.indexOf('bilan') === -1 && !localStorage.getItem(key() + ':bilan')) { var gi = list.indexOf('objectives'); list.splice(gi === -1 ? list.length : gi + 1, 0, 'bilan'); localStorage.setItem(key() + ':bilan', '1'); localStorage.setItem(key(), JSON.stringify(list)); } } catch (e) { /* stockage indisponible : le volet reste ajoutable dans Réglages > Modules */ } /* une seule fois par compte : le volet Bilan apparaît après la Feuille de route ; le retirer ensuite reste possible */
     return list.length ? list : defaults();
   }
   function save(list) { try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) { /* stockage plein */ } }
@@ -47,13 +54,16 @@
     var hasCommunity = visibleOrder().indexOf('community') !== -1;
     document.documentElement.classList.toggle('noCommunityBar', !hasCommunity);
     // « Mon IA » (Réglages) sert à organiser la Feuille de route : retirée de la barre, le réglage disparaît (demande d'Émilien, 26 oct. 2026).
-    document.documentElement.classList.toggle('noRoadmapBar', visibleOrder().indexOf('goals') === -1);
+    document.documentElement.classList.toggle('noRoadmapBar', visibleOrder().indexOf('tasks') === -1 && visibleOrder().indexOf('objectives') === -1);
     if (!hasCommunity) { var pp = document.getElementById('profilePage'), pc = document.getElementById('profilePageClose'); if (pp && pc && !pp.classList.contains('hidden')) pc.click(); }
     Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn'), function (b) {
       var on = list.indexOf(b.dataset.tab) !== -1 && tabAllowed(b.dataset.tab);
       b.classList.toggle('barOut', !on);
       b.tabIndex = on ? 0 : -1;
     });
+    var nShown = visibleOrder().length;
+    pill.classList.toggle('barScroll', nShown > 4); // plus de 4 volets : 4 visibles, le reste défile
+    var act = pill.querySelector('.tabBtn.active'); if (act && nShown > 4 && act.scrollIntoView) { try { act.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) { /* navigateur ancien */ } }
     syncAction();
   }
 
@@ -62,23 +72,25 @@
   function shown(el) { return !!el && !!el.getClientRects().length; }
   // Quelle action le volet affiché donne-t-il au bouton ? 'tasks' (zone d'écriture), 'tree' (mode édition de l'arbre) ou rien (bouton absent).
   function actionKind() {
-    var g = btnOf('goals');
-    if (!g || !g.classList.contains('active') || document.documentElement.classList.contains('goalsActOpen')) return null;
-    if (shown(byId('goalsDetailPage'))) return null; // une page ouverte par-dessus la Feuille de route
-    if (shown(byId('goalsTodayView'))) return TMT.todayView && TMT.todayView.toggleComposer ? 'tasks' : null;
-    if (shown(byId('goalsActivitiesView'))) return 'tree';
-    return null;
+    var t = btnOf('tasks'), o = btnOf('objectives');
+    var onTasks = !!t && t.classList.contains('active'), onObj = !!o && o.classList.contains('active');
+    if ((!onTasks && !onObj) || document.documentElement.classList.contains('goalsActOpen')) return null;
+    if (shown(byId('goalsDetailPage'))) return null; // une page ouverte par-dessus le volet
+    if (onTasks) return shown(byId('goalsTodayView')) && TMT.todayView && TMT.todayView.toggleComposer ? 'tasks' : null;
+    return shown(byId('goalsActivitiesView')) ? 'tree' : null;
   }
   function pressed(kind) {
     if (kind === 'tasks') return !!(TMT.todayView && TMT.todayView.composerOpen && TMT.todayView.composerOpen());
     return kind === 'tree' && treeEdit;
   }
+  var paid = false, paidAsked = false;
   var LABELS = { tasks: 'Nouvelle tâche', tree: 'Modifier l’arbre' };
   function syncAction() {
     var kind = actionKind();
     addBtn.classList.toggle('barNoAdd', !kind);
     if (!kind) { addBtn.removeAttribute('aria-pressed'); return; }
     addBtn.setAttribute('aria-label', tr(LABELS[kind]));
+    if (TMT.expansionPaid && !paidAsked) { paidAsked = true; TMT.expansionPaid().then(function (on) { paidAsked = false; if (on !== paid) { paid = on; addBtn.classList.toggle('barPaid', on); } }); } // R17 bis : verre fort si Expansion payée, sinon pointillé gris
     addBtn.setAttribute('aria-pressed', pressed(kind) ? 'true' : 'false');
   }
   addBtn.addEventListener('click', function () {

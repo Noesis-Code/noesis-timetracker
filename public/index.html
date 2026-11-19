@@ -3420,7 +3420,15 @@
          même couleur (currentColor, suit l'état actif/inactif) que les 4 autres
          icônes, et un libellé visible « Feuille de route » est ajouté sous elle.
          aria-label="Objectifs" inchangé : seule l'étiquette affichée change. -->
-    <button class="tabBtn" data-tab="goals" aria-label="Objectifs">
+    <button class="tabBtn" data-tab="tasks" aria-label="Tâches">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <polyline points="4 6 6 8 10 4"/><polyline points="4 13 6 15 10 11"/><line x1="13" y1="6" x2="21" y2="6"/><line x1="13" y1="13" x2="21" y2="13"/><line x1="4" y1="20" x2="21" y2="20"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Tâches</span>
+    </button>
+    <button class="tabBtn" data-tab="objectives" aria-label="Objectifs">
       <span class="tabIcon">
         <svg viewBox="163 131 586 752" fill="currentColor" aria-hidden="true" focusable="false">
           <polygon points="183,293 287,461 287,616 183,675"/>
@@ -3432,7 +3440,7 @@
           <polygon points="729,151 612,186 635,253 708,287"/>
         </svg>
       </span>
-      <span class="tabLabel">Feuille de route</span>
+      <span class="tabLabel">Objectifs</span>
     </button>
     <button class="tabBtn" data-tab="bilan" aria-label="Bilan">
       <span class="tabIcon">

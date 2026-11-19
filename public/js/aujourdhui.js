@@ -580,6 +580,8 @@
       return list;
     });
   }
+  // Au moins une activité avec Expansion payée ? (« + » de la barre des volets : verre fort si oui, pointillé gris sinon.)
+  TMT.expansionPaid = function () { return essorActivities().then(function (l) { return l.length > 0; }, function () { return false; }); };
   // Message d'explication AU-DESSUS de la barre, centré (jamais plus d'une ligne sous la barre).
   function showAbove(text, linkLabel, onLink) {
     clearTimeout(state.toastT); ui.toast.textContent = text + ' ';

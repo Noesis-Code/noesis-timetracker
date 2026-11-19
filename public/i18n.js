@@ -975,6 +975,7 @@
     // c'était la seule traduction de ce texte, remplacé par "Tâches" sur le
     // bouton de la fenêtre activité (clé 'Tâches' déjà présente plus bas).
     'Tâches': 'Tasks',
+    'Tâches et objectifs': 'Tasks and goals',
     'Aucune tâche — ajoute la première ci-dessous.': 'No task yet — add the first one below.',
     'Ajouter une tâche...': 'Add a task...',
     'Ajouter une tâche': 'Add a task',

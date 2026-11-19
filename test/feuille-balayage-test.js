@@ -10,7 +10,7 @@ assert(!/zone: goalsZone/.test(stats), 'plus de balayage sur la page 1 de la Feu
 assert(!/ctx: 'goals', idx: 0/.test(stats), 'plus de points de pagination sur la Feuille de route');
 assert(!/noFollow/.test(stats), 'le contenu suit le doigt (aucun mode sans suivi) : sélecteur, liste et barre glissent d\'un bloc avec la page Statistiques');
 const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
-assert(!/fromGoalsStats|keepGoalsView/.test(app) && /if \(TMT\.resetGoalsPage1View\) TMT\.resetGoalsPage1View\(\)/.test(app), 'arrivée dans la Feuille de route : toujours Tâches par défaut (plus de page de statistiques à gauche, donc plus de vue à conserver)');
+assert(!/fromGoalsStats|keepGoalsView/.test(app) && /if \(TMT\.resetGoalsPage1View\) TMT\.resetGoalsPage1View\(goalsView\)/.test(app), 'arrivée dans la Feuille de route : toujours Tâches par défaut (plus de page de statistiques à gauche, donc plus de vue à conserver)');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
 assert(/#goalsCapturePage\) \{[^}]*overflow-x: clip[^}]*touch-action: pan-y/.test(css), 'Tâches et Objectifs : contenu fixe horizontalement (pas de défilement latéral)');
 const css2 = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');

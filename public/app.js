@@ -2241,7 +2241,7 @@
 
   // Modules désactivés (js/modules.js) : un onglet masqué se replie sur Chrono ; sans modules.js, tout est actif.
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
-  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : (tabAllowed('horaire') ? 'horaire' : 'community')); }
+  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('tasks') ? 'tasks' : (tabAllowed('horaire') ? 'horaire' : 'community')); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
   // Page de statistiques du volet Bilan (temps : feuille de temps, répartition, graphique) : on repart d'une Feuille de temps sur la semaine en cours.
   function enterStats() {
@@ -2269,15 +2269,19 @@
     loadTimesheet();
   }
 
+  // 18 nov. 2026 (Émilien) : Tâches et Objectifs sont deux volets distincts qui partagent la même section #tab-goals ; l'ancien identifiant « goals » (liens profonds, notifications) mène à Objectifs.
   function switchTab(tab) {
+    if (tab === 'goals') tab = 'objectives';
     if (!tabAllowed(tab)) tab = firstTab();
+    var goalsView = tab === 'tasks' ? 'today' : tab === 'objectives' ? 'activities' : null;
+    if (goalsView) tab = 'goals';
     var bilan = tab === 'bilan' || tab === 'stats'; if (bilan) tab = 'stats'; /* le volet Bilan = la page de statistiques, toutes les informations dans une seule colonne */
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
-    var barTab = bilan ? 'bilan' : tab;
+    var barTab = bilan ? 'bilan' : goalsView === 'today' ? 'tasks' : goalsView === 'activities' ? 'objectives' : tab;
     tabButtons.forEach(function (b) {
       b.classList.toggle('active', b.dataset.tab === barTab);
       if (b.dataset.tab === barTab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
@@ -2309,7 +2313,7 @@
     else {
       if (TMT.bilanHide) TMT.bilanHide();
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
+      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(goalsView); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -11155,8 +11159,7 @@
 
   // Tâche visée par le rappel de 6 h : on ouvre l'onglet Tâches (Feuille de route) et on surligne la ligne [data-task-id] dès qu'elle est affichée (les secteurs y sont repliés : la ligne n'existe qu'une fois son secteur déplié).
   function focusGoalsTaskFromNotification(activityId, taskId) {
-    if (TMT.switchTab) TMT.switchTab('goals');
-    if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
+    if (TMT.switchTab) TMT.switchTab('tasks');
     focusWhenReady('#goalsTodayView [data-task-id="' + taskId + '"]', 40);
   }
 

@@ -12,8 +12,9 @@ const html = R('public', 'index.html'), sw = R('public', 'sw.js'), app = R('publ
 assert(!/tiroir/.test(html) && !/tiroir/.test(sw) && !fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'tiroir.js')) && !fs.existsSync(path.join(__dirname, '..', 'public', 'css', 'tiroir.css')), 'tiroir : plus chargé (index.html, service worker) ni servi (public/)');
 assert(fs.existsSync(path.join(__dirname, '..', 'docs', 'fonctionnalites', 'repos-tiroir', 'tiroir.js')) && /mis de côté|MIS DE CÔTÉ/.test(R('docs', 'fonctionnalites', 'tiroir-taches.md')), 'code du tiroir gardé au repos (docs/fonctionnalites/repos-tiroir) avec sa note');
 assert(!/cmpHandle|taskDrawer/.test(compo) && !/taskDrawer/.test(app), 'poignée .cmpHandle (non partagée) et notification vers le tiroir retirées');
-assert(/id="goalsPage1Switch"|goalsPage1Switch/.test(page1) && /data-view="today">Tâches/.test(page1) && /data-view="activities">Objectifs/.test(page1), 'sélecteur « Tâches | Objectifs » de la page 1 remis');
-assert(/setGoalsPage1View\('today'\)/.test(app) && /#goalsTodayView \[data-task-id=/.test(app), 'la notification de 6 h ouvre de nouveau la vue Tâches de la Feuille de route');
+const idxHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+assert(!/goalsPage1Switch/.test(page1) && /data-tab="tasks"/.test(idxHtml) && /data-tab="objectives"/.test(idxHtml), 'plus de bascule « Tâches | Objectifs » : deux volets de la barre (18 nov. 2026)');
+assert(/switchTab\('tasks'\)/.test(app) && /#goalsTodayView \[data-task-id=/.test(app), 'la notification de 6 h ouvre de nouveau la vue Tâches de la Feuille de route');
 
 // Bande de la semaine et jour sélectionné
 assert(/function buildCal/.test(js) && /goalsCalDay/.test(js) && /cmpNav cmpNav--sm goalsCalNav/.test(js) && /cmpChev/.test(js), 'bande de la semaine : classes .goalsCal* / .cmpNav / .cmpChev de la page 3 (aucun style de jour nouveau)');
