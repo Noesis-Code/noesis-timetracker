@@ -16,7 +16,7 @@
   var TMT = window.TMT = window.TMT || {};
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var zoom = 'period', wk = null, lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false, dive = false, lastTap = null;
+  var zoom = 'period', lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false, dive = false, lastTap = null;
   var editOn = false, tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
   var MIN_ROWS = 5, BLOCK0 = 2026; // BLOCK0 : premier bloc de 5 ans fixe (26/30)
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
@@ -84,7 +84,7 @@
     });
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { // APPUI LONG : le menu d'actions (Relier = le mode de liaison actuel, Modifier, Supprimer)
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
-      onHold: function () { if (extCol == null || wk) return; var par = o.parentId != null && items.filter(function (x) { return x.id === o.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(o, extCol); } /* appui long = RELIER directement (mode Étendre existant) */
+      onHold: function () { if (extCol == null) return; var par = o.parentId != null && items.filter(function (x) { return x.id === o.parentId && x.isMacro; })[0]; if (par) startExtendEdit(par); else startExtend(o, extCol); } /* appui long = RELIER directement (mode Étendre existant) */
     });
     return b;
   }
@@ -373,11 +373,15 @@
     }
   }
   // Repère de période (mêmes classes que la page 2) : à venir = numéro cerclé, courante = pastille pleine, passée = point. En zoom Année : les deux derniers chiffres de l'année.
-  // Dernier niveau (secteurs) : toucher un objectif PÉRIODIQUE (hors du « + ») ouvre la page de ses 4 SEMAINES : la même grille, une ligne par semaine, la colonne touchée seule ; la ✕ en haut à droite revient aux périodes.
-  function openWeeks(rw, c) { if (!rw.p || wk) return; dive = true; wk = { y: rw.y, p: rw.p, key: c.col.key, label: c.col.label }; animate = true; needBase = true; render(); }
-  function closeWeeks() { if (!wk) return; wk = null; animate = true; needBase = true; render(); }
-  function enterCell(rw, c, ci) { if (wk) return; if (lvl === 'secteur') { openWeeks(rw, c); return; } descend(ci, lvl === 'activite' ? rw.y : null, rw.y); } // entrer dans une case vide : même descente qu'une carte (bloc de 5 ans / année de la ligne) ; dernier niveau : les 4 semaines de la période
-  function calTap(rw, c) { return lvl !== 'secteur' ? null : wk ? function () {} : rw.p ? function () { openWeeks(rw, c); } : null; } // dernier niveau : une case occupée n'ouvre rien de plus bas dans la page des semaines
+  // Dernier niveau (secteurs) : toucher un objectif PÉRIODIQUE (hors du « + ») ouvre le POP-UP des 4 semaines de sa période (19 nov. 2026) : un titre et un descriptif par semaine ; plus de page de grille.
+  function openWeeks(rw, c) {
+    if (!rw.p || !TMT.objectifsView || !TMT.objectifsView.openSemaines) return;
+    var iso = function (t) { return new Date(t).toISOString().slice(0, 10); }, t0 = Date.UTC(rw.y, 0, 1) + (rw.p - 1) * PER_DAYS * 86400000, weeks = [];
+    for (var i = 1; i <= 4; i++) { var a = iso(t0 + (i - 1) * 7 * 86400000), b = iso(t0 + (i * 7 - 1) * 86400000); weeks.push({ i: i, start: a, end: b, obj: c.col.objs.filter(function (o) { return !o.isMacro && weeksOf(o) <= 1 && o.endDate >= a && o.endDate <= b; })[0] || null }); }
+    TMT.objectifsView.openSemaines({ label: 'P' + rw.p + ' · ' + rw.y + ' · ' + c.col.label, ctx: c.col.ctx, weeks: weeks });
+  }
+  function enterCell(rw, c, ci) { if (lvl === 'secteur') { openWeeks(rw, c); return; } descend(ci, lvl === 'activite' ? rw.y : null, rw.y); } // entrer dans une case vide : même descente qu'une carte (bloc de 5 ans / année de la ligne) ; dernier niveau : les 4 semaines de la période
+  function calTap(rw, c) { return lvl !== 'secteur' ? null : rw.p ? function () { openWeeks(rw, c); } : null; } // dernier niveau : une case occupée n'ouvre rien de plus bas dans la page des semaines
   function marker(rw, here, onTap) {
     var oval = !rw.p && !rw.w, st = rw.rank > here.rank ? 'future' : rw.rank === here.rank ? 'current' : 'past', m = el('span', 'goalsRowMarker goalsRowMarker--' + st + (oval ? ' goalsRowMarker--ovale' : ''));
     var label = rw.block ? rw.y + '-' + rw.y2 : rw.w ? String(rw.w) : rw.p ? String(rw.p) : String(rw.y);
@@ -481,7 +485,7 @@
   function addSlot() { var b = el('button', 'arAddSlot'); b.type = 'button'; b.setAttribute('aria-label', tr('Modifier l’arbre')); b.setAttribute('aria-pressed', editOn ? 'true' : 'false'); b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'; return b; }
   function setEdit(on) { on = !!on; if (on === editOn) return; editOn = on; if (tree) tree.classList.toggle('arEdit', on); document.dispatchEvent(new CustomEvent('tmt:arbre-edit', { detail: { on: on } })); }
   function go(l, f) {
-    setEdit(false); lvl = l; focus = f; wk = null; picked = null; animate = true; needBase = true; render();
+    setEdit(false); lvl = l; focus = f; picked = null; animate = true; needBase = true; render();
     var k = ordreKey().join('|'), before = JSON.stringify(ordreMap[k]);
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
@@ -526,8 +530,7 @@
     var nav = el('nav', 'arCrumbs'); nav.setAttribute('aria-label', tr('Chemin'));
     var act = actOf(focus.activityId), name = isMulti() ? (focus.activityIds || pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, a) { return a.indexOf(v) === i; })).map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
     var parts = [{ label: tr('Activités'), go: function () { go('activite', null); } }, { label: name, go: lvl === 'secteur' ? ascend : null }];
-    if (lvl === 'secteur') parts.push({ label: pairsOf().length ? tr('Secteurs') : (focus.poleLabel || ''), go: wk ? closeWeeks : null });
-    if (wk) parts.push({ label: 'P' + wk.p + ' · ' + wk.label, go: null }); // page des semaines : le chemin finit par la période et la colonne touchée
+    if (lvl === 'secteur') parts.push({ label: pairsOf().length ? tr('Secteurs') : (focus.poleLabel || ''), go: null });
     parts.forEach(function (p, i) {
       var last = !p.go;
       if (i) nav.appendChild(el('span', 'arCrumbSep', '›'));
@@ -542,14 +545,13 @@
     document.documentElement.classList.toggle('arbreOn', visible); if (visible) window.scrollTo(0, 0); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
     if (TMT.ui && TMT.ui.editIcon) tree.style.setProperty('--ar-edit-mask', 'url("data:image/svg+xml,' + encodeURIComponent(TMT.ui.editIcon().replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/currentColor/g, '#000').replace('width="13" height="13"', 'width="18" height="18"').replace('stroke-width="2"', 'stroke-width="2.4"')) + '")'); // le crayon STANDARD (R15) devient le masque du trou : même dessin, rendu en creux dans la carte
-    zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : wk ? 'week' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
+    zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = isLand() ? 46 : 20; RAIL = mw + 10; /* colonne des dates : largeur du plus large repère court (2 caractères) ; les repères de plus de 2 caractères sont tournés (lus de bas en haut) */ tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     tree.classList.toggle('arExtending', !!ext);
-    if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); if (wk) { var xb0 = el('button', 'cmpClose'); xb0.type = 'button'; xb0.setAttribute('aria-label', tr('Fermer')); zb.style.position = 'relative'; zb.style.paddingRight = '40px'; xb0.style.cssText = 'position:absolute;top:0;right:0'; xb0.addEventListener('click', closeWeeks); zb.appendChild(xb0); } /* ✕ en haut à droite : retour aux périodes (R13) */ tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
+    if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown)));
-    if (wk) { var wsp = [wk.y + '-01-01', wk.y + '-12-31']; (function () { var d0 = new Date(Date.UTC(wk.y, 0, 1)); d0.setUTCDate(d0.getUTCDate() + (wk.p - 1) * PER_DAYS); wsp[0] = d0.toISOString().slice(0, 10); d0.setUTCDate(d0.getUTCDate() + PER_DAYS - 1); wsp[1] = d0.toISOString().slice(0, 10); })(); curCols = curCols.filter(function (c) { return c.key === wk.key; }).map(function (c) { return Object.assign({}, c, { objs: c.objs.filter(function (o) { return !o.isMacro && weeksOf(o) <= 1 && o.endDate >= wsp[0] && o.endDate <= wsp[1]; }) }); }); } // page des semaines : la colonne touchée seule, ses objectifs hebdomadaires de la période
     if (!curCols.length) { gridArea = scroller = null; tree.appendChild(el('p', 'hint cmpEmpty', tr(items.length ? 'Aucun objectif à cette échelle.' : 'Aucun objectif pour l’instant.'))); return; }
     var n = curCols.length, wide = window.innerWidth >= 1024;
     var SIDE = mw + 10 + 64; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
@@ -600,7 +602,6 @@
     list = buildRows(lo, farRank, byRank);
     var cycleEnd = blockYears || !!periodYear; // cycle à fin FIXE : jamais de case au-delà de sa fin (pas de remplissage vers l'année ou le bloc suivant)
     while (!cycleEnd && list.length < Math.min(isLand() ? 7 : MIN_ROWS, MAX_ROWS[zoom] || 1e9)) list.push(rowOfRank(nextRank(list[list.length - 1].rank))); // toujours au moins 5 cases : le futur se prolonge en cases grises vides
-    if (wk) { list = []; for (var wi = 1; wi <= 4; wi++) list.push(rowOfRank(wk.y * 100 + (wk.p - 1) * 4 + wi)); } // les 4 semaines de la période
     list.reverse();
     // cellules des colonnes : [rangée][colonne] -> entrées
     var cells = list.map(function (rw) { return data.map(function (c) { return c.entries.filter(function (e) { return e.b.rank === rw.rank; }).sort(function (a, b) { return (a.ri - b.ri) || (b.i - a.i); }); }); });

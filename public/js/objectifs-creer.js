@@ -880,6 +880,52 @@
     }
     TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; s1(); }).catch(function () { m.close(); });
   }
+  // POP-UP DES 4 SEMAINES d'une période (maquette C, 19 nov. 2026, Émilien) : le dernier niveau de l'arbre. Une ligne par semaine = un TITRE ; toucher la ligne déplie le titre et un DESCRIPTIF modifiable
+  // que l'IA lit pour ranger les tâches dans la bonne semaine. Même gabarit que la fiche (panneau + Enregistrer décollé, R50) ; rien n'est écrit avant « Enregistrer ».
+  // spec : { label, ctx (activityId, level, poleKey, categoryKey), weeks: [{ i, start, end, obj }] } ; obj = objectif hebdomadaire existant de la semaine (ou null).
+  function openSemaines(spec, onEnd) {
+    var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1;
+    var rows = spec.weeks.map(function (w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; });
+    panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.label; panelForm = { edit: true }; setBack(null);
+    panelBody.appendChild(el('p', 'objSub', tr('Donne un titre et un descriptif à chaque semaine : l’IA s’en sert pour ranger tes tâches dans la bonne semaine.')));
+    var list = el('div', 'objSemList'); panelBody.appendChild(list);
+    function changed(r) { return r.t.trim() !== r.t0.trim() || r.d.trim() !== r.d0.trim(); }
+    function valid(r) { return !changed(r) || !!r.w.obj || !!r.t.trim(); } // une nouvelle semaine ne s'enregistre pas sans titre
+    function sync() { stepBtn.disabled = !rows.some(changed) || !rows.every(valid); }
+    function paint() {
+      list.textContent = '';
+      rows.forEach(function (r, k) {
+        var row = el('div', 'objSemRow'), head = btn('objSemHead' + (k === openI ? ' open' : ''), '', function () { openI = openI === k ? -1 : k; paint(); });
+        head.appendChild(el('span', 'objSemNo', 'S' + r.w.i)); head.appendChild(el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'))); head.appendChild(el('span', 'objSemArrow', '›'));
+        head.setAttribute('aria-expanded', k === openI ? 'true' : 'false'); row.appendChild(head);
+        if (k === openI) {
+          var body = el('div', 'objSemBody objField'), tIn = el('input'), dIn = el('textarea');
+          tIn.type = 'text'; tIn.maxLength = 140; tIn.value = r.t; tIn.placeholder = tr('Titre'); tIn.setAttribute('aria-label', tr('Titre'));
+          dIn.maxLength = 1000; dIn.rows = 3; dIn.value = r.d; dIn.placeholder = tr('Descriptif'); dIn.setAttribute('aria-label', tr('Descriptif'));
+          tIn.addEventListener('input', function () { r.t = tIn.value; head.querySelector('.objSemTitle').textContent = r.t.trim() || tr('Ajouter un titre'); head.querySelector('.objSemTitle').classList.toggle('empty', !r.t.trim()); sync(); });
+          dIn.addEventListener('input', function () { r.d = dIn.value; sync(); });
+          body.appendChild(tIn); body.appendChild(dIn); row.appendChild(body);
+        }
+        list.appendChild(row);
+      });
+      sync();
+    }
+    function save() {
+      if (stepBtn.disabled) return;
+      stepBtn.disabled = true; msg.textContent = '';
+      var chain = rows.reduce(function (p, r) {
+        if (!changed(r)) return p;
+        return p.then(function () {
+          if (r.w.obj) return (r.t.trim() && r.t.trim() !== r.t0.trim() ? api('PUT', '/api/objectifs/' + r.w.obj.id + '/titre', { title: r.t.trim() }) : Promise.resolve()).then(function () { return r.d.trim() !== r.d0.trim() ? api('PUT', '/api/objectifs/' + r.w.obj.id + '/description', { description: r.d.trim() }) : null; });
+          return api('POST', '/api/objectifs', { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, title: r.t.trim(), startDate: r.w.start, endDate: r.w.end, amount: 1, unit: 'semaines', inner: 'hebdomadaires', weekly: true })
+            .then(function (o) { return r.d.trim() ? api('PUT', '/api/objectifs/' + o.id + '/description', { description: r.d.trim() }) : null; });
+        });
+      }, Promise.resolve());
+      TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); load(); sync(); });
+    }
+    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
+    paint();
+  }
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
   // MODE ÉTENDRE (arbre) : le panneau porte le titre commun du macro (modifiable, jamais en silence) ; la barre devient « Enregistrer » pleine largeur (grisée tant que rien n'a changé, violette ensuite) ; ✕ annule.
   // cfg : { title (null = pas de champ), hint, canSave(), onTitle(t), onSave(), onCancel() } -> { setTitle, setHint, setEnabled }
@@ -1138,6 +1184,7 @@
     openHeures: function (spec, row, label) { openHeures(spec, row, label); },
     dock: function () { return dock; },
     openFiche: function (spec, onEnd) { openFiche(spec, onEnd); },
+    openSemaines: function (spec, onEnd) { openSemaines(spec, onEnd); },
     guideProposals: guideProposals,
     openEdit: function (id) { openEdit(id); } // mode édition de l'arbre : panneau de modification (même format que la création)
   };
