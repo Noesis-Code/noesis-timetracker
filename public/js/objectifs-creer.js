@@ -1150,9 +1150,9 @@
           });
         }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
       });
-      if (!o.isMacro && !o.abandoned) panelBody.appendChild(gen);
+      if (!o.isMacro && !o.abandoned) { var genBody = el('div'); genBody.appendChild(el('p', 'hint', tr('Noèsis propose jusqu’à 8 objectifs plus petits sous celui-ci. Rien n’est créé avant ton Oui.'))); genBody.appendChild(gen); panelBody.insertBefore(accRow(tr('Découper'), function () { return ''; }, genBody), advBox); }
       var del = btn('cmpBtn cmpBtnDanger', tr('Supprimer'), function () { confirmDelete(id, o.title, function () { load(); endFlow(); }, function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }, !!o.isMacro); }); /* suppression existante (confirmation TMT.ui.confirm), dans la fiche : rouge, tout en bas (R4, R28) */
-      var rare = el('div', 'objRare'); rare.appendChild(ab); rare.appendChild(del); panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
+      var rare = el('div', 'objRare'); if (o.abandoned) rare.appendChild(ab); rare.appendChild(del); // Abandonner retiré (décision d'Émilien) : seul « Réactiver » reste pour un objectif déjà abandonné panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
       function save() {
         var calls = [];
         if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
