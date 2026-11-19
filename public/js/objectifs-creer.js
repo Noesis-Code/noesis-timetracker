@@ -900,30 +900,82 @@
     }
     TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); }).catch(function () { if (m) m.close(); });
   }
-  // POP-UP DES 4 SEMAINES d'une période (maquette C, 19 nov. 2026, Émilien) : le dernier niveau de l'arbre. Une ligne par semaine = un TITRE ; toucher la ligne déplie le titre et un DESCRIPTIF modifiable
-  // que l'IA lit pour ranger les tâches dans la bonne semaine. Même gabarit que la fiche (panneau + Enregistrer décollé, R50) ; rien n'est écrit avant « Enregistrer ».
-  // spec : { label, ctx (activityId, level, poleKey, categoryKey), weeks: [{ i, start, end, obj }] } ; obj = objectif hebdomadaire existant de la semaine (ou null).
+  // POP-UP DES 4 SEMAINES d'une période (19 nov. 2026, Émilien) : le dernier niveau de l'arbre, la semaine la plus ancienne EN BAS. Une ligne = un TITRE (touchée, elle se déplie : le titre s'écrit sur place) ;
+  // dessous, trois questions à puces (Que faire ? Avec quoi ? Quel résultat ?) qui composent le descriptif « Libellé : réponse · … » lu par l'IA (même format que la création, GUIDE_GROUPS). « + » = ajouter, ✕ = supprimer
+  // (confirmation habituelle). « Génère tes objectifs hebdomadaires avec Noèsis » : l'IA écrit les semaines vides à partir de l'objectif périodique (aucune validation ligne par ligne : ✕ pour retirer).
+  // spec : { label, ctx, parentId, weeks: [{ i, start, end, obj }] } ; rien d'autre n'est écrit avant « Enregistrer » (la génération et la suppression, elles, s'appliquent tout de suite).
+  var SEM_Q = [['faire', 'Que faire ?'], ['quoi', 'Avec quoi ?'], ['resultat', 'Quel résultat ?']];
+  function semGuide(k) { var g = null; GUIDE_GROUPS.forEach(function (x) { x.qs.forEach(function (q) { if (q.k === k) g = q; }); }); return g; }
+  function semParse(d) { return String(d || '').split(' · ').map(function (s) { var i = s.indexOf(' : '); return i < 0 ? { label: '', ans: s.trim() } : { label: s.slice(0, i).trim(), ans: s.slice(i + 3).trim() }; }).filter(function (x) { return x.ans; }); }
+  function semCompose(parts) { return parts.map(function (x) { return x.label ? x.label + ' : ' + x.ans : x.ans; }).join(' · '); }
   function openSemaines(spec, onEnd) {
-    var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1;
-    var rows = spec.weeks.map(function (w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; });
+    var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1, rows = [];
+    function mk(w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; }
+    rows = spec.weeks.map(mk);
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.label; panelForm = { edit: true }; setBack(null);
-    var list = el('div', 'objSemList'); panelBody.appendChild(list); // la semaine la plus ancienne EN BAS, la plus récente en haut (l'arbre monte)
+    var genBox = el('div', 'objSemGen'), list = el('div', 'objSemList'); panelBody.appendChild(genBox); panelBody.appendChild(list);
     function changed(r) { return r.t.trim() !== r.t0.trim() || r.d.trim() !== r.d0.trim(); }
     function valid(r) { return !changed(r) || !!r.w.obj || !!r.t.trim(); } // une nouvelle semaine ne s'enregistre pas sans titre
     function sync() { stepBtn.disabled = !rows.some(changed) || !rows.every(valid); }
+    function fresh() { // relit les objectifs : la génération ou une suppression vient de changer les semaines (une saisie non enregistrée d'une semaine qui existe encore est gardée)
+      return api('GET', '/api/objectifs?filtre=en_cours').then(function (r) {
+        var all = (r && r.objectifs) || [], days = function (a, b) { return (Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000; };
+        rows.forEach(function (x) {
+          var dirty = changed(x) && x.w.obj;
+          x.w.obj = all.filter(function (o) { return !o.isMacro && o.activity && o.activity.id === c.activityId && o.level === c.level && (o.poleKey || null) === (c.poleKey || null) && (o.categoryKey || null) === (c.categoryKey || null) && days(o.startDate, o.endDate) <= 7 && o.endDate >= x.w.start && o.endDate <= x.w.end; })[0] || null;
+          if (!dirty || !x.w.obj) { var n = mk(x.w); x.t = n.t; x.d = n.d; x.t0 = n.t0; x.d0 = n.d0; } else { x.t0 = x.w.obj.title || ''; x.d0 = x.w.obj.description || ''; }
+        });
+        load(); paint();
+      });
+    }
+    function generate() {
+      msg.textContent = '';
+      TMT.ui.attente(api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
+        var use = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return rows.some(function (x) { return !x.w.obj && r.endDate >= x.w.start && r.endDate <= x.w.end; }); }) : []; // seulement les semaines encore vides de cette période
+        if (!use.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return null; }
+        var body = use.map(function (r) { return { kind: 'nouveau', title: r.title, description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: r.endDate, weeks: r.weeks, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
+        return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: pl.level === 'semaine' ? true : undefined, rows: body }).then(fresh);
+      })).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
+    }
     function paint() {
+      genBox.textContent = '';
+      if (spec.parentId && rows.some(function (x) { return !x.w.obj; })) genBox.appendChild(btn('cmpBtn cmpBtnIdle objSemGenBtn', tr('Génère tes objectifs hebdomadaires avec Noèsis'), generate));
       list.textContent = '';
       rows.map(function (r, k) { return { r: r, k: k }; }).reverse().forEach(function (x) { // la semaine la plus ancienne en BAS (l'arbre monte)
-        var r = x.r, k = x.k, row = el('div', 'objSemRow'), head = btn('objSemHead' + (k === openI ? ' open' : ''), '', function () { openI = openI === k ? -1 : k; paint(); });
-        head.appendChild(el('span', 'objSemNo', 'S' + r.w.i)); head.appendChild(el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'))); head.appendChild(el('span', 'objSemArrow', '›'));
-        head.setAttribute('aria-expanded', k === openI ? 'true' : 'false'); row.appendChild(head);
-        if (k === openI) {
-          var body = el('div', 'objSemBody objField'), tIn = el('input'), dIn = el('textarea');
-          tIn.type = 'text'; tIn.maxLength = 140; tIn.value = r.t; tIn.placeholder = tr('Titre'); tIn.setAttribute('aria-label', tr('Titre'));
-          dIn.maxLength = 1000; dIn.rows = 3; dIn.value = r.d; dIn.placeholder = tr('Descriptif'); dIn.setAttribute('aria-label', tr('Descriptif'));
-          tIn.addEventListener('input', function () { r.t = tIn.value; head.querySelector('.objSemTitle').textContent = r.t.trim() || tr('Ajouter un titre'); head.querySelector('.objSemTitle').classList.toggle('empty', !r.t.trim()); sync(); });
-          dIn.addEventListener('input', function () { r.d = dIn.value; sync(); });
-          body.appendChild(tIn); body.appendChild(dIn); row.appendChild(body);
+        var r = x.r, k = x.k, row = el('div', 'objSemRow'), isOpen = k === openI, head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
+        head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        function toggle() { openI = isOpen ? -1 : k; paint(); }
+        head.addEventListener('click', toggle); head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
+        head.appendChild(el('span', 'objSemNo', 'S' + r.w.i));
+        if (isOpen) {
+          tEl = el('input', 'objSemTitleIn'); tEl.type = 'text'; tEl.maxLength = 140; tEl.value = r.t; tEl.placeholder = tr('Titre'); tEl.setAttribute('aria-label', tr('Titre'));
+          tEl.addEventListener('click', function (e) { e.stopPropagation(); }); tEl.addEventListener('input', function () { r.t = tEl.value; sync(); });
+        } else tEl = el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'));
+        head.appendChild(tEl);
+        if (r.w.obj) { var del = btn('objSemDel', '✕', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
+        else head.appendChild(el('span', 'objSemPlus', '+'));
+        row.appendChild(head);
+        if (isOpen) {
+          var body = el('div', 'objSemBody'), parts = semParse(r.d);
+          SEM_Q.forEach(function (q) {
+            var g = semGuide(q[0]), pi = -1;
+            parts.forEach(function (y, n) { if (y.label === g.label) pi = n; });
+            var cur = pi >= 0 ? parts[pi].ans : '', opts = g.opts.slice(); if (cur && opts.indexOf(cur) < 0) opts.unshift(cur);
+            body.appendChild(el('p', 'objSemQ', tr(q[1])));
+            var chips = el('div', 'objSemChips');
+            opts.forEach(function (o) {
+              var b = btn('objSemChip' + (o === cur ? ' on' : ''), tr(o), function () {
+                var j = -1; parts.forEach(function (y, n) { if (y.label === g.label) j = n; });
+                var was = j >= 0 && parts[j].ans === o;
+                if (was) parts.splice(j, 1); else if (j >= 0) parts[j].ans = o; else parts.push({ label: g.label, ans: o });
+                r.d = semCompose(parts); Array.prototype.forEach.call(chips.children, function (cb) { cb.classList.remove('on'); cb.setAttribute('aria-pressed', 'false'); });
+                if (!was) { b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); } sync();
+              });
+              b.setAttribute('aria-pressed', o === cur ? 'true' : 'false'); chips.appendChild(b);
+            });
+            body.appendChild(chips);
+          });
+          row.appendChild(body);
         }
         list.appendChild(row);
       });
