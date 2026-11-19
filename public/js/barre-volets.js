@@ -122,6 +122,7 @@
   function removeTab(tab) {
     if (!mayRemove(tab)) return;
     var wasActive = btnOf(tab) && btnOf(tab).classList.contains('active');
+    try { localStorage.setItem(key() + ':bilan', '1'); } catch (e) { /* stockage indisponible */ } // le retrait de Bilan ne doit pas être défait par la remise en place « une seule fois » de load()
     save(load().filter(function (x) { return x !== tab; }));
     refresh();
     if (wasActive && typeof TMT.switchTab === 'function') TMT.switchTab(firstTab());
