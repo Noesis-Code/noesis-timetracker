@@ -255,3 +255,4 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRdBar.off { opacity: .3; }
 .objRdRow { gap: 8px; padding: 8px 0; align-items: center; }
 .objSemRow.past { opacity: .4; pointer-events: none; }
+.objDueFrame { border: 1px solid var(--purple); border-radius: var(--radius); padding: 8px 12px; } /* « Fixe » : cadre autour de la date imposée (19 nov. 2026) */
