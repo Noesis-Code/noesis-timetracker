@@ -62,7 +62,7 @@
       b.tabIndex = on ? 0 : -1;
     });
     var nShown = visibleOrder().length;
-    pill.classList.toggle('barScroll', nShown > 5); // plus de 5 volets : 5 visibles, le reste défile (rien ne disparaît)
+    // la classe barScroll (plus de 5 emplacements : le reste défile, rien ne disparaît) et le volet remplacé par le « + » sont posés par syncAction
     var act = pill.querySelector('.tabBtn.active'); if (act && nShown > 5 && act.scrollIntoView) { try { act.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) { /* navigateur ancien */ } }
     syncAction();
   }
@@ -84,18 +84,28 @@
     return kind === 'tree' && treeEdit;
   }
   var LABELS = { tasks: 'Nouvelle tâche', tree: 'Modifier l’arbre' };
+  function setCls(el, c, on) { if (el && el.classList.contains(c) !== on) el.classList.toggle(c, on); } // jamais de réécriture inutile : l'observateur ci-dessous n'est pas relancé en boucle
+  // Quand le « + » est là, il prend la place du volet affiché (Tâches ou Objectifs), qui quitte la barre (barSwap) : au plus 5 emplacements au total (4 autres volets + le « + »).
+  // L'autre des deux reste visible, donc on ne se retrouve jamais sans moyen d'y aller ; revenir au volet retiré = toucher un autre volet.
   function syncAction() {
-    var kind = actionKind();
-    addBtn.classList.toggle('barNoAdd', !kind);
+    var kind = actionKind(), nShown = visibleOrder().length, swap = !!kind && nShown > 1;
+    setCls(addBtn, 'barNoAdd', !kind);
+    Array.prototype.forEach.call(pill.querySelectorAll('.tabBtn'), function (b) { setCls(b, 'barSwap', swap && b.classList.contains('active')); });
+    setCls(pill, 'barHasAction', swap);
+    setCls(pill, 'barScroll', nShown - (swap ? 1 : 0) > (swap ? 4 : 5)); // 5 emplacements (4 + le « + » si le bouton est là) ; au-delà, la barre défile
+    var slots = document.querySelectorAll ? document.querySelectorAll('.arAddSlot') : []; // même bouton dans l'arbre, là où la barre est masquée (téléphone tourné)
+    Array.prototype.forEach.call(slots, function (s) { if (!kind) s.removeAttribute('aria-pressed'); else { s.setAttribute('aria-label', tr(LABELS[kind])); s.setAttribute('aria-pressed', pressed(kind) ? 'true' : 'false'); } });
     if (!kind) { addBtn.removeAttribute('aria-pressed'); return; }
     addBtn.setAttribute('aria-label', tr(LABELS[kind]));
     addBtn.setAttribute('aria-pressed', pressed(kind) ? 'true' : 'false');
   }
-  addBtn.addEventListener('click', function () {
+  function act() {
     var kind = actionKind(), a = TMT.objectifsArbre;
     if (kind === 'tasks') TMT.todayView.toggleComposer();
     else if (kind === 'tree' && a && a.setEdit && a.isEdit) a.setEdit(!a.isEdit()); // l'arbre peut ne pas être encore chargé : rien ne se passe
-  });
+  }
+  addBtn.addEventListener('click', act);
+  document.addEventListener('click', function (e) { var s = e.target && e.target.closest && e.target.closest('.arAddSlot'); if (s) act(); }); // « + » de l'arbre (téléphone tourné)
   document.addEventListener('tmt:arbre-edit', function (e) { treeEdit = !!(e.detail && e.detail.on); syncAction(); });
   document.addEventListener('tmt:composer', syncAction);
   if (window.MutationObserver) {
@@ -143,7 +153,7 @@
     var f = visibleOrder().filter(function (t) { return t !== 'trade'; })[0];
     return f || 'chrono';
   }
-  TMT.navBar = { firstTab: firstTab, refresh: refresh, order: visibleOrder, setOrder: setOrder, addable: addable, add: addTab, remove: removeTab };
+  TMT.navBar = { action: act, firstTab: firstTab, refresh: refresh, order: visibleOrder, setOrder: setOrder, addable: addable, add: addTab, remove: removeTab };
 
   document.addEventListener('tmt:modules', refresh);
   refresh();
