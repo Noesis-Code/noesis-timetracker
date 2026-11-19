@@ -35,7 +35,13 @@ function isDetachValue(raw) {
 // le retrait masque une catégorie pour l'avenir, il ne doit jamais faire
 // disparaître un rattachement déjà écrit ailleurs (même principe que la
 // clôture d'un sous-projet, ancien module retiré).
-function resolveCategoryKey(activityId, raw, current) {
+function resolveCategoryKey(activityId, raw, current, userId, opts) {
+  const r = resolveRaw(activityId, raw, current);
+  if (r.error || !userId) return r;
+  // Portée (19 nov. 2026) : un membre limité à un pôle/secteur ne choisit qu'au plus son niveau et ceux d'en dessous (server/lib/portee.js) ; opts.require = une catégorie est exigée (arrêt, saisie manuelle).
+  return require('./portee').checkChoice(userId, activityId, r.categoryKey, current, opts);
+}
+function resolveRaw(activityId, raw, current) {
   if (raw === undefined) return { categoryKey: current || null };
   if (isDetachValue(raw)) return { categoryKey: null };
 

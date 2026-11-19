@@ -218,6 +218,7 @@ app.use('/api', require('./routes/tachesrangement')); // Rangement des tâches :
 app.use('/api', require('./routes/objectifsretard')); // avant routes/objectifs : « /objectifs/retard » ne doit pas être lu comme un :id
 app.use('/api', require('./routes/objectifs'));
 app.use('/api', require('./routes/responsables')); // responsables d'une activité (8 nov. 2026)
+app.use('/api', require('./routes/membres')); // appartenance d'un membre à une catégorie (19 nov. 2026)
 // Pôles/secteurs (gestion des catégories), extraits de routes/goals.js.
 app.use('/api', require('./routes/categories'));
 // Parcours d'achat de l'Offre 1 (8 septembre 2026) : démarrage du paiement

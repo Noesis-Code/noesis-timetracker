@@ -111,7 +111,7 @@ router.post('/history', (req, res) => {
   const noteChk = textlimits.clean(req.body.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });
   if (noteChk.error) return res.status(400).json({ error: noteChk.error });
 
-  const resolved = resolveCategoryKey(activity.id, req.body.category, null);
+  const resolved = resolveCategoryKey(activity.id, req.body.category, null, userId, { require: true });
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   // isoDate/dayOfWeek dans le fuseau du téléphone de la personne (voir
@@ -161,7 +161,7 @@ router.put('/history/:id', (req, res) => {
   // cette ligne, une modification d'activité laisserait un rattachement
   // incohérent que plus rien ne rattraperait.
   const carried = Number(entry.activityId) === Number(activity.id) ? entry.goalCategory : null;
-  const resolved = resolveCategoryKey(activity.id, req.body.category, carried);
+  const resolved = resolveCategoryKey(activity.id, req.body.category, carried, req.userId);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   db.prepare(`UPDATE time_entries SET activityId = ?, note = ?, startTime = ?, endTime = ?, durationSeconds = ?, isoDate = ?, dayOfWeek = ?, goalCategory = ?

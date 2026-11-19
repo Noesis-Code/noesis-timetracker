@@ -500,9 +500,10 @@ function levelOf(userId, activityId, body) {
 }
 // Structure pour l'arbre : par activité, ses pôles et leurs secteurs (même source que l'arbre périodique de la page 2).
 function structure(userId) {
+  const pt = require('./portee'), objVisible = (activityId, key) => pt.objectifVisible(userId, activityId, key, null); // activité partagée : seulement les colonnes de la portée du responsable
   const hid = hiddenFromTree(userId);
-  return { hidden: Array.from(hid), activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id), pl = require('./objectifs-ordre').placeRanks(userId, a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).map((p) => ({ key: p.key, label: p.label, shadeRank: pl && pl.has(p.key) ? pl.get(p.key) : sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
- secteurs: goals.secteursForPole(a.id, p.key).map((x) => ({ key: x.key, label: x.label })) })) }); }) };
+  return { hidden: Array.from(hid), activities: userActivities(userId).map((a) => { const sr = require('./categorystats').shadeRanks(a.id), pl = require('./objectifs-ordre').placeRanks(userId, a.id); return ({ id: a.id, name: a.name, color: a.color, poles: goals.categoriesForActivity(a.id).filter((p) => objVisible(a.id, p.key)).map((p) => ({ key: p.key, label: p.label, shadeRank: pl && pl.has(p.key) ? pl.get(p.key) : sr.ranks.has(p.key) ? sr.ranks.get(p.key) : 0, shadeCount: sr.count, // couleur du pôle = la MÊME règle que Chrono et les statistiques : nuance de la couleur de l'activité selon ce rang
+ secteurs: goals.secteursForPole(a.id, p.key).filter((x) => objVisible(a.id, x.key)).map((x) => ({ key: x.key, label: x.label })) })) }); }) };
 }
 
 // ---- Création (après validation) ----
@@ -616,6 +617,7 @@ function creer(userId, body) {
   const title = cleanTitle(body && body.title);
   const act = userActivities(userId).find((a) => a.id === Number(body.activityId));
   if (!act) throw err('Choisis une de tes activités.');
+  { const lv = body && body.level; require('./portee').exigerObjectif(userId, act.id, lv === 'pole' || lv === 'secteur' ? body.poleKey || null : null, lv === 'secteur' ? body.categoryKey || null : null); } // activité partagée : objectifs réservés aux responsables, selon leur portée
   let start = isDay(body.startDate) ? body.startDate : today();
   // Secteur (9 nov. 2026) : « Hebdomadaire » est toujours possible, quelle que soit l'échéance ; l'échéance PLACE l'objectif : la semaine ou la période qui la contient (jamais tout l'intervalle depuis aujourd'hui).
   const pl = placement(body, start), placed = pl.placed;
@@ -694,6 +696,7 @@ function creer(userId, body) {
 function rowOf(userId, id) {
   const r = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(id), userId);
   if (!r) throw err('Objectif introuvable.', 404);
+  require('./portee').exigerObjectif(userId, r.activityId, r.poleKey, r.categoryKey); // activité partagée : un simple membre n'y a pas accès
   return r;
 }
 function currentIdx(periods, day) {
@@ -1017,7 +1020,7 @@ function noterAtteintes(userId, all) {
 }
 // Un MACRO est un LIEN de fusion (18 nov. 2026) : jamais une ligne d'objectif visible. Seul l'arbre (liens: true) et l'export le lisent ; partout ailleurs la liste les exclut.
 function liste(userId, filtre, opts) {
-  const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => { try { return shape(r, false); } catch (e) { console.warn('[objectifs] ligne illisible ignorée dans la liste (id ' + r.id + ') : ' + (e && e.message)); return null; } }).filter(Boolean); // une ligne corrompue ne fait plus tomber toute la liste (elle reste dans l'export)
+  const all = db.prepare('SELECT * FROM user_objectives WHERE userId = ? ORDER BY endDate, id').all(userId).map((r) => { try { return shape(r, false); } catch (e) { console.warn('[objectifs] ligne illisible ignorée dans la liste (id ' + r.id + ') : ' + (e && e.message)); return null; } }).filter(Boolean).filter((o) => require('./portee').objectifVisible(userId, o.activity.id, o.poleKey, o.categoryKey)); // une ligne corrompue ne fait plus tomber toute la liste (elle reste dans l'export) ; activité partagée : objectifs de la portée du responsable seulement
   const known = new Set(all.map((o) => o.id));
   noterAtteintes(userId, all);
   all.forEach((o) => { o.archived = (o.parentId == null || !known.has(o.parentId)) && o.status === 'atteint'; }); // objectif FINAL atteint -> archives (un nouveau peut être créé)

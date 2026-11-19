@@ -100,7 +100,7 @@ function ensureCategoryTaskSection(activityId, userId, categoryKey) {
 
 // Tâches agrégées, pour L'AFFICHAGE, de tous les sous-projets rattachés à
 // cette catégorie — jamais d'écriture ici.
-function tasksForCategory(activityId, categoryKey, includeLocked) { // includeLocked : retrouver aussi les tâches faites depuis plus de 7 jours (jamais supprimées de la base ; utilisé par l'outil MCP lister_taches)
+function tasksForCategory(activityId, categoryKey, includeLocked, viewerId) { // includeLocked : retrouver aussi les tâches faites depuis plus de 7 jours (jamais supprimées de la base ; utilisé par l'outil MCP lister_taches)
   const subs = subProjectsForCategory(activityId, categoryKey);
   const out = [];
   subs.forEach((sp) => {
@@ -121,17 +121,17 @@ function tasksForCategory(activityId, categoryKey, includeLocked) { // includeLo
       });
   });
   out.sort((a, b) => (a.position - b.position) || (a.id - b.id));
-  return out;
+  return viewerId ? require('./portee').filterTasks(out, viewerId, activityId, () => categoryKey) : out; // activité partagée : chacun ne reçoit que ses tâches (responsable : celles de sa portée)
 }
 
 // Pour TOUTES les catégories ACTIVES d'une activité en un seul appel (évite
 // une requête par catégorie au chargement du panneau Tâches) — même
 // convention de regroupement que GET .../goals/all (byCategory) côté
 // server/routes/goals.js.
-function tasksByCategoryForActivity(activityId) {
+function tasksByCategoryForActivity(activityId, viewerId) {
   const out = {};
   goals.categoriesForActivity(activityId).forEach((c) => {
-    let tasks = tasksForCategory(activityId, c.key);
+    let tasks = tasksForCategory(activityId, c.key, false, viewerId);
     // 21 septembre 2026 (Chrono — sélecteur pôle/secteur) : une tâche peut
     // désormais être rattachée directement à un secteur (voir
     // addCategoryTask ci-dessous et isValidCategoryOrSecteurForActivity côté
@@ -141,7 +141,7 @@ function tasksByCategoryForActivity(activityId) {
     // données existantes : avant ce chantier, aucune tâche ne pouvait porter
     // une clé de secteur.
     (goals.secteursForPole(activityId, c.key) || []).forEach((s) => {
-      tasks = tasks.concat(tasksForCategory(activityId, s.key));
+      tasks = tasks.concat(tasksForCategory(activityId, s.key, false, viewerId));
     });
     out[c.key] = tasks;
   });
@@ -180,6 +180,7 @@ function weeklyObjectiveForWeek(activityId, categoryKey, weekOffset) {
 // Déclenche le moteur d'auto-planification, comme toute création de tâche
 // Sous-projets déjà liée à une catégorie (voir server/routes/subprojects.js).
 function addCategoryTask(activityId, userId, categoryKey, label, extra) {
+  require('./portee').exigerEcritureTache(userId, activityId, categoryKey); // activité partagée : création réservée aux responsables (selon leur portée) et au propriétaire
   const chk = textlimits.clean(label, { max: textlimits.LIMITS.TASK_TITLE, word: 'Intitulé' }); // refus (jamais de troncature) ; contrôle et sauts de ligne normalisés
   if (chk.error) throw Object.assign(new Error(chk.error), { statusCode: 400 });
   const clean = chk.text;
@@ -237,6 +238,7 @@ function addCategoryTask(activityId, userId, categoryKey, label, extra) {
 // domicile visé (matérialisé au besoin par ensureCategoryTaskSection,
 // exactement comme addCategoryTask ci-dessus).
 function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
+  require('./portee').exigerEcritureTache(userId, activityId, newCategoryKey); // activité partagée : déplacer une tâche = la modifier, réservé aux responsables
   // Pôle OU secteur de cette activité (déplacement depuis Page 2 > Tâches) ;
   // un pôle qui a des secteurs ne reçoit pas de tâche directe (même garde
   // que addCategoryTask / reassignHistoryTask). Le temps des secteurs
@@ -306,6 +308,7 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
 // (server/routes/goals.js) appelle cette fonction-ci. Signalé dans le
 // journal du projet pour visibilité côté Objectifs — Tâches.
 function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newDueDate) {
+  require('./portee').exigerEcritureTache(userId, Number(newActivityId), newCategoryKey); // activité partagée : réservé aux responsables
   const item = subprojects.getItemRaw(itemId);
   if (!item) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
 
@@ -549,8 +552,9 @@ function tasksHistoryForWeek(userId, weekOffset) {
 // subprojects.js. percentOf reprend la règle R1 déjà en vigueur dans
 // subprojects.js#percentOf : null (jamais 0) quand il n'y a rien à faire,
 // pour distinguer « rien à faire » de « rien fait ».
-function tasksOverviewForActivity(activityId, todayParam) {
+function tasksOverviewForActivity(activityId, todayParam, viewerId) {
   const percentOf = (done, total) => (total ? Math.round((done / total) * 100) : null);
+  const sc = viewerId ? require('./portee').scope(viewerId, activityId) : null;
   const groups = [];
   let doneTotal = 0;
   let taskTotal = 0;
@@ -561,11 +565,12 @@ function tasksOverviewForActivity(activityId, todayParam) {
     const targets = isPoleGroup ? [pole] : secteurs;
 
     targets.forEach((target) => {
+      if (sc && !sc.has(target.key)) return; // pôle/secteur hors de la portée du membre : non renvoyé
       // Avancement QUOTIDIEN — une tâche cochée avant minuit
       // (doneAt antérieur à aujourd'hui) disparaît de l'écran Tâches et ne compte plus ;
       // les non cochées restent d'un jour à l'autre.
       const today = validToday(todayParam);
-      const tasks = tasksForCategory(activityId, target.key)
+      const tasks = tasksForCategory(activityId, target.key, false, viewerId)
         .filter((task) => !(task.done && task.doneAt && todayLocal(new Date(task.doneAt)) < today));
       // « Avancement quotidien » — compte UNIQUEMENT les tâches du jour :
       // à faire (échéance aujourd'hui, en retard ou sans date) + cochées aujourd'hui. Les tâches
@@ -600,7 +605,7 @@ function tasksOverviewForActivity(activityId, todayParam) {
   });
 
   // Liste « du jour » (blanches) + à venir (grises).
-  const daily = dailyListForActivity(activityId, validToday(todayParam));
+  const daily = dailyListForActivity(activityId, validToday(todayParam), viewerId);
 
   return {
     done: doneTotal,
@@ -622,13 +627,15 @@ function validToday(s) {
 }
 
 // Toutes les tâches de l'activité (secteurs, ou pôles sans secteur), avec leur pôle/secteur.
-function allTasksWithGroup(activityId, includeLocked) {
+function allTasksWithGroup(activityId, includeLocked, viewerId) {
+  const sc = viewerId ? require('./portee').scope(viewerId, activityId) : null;
   const out = [];
   goals.categoriesForActivity(activityId).forEach((pole) => {
     const secteurs = goals.secteursForPole(activityId, pole.key) || [];
     const targets = secteurs.length ? secteurs : [pole];
     targets.forEach((target) => {
-      tasksForCategory(activityId, target.key, includeLocked).forEach((task) => {
+      if (sc && !sc.has(target.key)) return;
+      tasksForCategory(activityId, target.key, includeLocked, viewerId).forEach((task) => {
         out.push({
           id: task.id,
           label: task.label,
@@ -654,9 +661,9 @@ function allTasksWithGroup(activityId, includeLocked) {
 
 // today : tâches non cochées dont l'échéance est aujourd'hui (ou dépassée, reportée) ;
 // upcoming : échéances futures croissantes (le client complète jusqu'à 5 lignes).
-function dailyListForActivity(activityId, today) {
+function dailyListForActivity(activityId, today, viewerId) {
   // Filet de sécurité : une tâche à faire sans date (ne devrait plus exister) compte comme « aujourd'hui ».
-  const pending = allTasksWithGroup(activityId).filter((t) => !t.done).map((t) => (t.dueDate ? t : Object.assign({}, t, { dueDate: today })));
+  const pending = allTasksWithGroup(activityId, false, viewerId).filter((t) => !t.done).map((t) => (t.dueDate ? t : Object.assign({}, t, { dueDate: today })));
   const byDue = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : (a.position - b.position) || (a.id - b.id));
   const strip = (t) => ({ id: t.id, label: t.label, plannedUserId: t.plannedUserId || null, dueDate: t.dueDate, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey });
   return {
@@ -668,8 +675,8 @@ function dailyListForActivity(activityId, today) {
 }
 
 // Tâches terminées des 7 derniers jours, la plus récente d'abord (les plus anciennes restent en base, masquées).
-function archivesForActivity(activityId) {
-  const tasks = allTasksWithGroup(activityId)
+function archivesForActivity(activityId, viewerId) {
+  const tasks = allTasksWithGroup(activityId, false, viewerId)
     .filter((t) => t.done && t.doneAt)
     .sort((a, b) => (a.doneAt < b.doneAt ? 1 : a.doneAt > b.doneAt ? -1 : b.id - a.id))
     .map((t) => ({ id: t.id, label: t.label, locked: subprojects.isItemLocked(t), doneAt: t.doneAt, dueDate: t.dueDate, plannedUserId: t.plannedUserId || null, key: t.key, groupLabel: t.groupLabel, poleKey: t.poleKey }));

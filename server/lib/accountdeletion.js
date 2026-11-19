@@ -41,6 +41,7 @@ function deleteAccountData(user) {
     db.prepare('DELETE FROM paliers_delais WHERE userId = ?').run(user.id); // délais réels entre paliers (propres au compte)
     db.prepare('DELETE FROM rangement_consentement WHERE userId = ?').run(user.id); // consentement à l'amélioration anonyme du modèle
     if (tableExists('activity_managers')) db.prepare('DELETE FROM activity_managers WHERE userId = ?').run(user.id); // responsables d'activité (le propriétaire reste responsable par sa propriété)
+    if (tableExists('member_scopes')) db.prepare('DELETE FROM member_scopes WHERE userId = ?').run(user.id); // appartenances par catégorie (propres au compte)
     if (tableExists('goal_objective_examples')) db.prepare('DELETE FROM goal_objective_examples WHERE userId = ?').run(user.id); // choix entre deux objectifs (rattachement IA), propres au compte
     db.prepare('DELETE FROM time_entries WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM activity_members WHERE userId = ?').run(user.id);

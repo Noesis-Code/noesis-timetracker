@@ -225,6 +225,11 @@ router.post('/activities/:id/invite', (req, res) => {
   const membership = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, userId);
   if (!membership) return res.status(403).json({ error: "Tu ne fais pas partie de cette activité." });
 
+  // Portée (19 nov. 2026) : `scopeKey` (pôle ou secteur) invite SEULEMENT dans cette catégorie ; absent = activité entière. Un responsable invite dans sa catégorie ou en dessous ; sans scopeKey, seul un membre de portée activité invite.
+  const scopeKey = req.body.scopeKey == null || req.body.scopeKey === '' ? null : String(req.body.scopeKey);
+  try { if (scopeKey && scopeKey !== '_') require('../lib/portee').membresDe(userId, activity.id, scopeKey); } catch (e) { return res.status(e.statusCode || 400).json({ error: e.message }); }
+  if (!require('../lib/portee').peutInviter(userId, activity.id, scopeKey)) return res.status(403).json({ error: 'Tu ne peux pas inviter ici : seuls les responsables invitent dans leur pôle ou secteur.', code: 'INVITATION_RESERVEE_RESPONSABLES' });
+
   const pseudo = (req.body.pseudo || '').trim();
   if (!pseudo) return res.status(400).json({ error: 'Le pseudo de la personne à inviter est requis.' });
 
@@ -239,8 +244,8 @@ router.post('/activities/:id/invite', (req, res) => {
   const pending = db.prepare("SELECT 1 FROM activity_invites WHERE activityId = ? AND toUserId = ? AND status = 'pending'").get(activity.id, target.id);
   if (pending) return res.status(409).json({ error: `${target.name} a déjà une invitation en attente pour cette activité.` });
 
-  db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt) VALUES (?, ?, ?, 'pending', ?)")
-    .run(activity.id, userId, target.id, new Date().toISOString());
+  db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt, scopeKey) VALUES (?, ?, ?, 'pending', ?, ?)")
+    .run(activity.id, userId, target.id, new Date().toISOString(), scopeKey && scopeKey !== '_' ? scopeKey : null);
 
   // Notification push à la personne invitée (1er septembre 2026) — jusqu'ici,
   // seule la pastille rouge de l'icône "avion en papier" le signalait, et
@@ -390,6 +395,7 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
   try {
     db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // exclure un membre le retire des responsables
     db.prepare('DELETE FROM category_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et des responsables de catégorie (retour à l'héritage)
+    db.prepare('DELETE FROM member_scopes WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et de ses appartenances par catégorie
     // Nouvelle activité personnelle pour la personne exclue, même logique que
     // "Séparer" (voir plus haut) : elle garde son historique déjà enregistré.
     const info = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, ?, 1, ?, ?)')

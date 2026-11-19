@@ -78,7 +78,7 @@ router.post('/timer/start', (req, res) => {
   // propose le choix pendant que le chrono tourne (POST /timer/category) —
   // mais la route l'accepte pour qu'un autre appelant puisse démarrer
   // directement rattaché.
-  const resolved = resolveCategoryKey(activity.id, req.body.category, null);
+  const resolved = resolveCategoryKey(activity.id, req.body.category, null, user.id);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   // 23 septembre 2026 (chrono hors ligne) : un chrono démarré sans réseau
@@ -124,7 +124,7 @@ router.post('/timer/category', (req, res) => {
   const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
   if (!running) return res.status(400).json({ error: 'Aucun chrono en cours.' });
 
-  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory);
+  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory, user.id);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   db.prepare('UPDATE running_timers SET goalCategory = ? WHERE userId = ?').run(resolved.categoryKey, user.id);
@@ -211,7 +211,7 @@ router.post('/timer/stop', (req, res) => {
   // c'est ce qui permet à l'écran de ne rien envoyer quand il n'a pas pu
   // afficher le sélecteur, plutôt que d'effacer un rattachement par
   // omission. `null` détache explicitement.
-  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory);
+  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory, user.id, { require: true });
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   // isoDate/dayOfWeek calculés dans le fuseau du TÉLÉPHONE de la personne

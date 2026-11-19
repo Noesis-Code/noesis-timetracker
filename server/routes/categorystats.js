@@ -92,7 +92,7 @@ router.get('/category-stats', (req, res) => {
     'SELECT color FROM activity_members WHERE activityId = ? AND userId = ?'
   ).get(activityId, targetId);
 
-  const data = categoryBreakdownForRange(targetId, activityId, from, to, req.timezone);
+  const data = categoryBreakdownForRange(targetId, activityId, from, to, req.timezone, access.viewScope);
 
   res.json(Object.assign({
     activityName: access.activity.name,
@@ -127,9 +127,9 @@ router.get('/category-timesheet', (req, res) => {
   const rawOffset = Number(period === 'month' ? req.query.monthOffset : req.query.weekOffset);
   const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
 
-  const grid = categoryTimesheet(targetId, activityId, period, offset, req.timezone);
+  const grid = categoryTimesheet(targetId, activityId, period, offset, req.timezone, access.viewScope);
   // La répartition porte sur EXACTEMENT les bornes de la grille ci-dessus.
-  const breakdown = categoryBreakdownForRange(targetId, activityId, grid.start, grid.end, req.timezone);
+  const breakdown = categoryBreakdownForRange(targetId, activityId, grid.start, grid.end, req.timezone, access.viewScope);
 
   const member = db.prepare('SELECT name, lastName FROM users WHERE id = ?').get(targetId);
   const membership = db.prepare(
@@ -176,7 +176,7 @@ router.get('/category-chart', (req, res) => {
       memberId: access.targetId,
       baseColor: membership ? membership.color : '#3498db',
     },
-    categoryChart(access.targetId, activityId, String(req.query.granularity || 'day'), req.timezone),
+    categoryChart(access.targetId, activityId, String(req.query.granularity || 'day'), req.timezone, access.viewScope),
   ));
 });
 

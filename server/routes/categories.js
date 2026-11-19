@@ -64,6 +64,7 @@ router.get('/activities/:id/goals/categories', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    const sc = require('../lib/portee').scope(userId, activityId);
     res.json({
       customized: goals.isCustomized(activityId),
       // 20 septembre 2026 (exposition « Pôles & secteurs ») : chaque pôle
@@ -71,11 +72,14 @@ router.get('/activities/:id/goals/categories', (req, res) => {
       // vide) — changement rétrocompatible, aucun champ existant retiré ni
       // renommé. `categoriesForActivity` ne renvoie que les pôles (voir son
       // commentaire dans server/lib/goals.js), donc jamais de doublon ici.
+      // Portée (19 nov. 2026) : un membre limité à un pôle/secteur ne reçoit que sa portée. `inScope:false` = pôle renvoyé seulement comme conteneur de son secteur (non sélectionnable).
       categories: fusionOrder(userId, activityId, goals.categoriesForActivity(activityId)).map((c) => ({
         ...c,
-        secteurs: goals.secteursForPole(activityId, c.key),
-      })),
-      frozenCategories: goals.frozenCategoriesForActivity(activityId),
+        inScope: sc.has(c.key),
+        secteurs: goals.secteursForPole(activityId, c.key).filter((s) => sc.has(s.key)),
+      })).filter((c) => sc.all || c.inScope || c.secteurs.length),
+      frozenCategories: goals.frozenCategoriesForActivity(activityId).filter((c) => sc.all || sc.has(c.key) || sc.has(c.parentKey)),
+      scope: { all: sc.all, roots: sc.roots },
       absorbed: (() => { const ab = require('../lib/objectifs-absorption'); ab.appliquer(userId, require('../lib/dates').userToday()); return ab.absorbedOf(userId, activityId); })(), // fusions (pôles/secteurs absorbés à partir d'une date) : le Chrono ne propose plus que l'absorbant ; le passé reste lisible
       maxCategories: goals.MAX_CUSTOM_CATEGORIES, maxSecteurs: goals.MAX_SECTEURS_PER_POLE,
       // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) :
@@ -84,7 +88,7 @@ router.get('/activities/:id/goals/categories', (req, res) => {
       // Bundlé ici plutôt qu'un appel séparé par catégorie : ce point
       // d'entrée est déjà celui que loadActivityGoalsCategories() appelle à
       // chaque ouverture/rafraîchissement du panneau (public/app.js).
-      tasksByCategory: goalstasks.tasksByCategoryForActivity(activityId),
+      tasksByCategory: goalstasks.tasksByCategoryForActivity(activityId, userId),
     });
   } catch (err) {
     handleGoalsError(res, err);
@@ -202,7 +206,8 @@ router.get('/activities/:id/goals/categories/:key/secteurs', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    res.json({ secteurs: goals.secteursForPole(activityId, req.params.key) });
+    const sc = require('../lib/portee').scope(userId, activityId);
+    res.json({ secteurs: goals.secteursForPole(activityId, req.params.key).filter((s) => sc.has(s.key)) });
   } catch (err) {
     handleGoalsError(res, err);
   }

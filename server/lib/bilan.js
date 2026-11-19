@@ -36,9 +36,19 @@ const weekdayIdx = (d) => (new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7; // l
 const r1 = (v) => Math.round(v * 10) / 10;
 
 function doneTasks(activityId, start, end) {
-  return db.prepare(`SELECT i.id, i.doneBy, i.plannedUserId, substr(i.doneAt, 1, 10) AS day FROM sub_project_items i JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
+  return db.prepare(`SELECT i.id, i.doneBy, i.plannedUserId, sp.goalCategory AS k, substr(i.doneAt, 1, 10) AS day FROM sub_project_items i JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
     WHERE sp.activityId = ? AND s.kind = 'tasks' AND i.done = 1 AND i.doneAt IS NOT NULL AND substr(i.doneAt, 1, 10) BETWEEN ? AND ?`).all(Number(activityId), start, end);
 }
+// Confidentialité (19 nov. 2026) : dans une activité partagée, un simple membre ne voit que ses données ; un responsable, celles de la portée qu'il gère. Renvoie null = aucune limite.
+function regard(userId, activityId) {
+  const pt = require('./portee');
+  if (!pt.estPartagee(activityId)) return null;
+  const mg = pt.managed(userId, activityId);
+  return mg.all ? null : mg;
+}
+const respOf = (x) => x.doneBy || x.plannedUserId || null;
+function visibles(list, vs, userId) { return vs ? list.filter((x) => vs.has(x.k) || respOf(x) === userId) : list; }
+function membresVus(list, vs, userId) { return vs && !vs.roots.length ? list.filter((m) => m.id === userId) : list; }
 function membersOf(activityId) {
   return db.prepare('SELECT u.id AS id, u.name AS name FROM activity_members m JOIN users u ON u.id = m.userId WHERE m.activityId = ? ORDER BY m.joinedAt, u.id').all(Number(activityId));
 }
@@ -54,7 +64,7 @@ function rowOf(list, periods) {
 }
 function moyenneTaches(userId, activityId, today) {
   const act = member(userId, activityId), t = today || require('./dates').userToday(), periods = lastPeriods(t);
-  const tasks = doneTasks(act.id, periods[0].start, periods[3].end), mem = membersOf(act.id);
+  const vs = regard(userId, act.id), tasks = visibles(doneTasks(act.id, periods[0].start, periods[3].end), vs, userId), mem = membresVus(membersOf(act.id), vs, userId);
   const resp = (x) => x.doneBy || x.plannedUserId || null;
   const rows = mem.length <= 1 ? [Object.assign({ key: 'moi', label: 'Vous' }, rowOf(tasks, periods))]
     : [Object.assign({ key: 'tous', label: 'Tous' }, rowOf(tasks, periods))].concat(mem.map((m) => Object.assign({ key: m.id, label: m.name, userId: m.id }, rowOf(tasks.filter((x) => resp(x) === m.id), periods))));
@@ -77,8 +87,8 @@ function urgentes(userId, offset, today) {
 // Proportion réelle contre demandée par membre (activité partagée) : { rows: [{ userId, name, realPct, wantedPct }] }.
 function proportion(userId, activityId, today) {
   const act = member(userId, activityId), t = today || require('./dates').userToday(), periods = lastPeriods(t);
-  const mem = membersOf(act.id); if (mem.length < 2) return { activityId: act.id, rows: [] };
-  const done = doneTasks(act.id, periods[0].start, periods[3].end), resp = (x) => x.doneBy || x.plannedUserId || null;
+  const vs = regard(userId, act.id), mem = membresVus(membersOf(act.id), vs, userId); if (mem.length < 2) return { activityId: act.id, rows: [] };
+  const done = visibles(doneTasks(act.id, periods[0].start, periods[3].end), vs, userId), resp = (x) => x.doneBy || x.plannedUserId || null;
   const total = done.filter((x) => mem.some((m) => m.id === resp(x))).length;
   const wantedRows = {}; try { db.prepare('SELECT userId, minutes FROM task_share_wanted WHERE activityId = ?').all(act.id).forEach((r) => { wantedRows[r.userId] = r.minutes; }); } catch (e) { /* table créée par partagetaches.js */ }
   const entered = {}; db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(act.id).forEach((r) => { entered[r.userId] = r.pct; });
