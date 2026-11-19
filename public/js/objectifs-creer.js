@@ -326,15 +326,16 @@
       var dueRow = el('div', 'objDueRow'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
       dueIn.type = 'date'; dueIn.value = form.endDate || form.cellDefaultEnd; dueIn.setAttribute('aria-label', tr('Échéance')); /* aucun min/max : jamais de jour grisé, la date est ramenée dans la case */
       dueRow.appendChild(el('span', 'objDueLabel', tr('Échéance') + ' :')); dueRow.appendChild(dueIn); boxes.desc.appendChild(dueRow);
-      var fxRow = el('label', 'objGridRow'), fxBox = el('input'); fxBox.type = 'checkbox'; fxBox.checked = !!form.dateFixe;
-      fxBox.addEventListener('change', function () { form.dateFixe = fxBox.checked; });
-      fxRow.appendChild(el('span', 'objGridName', tr('Date fixe'))); fxRow.appendChild(fxBox); boxes.desc.appendChild(fxRow);
+      dueIn.disabled = form.dateFixe !== true; // Souple (par défaut) : la date de la case ; Fixe : modifiable (même choix que « Modifier l'objectif »)
+      var fxPick = el('div'); fxPick.appendChild(el('p', 'hint', tr('La date de fin est-elle imposée ?')));
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueIn.disabled = !v; if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
+      fxPick.appendChild(el('p', 'hint', tr('Souple : Noèsis peut la déplacer. Fixe : elle ne bouge pas.'))); boxes.desc.insertBefore(fxPick, dueRow);
       dueIn.addEventListener('change', function () {
         var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; // l'échéance reste dans la case où l'on crée
         var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
         form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines';
         if (form.cellPeriodic) form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
-        if (v !== form.cellDefaultEnd) { form.dateFixe = true; fxBox.checked = true; } // une date modifiée vaut « date fixée »
+        if (v !== form.cellDefaultEnd) form.dateFixe = true; // une date modifiée vaut « date fixée »
       });
     }
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
