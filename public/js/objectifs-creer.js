@@ -1027,14 +1027,15 @@
       var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
       dateIn.type = 'date'; dateIn.min = o.startDate; dateIn.value = form.endDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
       dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dueRow.appendChild(dateIn); var dueBody = el('div'); dueBody.appendChild(dueRow);
-      function paintT() { tBox.textContent = ''; paintTermInto(tBox, form, daysOf(form.endDate), sync); }
+      function paintT() { tBox.textContent = ''; paintTermInto(tBox, form, daysOf(form.endDate), sync, true); }
       dateIn.addEventListener('change', function () {
         if (!dateIn.value || dateIn.value <= o.startDate) { form.endDate = null; msg.textContent = dateIn.value ? tr('L’échéance ne peut pas être dans le passé.') : ''; sync(); return; }
         msg.textContent = ''; form.endDate = dateIn.value; paintT(); sync();
       });
-      var fx = el('label', 'objGridRow'), fxCb = el('input'); fxCb.type = 'checkbox'; fxCb.checked = form.dateFixe === true; // « Date fixe » : même case que la création
-      fxCb.addEventListener('change', function () { form.dateFixe = fxCb.checked; sync(); });
-      fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(fxCb); dueBody.appendChild(fx);
+      dateIn.disabled = form.dateFixe !== true; // « Fixe » : la date devient modifiable ; « Souple » (par défaut) : la date reste celle proposée
+      var fxPick = el('div'); fxPick.appendChild(el('p', 'hint', tr('La date de fin est-elle imposée ?')));
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dateIn.disabled = !v; if (!v && form.endDate !== orig.endDate) { form.endDate = orig.endDate; dateIn.value = orig.endDate; paintT(); } sync(); }, tr('Date de fin')));
+      fxPick.appendChild(el('p', 'hint', tr('Souple : Noèsis peut la déplacer. Fixe : elle ne bouge pas.'))); dueBody.insertBefore(fxPick, dueRow);
       paintT(); dueBody.appendChild(tBox); panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
