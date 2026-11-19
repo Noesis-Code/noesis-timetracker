@@ -47,7 +47,7 @@
 // objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
 <<<<<<< HEAD
-const CACHE_VERSION = 'noesis-v1409';
+const CACHE_VERSION = 'noesis-v1410';
 =======
 const CACHE_VERSION = 'noesis-v1404';
 >>>>>>> 538f955a (Icône du volet Tâches : rond (diamètre de Chrono) ouvert, coche qui sort à droite)
