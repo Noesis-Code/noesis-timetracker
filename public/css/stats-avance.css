@@ -161,6 +161,7 @@
 .bilanBlocs.hidden { display: none; }
 .bbCard { margin: 8px 0 20px; }
 .bbHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bbChrono > .bbHead { margin-bottom: 8px; }
 .bbNav { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: 4px 0 8px; border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep); }
 .bbNavLabel { font-size: 14px; color: var(--text); }
 .bbTable { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; font-variant-numeric: tabular-nums; }
