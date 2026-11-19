@@ -110,8 +110,8 @@
   function field(label, node) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', label)); w.appendChild(node); return w; }
   function resumeField(form, onChange) { // « Résumé » (sous « Avancé », facultatif, 300 au plus) : lu seulement par les responsables d'un niveau inférieur ; champ séparé de la Description, jamais lu par l'IA
     var inp = el('textarea'); inp.rows = 4; inp.maxLength = 300; inp.value = form.resume || ''; inp.setAttribute('aria-label', tr('Résumé pour les membres'));
-    inp.addEventListener('input', function () { form.resume = inp.value; if (onChange) onChange(); });
-    var sb = el('div', 'objSemBody'); sb.appendChild(inp); var w = field(tr('Résumé pour les membres'), sb); w.appendChild(el('p', 'hint', tr("Lu seulement par les responsables d'un niveau inférieur"))); return w;
+    inp.placeholder = tr('Résume l’objectif'); inp.addEventListener('input', function () { form.resume = inp.value; if (onChange) onChange(); });
+    var sb = el('div', 'objResumeBox'); sb.appendChild(inp); var w = field(tr('Résumé pour les membres'), sb); w.classList.add('objResumeField'); w.appendChild(el('p', 'hint', tr("Lu seulement par les responsables d'un niveau inférieur"))); return w;
   }
   function descHead(title, hint) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', tr(title))); if (hint) w.appendChild(el('p', 'hint', tr(hint))); return w; } // titre de bloc (+ aide d'une ligne) de la Description pour Noèsis
   function seg(options, current, onPick, label) {
@@ -323,24 +323,24 @@
     titleIn.addEventListener('input', function () { form.title = titleIn.value; syncGo(); });
     boxes.desc.appendChild(field(tr('Titre'), titleIn)); // libellé du champ du titre (l'en-tête du panneau reste « Objectif »)
     if (form.endFixed && form.cellDefaultEnd) { // depuis une case : ÉCHÉANCE et « Date fixe » juste sous le titre, dès le premier écran (une fonction, un seul endroit)
-      var dueRow = el('div', 'objDueRow objDueFrame'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
+      var fxWrap = el('div', 'objFxWrap' + (form.dateFixe === true ? ' fixed' : '')), dueRow = el('div', 'objDueRow'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
       dueIn.type = 'date'; dueIn.value = form.endDate || form.cellDefaultEnd; dueIn.setAttribute('aria-label', tr('Échéance')); /* aucun min/max : jamais de jour grisé, la date est ramenée dans la case */
-      dueRow.appendChild(el('span', 'objDueLabel', tr('Échéance'))); dueRow.appendChild(dueIn); boxes.desc.appendChild(dueRow); // cadre autour de la date seule : l'échéance fait partie de la date imposée (19 nov. 2026)
+      dueRow.appendChild(el('span', 'objDueLabel', tr('Échéance'))); dueRow.appendChild(dueIn); fxWrap.appendChild(dueRow); boxes.desc.appendChild(fxWrap); // à « Fixe », un cadre entoure les boutons Souple / Fixe ET l'échéance (19 nov. 2026)
       dueRow.classList.toggle('hidden', form.dateFixe !== true); // la date n'apparaît que pour « Fixe » (même choix que « Modifier l'objectif »)
       var fxPick = el('div'); fxPick.appendChild(el('p', 'hint', tr('La date de fin est-elle imposée ?')));
-      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
-      boxes.desc.insertBefore(fxPick, dueRow);
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); fxWrap.classList.toggle('fixed', !!v); if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
+      fxWrap.insertBefore(fxPick, dueRow);
       dueIn.addEventListener('change', function () {
         var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; // l'échéance reste dans la case où l'on crée
         var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
         form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines';
         if (form.cellPeriodic) form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
-        if (v !== form.cellDefaultEnd) form.dateFixe = true; // une date modifiée vaut « date fixée »
+        if (v !== form.cellDefaultEnd) { form.dateFixe = true; fxWrap.classList.add('fixed'); } // une date modifiée vaut « date fixée »
       });
     }
     if (form.guideOpen === undefined) form.guideOpen = -1; // à la création, les groupes de questions sont repliés par défaut (19 nov. 2026)
     form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
-    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(descHead('Description pour Noèsis')); boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
+    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
     function composeDesc() { form.description = guideCompose(form); }
     function paintAdv() {
       advBox.textContent = '';
@@ -348,7 +348,7 @@
       head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
       var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
       head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
-      if (advOpen) { advBox.appendChild(descHead('Suite de la description pour Noèsis')); advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc, undefined, 'rest'); advBox.appendChild(resumeField(form)); }
+      if (advOpen) { advBox.appendChild(descHead('Description pour Noèsis')); advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc, undefined, 'rest'); advBox.appendChild(resumeField(form)); }
     }
     function paintGuide(f) { paintGuideInto(mainBox, form, composeDesc, undefined, 'main'); if (advOpen) paintGuideInto(guideBox, form, composeDesc, f, 'rest'); }
     paintAdv();

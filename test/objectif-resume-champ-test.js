@@ -34,7 +34,7 @@ assert(/if \(advOpen\) \{[^\n]*resumeField\(form\)/.test(ui) && /advInner\.appen
 assert(/advOpen = false/.test(ui) && /advOpenE = false/.test(ui), 'Avancé replié par défaut');
 assert(/maxLength = 300/.test(ui) && /'\/resume'/.test(ui), 'champ limité à 300 ; route PUT /resume');
 const cnt = (t) => ui.split(t).length - 1;
-assert(cnt("descHead('Description pour Noèsis', 'Sert à ranger tes tâches et à proposer des objectifs')") === 2, 'titre « Description pour Noèsis » + aide : à la création et à la modification');
-assert(ui.includes("advBox.appendChild(descHead('Suite de la description pour Noèsis')); advBox.appendChild(guideBox);") && ui.indexOf("advBox.appendChild(guideBox)") < ui.indexOf("advBox.appendChild(resumeField(form))"), 'sous Avancé (création) : « Suite de la description pour Noèsis » puis « Résumé pour les membres », jamais mêlés');
+assert(cnt("descHead('Description pour Noèsis')") === 1 && !ui.includes("boxes.desc.appendChild(descHead('Description pour Noèsis'))"), 'création : plus de titre sous les champs ; « Description pour Noèsis » seulement sous Avancé (19 nov. 2026)');
+assert(ui.includes("advBox.appendChild(descHead('Description pour Noèsis')); advBox.appendChild(guideBox);") && ui.indexOf("advBox.appendChild(guideBox)") < ui.indexOf("advBox.appendChild(resumeField(form))"), 'sous Avancé (création) : « Description pour Noèsis » puis « Résumé pour les membres », jamais mêlés');
 assert(ui.includes("tr('Résumé pour les membres')") && ui.includes("Lu seulement par les responsables d'un niveau inférieur"), 'libellé « Résumé pour les membres » + aide');
 console.log(failed ? failed + ' échec(s)' : 'OK'); process.exit(failed ? 1 : 0);

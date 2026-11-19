@@ -265,4 +265,7 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objSemRow.weekOpen > .objSemHead .objSemNo { background: rgba(0, 0, 0, .18); color: var(--poleText, var(--text)); }
 :root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn, .objSemRow.weekOpen > .objSemHead .objSemPlus, .objSemRow.weekOpen > .objSemHead .objSemDel { color: var(--poleText, var(--text)); }
 .objSemRow.weekOpen > .objSemHead input.objSemTitleIn::placeholder { color: var(--poleText, var(--text)); opacity: .65; }
-.objDueFrame { border: 1px solid var(--sep); border-radius: 22px; padding: 8px 18px; } /* « Fixe » : cadre autour de la date imposée (19 nov. 2026) */
+.objFxWrap { border: 1px solid transparent; border-radius: 22px; padding: 8px 12px; margin: 0 -12px; } /* à « Fixe » : cadre (trait fin, coins arrondis) autour de Souple / Fixe et de l'échéance (19 nov. 2026) */
+.objFxWrap.fixed { border-color: var(--sep); }
+.objResumeField { margin-top: 20px; }
+.objResumeBox { padding: 0; } .objResumeBox textarea { width: 100%; box-sizing: border-box; min-height: 112px; }
