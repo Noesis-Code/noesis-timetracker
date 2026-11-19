@@ -265,7 +265,7 @@
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
     var label = cur ? cur.name + (filt.pole != null && (pole || filt.poleLabel) ? ' › ' + (filt.sector || (pole ? pole.label : filt.poleLabel)) : '') : tr('Toutes les activités');
     var head = el('button', 'caSubProjectBtn tasksFilterBtn' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
-    head.title = label; head.setAttribute('aria-label', label); head.appendChild(el('span', null, cur ? cur.name : tr('Tous'))); // même bouton que le filtre des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; il désigne seulement l'activité
+    head.title = label; head.setAttribute('aria-label', label); head.appendChild(el('span', null, cur ? (filt.pole != null && (pole || filt.poleLabel) ? (filt.sector || (pole ? pole.label : filt.poleLabel)) : cur.name) : tr('Tous'))); // le bouton porte le nom du secteur, sinon du pôle, sinon de l'activité // même bouton que le filtre des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; il désigne seulement l'activité
     head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (filtOpen && !struct) loadStruct(); });
     filterBox.appendChild(head);
     if (!filtOpen) return;
@@ -285,8 +285,9 @@
         var secs = dd.secs[p.key] || [];
         var pr = filtRow(p2, p.label, 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () {
           if (!secs.length) { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }); return; }
-          filtPole = p.key; filt = { act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }; if (lastData) render(lastData); syncCalendar(); // le pôle s'applique tout de suite ; le panneau reste ouvert
+          filtPole = p.key; filt = { act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }; filtPage = 2; // d'abord la page des secteurs : le rendu ci-dessous peut redessiner le panneau
           paintFilterPage3(); go(2);
+          if (lastData) render(lastData); syncCalendar(); // le pôle s'applique tout de suite ; le panneau reste ouvert
         }, poleColorOf(filtBrowse, p.key));
         pr.classList.add('pole');
         if (secs.length) pr.appendChild(el('span', 'tasksFilterArrow', '›'));
