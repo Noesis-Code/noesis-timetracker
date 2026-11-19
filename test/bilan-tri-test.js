@@ -6,7 +6,7 @@ const sa = rd('public/js/stats-avance.js'), grp = rd('public/js/activite-stats-t
 const keys = (sa.match(/\n      \{ key: '([a-zA-Z]+)'/g) || []).map((x) => x.replace(/[^a-zA-Z]|key/g, '').replace(/^\{/, ''));
 assert(JSON.stringify(keys) === JSON.stringify(['weekdays', 'capacity', 'advance']), 'cartes restantes : Jours où tu travailles vraiment, Capacité par jour, Avancement (' + keys.join(', ') + ')');
 ['Répartition', 'Durée estimée contre durée réelle', 'Charge restante par pôle', 'Tâches reportées plusieurs fois', 'Urgence et échéances', 'Temps cible contre temps fait', 'Où ça glisse'].forEach((t) => assert(!sa.includes("title: '" + t + "'"), 'retirée de l’écran : « ' + t + ' »'));
-assert(!/title: 'Capacité',/.test(sa) && !sa.includes('capacityAlert'), 'jauge « Capacité » et alerte de capacité (120 %) retirées');
+assert(!/title: 'Capacité',/.test(sa) && !sa.includes('capacityAlert') && !sa.includes('openObjSheet') && !sa.includes('openSheet') && !sa.includes('splitBody') && !sa.includes('openGlisse') && !sa.includes('Charge restante par secteur') && !sa.includes('Temps cible contre temps fait par secteur'), 'jauge « Capacité », alerte, anneau Répartition, feuilles « Charge restante » / « Temps cible » et « Où ça glisse » : code retiré (données serveur gardées)');
 assert(!grp.includes("'Qui fait quoi'") || !grp.includes("cardHead(chartCard, 'Qui fait quoi'"), '« Qui fait quoi » retiré du groupe') ;
 assert(!grp.includes("el('p', 'shrDoneTitle', tr('Tâches faites'))"), 'ancien nombre « Tâches faites » du groupe retiré');
 assert(!grp.includes("el('button', 'shrOpen', tr('Partager les tâches'))"), '« Partager les tâches » retiré du Bilan');

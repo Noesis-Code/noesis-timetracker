@@ -17,7 +17,7 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  var GREEN = '#4CAF50', YELLOW = '#F0AD4E', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
+  var GREEN = '#4CAF50', YELLOW = '#F0AD4E', RED = '#E74C3C', ORANGE = '#C2694A';
 
   // ---------- Glissement continu (une technique pour les pages Temps | Tâches | Objectifs, propre page ET profil visité) ----------
   // Même technique que la Page 2 de la feuille de route (bindPage2ModeSwipe) : la page voisine est posée en absolu à côté de la courante
@@ -120,14 +120,6 @@
   var activityId = null, data = null, loadSeq = 0, built = false;
   var els = {}, bodies = {}, datas = { t: null, o: null };
   function activities() { return cfg.activities(); }
-  function activityColor() {
-    var a = activities().filter(function (x) { return String(x.id) === String(activityId); })[0];
-    return (a && a.color) || '#674EA7';
-  }
-  function poleColor(index) {
-    try { return TMT.poleColor(activityColor(), index); } catch (e) { return activityColor(); }
-  }
-
   // ---------- Construction (une fois) ----------
   // refonte (maquette validée) — deux onglets Tâches | Objectifs,
   // graphique « Chemin parcouru et à parcourir » (Année/Mois/Semaine), cartes
@@ -151,148 +143,12 @@
     if (cfg.paint) return; // Bilan : une carte à la fois, peinte par cfg.paint ; ni page, ni feuille du bas
     [els.chips, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
-    // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
-    var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
-    var card = el('div', 'communityMembersModalCard cmpGlass');
-    var head = el('div', 'saModalHead');
-    var title = el('div', 'saModalTitle');
-    var close = el('button', 'cmpClose', '✕'); close.type = 'button'; close.setAttribute('aria-label', tr('Fermer'));
-    head.appendChild(title); head.appendChild(close);
-    var sub = el('p', 'meta saModalSub');
-    var list = el('div', 'statsSection saCard');
-    // En-tête FIXE (titre, ✕, sous-titre, bloc mTop) ; seule la liste défile en dessous.
-    var fixed = el('div', 'saModalFixed'), top = el('div', 'saModalTop'), scroll = el('div', 'saModalScroll');
-    card.classList.add('saSheetCard');
-    fixed.appendChild(head); fixed.appendChild(sub); fixed.appendChild(top);
-    scroll.appendChild(list);
-    card.appendChild(fixed); card.appendChild(scroll);
-    m.appendChild(card); document.body.appendChild(m);
-    els.modal = m; els.mTitle = title; els.mSub = sub; els.mList = list; els.mTop = top; els.mScroll = scroll;
-    close.addEventListener('click', hideSheet);
-    m.addEventListener('click', function (e) { if (e.target === m) hideSheet(); });
   }
-  function hideSheet() { if (els.modal) els.modal.classList.add('hidden'); }
-  function openSheet(p, index) {
-    els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
-    els.mSub.textContent = tr('{a} / {b} tâches restantes', { a: p.remaining, b: p.total });
-    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
-    els.mList.innerHTML = '';
-    els.mList.appendChild(el('p', 'sectionTitle', tr('Charge restante par secteur')));
-    var rows = p.sectors || [];
-    if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
-    rows.forEach(function (sc) {
-      var share = sc.total ? (sc.total - sc.remaining) * 100 / sc.total : 100;
-      var r = el('div', 'saPoleRow');
-      var top = el('div', 'saPoleTop');
-      top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
-      top.appendChild(el('span', 'meta', sc.remaining + ' / ' + sc.total));
-      var b = el('div', 'saBar'), fill = el('div', 'saBarFill');
-      fill.style.width = Math.round(share) + '%'; fill.style.background = poleColor(index);
-      b.appendChild(fill); r.appendChild(top); r.appendChild(b);
-      els.mList.appendChild(r);
-    });
-    els.modal.classList.remove('hidden');
-  }
-  // Un pôle n'est cliquable que s'il a au moins un vrai secteur (l'entrée « pôle hors secteur » seule ne compte pas).
-  function hasSectors(p) { return !visitor && !cfg.paint && !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
-  // Feuille « par secteur » de la carte Objectifs « Temps cible contre temps fait » (kind = 'target').
-  function openObjSheet(p, index, kind) {
-    els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
-    els.mSub.textContent = kind === 'target' ? fmtMin(p.doneMin) + ' / ' + fmtMin(p.targetMin) : '';
-    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
-    els.mList.innerHTML = '';
-    els.mList.appendChild(el('p', 'sectionTitle', tr('Temps cible contre temps fait par secteur')));
-    var rows = p.sectors || [];
-    if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
-    rows.forEach(function (sc) {
-      var r = el('div', 'saPoleRow'), top = el('div', 'saPoleTop'), b = el('div', 'saBar');
-      top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
-      var ok = sc.doneMin >= sc.targetMin, share = sc.targetMin ? Math.min(100, sc.doneMin * 100 / sc.targetMin) : 0;
-      top.appendChild(el('span', 'meta', fmtMin(sc.doneMin) + ' / ' + fmtMin(sc.targetMin)));
-      var f = el('div', 'saBarFill'); f.style.width = Math.round(share) + '%'; f.style.background = ok ? GREEN : RED; b.appendChild(f);
-      r.appendChild(top); r.appendChild(b); els.mList.appendChild(r);
-    });
-    els.modal.classList.remove('hidden');
-  }
-  // Détail d'une bulle « Où ça glisse » (sa propre page seulement) : GET /api/stats/activity-insights/glisse.
-  function fmtSlot(x) { return x.kind === 'week' ? tr('S{n}', { n: x.wn || x.n }) : x.label; }
-  function glisseSection(title, color, rows, right) {
-    var sec = el('div', 'saGsec');
-    var h = el('h4', null, tr(title)); h.style.color = color; h.appendChild(el('em', null, String(rows.length)));
-    sec.appendChild(h);
-    var box = el('div'); sec.appendChild(box);
-    var expanded = false;
-    var draw = function () {
-      box.innerHTML = '';
-      rows.slice(0, expanded ? rows.length : 3).forEach(function (r) {
-        var d = el('div', 'saGrow');
-        d.appendChild(el('span', null, r.label));
-        var small = el('small', null, right(r)); if (color !== GREEN && color !== RED) small.style.color = color;
-        d.appendChild(small); box.appendChild(d);
-      });
-      if (!expanded && rows.length > 3) {
-        var more = el('button', 'saGmore', tr(rows.length - 3 > 1 ? '+ {n} autres' : '+ {n} autre', { n: rows.length - 3 })); more.type = 'button';
-        more.addEventListener('click', function () { expanded = true; draw(); });
-        box.appendChild(more);
-      }
-    };
-    draw();
-    return sec;
-  }
-  function openGlisse(periodStart, week) {
-    TMT.api('GET', '/api/stats/activity-insights/glisse?activityId=' + encodeURIComponent(activityId) + '&periodStart=' + encodeURIComponent(periodStart) + (week ? '&week=' + week : '')).then(function (g) { renderGlisse(g); }, function () {});
-  }
-  function renderGlisse(g) {
-    var pn = String(g.periodLabel || '').replace(/^P/, '');
-    var isW = g.mode === 'week', ok = g.pct != null && (isW ? g.status === 'atteint' : g.pct >= 80), col = ok ? GREEN : RED;
-    els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.weekOfYear || g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
-    els.mSub.textContent = '';
-    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
-    els.mList.innerHTML = '';
-    var big = el('div', 'saRow1'), bg = el('span', 'saBig', g.pct != null ? g.pct + ' %' : '–'); bg.style.color = g.pct != null ? col : '';
-    big.appendChild(bg); big.appendChild(el('span', 'saSmall', tr(isW ? 'du temps prévu réalisé' : 'des semaines atteintes')));
-    els.mTop.appendChild(big);
-    if (isW && g.pct != null) els.mTop.appendChild(bar([[g.pct, GREEN], [100 - g.pct, RED]]));
-    els.mTop.appendChild(el('p', 'saGexp', tr(isW
-      ? 'Le chiffre = temps estimé des tâches liées à l’objectif de la semaine qui sont faites, divisé par le temps estimé de toutes ces tâches (même règle que le statut). 90 % ou plus : atteint (vert) · 75 % ou plus : partiel · sinon non atteint (rouge).'
-      : 'Le chiffre = part des semaines atteintes dans la période (les semaines à venir ne comptent pas). Chaque case montre le temps fait de la semaine : vert si atteinte (90 % ou plus). Touche une semaine pour voir ses tâches.')));
-    if (isW && g.statusNote) els.mTop.appendChild(el('p', 'saGexp', tr('Statut posé à la main : {s}.', { s: tr(g.statusNote === 'atteint' ? 'atteint' : (g.statusNote === 'partiel' ? 'partiel' : 'non atteint')) })));
-    if (!isW) {
-      var wkw = el('div', 'saTiles'); wkw.style.gridTemplateColumns = 'repeat(4,1fr)';
-      g.tiles.forEach(function (x) {
-        var t = el('button', 'saTile saGlass saTileBtn'), has = x.pct != null; t.type = 'button';
-        if (has) t.style.borderColor = x.status === 'atteint' ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
-        t.appendChild(el('small', null, tr('S{n}', { n: x.weekOfYear || x.week })));
-        var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.status === 'atteint' ? GREEN : RED; t.appendChild(b);
-        if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
-        wkw.appendChild(t);
-      });
-      els.mTop.appendChild(wkw);
-    }
-    var mins = function (r) { return fmtMin(r.minutes); };
-    var from = function (r) { return tr('S{n}', { n: r.weekOfYear || r.week }); };
-    var secs = isW ? [
-      ['Réalisées', GREEN, g.done, mins],
-      ['Non accomplies', RED, g.notDone, mins],
-      ['Ont glissé', ORANGE, g.slipped, function (r) { return r.to.kind === 'week' ? tr('→ semaine {n} · {d}', { n: r.to.wn || r.to.n, d: r.to.date }) : tr('→ {p} · {d}', { p: r.to.label, d: r.to.date }); }],
-      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: tr('S{n}', { n: r.weekOfYear || r.week }) }); }]
-    ] : [
-      ['Ont glissé', ORANGE, g.slipped, function (r) { return from(r) + ' → ' + fmtSlot(r.to); }],
-      ['Non accomplies', RED, g.notDone, from],
-      ['Avancées', '#8b6fd6', g.ahead, function (r) { return fmtSlot(r.from) + ' → ' + from(r); }]
-    ];
-    secs.forEach(function (x) { if (x[2] && x[2].length) els.mList.appendChild(glisseSection(x[0], x[1], x[2], x[3])); });
-    els.modal.classList.remove('hidden');
-  }
-
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function isDirty() { return yearSel !== null || tab !== 't' || view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
     var wasOff = yearSel !== null || dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O || tab !== 't';
-    yearSel = null; setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
+    yearSel = null; setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
     if (wasOff && built && activityId != null && cfg.isShown()) { load(); return; }
     if (built && data) render();
   }
@@ -472,36 +328,6 @@
     lg.firstChild.firstChild.classList.add('saSwPlan'); // carré « Prévu » en pointillé
     card.appendChild(lg);
     return card;
-  }
-
-  // ---------- Répartition (anneau) : suit le graphique (Tâches : portée Année / Période / Semaine ; Objectifs : Périodiques / Hebdomadaires) ----------
-  function splitBody(d) {
-    var isT = tab === 't', s = isT ? (d.tasks && d.tasks.onTime) : (d.objectives && d.objectives.split), w = el('div', 'saSplit');
-    var cur = (isT ? VIEWS : OVIEWS).filter(function (x) { return x[0] === (isT ? view : oview); })[0];
-    var lbl = (cur ? tr(cur[1]) : '') + (s && s.label ? ' · ' + s.label : '');
-    if (lbl) w.appendChild(el('p', 'meta saSplitLabel', lbl));
-    var tot = (s && s.total) || 0;
-    if (!tot) { w.appendChild(el('p', 'hint cmpEmpty', tr(isT ? 'Aucune tâche sur cette période' : 'Aucun objectif sur cette période'))); return w; } // même état vide que la Répartition du Chrono (.cmpEmpty)
-    var parts = isT ? [[s.onTime, GREEN, tr('à temps')], [s.late, RED, tr('retard')], [s.postponed, GREY, tr('reportées')]] : [[s.atteint, GREEN, tr('atteint')], [s.partiel, GREY, tr('partiel')], [s.non, RED, tr('non')]];
-    var svgNS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('class', 'pieSvg'); svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', tr('Répartition') + ' : ' + parts.map(function (p) { return p[2] + ' ' + p[0]; }).join(', '));
-    var angle = -Math.PI / 2, gap = parts.filter(function (p) { return p[0] > 0; }).length > 1 ? 0.035 : 0;
-    parts.forEach(function (p) {
-      if (!p[0]) return;
-      var sweep = p[0] / tot * Math.PI * 2, a0 = angle + Math.min(gap / 2, sweep / 2), a1 = Math.max(a0, angle + sweep - Math.min(gap / 2, sweep / 2));
-      var path = document.createElementNS(svgNS, 'path'); path.setAttribute('d', TMT.donutSlicePath(50, 50, 46, 27, a0, a1)); path.style.fill = p[1]; svg.appendChild(path);
-      angle += sweep;
-    });
-    var area = el('div', 'pieChartArea'); area.appendChild(svg);
-    var ctr = el('div', 'pieCenter'); ctr.appendChild(el('span', 'pieCenterValue', String(tot))); ctr.appendChild(el('span', 'pieCenterLabel', tr(isT ? 'tâches' : 'objectifs'))); area.appendChild(ctr);
-    var wrap = el('div', 'pieWrap'); wrap.appendChild(area);
-    var lg = el('div', 'pieLegend');
-    parts.forEach(function (p) {
-      var r = el('div', 'pieLegendRow'), dt = el('span', 'pieLegendDot'); dt.style.background = p[1];
-      r.appendChild(dt); r.appendChild(el('span', 'pieLegendLabel', p[2])); r.appendChild(el('span', 'pieLegendValue', String(p[0]))); lg.appendChild(r);
-    });
-    wrap.appendChild(lg); w.appendChild(wrap);
-    return w;
   }
 
   // ---------- Avancement : une ligne par activité, axe de temps commun, curseur « aujourd'hui » ----------
@@ -785,7 +611,7 @@
       var c = CARDS.t.concat(CARDS.o).filter(function (k) { return k.key === key; })[0], n = c && c.body(d);
       return n ? infoCard(c, n, remover || false) : null;
     },
-    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
+    reset: resetTransient, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
     bodyOf: function (t) { build(); return bodies[t]; }, otherReady: function () { return !!datas[tab === 't' ? 'o' : 't']; },
     forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.yearRow.innerHTML = ''; els.yearRow.classList.add('hidden'); bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
   };
@@ -810,7 +636,7 @@
       if (ph === 2 && vuser) {
         if (!vinst) vinst = TMT.createVisitorStats(p2, vuser, setDots);
         vinst.setTab(n === 3 ? 'o' : 't'); vinst.open();
-      } else if (vinst) { vinst.hideSheet(); vinst.reset(); }
+      } else if (vinst) { vinst.reset(); }
       setDots();
       to.classList.remove('hidden');
       if (typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
@@ -841,7 +667,7 @@
           return {
             cur: i === 0 ? p1 : p2, nb: t === 0 ? p1 : p2, host: wrap,
             start: function () { if (t > 0) { if (!vinst) vinst = TMT.createVisitorStats(p2, vuser, setDots); vinst.setTab('t'); vinst.open(); } },
-            commit: function () { vpage = t === 0 ? 1 : 2; if (t === 0 && vinst) { vinst.hideSheet(); vinst.reset(); } setDots(); }
+            commit: function () { vpage = t === 0 ? 1 : 2; if (t === 0 && vinst) { vinst.reset(); } setDots(); }
           };
         }
         if (!vinst || !vinst.otherReady()) return null;

@@ -40,7 +40,7 @@ const oY = get().tasks.onTime, oW = get({ scope: 'week' }).tasks.onTime;
 assert(oY && /^\d{4}$/.test(oY.label) && oY.total === oY.onTime + oY.late + oY.postponed, 'Répartition : portée Année par défaut (libellé = l\'année)');
 assert(oW && /^\d\d\/\d\d – \d\d\/\d\d$/.test(oW.label) && oW.start <= oW.end, 'Répartition : portée Semaine = libellé de la semaine du graphique');
 assert(js.indexOf("put(byKey('advance'), false);") > 0 && js.indexOf("put(byKey('onTime')") < 0, 'ordre des cartes : l’Avancement sous le graphique (la Répartition est retirée)');
-assert(!/saTodayBtn/.test(js) && /function splitBody/.test(js) && /cmpEmpty/.test(js), 'Répartition : plus de bouton Aujourd\'hui, état vide commun (.cmpEmpty)');
+assert(!/saTodayBtn/.test(js) && /cmpEmpty/.test(js), 'anneau Répartition retiré ; plus de bouton Aujourd\'hui, état vide commun (.cmpEmpty)');
 const sp = get({ kind: 'weekly' }).objectives.split;
 assert(sp && sp.total === sp.atteint + sp.partiel + sp.non, 'Répartition des objectifs : atteints / partiels / non atteints (Périodiques ou Hebdomadaires selon le ⋮)');
 // Avancement (objectifs) : durée des tâches restantes vs temps réellement disponible (historique Chrono 4 semaines), seuil 20 %

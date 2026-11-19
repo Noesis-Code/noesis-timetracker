@@ -5,7 +5,7 @@
  * TOUT LE RESTE n'apparaît que via « + Ajouter une information » (même mécanique que les statistiques : cmpAdd, aperçus à cocher, Appliquer / Annuler) et se retire par la croix rouge ;
  * le choix est mémorisé par vue (Toutes) et par activité (localStorage, sans donnée serveur).
  *   Toutes : Avancement, Capacité par jour, Jours où tu travailles vraiment, Tâches urgentes.
- *   Une activité : Moyenne des tâches réalisées, Proportion réelle contre demandée, Graphique des tâches et objectifs, Tâches récurrentes.
+ *   Une activité : Moyenne des tâches réalisées, Proportion réelle contre demandée, Tâches récurrentes ; le Graphique des tâches et objectifs y est visible par défaut (retirable), jamais en Toutes.
  * Données : /api/bilan/* (server/lib/bilan.js) et les cartes de js/stats-avance.js (TMT.bilanCardInstance). Lecture seule. */
 (function () {
   'use strict';
@@ -130,13 +130,20 @@
     act: [
       { key: 'avg', title: 'Moyenne des tâches réalisées', render: rAvg },
       { key: 'prop', title: 'Proportion réelle contre demandée', render: rProp },
-      { key: 'graph', title: 'Graphique des tâches et objectifs', render: rGraph },
+      { key: 'graph', title: 'Graphique des tâches et objectifs', render: rGraph, def: true },
       { key: 'rec', title: 'Tâches récurrentes', render: rRec }
     ]
   };
   function defs() { return scope === 'all' ? DEFS.all : DEFS.act; }
-  function storeKey() { return 'tmt.bilanInfo.' + scope; }
-  function loadAdded() { try { var a = JSON.parse(localStorage.getItem(storeKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  // Le graphique est visible par défaut quand une activité est sélectionnée (18 nov. 2026, jamais en « Toutes ») : tant que le choix n'est pas enregistré, la liste commence par lui ; la croix le retire (choix mémorisé), « + Ajouter une information » le remet.
+  function storeKey() { return 'tmt.bilanInfo2.' + scope; }
+  function loadAdded() {
+    try {
+      var raw = localStorage.getItem(storeKey()), a;
+      if (raw == null) { var old = JSON.parse(localStorage.getItem('tmt.bilanInfo.' + scope) || '[]'); a = (Array.isArray(old) ? old : []).filter(function (k) { return k !== 'graph'; }); if (scope !== 'all') a.unshift('graph'); return a; } // ancien choix gardé, graphique en plus (activité seulement)
+      a = JSON.parse(raw); return Array.isArray(a) ? a : [];
+    } catch (e) { return scope === 'all' ? [] : ['graph']; }
+  }
   function saveAdded(a) { try { localStorage.setItem(storeKey(), JSON.stringify(a)); } catch (e) { /* stockage indisponible */ } }
 
   // ---------- Page : informations ajoutées, « + Ajouter une information », aperçus à cocher ----------
