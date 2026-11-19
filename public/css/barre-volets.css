@@ -67,7 +67,7 @@ html.noCommunityBar #whoami { display: none; }
 }
 .tabbar .tabBtnAdd svg, .barAddBtn svg { width: 22px; height: 22px; }
 /* Bouton d'action enfoncé (zone d'écriture ouverte, mode édition de l'arbre actif) : le verre de l'onglet actif (jetons --glass-*), sans nouvelle couleur. */
-.tabbar .tabBtnAdd[aria-pressed="true"] { border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text, #F3EEE8); }
+.tabbar .tabBtnAdd[aria-pressed="true"] { border: 1px solid var(--glass-border); background: var(--glass-bg); box-shadow: none; -webkit-backdrop-filter: blur(.4px) saturate(1.1); backdrop-filter: blur(.4px) saturate(1.1); color: var(--text, #F3EEE8); } /* mêmes jetons que le liseré de l'onglet actif ; plus de reflet intérieur hérité de .barPaid */
 
 @keyframes tabJiggle { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg); } }
 /* Pages de statistiques à gauche de Chrono / de la Feuille de route : le geste de glissement doit marcher aussi dans la zone vide sous le contenu. */

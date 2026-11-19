@@ -191,14 +191,13 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arBubble { justify-content: center; text-align: center; background: transparent; }
 .arRailR .arHrs:empty::before { content: '–'; } /* heures non affichées : un petit tiret gris = « touche la date pour voir » */
 /* Niveau SECTEUR (18 nov. 2026, Émilien) : le TITRE garde la bulle du pôle mais son CONTOUR est en pointillé. */
-.arLvlSecteur .arBubble { border-style: dotted; } /* pointillé court et serré (petits points) */
+.arLvlSecteur .arBubble { border-style: none; outline: var(--cmp-dashed); outline-offset: -1px; } /* même pointillé que le « + » d'ajout (.cmpAdd, jeton --cmp-dashed) ; outline car la couleur du contour est posée en ligne par le script */
 .arRailR .arHrs { border: 0; } .arRailR .arHrs.set { border: 0; } /* colonne des heures sans cadre (18 nov. 2026) */
 /* EN ÉDITION seulement : le crayon Modifier standard (R15) est un TROU dans la carte (masque : plein XOR icône ; on voit le fond à travers, ni violet ni pastille) ; le bouton reste la zone de toucher de 44 px. */
 .arEdit .arCard > .cmpEdit { display: block; color: transparent; }
 .arEdit:not(.arExtending) .arCard:not(.arGaugeLow) { -webkit-mask: linear-gradient(#000 0 0), var(--ar-edit-mask) no-repeat right 5px top 5px / 18px 18px; -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0), var(--ar-edit-mask) no-repeat right 5px top 5px / 18px 18px; mask-composite: exclude; }
 .arEdit .arGaugeLow > .cmpEdit { color: var(--ar-c); } /* jauge presque vide : le crayon est sur le vide, dessiné en plein de la couleur du pôle */
 .arEdit.arExtending .arCard > .cmpEdit { display: none; }
-/* JAUGE du niveau SECTEUR : la partie pleine (bas) est de la couleur du pôle (fond posé par le script) ; le vide est entouré de POINTILLÉS (le ::before, découpé au niveau de la jauge), sans fond ; 100 % = carte pleine, 0 % = tout en pointillés. */
-.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; }
-.arGrid .goalsGridCell.arGauge::before { display: block; content: ''; position: absolute; z-index: auto; inset: -2px; width: auto; height: auto; top: -2px; left: -2px; transform: none; border: 2px dashed var(--ar-c); border-radius: inherit; clip-path: inset(0 0 var(--ar-p) 0); pointer-events: none; }
+/* JAUGE du niveau SECTEUR : la partie pleine (bas) est de la couleur du pôle (nuance de son pôle, fond posé par le script) ; contour COMPLET plein de 1 px de la même teinte (outline : la grille impose des bordures transparentes en !important), sans fond pour le vide ; 100 % = carte pleine comme un pôle. */
+.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; outline: 1px solid var(--ar-c); outline-offset: -1px; }
 .arEdit .arGaugeLow > .cmpEdit svg { width: 18px; height: 18px; } /* même taille que le crayon en creux */

@@ -69,7 +69,7 @@
     var poles = a.poles || [], pk = o.poleKey || (poles[0] && poles[0].key), p = poles.filter(function (x) { return x.key === pk; })[0];
     return TMT.ui.etiquette({ activityName: a.name, activityColor: base, poleLabel: p && p.label, poleIndex: p && p.shadeRank }).color;
   }
-  // JAUGE (niveau secteur) : la carte se remplit de bas en haut de la couleur du pôle ; le vide est entouré de pointillés (CSS : .arGauge). Pourcentage = o.progress du serveur (semaines cochées / semaines prévues, le calcul de l'Avancement du Bilan), jamais recalculé ici.
+  // JAUGE (niveau secteur) : la carte se remplit de bas en haut de la couleur du pôle ; contour plein de la même teinte (CSS : .arGauge). Pourcentage = o.progress du serveur (semaines cochées / semaines prévues, le calcul de l'Avancement du Bilan), jamais recalculé ici.
   function gauge(b, o, c) {
     if (lvl !== 'secteur') return; var p = Math.max(0, Math.min(100, Math.round((o.progress || 0) * 100)));
     b.classList.add('arGauge'); b.classList.toggle('arGaugeLow', p < 85); b.style.setProperty('--ar-p', p + '%'); /* arGaugeLow : le crayon se trouve sur le vide (sans fond) : en édition il est dessiné en plein, pas en creux */ b.style.background = 'linear-gradient(0deg, ' + c + ' ' + p + '%, transparent ' + p + '%)'; b.style.color = p >= 50 && TMT.readableTextOn ? TMT.readableTextOn(c) : 'var(--text)';

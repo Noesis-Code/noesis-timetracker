@@ -28,7 +28,7 @@ g = gaugeFor(0.4, 'pole'); assert(!g.st.cls && !g.b.style.background, 'hors nive
 assert(src.includes('o.progress') && !/progress\s*=\s*.*done/i.test(extract('gauge')), 'pourcentage = progress du serveur (shape de objectifs.js), jamais recalculé ici');
 // 4. CSS : pointillé des cases vides à tous les niveaux, jauge, tiret des heures, plus de verre
 assert(css.includes('.arGrid .goalsGridCell--empty { background: none; outline: 1px dashed') && !css.includes('arLvlSecteur .goalsGridCell') && !/backdrop-filter|--glass-bg/.test(css), 'cases vides : pointillé sans fond ni verre, tous niveaux');
-assert(css.includes('.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; }') && css.includes('clip-path: inset(0 0 var(--ar-p) 0)') && css.includes('border: 2px dashed var(--ar-c)'), 'jauge : plein en bas, pointillés seulement autour du vide');
+assert(css.includes('.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; outline: 1px solid var(--ar-c); outline-offset: -1px; }') && !css.includes('arGauge::before') && !css.includes('clip-path: inset(0 0 var(--ar-p) 0)'), 'jauge : plein en bas, contour plein 1 px de la teinte du pôle, plus de pointillés');
 assert(css.includes(".arRailR .arHrs:empty::before { content: '–'; }"), 'heures non affichées : un tiret gris');
 assert(src.includes('M10.8 0h2.4v10.8H24v2.4H13.2V24h-2.4V13.2H0v-2.4h10.8z'), 'plus à bords carrés');
 console.log('arbre-propre-test OK');
