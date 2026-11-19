@@ -555,6 +555,7 @@
     var SIDE = mw + 10 + 64; // repères du temps (56 px) + colonne « Heures » (58 px de cellule + 6 px d'écart, comme la maquette) : dans le tableau qui défile
     var arW = n === 1 ? 'calc(100cqw - ' + (4 + SIDE) + 'px)' : (n === 2 ? 'calc((100cqw - ' + (GAP + 4 + SIDE) + 'px) / 2)' : 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + 2 * GAP + 14) + 'px) / 3)'); // règle de l'arbre périodique (page 2) : UNE colonne = toute la largeur (deux colonnes), deux = moitié chacune, trois ou plus = deux visibles à la fois et défilement
     if (isLand() && n >= 3) { var kL = Math.max(3, Math.min(n, 7, Math.floor((viewW() - 120) / 100))); arW = 'calc((100cqw - var(--ar-mw, 46px) - ' + (10 + (kL - 1) * GAP + 4) + 'px) / ' + kL + ')'; } // paysage : jusqu'à 7 colonnes entières (plancher ~100 px), au-delà on défile de côté
+    if (isLand()) arW = arW.split('100cqw').join('(100cqw - 64px)'); // paysage : la colonne des heures (64 px, porte le « + » de l'arbre sous les heures) reste dans l'écran, jamais de défilement de côté pour l'atteindre
     var W = 'var(--ar-w)'; // les titres passent à la ligne, la largeur ne grandit jamais avec le texte
     if (ext && ext.mode === 'edit' && ext.macro) { var spanN = macroIdx(ext.macro, curCols).length; if (spanN > 1) arW = 'calc((100cqw - ' + (4 + SIDE + GAP * (spanN - 1)) + 'px) / ' + spanN + ')'; } // modifier un macro : sa carte large tient à l'écran (jamais coupée au bord)
     var mode = lvl === 'activite' ? 'simple' : 'detail';
