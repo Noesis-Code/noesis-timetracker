@@ -204,16 +204,25 @@
       bar.appendChild(b);
     }).catch(function () { /* sans le sélecteur, les statistiques personnelles restent affichées */ });
   }
+  // Même bouton que le filtre de Tâches et des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; la liste ne montre que les activités.
   function paintChips() {
     chips.textContent = '';
-    var list = [{ id: 'all', name: tr('Toutes mes activités'), color: null }].concat(acts().map(function (a) { return { id: String(a.id), name: a.name, color: a.color }; }));
-    list.forEach(function (a) {
-      var b = el('button', 'saChip' + (a.id === scope ? ' on' : '')); b.type = 'button';
-      if (a.color) { b.style.setProperty('--chipEdge', a.color); var d = el('span', 'saChipDot'); d.style.background = a.color; b.appendChild(d); }
-      b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () { if (a.id === scope) return; scope = a.id; offset = 0; adding = false; draft = []; paintChips(); showChrono(); renderInfo(); });
-      chips.appendChild(b);
+    var list = [{ id: 'all', name: tr('Tous'), color: null }].concat(acts().map(function (a) { return { id: String(a.id), name: a.name, color: a.color }; }));
+    var cur = list.filter(function (a) { return a.id === scope; })[0] || list[0];
+    var wrap = el('div', 'statsPeriodMenuWrap caSubProjectFilter'), b = el('button', 'caSubProjectBtn'); b.type = 'button'; b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false');
+    b.appendChild(el('span', null, cur.name));
+    var menu = el('div', 'statsPeriodMenu caSubProjectMenu hidden');
+    b.addEventListener('click', function (e) {
+      e.stopPropagation(); var open = menu.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (open) menu.classList.remove('hidden'); b.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
+    list.forEach(function (a) {
+      var it = el('button', 'statsPeriodMenuItem' + (a.id === scope ? ' active' : ''), a.name); it.type = 'button';
+      it.addEventListener('click', function () { menu.classList.add('hidden'); if (a.id === scope) return; scope = a.id; offset = 0; adding = false; draft = []; paintChips(); showChrono(); renderInfo(); });
+      menu.appendChild(it);
+    });
+    wrap.appendChild(b); wrap.appendChild(menu); chips.appendChild(wrap);
   }
   function build() {
     var pages = document.getElementById('statsPages'); if (!pages || host) return;

@@ -311,6 +311,7 @@
 :root:root:root :is(#settingsParamsCard .notifRow, #settingsParamsCard .consentItem, #activitiesList .activityEditBar, .catList .activityEditBar):last-child { border-bottom: 0; }
 
 /* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
+.tasksFilterBtn[aria-expanded="true"]::after, .statsPeriodMenuWrap:has(> .statsPeriodMenu:not(.hidden)) > .caSubProjectBtn::after { content: '\25B4'; } /* bouton « Tous ▾ » des filtres d'activité (Bilan, Tâches, statistiques) : la flèche change de sens à l'ouverture */
 .calWeekRow { position: relative; margin-left: 14px; }
 .calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
 .calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }

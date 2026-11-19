@@ -96,10 +96,11 @@
 /* La barre « Ajouter une tâche » est au premier plan, fixée au-dessus de la barre des volets (même verre) ; les tâches défilent en dessous ; au glissement latéral elle suit la page. */
 .tasksDock { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); padding: 0; background: transparent; }
 .tasksDock.hidden { display: none; }
-@keyframes tasksDockIn { from { clip-path: inset(-100vh 0 0 calc(100% - 52px)); } to { clip-path: inset(-100vh 0 0 0); } } /* part du « + » (à droite) et s'élargit jusqu'à toute la largeur */
+@keyframes tasksDockIn { from { clip-path: inset(-100vh 0 0 calc(100% - 52px)); transform: translateX(30%); } to { clip-path: inset(-100vh 0 0 0); transform: none; } } /* part du « + » (à droite) et s'élargit jusqu'à toute la largeur */
 :root.composerOn .tabbar { visibility: hidden; } /* la barre d'ajout REMPLACE la barre des volets et le « + » */
-:root.composerOn .tasksDock:not(.goalsDayDock) { bottom: max(16px, env(safe-area-inset-bottom)); }
-.tasksDock.tasksDockIn { animation: tasksDockIn .22s ease-out; } /* la barre d'ajout s'élargit depuis le « + » */
+:root.composerOn .tasksDock:not(.goalsDayDock) { bottom: max(16px, env(safe-area-inset-bottom)); } /* fixe, exactement à la place de la barre des volets */
+:root.composerOn .tasksDock:not(.goalsDayDock)::before { content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: max(16px, env(safe-area-inset-bottom)); background: var(--bg, #0B0A0A); z-index: -1; } /* rien ne s'écrit sous la barre */
+.tasksDock.tasksDockIn { animation: tasksDockIn .55s cubic-bezier(.22,.8,.3,1); } /* lente, de droite à gauche */ /* la barre d'ajout s'élargit depuis le « + » */
 @media (prefers-reduced-motion: reduce) { .tasksDock.tasksDockIn { animation: none; } }
 .tasksToday { padding-bottom: calc(var(--tabbar-h, 76px) + 120px); } /* la dernière tâche reste lisible au-dessus de la barre fixe */
 .tasksDock .tasksComposer { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 */
@@ -130,20 +131,15 @@
 .tasksToday.dayPast .goalsTaskEditBtn { display: none; }
 /* Filtre (7 nov. 2026) : ligne nue au-dessus du calendrier ; le panneau se déroule sur place, en deux pages qui glissent (activités, puis pôles avec leurs secteurs). */
 .tasksFilter { display: block; }
-.tasksFilterLine { position: relative; display: flex; align-items: center; justify-content: flex-start; width: auto; min-height: 32px; margin-top: -8px; padding: 0 4px; border: 0; background: none; color: var(--text-light); cursor: pointer; } /* à gauche, juste sous « Tâches » ; icône réglage à la place du titre */
-.tasksFilterLine::after { content: ''; position: absolute; left: 0; top: 50%; width: 44px; height: 44px; transform: translateY(-50%); }
-.tasksFilterLine svg { width: 22px; height: 22px; }
-.tasksFilterLine, .tasksFilterLine.on { color: var(--text); } /* icône blanche, jamais violette */
 .tasksFilterPanel { background: color-mix(in srgb, var(--black) 45%, transparent); overflow: hidden; margin: 4px 0 8px; padding: 4px 12px; border-radius: var(--radius-lg); transition: height .22s ease; } /* section en verre (.cmpGlass, R31), comme le panneau de création */
 .tasksWeek { margin-top: -8px; }
-.tasksFilterTrack { display: flex; align-items: flex-start; width: 200%; transition: transform .25s cubic-bezier(.22,.8,.3,1); }
-.tasksFilterPage { flex: 0 0 50%; min-width: 0; display: flex; flex-direction: column; }
+.tasksFilterTrack { display: flex; align-items: flex-start; width: 300%; transition: transform .25s cubic-bezier(.22,.8,.3,1); }
+.tasksFilterPage { flex: 0 0 33.3333%; min-width: 0; display: flex; flex-direction: column; }
 .tasksFilterPage .tasksChoice { display: flex; align-items: center; justify-content: space-between; }
 .tasksFilterPage .tasksChoice.on { color: var(--violet-soft); font-weight: 600; }
 .tasksFilterPage .tasksChoice.lv1 { padding-left: 28px; }
 .tasksFilterPage .tasksChoice.pole { font-weight: 600; }
 .tasksFilterArrow { color: var(--text-light); font-size: 18px; }
-.tasksFilterTitle { margin: 0; padding: 12px 4px 4px; font-size: 13px; color: var(--text-light); }
 .tasksFilterPage .tasksChoice:last-child { border-bottom: 0; } /* pas de trait sous la dernière ligne */
 .tasksToday .tasksCounter { margin-left: auto; }
 
@@ -168,12 +164,9 @@
 .tasksToday.calUnfolded > .tasksPopList, .tasksToday.calUnfolded > .tasksTopRow { display: none; } /* calendrier déplié : la liste et le compteur n'existent que dans le pop-up du jour touché (jamais dessous) ; replié : liste normale */
 .tasksDayPop .tasksProposeHead .tasksDayCount { margin-left: auto; margin-right: 8px; align-self: center; }
 /* Calendrier importé : la ligne de période monte tout en haut ; l'icône de filtre se centre entre elle et le libellé du mois (plus de chevron « période suivante » : on change de période avec les flèches du calendrier). */
-.tasksToday.calIntegrated .tasksFilterRow:not(.open) { display: block; position: relative; margin-top: -8px; padding-left: 36px; }
-.tasksToday.calIntegrated .tasksFilterRow:not(.open) .tasksFilter { position: absolute; left: 0; top: calc(100% + 10px); transform: translateY(-50%); z-index: 1; }
 .tasksPeriodHost #goalsPeriodNext { display: none; }
 .tasksFilterPage { transition: opacity .18s ease; }
 /* Période : seul « P12 » (jamais le titre), centré sur le mois (marges égales des deux côtés de l'icône), coupés par « … » s'ils sont trop longs. Numéros de semaine et de période : texte nu, sans bulle ni couleur. */
-.tasksToday.calIntegrated .tasksFilterRow:not(.open) { padding-right: 36px; }
 .tasksToday.calIntegrated .tasksPeriodHost .goalsTopLine { justify-content: center; }
 .tasksToday .goalsCalWeekLine .cmpStatus, .tasksToday .tasksPeriodHost .cmpStatus { min-height: 0; padding: 0; border: 0; background: transparent; color: var(--text-light); }
 /* Icône des choix d'activité plus près des onglets Tâches / Objectifs, calendrier plus près de l'icône (grille R6 : 8 px) */
@@ -182,4 +175,3 @@
 .tasksDot { flex: none; width: 10px; height: 10px; margin-right: 10px; border-radius: 50%; background: var(--purple); }
 .tasksFilterPage .tasksChoice { justify-content: flex-start; }
 .tasksFilterPage .tasksChoice .tasksFilterArrow { margin-left: auto; }
-.tasksFilterTitle { display: flex; align-items: center; }
