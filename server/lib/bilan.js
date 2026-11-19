@@ -78,8 +78,12 @@ function urgentes(userId, offset, today) {
   for (let i = 0; i < 4; i += 1) {
     const ws = addDays(start, 7 * i), we = addDays(ws, 6), gw = O().gridOf(ws);
     let n = 0;
-    if (ids.length) n = db.prepare(`SELECT COUNT(*) AS n FROM sub_project_items i JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
-      WHERE sp.activityId IN (${ids.map(() => '?').join(',')}) AND s.kind = 'tasks' AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate BETWEEN ? AND ?`).get(...ids, ws, we).n;
+    if (ids.length) { // Portée (19 nov. 2026) : activité partagée = ses tâches (ou celles de la portée gérée) ; filterTasks est la fonction partagée de portee.js
+      const rows = db.prepare(`SELECT sp.activityId AS activityId, sp.goalCategory AS key, i.plannedUserId AS plannedUserId, i.doneBy AS doneBy FROM sub_project_items i JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
+        WHERE sp.activityId IN (${ids.map(() => '?').join(',')}) AND s.kind = 'tasks' AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate BETWEEN ? AND ?`).all(...ids, ws, we);
+      const pt = require('./portee');
+      ids.forEach((aid) => { n += pt.filterTasks(rows.filter((r) => r.activityId === aid), userId, aid).length; });
+    }
     weeks.push({ week: gw.week, label: 'S' + gw.week, start: ws, end: we, period: gw.period, year: gw.year, count: n });
   }
   return { offset: off, period: g.period, year: g.year, start, end: addDays(start, 27), weeks };

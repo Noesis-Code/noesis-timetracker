@@ -194,6 +194,21 @@ function retirer(userId, activityId, key, targetId) {
   return membresDe(userId, a.id, k);
 }
 
+// Les données de `uid` sont-elles visibles par `userId` ? Soi-même ; tout pour le propriétaire / responsable d'activité ; un responsable de catégorie : les membres dont la portée croise la sienne.
+function croise(userId, mg, uid, sc) {
+  return uid === userId || mg.all || !!(mg.roots.length && (sc.all || sc.roots.some((r) => mg.has(r)) || mg.roots.some((r) => sc.has(r))));
+}
+// Membres dont userId voit les données dans une activité PARTAGÉE : null = tous (activité à un seul membre, propriétaire, responsable d'activité), sinon Set d'identifiants (soi + sa portée gérée).
+function membresVisibles(userId, activityId) {
+  if (!estPartagee(activityId)) return null;
+  const mg = managed(userId, activityId);
+  if (mg.all) return null;
+  const ids = new Set(db.prepare('SELECT userId FROM activity_members WHERE activityId = ?').all(Number(activityId)).map((r) => r.userId));
+  const out = new Set();
+  ids.forEach((uid) => { if (croise(userId, mg, uid, scope(uid, activityId))) out.add(uid); });
+  out.add(userId);
+  return out;
+}
 // Appartenances de tous les membres d'une activité (vue d'ensemble pour les responsables) : [{ id, name, owner, manager, all, scopes:[{ key, label, niveau }] }].
 // Un responsable ne voit que les membres dont la portée croise la sienne ; un simple membre ne voit que lui-même.
 function membres(userId, activityId) {
@@ -204,8 +219,7 @@ function membres(userId, activityId) {
   const out = [];
   [...ids].forEach((uid) => {
     const sc = scope(uid, a.id);
-    const visible = uid === userId || mg.all || (mg.roots.length && (sc.all || sc.roots.some((r) => mg.has(r)) || mg.roots.some((r) => sc.has(r))));
-    if (!visible) return;
+    if (!croise(userId, mg, uid, sc)) return;
     const manager = uid === a.ownerId || isActivityManager(uid, a.id) || !!db.prepare('SELECT 1 FROM category_managers WHERE activityId = ? AND userId = ?').get(a.id, uid);
     out.push({ id: uid, name: nomDe(uid), owner: uid === a.ownerId, manager, all: sc.all, scopes: sc.all ? [] : sc.roots.map((r) => ({ key: r, label: libelle(a, r), niveau: levelOf(a.id, r) })) });
   });
@@ -274,4 +288,26 @@ function exigerObjectif(userId, activityId, poleKey, categoryKey) {
   if (!objectifVisible(userId, activityId, poleKey, categoryKey)) throw refus('OBJECTIF_RESERVE_RESPONSABLES', 'Les objectifs d’une activité partagée sont réservés aux responsables.');
 }
 
-module.exports = { peutLireTache, exigerModificationTache, estPartagee, peutEcrireTache, exigerEcritureTache, filterTasks, objectifVisible, exigerObjectif, ACTIVITE, AUCUNE, migrer, scope, managed, estResponsable, isActivityManager, filterByKey, checkChoice, membresDe, membres, ajouter, retirer, peutInviter, poserALAcceptation, levelOf, expand };
+// ---- Départ du propriétaire (19 nov. 2026) : le propriétaire passe au plus ancien responsable d'activité (activity_managers, ancienneté d'ajout) ; sans responsable, il ne peut pas partir tant qu'il reste d'autres membres. ----
+function successeur(activityId, partantId) {
+  const r = db.prepare(`SELECT g.userId FROM activity_managers g JOIN activity_members m ON m.activityId = g.activityId AND m.userId = g.userId
+    WHERE g.activityId = ? AND g.userId != ? ORDER BY g.addedAt, g.userId LIMIT 1`).get(Number(activityId), partantId);
+  return r ? r.userId : null;
+}
+// À appeler AVANT de retirer le partant. Renvoie l'identifiant du nouveau propriétaire (null si le partant n'est pas propriétaire ou s'il est seul) ; lève 409 si propriétaire seul responsable avec d'autres membres.
+function exigerSuccesseur(activityId, partantId) {
+  if (ownerOf(activityId) !== partantId) return null;
+  const autres = db.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE activityId = ? AND userId != ?').get(Number(activityId), partantId).n;
+  if (!autres) return null;
+  const s = successeur(activityId, partantId);
+  if (!s) { const e = err(409, 'Tu es le seul propriétaire : nomme d’abord un responsable d’activité pour reprendre la propriété.'); e.errCode = 'PROPRIETAIRE_SANS_SUCCESSEUR'; throw e; }
+  return s;
+}
+// Le partant n'a plus ni portée ni responsabilité dans l'activité (rien d'autre n'est supprimé : tâches, temps, historique restent).
+function oublier(activityId, userId) {
+  db.prepare('DELETE FROM member_scopes WHERE activityId = ? AND userId = ?').run(Number(activityId), userId);
+  db.prepare('DELETE FROM category_managers WHERE activityId = ? AND userId = ?').run(Number(activityId), userId);
+  db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(Number(activityId), userId);
+}
+
+module.exports = { croise, membresVisibles, successeur, exigerSuccesseur, oublier, peutLireTache, exigerModificationTache, estPartagee, peutEcrireTache, exigerEcritureTache, filterTasks, objectifVisible, exigerObjectif, ACTIVITE, AUCUNE, migrer, scope, managed, estResponsable, isActivityManager, filterByKey, checkChoice, membresDe, membres, ajouter, retirer, peutInviter, poserALAcceptation, levelOf, expand };

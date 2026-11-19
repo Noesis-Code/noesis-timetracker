@@ -219,7 +219,8 @@ function goalContentEventsForUser(userId, excl) {
   for (const activity of activitiesForUser(userId)) {
     if (excl.has(activity.id + '|')) continue;
     const goalstasks = require('./goalstasks');
-    for (const t of goalstasks.allTasksWithGroup(activity.id)) {
+    const pt = require('./portee');
+    for (const t of goalstasks.allTasksWithGroup(activity.id, false, userId)) { // viewerId : activité partagée = ses tâches (ou celles de la portée gérée), jamais celles des autres
       if (!t.dueDate || t.done) continue;
       if (isExcluded(excl, activity.id, t.poleKey || t.key)) continue;
       const end = addDay(t.dueDate);
@@ -233,6 +234,7 @@ function goalContentEventsForUser(userId, excl) {
     `).all(activity.id);
     for (const r of rows) {
       if (isExcluded(excl, activity.id, r.category)) continue;
+      if (!pt.objectifVisible(userId, activity.id, null, r.category)) continue; // objectifs hebdomadaires d'une activité partagée : responsables de la portée seulement
       const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(r.startDate || '');
       if (!m) continue;
       const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 7 * (r.weekIndex - 1)));
@@ -255,8 +257,10 @@ function goalPeriodEventsForUser(userId) {
       AND (gp.mainGoalText != '' OR EXISTS (SELECT 1 FROM goal_weekly w WHERE w.periodId = gp.id AND w.text != ''))
   `).all(userId);
 
+  const ptp = require('./portee');
   for (const r of rows) {
     if (isExcluded(excl, r.activityId, r.category)) continue;
+    if (!ptp.objectifVisible(userId, r.activityId, null, r.category)) continue; // bilan de période = objectifs : responsables de la portée seulement en activité partagée
     const end = addDay(r.endDate);
     if (!end) continue;
     events.push({
@@ -382,15 +386,16 @@ function todayLocalDay() {
 // plus que les tâches du pôle/secteur affiché (`categoryKeys`, optionnel —
 // absent = comportement d'origine). Un pôle inclut ses tâches directes + celles
 // de ses secteurs ; un secteur ne montre que les siennes (voir periodDaysForUser).
-function dayTasksByDate(activityId, startDate, endDate, categoryKeys) {
+function dayTasksByDate(activityId, startDate, endDate, categoryKeys, viewerId) {
   let rows = db.prepare(`
-    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
+    SELECT i.id, i.label, i.done, i.dueDate, i.autoCaptured, i.seenAt, i.medianMinutes, i.maxMinutes, i.plannedUserId, i.doneBy, sp.goalCategory AS category
     FROM sub_project_items i
     JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.dueDate BETWEEN ? AND ?
     ORDER BY i.position ASC, i.id ASC
   `).all(activityId, startDate, endDate);
   if (Array.isArray(categoryKeys)) rows = rows.filter((r) => categoryKeys.includes(r.category));
+  if (viewerId) rows = require('./portee').filterTasks(rows, viewerId, activityId, (r) => r.category); // activité partagée : ses tâches (ou celles de la portée gérée)
   const byDate = {};
   rows.forEach((r) => {
     if (!byDate[r.dueDate]) byDate[r.dueDate] = [];
@@ -429,19 +434,20 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   if (!period) throw Object.assign(new Error('Période introuvable.'), { statusCode: 404 });
 
   try { require('./goalsoverload').rebalance(userId, activityId); } catch (e) { /* non bloquant */ } try { require('./goalsperiodlate').verifier(userId, activityId); } catch (e) { /* non bloquant */ } // rééquilibrage silencieux (retards urgents, surcharge) à l'ouverture du calendrier
+  const vus = require('./portee').membresVisibles(userId, activityId); // activité partagée : le temps réel de soi et des membres de la portée gérée seulement
   const rows = db.prepare(`
     SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS seconds
     FROM time_entries
-    WHERE activityId = ? AND isoDate BETWEEN ? AND ?
+    WHERE activityId = ? AND isoDate BETWEEN ? AND ?${vus ? ' AND userId IN (' + [...vus].map(() => '?').join(',') + ')' : ''}
     GROUP BY isoDate
-  `).all(activityId, period.startDate, period.endDate);
+  `).all(activityId, period.startDate, period.endDate, ...(vus ? [...vus] : []));
   const secondsByDay = {};
   rows.forEach((r) => { secondsByDay[r.isoDate] = r.seconds; });
   const categoryKeys = [category];
   if (goals.parentKeyFor(activityId, category) === null) {
     goals.secteursForPole(activityId, category).forEach((sec) => categoryKeys.push(sec.key));
   }
-  const tasksByDay = dayTasksByDate(activityId, period.startDate, period.endDate, categoryKeys);
+  const tasksByDay = dayTasksByDate(activityId, period.startDate, period.endDate, categoryKeys, userId);
   // Temps affiché par jour = temps ESTIMÉ des tâches de ce jour (rien d'autre ; aucun jour sans tâche n'a de temps).
   const goalscapacity = require('./goalscapacity');
   Object.keys(tasksByDay).forEach((d) => {

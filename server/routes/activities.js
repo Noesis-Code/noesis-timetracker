@@ -283,6 +283,9 @@ router.post('/activities/:id/separate', (req, res) => {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la séparer.' });
   }
  
+  let nouveauProprietaire = null;
+  try { nouveauProprietaire = require('../lib/portee').exigerSuccesseur(activity.id, userId); } catch (e) { return res.status(e.statusCode || 500).json({ error: e.message, code: e.errCode }); } // propriétaire sans responsable : il ne part pas
+
   const clash = db.prepare(`
     SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.name = ? COLLATE NOCASE AND a.id != ?
@@ -327,10 +330,8 @@ router.post('/activities/:id/separate', (req, res) => {
     // S'il en était le propriétaire, transfert automatique (comme pour une
     // suppression) — il restait forcément au moins un autre membre puisque
     // l'activité était partagée (>= 2 membres) avant cette opération.
-    if (activity.ownerId === userId) {
-      const remaining = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? ORDER BY joinedAt ASC').all(activity.id);
-      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(remaining[0].userId, activity.id);
-    }
+    if (activity.ownerId === userId) db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(nouveauProprietaire, activity.id); // le plus ancien responsable d'activité (portee.js)
+    require('../lib/portee').oublier(activity.id, userId);
  
     db.exec('COMMIT');
   } catch (e) {
@@ -573,6 +574,9 @@ router.delete('/activities/:id', (req, res) => {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la supprimer.' });
   }
 
+  let nouveauProprietaire = null;
+  try { nouveauProprietaire = require('../lib/portee').exigerSuccesseur(activity.id, userId); } catch (e) { return res.status(e.statusCode || 500).json({ error: e.message, code: e.errCode }); } // propriétaire sans responsable : il ne part pas
+
   const keepHistory = req.query.keepHistory === '1' || req.query.keepHistory === 'true';
 
   db.exec('BEGIN');
@@ -602,9 +606,10 @@ router.delete('/activities/:id', (req, res) => {
         db.prepare('DELETE FROM activities WHERE id = ?').run(activity.id);
       }
     } else if (activity.ownerId === userId) {
-      // Transfert automatique de la propriété vers le membre restant le plus ancien.
-      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(remaining[0].userId, activity.id);
+      // Transfert automatique de la propriété vers le plus ancien responsable d'activité (portee.js ; sans responsable, le départ a été refusé plus haut).
+      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(nouveauProprietaire, activity.id);
     }
+    require('../lib/portee').oublier(activity.id, userId);
 
     db.exec('COMMIT');
   } catch (e) {

@@ -30,6 +30,7 @@ function deleteAccountData(user) {
     ? db.prepare('SELECT f.storedName FROM activity_message_files f JOIN activity_messages m ON m.id = f.messageId WHERE m.userId = ?').all(user.id).map((r) => r.storedName)
     : [];
 
+  const portee = require('./portee'); // chargé AVANT la transaction (crée ses tables)
   db.exec('BEGIN');
   try {
     db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
@@ -54,8 +55,9 @@ function deleteAccountData(user) {
 
       if (remaining > 0) {
         if (activity.ownerId === user.id) {
+          // Plus ancien responsable d'activité (portee.js) ; supprimer son compte ne se refuse jamais : à défaut, le membre restant le plus ancien.
           const next = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? ORDER BY joinedAt ASC LIMIT 1').get(m.activityId);
-          db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(next ? next.userId : null, m.activityId);
+          db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(portee.successeur(m.activityId, user.id) || (next ? next.userId : null), m.activityId);
         }
         return;
       }
