@@ -191,7 +191,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arBubble { justify-content: center; text-align: center; background: transparent; }
 .arRailR .arHrs:empty::before { content: '–'; } /* heures non affichées : un petit tiret gris = « touche la date pour voir » */
 /* Niveau SECTEUR (18 nov. 2026, Émilien) : le TITRE garde la bulle du pôle mais son CONTOUR est en pointillé. */
-.arLvlSecteur .arBubble { border-style: none; outline: var(--cmp-dashed); outline-offset: -1px; } /* même pointillé que le « + » d'ajout (.cmpAdd, jeton --cmp-dashed) ; outline car la couleur du contour est posée en ligne par le script */
+.arLvlSecteur .arBubble { border-style: none; outline: var(--cmp-dashed-lg) var(--ar-c, currentColor); outline-offset: -1px; } /* pointillé de la barre des volets (jeton --cmp-dashed-lg) en COULEUR DU SECTEUR (--ar-c posé par le script) ; outline car la couleur du contour est posée en ligne par le script */
 .arRailR .arHrs { border: 0; } .arRailR .arHrs.set { border: 0; } /* colonne des heures sans cadre (18 nov. 2026) */
 /* EN ÉDITION seulement (18 nov. 2026, Émilien) : le crayon Modifier standard (R15, EDIT_SVG), au même endroit, est du MÊME GRIS que le grand « + » des cases vides (jeton --ar-edit-mark = les mêmes 22 % du gris sable, posés sur le fond de l'app pour rester lisibles sur une carte pleine, y compris sur la jauge) ; le bouton reste la zone de toucher de 44 px. Plus de trou dans la carte. */
 .arEdit .arCard > .cmpEdit { display: block; color: var(--ar-edit-mark); }

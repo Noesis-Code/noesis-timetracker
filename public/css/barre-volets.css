@@ -60,7 +60,7 @@
 .tabbar .tabBtnAdd, .barAddBtn, .arAddSlot {
   display: flex; pointer-events: auto; margin-left: 8px; cursor: pointer; flex: none; width: var(--bar-h, 52px); height: var(--bar-h, 52px); padding: 0; border-radius: 50%; box-sizing: border-box;
   align-items: center; justify-content: center;
-  border: 1.5px dashed var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
+  border: var(--cmp-dashed-lg) var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
 }
 /* « + » de l'arbre, sous la colonne des heures (64 px) : seulement quand la barre est masquée (téléphone tourné), jamais en même temps que le « + » de la barre. */
 .arAddSlot { display: none; position: absolute; right: 10px; bottom: 0; margin: 0; z-index: 3; --bar-h: 44px; } /* même bouton, mis à l'échelle de la rangée des titres (48 px en paysage, R7 : 44 px) ; centré dans la réserve de 64 px de la colonne des heures */
