@@ -225,6 +225,8 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
+/* R51 : pas de trait sous le dernier membre (composants.css) ; !important seulement parce que la règle ci-dessous en pose un. */
+:root #communityMembersModalList > .activityRow:last-child { border-bottom: 0 !important; }
 /* Fenêtre membres : membres présents en lignes simples (filets fins, sans section), comme les enregistrements de l'historique. */
 :root #communityMembersModalList > .activityRow {
   background: transparent !important; border: none !important; border-bottom: 1px solid var(--sep) !important; border-radius: 0 !important;

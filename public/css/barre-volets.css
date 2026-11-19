@@ -63,7 +63,7 @@
   border: var(--cmp-dashed-lg) var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
 }
 /* « + » de l'arbre, sous la colonne des heures (64 px) : seulement quand la barre est masquée (téléphone tourné), jamais en même temps que le « + » de la barre. */
-.arAddSlot { display: none; position: absolute; right: 10px; bottom: 0; margin: 0; z-index: 3; --bar-h: 44px; } /* même bouton, mis à l'échelle de la rangée des titres (48 px en paysage, R7 : 44 px) ; centré dans la réserve de 64 px de la colonne des heures */
+.arAddSlot { display: none; position: absolute; right: 6px; bottom: 8px; margin: 0; z-index: 3; } /* LE MÊME bouton que celui de la barre (52×52, aucune taille propre au paysage) : c'est la rangée des titres qui s'agrandit pour lui (objectifs-arbre.css), centré sous la colonne des heures de 64 px */
 @media (orientation: landscape) and (max-height: 500px) { html.arbreOn .arAddSlot { display: flex; } }
 /* Profil : seulement avec le volet Communauté dans la barre. */
 html.noCommunityBar #whoami { display: none; }

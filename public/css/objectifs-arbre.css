@@ -177,7 +177,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 @media (orientation: landscape) and (max-height: 500px) {
   html.arbreOn .arBubble { height: 48px; min-height: 48px; }
   html.arbreOn .arBubble span { -webkit-line-clamp: 2; }
-  html.arbreOn .arBaseWrap { padding-top: 8px; padding-bottom: 0; }
+  html.arbreOn .arBaseWrap { padding-top: 8px; padding-bottom: 8px; } /* rangée des titres = 8 + 48 + 8 = 64 px : assez haute pour le « + » de 52 px posé sous la colonne des heures (l'espace s'adapte au bouton, jamais l'inverse) */
   html.arbreOn .arZoomRow { margin-bottom: 0; }
 }
 

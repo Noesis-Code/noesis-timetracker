@@ -305,6 +305,10 @@
 /* Séparateur de ligne (R22) : trait de 1 px dessiné par ::after, d'un bord à l'autre de la ligne, même opacité partout (--sep) ; contrairement à une bordure du bas il ne disparaît pas aux alignements de pixels fractionnaires (écrans @3x, lignes à hauteur non entière). Mettre la classe sur la ligne. */
 .cmpSepRow { position: relative; border: 0; box-sizing: border-box; }
 .cmpSepRow::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--sep); pointer-events: none; }
+/* R51 : la DERNIÈRE ligne d'une liste, d'une section ou d'un pop-up n'a JAMAIS de trait en dessous. Règle commune (jamais de correction au cas par cas) : .cmpSepRow et toute ligne de liste qui porte un trait du bas le perdent quand elle est la dernière de son conteneur. Un bouton d'action posé APRÈS la liste, dans le même conteneur, est un frère : la ligne n'est alors plus la dernière et garde son trait (le trait sépare la liste du bouton) ; posé hors du conteneur de la liste, il laisse la liste finir sans trait. */
+.cmpSepRow:last-child::after { content: none; }
+:root:root:root :is(.tasksPopRow, .docTasksPopRow, .docTasksRow, .docTasksFileRow, .retTRow, .consentItem, .notifRow, .categoryPickerRow, .categoryDropdownOption, .historyEntryCompact, .subProjectRowHeader, .subProjectItem, .objWeek, .activityEditBar):last-child { border-bottom: 0; }
+:root:root:root :is(#settingsParamsCard .notifRow, #settingsParamsCard .consentItem, #activitiesList .activityEditBar, .catList .activityEditBar):last-child { border-bottom: 0; }
 
 /* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
 .calWeekRow { position: relative; margin-left: 14px; }
