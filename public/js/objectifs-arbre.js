@@ -379,7 +379,7 @@
     var iso = function (t) { return new Date(t).toISOString().slice(0, 10); }, t0 = Date.UTC(rw.y, 0, 1) + (rw.p - 1) * PER_DAYS * 86400000, weeks = [];
     for (var i = 1; i <= 4; i++) { var a = iso(t0 + (i - 1) * 7 * 86400000), b = iso(t0 + (i * 7 - 1) * 86400000); weeks.push({ i: i, start: a, end: b, obj: c.col.objs.filter(function (o) { return !o.isMacro && weeksOf(o) <= 1 && o.endDate >= a && o.endDate <= b; })[0] || null }); }
     var pe = iso(t0 + 27 * 86400000), par = c.col.objs.filter(function (o) { return !o.isMacro && weeksOf(o) > 1 && o.endDate >= iso(t0) && o.endDate <= pe; })[0]; // l'objectif périodique touché : la génération part de lui
-    TMT.objectifsView.openSemaines({ label: 'P' + rw.p + ' · ' + rw.y + ' · ' + c.col.label, ctx: c.col.ctx, parentId: par ? par.id : null, weeks: weeks });
+    TMT.objectifsView.openSemaines({ label: 'P' + rw.p + ' · ' + rw.y + ' · ' + c.col.label, ctx: c.col.ctx, color: c.col.color, parentId: par ? par.id : null, weeks: weeks });
   }
   function enterCell(rw, c, ci) { if (lvl === 'secteur') { openWeeks(rw, c); return; } descend(ci, lvl === 'activite' ? rw.y : null, rw.y); } // entrer dans une case vide : même descente qu'une carte (bloc de 5 ans / année de la ligne) ; dernier niveau : les 4 semaines de la période
   function calTap(rw, c) { return lvl !== 'secteur' ? null : rw.p ? function () { openWeeks(rw, c); } : null; } // dernier niveau : une case occupée n'ouvre rien de plus bas dans la page des semaines

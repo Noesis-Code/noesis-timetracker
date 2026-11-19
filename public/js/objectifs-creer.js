@@ -945,13 +945,13 @@
       if (spec.parentId && rows.some(function (x) { return !x.w.obj && !past(x); })) genBox.appendChild(btn('cmpBtn cmpBtnIdle objSemGenBtn', tr('Génère tes objectifs hebdomadaires avec Noèsis'), generate));
       list.textContent = '';
       rows.map(function (r, k) { return { r: r, k: k }; }).reverse().forEach(function (x) { // la semaine la plus ancienne en BAS (l'arbre monte)
-        var r = x.r, k = x.k, gone = past(r), row = el('div', 'objSemRow' + (gone ? ' past' : '')), isOpen = k === openI && !gone, head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
+        var r = x.r, k = x.k, gone = past(r), isOpen = k === openI && !gone, row = el('div', 'objSemRow' + (gone ? ' past' : '') + (isOpen ? ' weekOpen' : '')), head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
         if (!gone) {
           head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
           var toggle = function () { openI = isOpen ? -1 : k; paint(); };
           head.addEventListener('click', toggle); head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
         }
-        head.appendChild(el('span', 'objSemNo', 'S' + r.w.i));
+        head.appendChild(el('span', 'objSemNo', 'S' + r.w.i)); // pastille de semaine, comme la liste hebdomadaire du calendrier
         if (isOpen) {
           tEl = el('input', 'objSemTitleIn'); tEl.type = 'text'; tEl.maxLength = 140; tEl.value = r.t; tEl.placeholder = tr('Titre'); tEl.setAttribute('aria-label', tr('Titre'));
           tEl.addEventListener('click', function (e) { e.stopPropagation(); }); tEl.addEventListener('input', function () { r.t = tEl.value; sync(); });
@@ -960,6 +960,7 @@
         if (gone) head.appendChild(el('span', 'objSemPlus'));
         else if (r.w.obj) { var del = btn('objSemDel', '✕', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
         else head.appendChild(el('span', 'objSemPlus', '+'));
+        if (isOpen && spec.color) { row.style.setProperty('--poleColor', spec.color); row.style.setProperty('--poleText', TMT.readableTextOn ? TMT.readableTextOn(spec.color) : '#15111C'); } // la semaine choisie prend la couleur du pôle (format du calendrier)
         row.appendChild(head);
         if (isOpen) {
           var body = el('div', 'objSemBody'), parts = semParse(r.d);

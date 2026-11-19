@@ -236,7 +236,7 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objSemRow { border-bottom: 1px solid var(--glass-border); }
 .objSemRow:last-child { border-bottom: 0; }
 .objSemHead { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px 0 14px; color: var(--text); cursor: pointer; }
-.objSemNo { flex: none; min-width: 26px; color: var(--violet-soft); font-size: 13px; }
+.objSemNo { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--track-bg); color: var(--text-light); font-size: 11px; font-weight: 700; }
 .objSemTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .objSemTitle.empty { color: var(--text-light); }
 :root .objSemHead input.objSemTitleIn { flex: 1; min-width: 0; min-height: 44px; padding: 0; font: inherit; font-size: 16px; color: var(--text); background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; outline: 0; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
@@ -256,3 +256,7 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRdRow { gap: 8px; padding: 8px 0; align-items: center; }
 .objSemRow.past { opacity: .4; pointer-events: none; }
 .objDueFrame { border: 1px solid var(--purple); border-radius: var(--radius); padding: 8px 12px; } /* « Fixe » : cadre autour de la date imposée (19 nov. 2026) */
+.objSemRow.weekOpen > .objSemHead { background: var(--poleColor, transparent); color: var(--poleText, var(--text)); }
+.objSemRow.weekOpen > .objSemHead .objSemNo { background: rgba(0, 0, 0, .18); color: var(--poleText, var(--text)); }
+:root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn, .objSemRow.weekOpen > .objSemHead .objSemPlus, .objSemRow.weekOpen > .objSemHead .objSemDel { color: var(--poleText, var(--text)); }
+.objSemRow.weekOpen > .objSemHead input.objSemTitleIn::placeholder { color: var(--poleText, var(--text)); opacity: .65; }
