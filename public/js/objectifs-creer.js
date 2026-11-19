@@ -1020,7 +1020,7 @@
         var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
         tIn.addEventListener('input', function () { form.title = tIn.value; sync(); }); panelBody.appendChild(field(tr('Titre'), tIn));
       }
-      var guideBox = el('div', 'objGuide'); panelBody.appendChild(descHead('Description pour Noèsis', 'Sert à ranger tes tâches et à proposer des objectifs')); panelBody.appendChild(guideBox);
+      var guideBox = el('div', 'objGuide'); var descBody = el('div'); descBody.appendChild(el('p', 'hint', tr('Sert à ranger tes tâches et à proposer des objectifs'))); descBody.appendChild(guideBox);
       var restBox = el('div', 'objGuide'); // les six autres questions : sous « Avancé » (comme à la création)
       function paintG(f) { paintGuideInto(guideBox, form, function () { sync(); }, f, 'main'); }
       paintG();
@@ -1035,11 +1035,11 @@
       var fx = el('label', 'objGridRow'), fxCb = el('input'); fxCb.type = 'checkbox'; fxCb.checked = form.dateFixe === true; // « Date fixe » : même case que la création
       fxCb.addEventListener('change', function () { form.dateFixe = fxCb.checked; sync(); });
       fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(fxCb); dueBody.appendChild(fx);
-      paintT(); dueBody.appendChild(tBox); panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody));
+      paintT(); dueBody.appendChild(tBox); panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
       hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
-      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'); hBody.appendChild(hRow); panelBody.appendChild(accRow(tr('Heures par semaine'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
+      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'); hBody.appendChild(hRow); panelBody.appendChild(accRow(tr('Temps'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
       // Tout le reste sous « Avancé » (replié par défaut ; même composant que l'« Avancé » de la Description) : jours, niveau, parts.
       var advBox = el('div', 'objGuide'), advInner = el('div'), advOpenE = false; panelBody.appendChild(advBox);
       function paintAdvE() {
