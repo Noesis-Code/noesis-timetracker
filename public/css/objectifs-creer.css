@@ -26,7 +26,10 @@
 .objActsTitle { margin-top: 24px; }
 
 /* Fenêtres */
-.objModal .goalTaskEditCard { width: 100%; max-width: 440px; }
+:root { --obj-pop-w: 440px; } /* largeur commune des pop-ups de l'arbre (heures, création, modification, 4 semaines, fiche) : une seule valeur (R29) */
+.objModal .goalTaskEditCard { width: 100%; max-width: var(--obj-pop-w); }
+/* Paysage (19 nov. 2026, Émilien) : le panneau de création / modification / 4 semaines / fiche (zone d'écriture .objDock) prend la même largeur et les mêmes marges que le pop-up des heures, centré ; le portrait ne change pas */
+@media (orientation: landscape) and (max-height: 500px) { .objDock.tasksDock { width: min(var(--obj-pop-w), calc(100% - 32px)); } }
 /* 19 nov. 2026 (Émilien) : les pop-ups de l'arbre suivent la recette commune des pop-ups (DESIGN.md) : liseré standard (.goalTaskEditCard), sans contour violet ni trait sous le titre (héritages de .aiModeModal) */
 :root .objModal.aiModeModal .goalTaskEditCard { box-shadow: var(--shadow-elevated); }
 .objModal.aiModeModal .goalTaskEditHeader { border-bottom: 0; }
