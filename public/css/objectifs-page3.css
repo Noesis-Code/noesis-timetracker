@@ -416,8 +416,6 @@
 /* Page 3 — cadres : pointillés (--cmp-dash, comme .cmpAdd) quand rien n'est enregistré, ligne pleine sinon. */
 .goalsEditField { margin-bottom: 12px; }
 .goalsDayDock .tasksProposeBody input, .goalsDayDock .tasksProposeBody textarea { width: 100%; box-sizing: border-box; }
-/* R35 : « Enregistrer » grisé (même rendu que .cmpBtnIdle) tant que le titre est vide, violet dès qu'il y a un titre. */
-.goalsDayDock .tasksSaveBtn:disabled { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); border-color: transparent; opacity: 1; cursor: default; }
 
 .goalsEditAdv { margin-top: 8px; }
 /* « Avancé » : un seul titre dans le panneau (celui du haut) ; dates au même style que les champs du panneau. */
@@ -425,5 +423,4 @@
 
 /* Page 3 — corrections : mois grisé sous l'objectif périodique ; Enregistrer jamais noir (transparent tant qu'il n'y a rien) ; champs du panneau sans fond propre (une seule opacité, R31). */
 .goalsCalNav.cmpNav--sm .cmpNavLabel { color: var(--text-light); font-weight: 600; }
-.goalsDayDock .tasksSaveBtn:disabled { background: transparent; }
 .goalsDayDock .tasksProposeBody input, .goalsDayDock .tasksProposeBody textarea { background: transparent; border: 1px solid var(--border); }

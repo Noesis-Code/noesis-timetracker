@@ -11591,7 +11591,7 @@
     if (resetBaseline) identityBaseline = identityState();
     var dirty = identityState() !== identityBaseline;
     $('settingsSaveBtn').disabled = !dirty;
-    $('settingsSaveBtn').classList.toggle('cmpBtnIdle', !dirty);
+    $('settingsSaveBtn').classList.toggle('cmpBtnInactif', !dirty);
   }
   // Partage du score : enregistré à l'instant (route à part), pas par « Enregistrer ».
   $('settingsScoreShared').addEventListener('change', function () {
@@ -15519,14 +15519,14 @@
     cancel.addEventListener('click', function () { activityEditId = null; loadSettingsActivities(); });
     var save = document.createElement('button');
     save.type = 'button';
-    save.className = 'cmpBtn cmpBtnIdle';
+    save.className = 'cmpBtn cmpBtnInactif';
     save.disabled = true;
     save.textContent = t('Enregistrer');
     // Gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement.
     function markDirty() {
       var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential || Object.keys(cmpPending).length > 0;
       save.disabled = !dirty;
-      save.classList.toggle('cmpBtnIdle', !dirty);
+      save.classList.toggle('cmpBtnInactif', !dirty);
     }
     nameIn.addEventListener('input', markDirty);
     cb.addEventListener('change', function () { conf = !cb.checked; visWord.textContent = conf ? t('Confidentiel') : t('Public'); markDirty(); });
@@ -16928,7 +16928,7 @@
   $('netContactModal').addEventListener('click', function (e) { if (e.target === this) closeNetContact(); });
   $('netCrmAddBtn').addEventListener('click', function () { openNetContact(0); });
   TMT.ui.dockEnregistrer($('netcSave'), $('netContactModal')); // R50 : Enregistrer décollé, à la place de la barre des volets
-  function netcIdle(on) { $('netcSave').disabled = on; $('netcSave').classList.toggle('cmpBtnIdle', on); } // R35 : gris tant que rien n'a changé, violet dès qu'on modifie un champ
+  function netcIdle(on) { $('netcSave').disabled = on; $('netcSave').classList.toggle('cmpBtnInactif', on); } // R35 : gris tant que rien n'a changé, violet dès qu'on modifie un champ
   ['input', 'change'].forEach(function (ev) { $('netContactModal').addEventListener(ev, function () { netcIdle(false); }); });
   $('netcStrength').addEventListener('click', function () { netcIdle(false); });
   $('netcSave').addEventListener('click', function () {

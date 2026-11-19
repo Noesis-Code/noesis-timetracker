@@ -101,11 +101,11 @@
   function posName(id) { var p = S.positions.find(function (x) { return x.id === id; }); return p ? p.name : '?'; }
   // Enregistrer (R35) : gris tant que rien n'a changé, violet au premier changement.
   function saveBtn(box, onSave) {
-    var b = el('button', 'cmpBtn cmpBtnIdle horaireSave', tr('Enregistrer')); b.type = 'button';
-    box.addEventListener('input', function () { b.classList.remove('cmpBtnIdle'); });
-    box.addEventListener('change', function () { b.classList.remove('cmpBtnIdle'); });
+    var b = el('button', 'cmpBtn cmpBtnInactif horaireSave', tr('Enregistrer')); b.type = 'button';
+    box.addEventListener('input', function () { b.classList.remove('cmpBtnInactif'); });
+    box.addEventListener('change', function () { b.classList.remove('cmpBtnInactif'); });
     b.addEventListener('click', function () {
-      if (b.classList.contains('cmpBtnIdle') || S.busy) return;
+      if (b.classList.contains('cmpBtnInactif') || S.busy) return;
       S.busy = true; b.disabled = true;
       Promise.resolve().then(onSave).then(function () { S.editing = null; S.msg = ''; return refresh(); }, fail)
         .then(function () { S.busy = false; b.disabled = false; });

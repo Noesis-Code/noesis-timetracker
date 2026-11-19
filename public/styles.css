@@ -1282,8 +1282,7 @@ body.scrollLock { overflow: hidden; }
 .btnDanger.btnDanger:hover:not(:disabled) { background: rgba(var(--brique-rgb), 0.14); }
 .chatComposerRow .iconBtn:hover:not(:disabled),
 .btnBrique.btnBrique:hover:not(:disabled) { background: rgba(var(--purple-rgb), 0.14); }
-.chatComposerRow .iconBtn:disabled,
-.btnBrique.btnBrique:disabled { opacity: 0.45; }
+.chatComposerRow .iconBtn:disabled { opacity: 0.45; } /* .btnBrique:disabled : violet pâle commun (R52, css/composants.css) */
 /* Bouton orange brique PLEIN (2e recette de bouton, avec le contour .btnBrique ci-dessus) : fond --brique, texte blanc.
    Seules les dimensions/graisses propres à chaque bouton restent dans leur fichier. */
 .docTasksApplyBtn, .docTasksDriveBtn, .accompCodeOk {
