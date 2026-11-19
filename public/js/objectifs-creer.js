@@ -1220,10 +1220,10 @@
         partsBox.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif. Changer une part change le temps des autres, le total reste le même.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
       }
       var ab = btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () { api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); });
-      var gen = btn('cmpBtn cmpBtnIdle', tr('Générer les inférieurs'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
+      var gen = btn('cmpBtn cmpBtnIdle', tr('Générer'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
         msg.textContent = '';
         TMT.ui.attente(api('POST', '/api/objectifs/' + id + '/inferieurs/generer')).then(function (pl) {
-          if (!pl || pl.skip || !pl.rows || !pl.rows.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return; }
+          if (!pl || pl.skip || !pl.rows || !pl.rows.length) { msg.textContent = tr((pl && pl.reason) || 'Rien à proposer pour le moment.'); return; }
           var lines = pl.rows.map(function (r) { return r.title + ' : ' + r.endDate + ' · ' + hh(r.hoursMin); });
           return TMT.ui.confirm(tr('Objectifs proposés') + '\n' + lines.join('\n'), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] }).then(function (yes) {
             if (!yes) return;
@@ -1232,7 +1232,7 @@
           });
         }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
       });
-      if (!o.isMacro && !o.abandoned) { var genBody = el('div'); genBody.appendChild(el('p', 'hint', tr('Noèsis propose jusqu’à 8 objectifs plus petits sous celui-ci. Rien n’est créé avant ton Oui.'))); genBody.appendChild(gen); panelBody.insertBefore(accRow(tr('Découper'), function () { return ''; }, genBody), advBox); }
+      if (!o.isMacro && !o.abandoned) { var genBody = el('div'); genBody.appendChild(el('p', 'hint', tr('Noèsis propose jusqu’à 8 objectifs plus petits sous celui-ci. Rien n’est créé avant ton Oui.'))); genBody.appendChild(gen); panelBody.insertBefore(accRow(tr('Générer les inférieurs'), function () { return ''; }, genBody), advBox); }
       var del = btn('cmpBtn cmpBtnDanger', tr('Supprimer'), function () { confirmDelete(id, o.title, function () { load(); endFlow(); }, function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }, !!o.isMacro); }); /* suppression existante (confirmation TMT.ui.confirm), dans la fiche : rouge, tout en bas (R4, R28) */
       var rare = el('div', 'objRare'); if (o.abandoned) rare.appendChild(ab); rare.appendChild(del); // Abandonner retiré (décision d'Émilien) : seul « Réactiver » reste pour un objectif déjà abandonné panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
       function save() {

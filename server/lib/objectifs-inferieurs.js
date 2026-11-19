@@ -433,7 +433,7 @@ async function genererPour(userId, id, today) {
   const r = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(id), userId);
   if (!r) throw err('Objectif introuvable.', 404);
   const m = parseMeta(r), type = T.typeOfRow(r);
-  if (!['pluriannuel', 'annuel', 'periodique'].includes(type)) return { skip: true };
+  if (!['pluriannuel', 'annuel', 'periodique'].includes(type)) return { skip: true, reason: 'Une semaine est le plus petit niveau : rien à générer en dessous.' }; // `reason` : la raison, dite à la personne (jamais un « rien » muet)
   const hpw = Number(m.hoursPerWeek) > 0 ? Number(m.hoursPerWeek) : 1;
   if (type === 'periodique') { // 19 nov. 2026 : un objectif périodique se décline en SES SEMAINES (pop-up des 4 semaines), pas dans le « trou » avant lui (qui renvoyait « Rien à proposer »)
     const body = { type, title: r.title, description: m.description || '', activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, rateMin: Math.round(hpw * 60) };
@@ -441,6 +441,8 @@ async function genererPour(userId, id, today) {
     if (!pl.skip || process.env.ANTHROPIC_API_KEY) return pl;
     return weeksFallback(userId, body, today || require('./dates').userToday()); // sans IA : titres « S47 · titre de l'objectif », descriptif vide (jamais de blocage)
   }
-  return planTrouRows(userId, { trou: true, parentId: r.parentId || undefined, type, title: r.title, description: m.description || '', activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, rateMin: Math.round(hpw * 60) }, today || require('./dates').userToday());
+  const res = await planTrouRows(userId, { trou: true, parentId: r.parentId || undefined, type, title: r.title, description: m.description || '', activityId: r.activityId, level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, startDate: r.startDate, endDate: r.endDate, rateMin: Math.round(hpw * 60) }, today || require('./dates').userToday());
+  if (res && res.skip && !res.reason) res.reason = process.env.ANTHROPIC_API_KEY ? 'Les niveaux en dessous sont déjà remplis, ou Noèsis n’a pas pu faire de proposition.' : 'Noèsis n’est pas disponible pour le moment.';
+  return res;
 }
 module.exports = { shortTitle, genererPour, FEATURE, weeksIn, casesOf, divideCumulative, divideAdditive, planHours, validate, plan, appliquer };
