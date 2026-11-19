@@ -10,10 +10,11 @@ const env = {
   cellSize() {}, tr(s) { return s; }, lvl: 'pole', wk: null, log,
   descend(ci, block, year) { log.push(['descend', ci, block, year]); },
   openWeeks(rw, c) { log.push(['weeks', rw.p]); },
+  countMark(n) { return { cls: ['arHoleCount'], txt: n }; }, plusMark() { return { cls: ['arHolePlus'] }; },
 };
-const code = extract('emptyCell') + '\n' + extract('enterCell') + '\nreturn { emptyCell: emptyCell, enterCell: enterCell, setLvl: function (l) { lvl = l; }, setWk: function (w) { wk = w; } };';
-const lib = new Function('el', 'cellSize', 'tr', 'descend', 'openWeeks', 'var lvl = "pole", wk = null;\n' + code)(env.el, env.cellSize, env.tr, env.descend, env.openWeeks);
-const click = (b, onPlus) => { log.length = 0; b.handlers.click({ target: { closest: s => onPlus && s === '.arPlus' ? {} : null } }); return log.slice(); };
+const code = extract('emptyCell') + '\n' + extract('enterCell') + '\nreturn { emptyCell: emptyCell, enterCell: enterCell, setLvl: function (l) { lvl = l; }, setWk: function (w) { wk = w; }, setEdit: function (e) { editOn = e; } };';
+const lib = new Function('el', 'cellSize', 'tr', 'descend', 'openWeeks', 'countMark', 'plusMark', 'var lvl = "pole", wk = null, editOn = false;\n' + code)(env.el, env.cellSize, env.tr, env.descend, env.openWeeks, env.countMark, env.plusMark);
+const click = (b, edit) => { log.length = 0; lib.setEdit(!!edit); b.handlers.click({}); lib.setEdit(false); return log.slice(); }; // edit = MODE ÉDITION (toucher la case crée)
 let created = 0;
 function cell(endIso, below, level, rw, wk) {
   lib.setLvl(level); lib.setWk(wk || null);
@@ -35,9 +36,12 @@ r = click(cell('2027-02-01', null, 'secteur', { y: 2027, p: 3, w: 2 }, { p: 3 })
 // 6. case à pastille : descend toujours via below.go
 let went = 0; const badge = lib.emptyCell(100, null, () => {}, { n: 2, go() { went++; } }, () => { created++; }, () => lib.enterCell({ y: 2027 }, { col: {} }, 3));
 click(badge); assert.strictEqual(went, 1, 'pastille : below.go');
-// 7. le « + » crée et ne descend PAS, dans une case vide comme dans une case à pastille
-created = 0; r = click(cell('2027-12-31', null, 'pole', { y: 2027 }), true); assert.deepStrictEqual(r, [], '« + » : aucune descente'); assert.strictEqual(created, 1, '« + » : crée');
-click(badge, true); assert.strictEqual(went, 1, '« + » d\'une pastille : ne descend pas'); assert.strictEqual(created, 2, '« + » d\'une pastille : crée');
+// 7. EN ÉDITION, toucher la case crée et ne descend PAS, dans une case vide comme dans une case à nombre
+created = 0; r = click(cell('2027-12-31', null, 'pole', { y: 2027 }), true); assert.deepStrictEqual(r, [], 'édition : aucune descente'); assert.strictEqual(created, 1, 'édition : crée');
+click(badge, true); assert.strictEqual(went, 1, 'édition, case à nombre : ne descend pas'); assert.strictEqual(created, 2, 'édition, case à nombre : crée');
+// 7b. hors édition une case vide n'affiche rien (le grand plus n'est rendu visible que par .arEdit) ; la case à nombre porte le nombre
+const e0 = cell('2027-12-31', null, 'pole', { y: 2027 }); assert(e0.children.length === 1 && e0.children[0].cls[0] === 'arHolePlus', 'case vide : seul le plus (caché hors édition par le CSS), aucun nombre');
+assert(badge.children.some((c) => c.cls[0] === 'arHoleCount' && c.txt === 2), 'case à nombre : le nombre d\'objectifs dessous');
 // 8. le crayon d'une carte occupée n'entre pas (déjà ainsi dans card/macroCard/summaryCard) ; le site d'appel de emptyCell passe bien enterCell
 assert(src.includes("function () { enterCell(rw, c, ci); }"), 'appel : emptyCell reçoit enterCell');
 assert((src.match(/closest\('\.cmpEdit'\)\) return;/g) || []).length >= 3, 'crayon : exclu du toucher des 3 types de cartes');

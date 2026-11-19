@@ -17,7 +17,7 @@
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   var zoom = 'period', wk = null, lvl = 'activite', focus = null, struct = null, picked = null, animate = false, openPending = false, dive = false, lastTap = null;
-  var tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
+  var editOn = false, tree = null, items = [], toast = null, toastTimer = 0, loaded = false, needBase = false, visible = false, scroller = null, gridArea = null, ext = null, savedView = null, restoreView = null;
   var MIN_ROWS = 5, BLOCK0 = 2026; // BLOCK0 : premier bloc de 5 ans fixe (26/30)
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
@@ -69,8 +69,13 @@
     var poles = a.poles || [], pk = o.poleKey || (poles[0] && poles[0].key), p = poles.filter(function (x) { return x.key === pk; })[0];
     return TMT.ui.etiquette({ activityName: a.name, activityColor: base, poleLabel: p && p.label, poleIndex: p && p.shadeRank }).color;
   }
+  // JAUGE (niveau secteur) : la carte se remplit de bas en haut de la couleur du pôle ; le vide est entouré de pointillés (CSS : .arGauge). Pourcentage = o.progress du serveur (semaines cochées / semaines prévues, le calcul de l'Avancement du Bilan), jamais recalculé ici.
+  function gauge(b, o, c) {
+    if (lvl !== 'secteur') return; var p = Math.max(0, Math.min(100, Math.round((o.progress || 0) * 100)));
+    b.classList.add('arGauge'); b.classList.toggle('arGaugeLow', p < 85); b.style.setProperty('--ar-p', p + '%'); /* arGaugeLow : le crayon se trouve sur le vide (sans fond) : en édition il est dessiné en plein, pas en creux */ b.style.background = 'linear-gradient(0deg, ' + c + ' ' + p + '%, transparent ' + p + '%)'; b.style.color = p >= 50 && TMT.readableTextOn ? TMT.readableTextOn(c) : 'var(--text)';
+  }
   function card(o, today, all, mode, w, onTap, extCol, colColor) {
-    var st = stateOf(o, today), c = objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
+    var st = stateOf(o, today), c = objColor(o), b = el('button', 'goalsGridCell goalsGridCell--filled arNode arCard ar-' + st + (picked === o.id ? ' arPicked' : '')); b.type = 'button'; b.setAttribute('data-id', String(o.id)); cellSize(b, w); paint(b, st, c); gauge(b, o, c); if (ext && ext.mode === 'create' && ext.base && ext.base.id === o.id) b.classList.add('arExtSelf');
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     /* 18 nov. 2026 (Émilien) : la carte ne montre que son TITRE ; durée, état et rattachements ne s'affichent plus, l'échéance se lit en modifiant la case */
     b.appendChild(t); b.appendChild(editMark(o));
@@ -275,13 +280,15 @@
     }
     return null;
   }
-  function holeDot(n) { var e = el('span', 'arHoleNum', String(n)); e.setAttribute('aria-hidden', 'true'); return e; } // « N en dessous » (18 nov. 2026) : juste le numéro, sans pastille (allègement demandé par Émilien)
-  function emptyCell(w, endIso, onTouch, below, plus, enter) { // plus : création depuis cette case (le « + » en haut à droite) ; sur une case occupée par une pastille, pas de « + »
+  var PLUS_SVG = '<svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor" aria-hidden="true"><path d="M9 1h6v8h8v6h-8v8H9v-8H1V9h8z"/></svg>'; // grand PLUS à bords carrés (mode édition)
+  function countMark(n) { var e = el('span', 'arHoleCount', String(n)); e.setAttribute('aria-hidden', 'true'); return e; } // hors édition : le NOMBRE d'objectifs dessous, grand, gris, sans pastille (18 nov. 2026)
+  function plusMark() { var e = el('span', 'arHolePlus'); e.innerHTML = PLUS_SVG; e.setAttribute('aria-hidden', 'true'); return e; } // en édition : le grand plus gris à la place
+  function emptyCell(w, endIso, onTouch, below, plus, enter) { // plus : création depuis cette case, EN MODE ÉDITION seulement (grand plus gris) ; hors édition le toucher descend / entre
     var b = el('button', 'goalsGridCell goalsGridCell--empty arHole'); b.type = 'button'; cellSize(b, w);
     if (!endIso && !below && !enter) { b.disabled = true; b.tabIndex = -1; return b; } // une case passée SANS rien dessous est inerte ; avec des objectifs dessous elle descend toujours (jamais un trou sans réaction)
-    if (below) { b.classList.add('arHoleBadge'); b.appendChild(holeDot(below.n)); b.setAttribute('aria-label', below.n + ' ' + tr('en dessous')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else below.go(); }); if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); return b; } // objectifs plus bas : l'appui court descend
-    b.setAttribute('aria-label', tr('Nouvel objectif')); b.addEventListener('click', function (e) { if (plus && e.target.closest && e.target.closest('.arPlus')) plus(); else if (enter) enter(); }); // case vide : SEUL le « + » crée ; toucher ailleurs ENTRE dans la case (niveau du dessous ; au dernier niveau, la page des 4 semaines)
-    if (plus) b.appendChild(el('span', 'arPlus cmpRemove cmpRemove--add cmpRemove--corner', '')); // petite marque violette (zone de toucher 44 px, voir le CSS)
+    b.setAttribute('aria-label', below ? below.n + ' ' + tr('en dessous') : tr('Nouvel objectif'));
+    if (below) b.appendChild(countMark(below.n)); if (plus) b.appendChild(plusMark());
+    b.addEventListener('click', function () { if (editOn && plus) plus(); else if (below) below.go(); else if (enter) enter(); }); // édition : toucher = créer ; sinon ENTRER dans la case (niveau du dessous ; au dernier niveau, la page des 4 semaines)
     return b;
   }
   // Création depuis une case vide : cadre = la colonne, type = la ligne (bloc de 5 ans, année, période), échéance = la fin de la case.
@@ -468,8 +475,10 @@
     if (isMulti()) return cols; var o = ordreMap[ordreKey().join('|')]; if (!o) return cols;
     return cols.map(function (c, i) { return { c: c, i: i }; }).sort(function (x, y) { var p = o.indexOf(String(x.c.key)), q = o.indexOf(String(y.c.key)); p = p < 0 ? 999 + x.i : p; q = q < 0 ? 999 + y.i : q; return p - q; }).map(function (z) { return z.c; });
   }
+  // MODE ÉDITION (18 nov. 2026) : hors édition l'arbre reste propre (cases vides = nombre, cartes sans icône) ; en édition, grand plus sur les cases vides et crayon (trou) sur les cartes. Désactivé en quittant l'onglet ou en changeant de niveau.
+  function setEdit(on) { on = !!on; if (on === editOn) return; editOn = on; if (tree) tree.classList.toggle('arEdit', on); document.dispatchEvent(new CustomEvent('tmt:arbre-edit', { detail: { on: on } })); }
   function go(l, f) {
-    lvl = l; focus = f; wk = null; picked = null; animate = true; needBase = true; render();
+    setEdit(false); lvl = l; focus = f; wk = null; picked = null; animate = true; needBase = true; render();
     var k = ordreKey().join('|'), before = JSON.stringify(ordreMap[k]);
     loadOrdre().then(function () { if (visible && ordreKey().join('|') === k && JSON.stringify(ordreMap[k]) !== before) render(); }); // l'ordre de présentation arrive : les colonnes reliées se rapprochent
   }
@@ -524,6 +533,7 @@
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
     document.documentElement.classList.toggle('arbreOn', visible); if (visible) window.scrollTo(0, 0); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
+    if (TMT.ui && TMT.ui.editIcon) tree.style.setProperty('--ar-edit-mask', 'url("data:image/svg+xml,' + encodeURIComponent(TMT.ui.editIcon().replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/currentColor/g, '#000').replace('width="13" height="13"', 'width="18" height="18"').replace('stroke-width="2"', 'stroke-width="2.4"')) + '")'); // le crayon STANDARD (R15) devient le masque du trou : même dessin, rendu en creux dans la carte
     zoom = lvl === 'activite' ? 'block' : lvl === 'pole' ? 'year' : wk ? 'week' : 'period'; // le temps suit le zoom : arbre macro = blocs de 5 ans (pluriannuel), années (annuel), périodes 13 × 4 (période)
     var mw = isLand() ? 46 : 20; RAIL = mw + 10; /* colonne des dates : largeur du plus large repère court (2 caractères) ; les repères de plus de 2 caractères sont tournés (lus de bas en haut) */ tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
@@ -712,7 +722,7 @@
   // OUVERTURE : le niveau de temps du plus large des objectifs de l'utilisateur (pluriannuel s'il y en a, sinon année, sinon période) ; recalculé à chaque ouverture et chaque retour, rien n'est mémorisé.
   function applyOpen() { // 18 nov. 2026 (Émilien) : chaque activité a son arbre par défaut ; on ouvre TOUJOURS sur toutes les activités en colonnes (jamais figé sur une seule), le toucher descend
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
-    picked = null; lvl = 'activite'; focus = null;
+    setEdit(false); picked = null; lvl = 'activite'; focus = null;
   }
   function refresh() {
     if (!tree) return Promise.resolve();
@@ -725,7 +735,7 @@
   // et la classe restait posée (body fixe = barre noire sous la barre des volets) ; elle est défaite à la sortie de l'onglet et reposée au retour si l'arbre est affiché.
   (function () {
     var tab = tree && tree.closest ? tree.closest('#tab-goals') : document.getElementById('tab-goals'); if (!tab || !window.MutationObserver) return;
-    new MutationObserver(function () { var on = visible && !tab.classList.contains('hidden'); document.documentElement.classList.toggle('arbreOn', on); if (on) window.scrollTo(0, 0); }).observe(tab, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(function () { var on = visible && !tab.classList.contains('hidden'); if (!on) setEdit(false); document.documentElement.classList.toggle('arbreOn', on); if (on) window.scrollTo(0, 0); }).observe(tab, { attributes: true, attributeFilter: ['class'] });
   })(); // le pager de pages (stats-avance.js) lit ce défilement horizontal pour tout toucher dans l'arbre (repères, bandeau compris)
   // Aucun écouteur de redimensionnement, de défilement ni de fenêtre visuelle, aucun minuteur : les largeurs et la hauteur sont du CSS ; seul le décalage haut/bas est mesuré à chaque rendu (fitTree).
   // UNE SEULE flèche de retour : depuis un calendrier ouvert par l'arbre, la flèche ‹ du cadre du pôle (qui ne change plus de pôle) ramène à l'arbre.
@@ -744,14 +754,15 @@
       if (!ext) return null; var today = dayIso();
       return curCols.map(function (c, i) { return { col: c.label, eligible: extEligible(i), objs: (c.objs || []).map(function (o) { return { id: o.id, titre: o.title, niveau: o.level || 'activite', parent: o.parentId, raison: o.isMacro ? 'macro' : o.abandoned ? 'abandonné' : bucketOf(o, today).rank !== ext.rank ? 'autre ligne ' + bucketOf(o, today).rank : 'ok' }; }) }; });
     },
+    setEdit: setEdit, isEdit: function () { return editOn; },
     refresh: refresh, render: render, say: function (m) { say(m); },
     showBase: function () {
       document.documentElement.classList.remove('calFromTree');
       visible = true; document.documentElement.classList.add('arbreOn');
-      if (savedView) { lvl = savedView.lvl; focus = savedView.focus; restoreView = savedView; savedView = null; needBase = false; openPending = false; if (loaded) render(); return; } // retour du calendrier : même niveau, même position
+      if (savedView) { setEdit(false); lvl = savedView.lvl; focus = savedView.focus; restoreView = savedView; savedView = null; needBase = false; openPending = false; if (loaded) render(); return; } // retour du calendrier : même niveau, même position
       needBase = true; openPending = true; if (loaded) { applyOpen(); render(); }
     },
     reopen: function () { if (visible && !savedView) { needBase = true; openPending = true; if (loaded) { applyOpen(); render(); } refresh(); } }, // retour sur la page (statistiques, activité, calendrier) : ouverture recalculée
-    hide: function () { visible = false; document.documentElement.classList.remove('calFromTree', 'arbreOn'); }
+    hide: function () { setEdit(false); visible = false; document.documentElement.classList.remove('calFromTree', 'arbreOn'); }
   };
 })();
