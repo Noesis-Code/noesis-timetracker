@@ -916,10 +916,11 @@
     function mk(w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; }
     rows = spec.weeks.map(mk);
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.label; panelForm = { edit: true }; setBack(null);
-    var genBox = el('div', 'objSemGen'), list = el('div', 'objSemList'); panelBody.appendChild(genBox); panelBody.appendChild(list);
+    var genBtn = null, genBox = el('div', 'objSemGen'), list = el('div', 'objSemList'); panelBody.appendChild(genBox); panelBody.appendChild(list);
     function changed(r) { return r.t.trim() !== r.t0.trim() || r.d.trim() !== r.d0.trim(); }
     function valid(r) { return !changed(r) || !!r.w.obj || !!r.t.trim(); } // une nouvelle semaine ne s'enregistre pas sans titre
-    function sync() { stepBtn.disabled = !rows.some(changed) || !rows.every(valid); }
+    function ready(r) { return changed(r) && valid(r); }
+    function sync() { stepBtn.disabled = !rows.some(ready); } // une ligne incomplète (ex. puces sans titre) est ignorée : elle n'empêche jamais d'enregistrer les autres
     function fresh() { // relit les objectifs : la génération ou une suppression vient de changer les semaines (une saisie non enregistrée d'une semaine qui existe encore est gardée)
       return api('GET', '/api/objectifs?filtre=en_cours').then(function (r) {
         var all = (r && r.objectifs) || [], days = function (a, b) { return (Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000; };
@@ -931,18 +932,20 @@
         load(); paint();
       });
     }
+    function genWeeks() { return rows.filter(function (x) { return !x.w.obj && !past(x) && (!spec.parentEnd || x.w.start <= spec.parentEnd) && (!spec.parentStart || x.w.end >= spec.parentStart); }); } // semaines vides, à venir, dans la durée de l'objectif périodique
     function generate() {
-      msg.textContent = '';
+      msg.textContent = ''; genBtn.disabled = true;
       TMT.ui.attente(api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
-        var use = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return rows.some(function (x) { return !x.w.obj && !past(x) && r.endDate >= x.w.start && r.endDate <= x.w.end; }); }) : []; // seulement les semaines encore vides de cette période
-        if (!use.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return null; }
-        var body = use.map(function (r) { return { kind: 'nouveau', title: r.title, description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: r.endDate, weeks: r.weeks, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
-        return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: pl.level === 'semaine' ? true : undefined, rows: body }).then(fresh);
-      })).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
+        var src = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return r.kind === 'nouveau'; }) : [], free = genWeeks();
+        if (!src.length || !free.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return null; }
+        var body = free.slice(0, src.length).map(function (x, i) { var r = src[i], end = spec.parentEnd && x.w.end > spec.parentEnd ? spec.parentEnd : x.w.end; return { kind: 'nouveau', title: String(r.title || '').replace(/^Sd+ · /, 'S' + x.w.i + ' · '), description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, start: x.w.start, endDate: end, weeks: 1, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
+        return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: true, rows: body }).then(fresh);
+      })).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }).then(function () { paint(); });
     }
     function paint() {
       genBox.textContent = '';
-      if (spec.parentId && rows.some(function (x) { return !x.w.obj && !past(x); })) genBox.appendChild(btn('cmpBtn cmpBtnIdle objSemGenBtn', tr('Génère tes objectifs hebdomadaires avec Noèsis'), generate));
+      genBtn = null;
+      if (spec.parentId && genWeeks().length) { genBtn = btn('objSemGenBtn', tr('Générer avec Noèsis'), generate); genBox.appendChild(genBtn); }
       list.textContent = '';
       rows.map(function (r, k) { return { r: r, k: k }; }).reverse().forEach(function (x) { // la semaine la plus ancienne en BAS (l'arbre monte)
         var r = x.r, k = x.k, gone = past(r), isOpen = k === openI && !gone, row = el('div', 'objSemRow' + (gone ? ' past' : '') + (isOpen ? ' weekOpen' : '')), head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
@@ -993,7 +996,7 @@
       if (stepBtn.disabled) return;
       stepBtn.disabled = true; msg.textContent = '';
       var chain = rows.reduce(function (p, r) {
-        if (!changed(r)) return p;
+        if (!ready(r)) return p;
         return p.then(function () {
           if (r.w.obj) return (r.t.trim() && r.t.trim() !== r.t0.trim() ? api('PUT', '/api/objectifs/' + r.w.obj.id + '/titre', { title: r.t.trim() }) : Promise.resolve()).then(function () { return r.d.trim() !== r.d0.trim() ? api('PUT', '/api/objectifs/' + r.w.obj.id + '/description', { description: r.d.trim() }) : null; });
           return api('POST', '/api/objectifs', { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, title: r.t.trim(), startDate: r.w.start, endDate: r.w.end, amount: 1, unit: 'semaines', inner: 'hebdomadaires', weekly: true })
