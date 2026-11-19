@@ -345,3 +345,7 @@
 .cmpDockSave .tasksSaveBtn:disabled, .cmpDockSave .tasksSaveBtn.cmpBtnIdle { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); opacity: 1; cursor: default; }
 .cmpDockHost:has(> .cmpDockSave:not(.hidden)) > :not(.cmpDockSave):not(.cmpDockSlot) { margin-bottom: 84px; } /* le contenu de la fenêtre s'arrête au-dessus du bouton */
 :root.dockSaveOn .tabbar { visibility: hidden; } /* le bouton REMPLACE la barre des volets ; elle revient à la fermeture */
+/* Pop-up « Ajouter un membre » (19 nov. 2026) : les bulles rondes des suggestions de Communauté (.discoveryCircles) à la ligne, bulle choisie cerclée de violet ; jamais de nouvelle couleur. */
+.discoveryCircles.membresPick { flex-wrap: wrap; overflow: visible; margin: 0 0 16px; }
+.membresPick .discoveryCircleBtn .meta { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.membresPick .discoveryCircleBtn[aria-pressed="true"] .smallAvatar { outline: 2px solid var(--purple); outline-offset: 2px; }

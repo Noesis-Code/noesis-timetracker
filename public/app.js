@@ -7507,8 +7507,17 @@
       row.appendChild(cap);
     }
     group.appendChild(row);
+    group.appendChild(catMembersBlock(activityId, pole.key));
     if (isOpen) group.appendChild(buildCatSecteurs(activityId, pole, false));
     return group;
+  }
+
+  // Membres d'un pôle ou d'un secteur (19 nov. 2026) : seulement pour une activité partagée ; le bloc (js/membres-ui.js) se cache de lui-même si le serveur ne donne aucun droit à ce visiteur.
+  var catPopupShared = false;
+  function catMembersBlock(activityId, key) {
+    var holder = document.createElement('div');
+    if (catPopupShared && TMT.membres) holder.appendChild(TMT.membres.categoryBlock(activityId, key, function (m) { if (m) alert(m); }));
+    return holder;
   }
 
   function buildCatSecteurs(activityId, pole, edit) {
@@ -7563,6 +7572,7 @@
         bindCatLongPress(row);
       }
       wrap.appendChild(row);
+      if (!edit) wrap.appendChild(catMembersBlock(activityId, s.key));
     });
 
     if (!edit) {
@@ -9408,6 +9418,8 @@
     }
     return el;
   }
+
+  TMT.buildSmallAvatar = buildSmallAvatar; // 19 nov. 2026 : les bulles du pop-up « Ajouter un membre » (js/membres-ui.js) reprennent celles des suggestions de Communauté
 
   // Nom complet (prénom + nom de famille) — ajouté le 3 septembre 2026,
   // sixième passage (demande d'Emilien : « le nom des utilisateurs doit
@@ -15208,6 +15220,7 @@
       body.appendChild(composer);
       block.classList.remove('hidden');
       currentCommunityActivityId = a.id;
+      catPopupShared = a.membersCount > 1;
       activityPageSection = 'sub';
       loadActivityGoalsCategories(a.id);
     }, function () {
