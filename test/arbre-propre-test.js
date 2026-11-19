@@ -32,3 +32,17 @@ assert(css.includes('.arGrid .goalsGridCell--filled.arGauge { overflow: visible;
 assert(css.includes(".arRailR .arHrs:empty::before { content: '–'; }"), 'heures non affichées : un tiret gris');
 assert(src.includes('M9 1h6v8h8v6h-8v8H9v-8H1V9h8z'), 'plus à bords carrés');
 console.log('arbre-propre-test OK');
+// 5. Nombre et plus : MÊME teinte très pâle (22 %) ; en édition, toucher n'importe où sur une carte ouvre la modification, hors édition on descend
+assert(css.includes('--ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, transparent)') && css.includes('.arHoleCount { color: var(--ar-hole-mark)') && css.includes('.arHolePlus { display: none; color: var(--ar-hole-mark)'), 'nombre et plus : même jeton à 22 %');
+{
+  const opened = [], descended = []; let editOn = false, handler = null;
+  const mk = () => ({ classList: { add() {}, toggle() {} }, style: { setProperty() {} }, setAttribute() {}, appendChild(c) { return c; }, addEventListener(t, f) { if (t === 'click') handler = f; }, dataset: {} });
+  const f = new Function('el', 'stateOf', 'objColor', 'cellSize', 'paint', 'gauge', 'editMark', 'openEditOf', 'descend', 'ext', 'picked', 'TMT', 'getEdit', 'blockStart', 'var tree = [], lvl = "pole", wk = null;\n var editOn; Object.defineProperty(this, "editOn", { get: getEdit });\n' + extract('card').replace('function card(', 'return function card(').replace(/if \(editOn\)/g, 'if (getEdit())') + ';');
+  const card = f(mk, () => 'now', () => '#fff', () => {}, () => {}, () => {}, () => mk(), (id) => opened.push(id), (...a) => descended.push(a), null, null, { ui: {} }, () => editOn, (d) => d);
+  card({ id: 7, title: 'T', endDate: '2027-01-01' }, '2026-11-18', [], 'detail', 100, null, 2);
+  const target = { closest: () => null };
+  editOn = true; handler({ target }); assert.deepStrictEqual(opened, [7], 'édition : toucher la carte ouvre la modification');
+  assert.strictEqual(descended.length, 0, 'édition : on ne descend pas');
+  editOn = false; handler({ target }); assert.deepStrictEqual(opened, [7], 'hors édition : pas de modification'); assert.strictEqual(descended.length, 1, 'hors édition : on descend');
+}
+console.log('arbre-propre-test (retouches) OK');

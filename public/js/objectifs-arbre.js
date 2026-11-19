@@ -79,7 +79,7 @@
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', o.title));
     /* 18 nov. 2026 (Émilien) : la carte ne montre que son TITRE ; durée, état et rattachements ne s'affichent plus, l'échéance se lit en modifiant la case */
     b.appendChild(t); b.appendChild(editMark(o));
-    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(o.id); return; } // toucher = DESCENDRE d'un niveau dans la branche de la carte (jamais de panneau)
       if (onTap) { onTap(); return; } if (extCol != null) descend(extCol, blockStart(o.endDate), Number(String(o.endDate).slice(0, 4)));
     });
     if (TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { // APPUI LONG : le menu d'actions (Relier = le mode de liaison actuel, Modifier, Supprimer)
@@ -116,7 +116,7 @@
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
     t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
     b.appendChild(t); b.appendChild(editMark(m));
-    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; descend(c0, null, null, m); }); // toucher COURT = descendre d'un niveau (règle générale)
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(m.id); return; } descend(c0, null, null, m); }); // toucher COURT = descendre d'un niveau (règle générale)
     if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées / Séparer (mode Étendre existant)
     return b;
   }
@@ -254,7 +254,7 @@
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
     });
-    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; descend(ci, null, year); }); // toucher = descendre d'un niveau
+    b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(bigOf(os).id); return; } descend(ci, null, year); }); // toucher = descendre d'un niveau
     if (TMT.ui && TMT.ui.holdDrag && ci != null) TMT.ui.holdDrag(b, { // appui long : le menu d'actions
       holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, hscroller: function () { return scroller; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad',
       onHold: function () {

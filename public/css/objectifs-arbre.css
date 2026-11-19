@@ -49,7 +49,7 @@ html.arbreOn #app::after { display: none; }
 .arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
 .arNode.arDropBad { opacity: .45; }
 /* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité) ; touchable sur toute sa surface (ajouter un objectif). */
-.arHole { cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+.arHole { --ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, transparent); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
 .arHole:disabled { cursor: default; opacity: 1; }
 /* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
 .arCard.ar-dropped { opacity: .4; }
@@ -123,8 +123,8 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arSep { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--text-light); opacity: .45; pointer-events: none; } /* séparateur neutre entre deux groupes d'activités reliées */
 
 /* ARBRE PROPRE (18 nov. 2026, Émilien) : hors édition une case vide n'affiche RIEN, sauf le NOMBRE d'objectifs dessous (grand, gris, sans pastille) ; en édition, un grand PLUS gris à bords carrés prend sa place. */
-.arHoleCount { color: var(--text-light); font-size: 30px; font-weight: 600; line-height: 1; pointer-events: none; }
-.arHolePlus { display: none; color: var(--text-light); line-height: 0; pointer-events: none; }
+.arHoleCount { color: var(--ar-hole-mark); font-size: 30px; font-weight: 600; line-height: 1; pointer-events: none; }
+.arHolePlus { display: none; color: var(--ar-hole-mark); line-height: 0; pointer-events: none; }
 .arEdit .arHoleCount { display: none; }
 .arEdit .arHolePlus { display: block; }
 /* Colonne de droite « Heures » : lecture seule ; violet = heures réglées sur la ligne, gris = reprend la ligne du dessus (aucune nouvelle couleur) */
