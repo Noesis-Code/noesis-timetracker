@@ -27,6 +27,9 @@
 
 /* Fenêtres */
 .objModal .goalTaskEditCard { width: 100%; max-width: 440px; }
+/* 19 nov. 2026 (Émilien) : les pop-ups de l'arbre suivent la recette commune des pop-ups (DESIGN.md) : liseré standard (.goalTaskEditCard), sans contour violet ni trait sous le titre (héritages de .aiModeModal) */
+:root .objModal.aiModeModal .goalTaskEditCard { box-shadow: var(--shadow-elevated); }
+.objModal.aiModeModal .goalTaskEditHeader { border-bottom: 0; }
 .objModalTitle { flex: 1; min-width: 0; }
 .objModalTitle .sectionTitle { margin: 0; overflow-wrap: anywhere; }
 .objSub { margin: 4px 0 0; }
