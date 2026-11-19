@@ -109,9 +109,9 @@
   }
   function field(label, node) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', label)); w.appendChild(node); return w; }
   function resumeField(form, onChange) { // « Résumé » (sous « Avancé », facultatif, 300 au plus) : lu seulement par les responsables d'un niveau inférieur ; champ séparé de la Description, jamais lu par l'IA
-    var inp = el('input'); inp.type = 'text'; inp.maxLength = 300; inp.value = form.resume || ''; inp.setAttribute('aria-label', tr('Résumé pour les membres'));
+    var inp = el('textarea'); inp.rows = 4; inp.maxLength = 300; inp.value = form.resume || ''; inp.setAttribute('aria-label', tr('Résumé pour les membres'));
     inp.addEventListener('input', function () { form.resume = inp.value; if (onChange) onChange(); });
-    var w = field(tr('Résumé pour les membres'), inp); w.appendChild(el('p', 'hint', tr("Lu seulement par les responsables d'un niveau inférieur"))); return w;
+    var sb = el('div', 'objSemBody'); sb.appendChild(inp); var w = field(tr('Résumé pour les membres'), sb); w.appendChild(el('p', 'hint', tr("Lu seulement par les responsables d'un niveau inférieur"))); return w;
   }
   function descHead(title, hint) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', tr(title))); if (hint) w.appendChild(el('p', 'hint', tr(hint))); return w; } // titre de bloc (+ aide d'une ligne) de la Description pour Noèsis
   function seg(options, current, onPick, label) {
@@ -326,9 +326,9 @@
       var dueRow = el('div', 'objDueRow'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
       dueIn.type = 'date'; dueIn.value = form.endDate || form.cellDefaultEnd; dueIn.setAttribute('aria-label', tr('Échéance')); /* aucun min/max : jamais de jour grisé, la date est ramenée dans la case */
       dueRow.appendChild(el('span', 'objDueLabel', tr('Échéance') + ' :')); dueRow.appendChild(dueIn); boxes.desc.appendChild(dueRow);
-      dueIn.disabled = form.dateFixe !== true; // Souple (par défaut) : la date de la case ; Fixe : modifiable (même choix que « Modifier l'objectif »)
+      dueRow.classList.toggle('hidden', form.dateFixe !== true); // la date n'apparaît que pour « Fixe » (même choix que « Modifier l'objectif »)
       var fxPick = el('div'); fxPick.appendChild(el('p', 'hint', tr('La date de fin est-elle imposée ?')));
-      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueIn.disabled = !v; if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
       fxPick.appendChild(el('p', 'hint', tr('Souple : Noèsis peut la déplacer. Fixe : elle ne bouge pas.'))); boxes.desc.insertBefore(fxPick, dueRow);
       dueIn.addEventListener('change', function () {
         var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; // l'échéance reste dans la case où l'on crée
@@ -991,7 +991,7 @@
   function openEdit(id) {
     api('GET', '/api/objectifs/' + id).then(function (o) {
       var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
-      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: 0, dateFixe: o.dateFixe === true, resume: o.resume || '' };
+      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: -1, dateFixe: o.dateFixe === true, resume: o.resume || '' };
       guideParse(form, o.description || '');
       var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
       if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
@@ -1027,20 +1027,26 @@
       var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
       dateIn.type = 'date'; dateIn.min = o.startDate; dateIn.value = form.endDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
       dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dueRow.appendChild(dateIn); var dueBody = el('div'); dueBody.appendChild(dueRow);
-      function paintT() { tBox.textContent = ''; paintTermInto(tBox, form, daysOf(form.endDate), sync, true); }
+      function paintT() {} // plus de Terme ni d'« Objectifs inclus » : le serveur garde leurs valeurs
       dateIn.addEventListener('change', function () {
         if (!dateIn.value || dateIn.value <= o.startDate) { form.endDate = null; msg.textContent = dateIn.value ? tr('L’échéance ne peut pas être dans le passé.') : ''; sync(); return; }
         msg.textContent = ''; form.endDate = dateIn.value; paintT(); sync();
       });
-      dateIn.disabled = form.dateFixe !== true; // « Fixe » : la date devient modifiable ; « Souple » (par défaut) : la date reste celle proposée
+      dueRow.classList.toggle('hidden', form.dateFixe !== true); // la date n'apparaît que pour « Fixe »
       var fxPick = el('div'); fxPick.appendChild(el('p', 'hint', tr('La date de fin est-elle imposée ?')));
-      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dateIn.disabled = !v; if (!v && form.endDate !== orig.endDate) { form.endDate = orig.endDate; dateIn.value = orig.endDate; paintT(); } sync(); }, tr('Date de fin')));
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); if (!v && form.endDate !== orig.endDate) { form.endDate = orig.endDate; dateIn.value = orig.endDate; paintT(); } sync(); }, tr('Date de fin')));
       fxPick.appendChild(el('p', 'hint', tr('Souple : Noèsis peut la déplacer. Fixe : elle ne bouge pas.'))); dueBody.insertBefore(fxPick, dueRow);
-      paintT(); dueBody.appendChild(tBox); panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
+      panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
       hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
-      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'); hBody.appendChild(hRow); panelBody.appendChild(accRow(tr('Temps'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
+      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'), hTab = el('div'); hBody.appendChild(hTab); hTab.appendChild(hRow);
+      api('GET', '/api/objectifs/temps?activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate)).then(function (e) {
+        if (!e || !e.up || !e.me) return;
+        var rows = [{ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, chrono: e.up.passeMin, avant: e.up.prevuMin }, { label: e.me.label, chrono: e.me.passeMin, avant: o.hoursPerWeek != null ? Math.round(o.hoursPerWeek * 60) : 0, apres: hoursMin(), edit: { label: tr('Prévu'), onPick: function (v) { form.hours = v > 0 ? Math.round(v / 6) / 10 : null; hIn.value = form.hours != null ? String(form.hours) : ''; byRefresh(true); sync(); } } }];
+        hTab.textContent = ''; hTab.appendChild(objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows }).node);
+      }).catch(function () {});
+      panelBody.appendChild(accRow(tr('Temps'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
       // Tout le reste sous « Avancé » (replié par défaut ; même composant que l'« Avancé » de la Description) : jours, niveau, parts.
       var advBox = el('div', 'objGuide'), advInner = el('div'), advOpenE = false; panelBody.appendChild(advBox);
       function paintAdvE() {
@@ -1051,7 +1057,7 @@
         headA.appendChild(txA); headA.appendChild(el('span', 'cmpChev' + (advOpenE ? ' open' : ''))); wrapA.appendChild(headA); advBox.appendChild(wrapA);
         if (advOpenE) { advBox.appendChild(advInner); paintGuideInto(restBox, form, function () { sync(); }, undefined, 'rest'); }
       }
-      advInner.appendChild(restBox); var dayBox = el('div'); advInner.appendChild(dayBox);
+      advInner.appendChild(restBox); var dayBox = el('div'), daysRow = accRow(tr('Jours'), function () { return ''; }, dayBox); daysRow.classList.add('hidden'); advInner.appendChild(daysRow);
       function durSentence(m) { return m < 60 ? m + ' min' : hh(m); }
       function byRefresh(hoursChanged) { // les heures par semaine ont changé : les jours reprennent la répartition par défaut (ou suivent proportionnellement les jours déjà réglés)
         window.clearTimeout(byTimer);
@@ -1065,7 +1071,7 @@
         paintDays();
       }
       function paintDays() {
-        dayBox.textContent = '';
+        dayBox.textContent = ''; daysRow.classList.toggle('hidden', !(byShow() && form.byDay));
         if (!byShow() || !form.byDay) return;
         var wrap = el('div', 'objField');
         {
@@ -1090,11 +1096,11 @@
       }
       paintDays();
       var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
-      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); advInner.appendChild(field(tr('Ton niveau actuel'), sIn)); advInner.appendChild(resumeField(form, sync));
+      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); var sBody = el('div'); sBody.appendChild(sIn); advInner.appendChild(accRow(tr('Ton niveau actuel'), function () { return form.skill ? '✓' : '—'; }, sBody)); advInner.appendChild(accRow(tr('Résumé pour les membres'), function () { return String(form.resume || '').trim() ? '✓' : '—'; }, resumeField(form, sync)));
       // Parts d'un grand objectif (proportionnelles au temps prévu) : MODIFIABLES. Changer une part change le temps du sous-objectif et rééquilibre les autres (total constant) ; l'avant / après est montré
       // sous chaque ligne avant d'enregistrer ; « Enregistrer » applique le tout (serveur : une seule transaction).
       var partsBox = el('div', 'objField'), partRows = {}, partEdit = null, partPreview = null, partTimer = 0, partSeq = 0;
-      advInner.appendChild(partsBox); paintAdvE();
+      paintAdvE();
       function partDirty() { return !!(partEdit && partPreview && o.parts && o.parts.items.some(function (it) { return it.id === partEdit.id && it.percent !== partEdit.percent; })); }
       function fmtHh(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
       function noteOf(it) {
@@ -1116,7 +1122,7 @@
             .catch(function (e) { if (mine !== partSeq) return; partPreview = null; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
         }, 250);
       }
-      if (o.parts && o.parts.items.length) {
+      if (false && o.parts && o.parts.items.length) { // « Part de chaque objectif » retiré de l'écran (demande d'Émilien)
         partsBox.appendChild(el('p', 'cmpBlockTitle', tr('Part de chaque objectif')));
         o.parts.items.forEach(function (it) {
           var row = el('div', 'objTimeRow'), left = el('span', 'objGuideTxt'), val = el('span', 'objHoursVal'), inp = el('input'), note = el('small', 'hint');
