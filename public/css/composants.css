@@ -315,6 +315,7 @@
 .calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
 .calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
 .calWeekNum > i { font-style: normal; color: var(--purple); } /* numéro de période sous le S, dans la même pastille sur le trait */ /* numéro de la semaine centré sur le trait gauche du cadre */
+.calWeekRow .goalsCalWeekTitle { text-align: center; padding: 0 22px; } /* titre de l'objectif hebdomadaire : centré, à l'écart du numéro S/P (gauche) et de la pastille (droite), jamais collé aux côtés */
 .goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 14px; }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }

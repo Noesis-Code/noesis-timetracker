@@ -22,7 +22,6 @@
           <div id="activityGoalsBlock">
             <div id="goalsTopLine" class="goalsTopLine">
               <span class="goalsPeriodTag" id="activityGoalsPeriodTitle"></span>
-              <div id="goalsMainLineHost"></div>
               <button type="button" class="cmpNavArrow" id="goalsPeriodNext" aria-label="Période suivante">›</button>
             </div>
 
@@ -947,7 +946,7 @@
       .catch(function (err) { daySend.disabled = false; dayMsg.textContent = (err && err.message) || t('Impossible pour le moment.'); });
   }
   // Fenêtre de l'objectif périodique : la carte et l'éditeur existants, avec les dates de la période (éditeur de dates existant).
-  // En haut de la page : « P12 », l'état de réalisation de la période et l'objectif périodique (titre seulement).
+  // En haut de la page : « P12 » et l'état de réalisation de la période.
   function renderGoalsTopLine(period) {
     var ws = (period.weeklies || []).filter(function (w) { return w.text; }), st = null;
     // Couleur DÉRIVÉE des semaines (le bouton P12 ne se clique pas) : toutes réussies = vert ; majorité non réussies = rouge ; sinon (mélange, partiel) = jaune.
@@ -957,10 +956,7 @@
     var tagHost = $('activityGoalsPeriodTitle'); tagHost.textContent = '';
     tagHost.appendChild(TMT.ui.statusBtn('P' + TMT.calNums.period(period.startDate), pState)); // sans clic : suit ses semaines
 
-    var host = $('goalsMainLineHost'); host.textContent = '';
-    var hasMain = !!(period.mainGoalText && period.mainGoalText.trim());
-    // Ligne de période : titre de l'objectif périodique s'il existe, sinon rien (il s'ajoute par l'arbre périodique, mode modifier).
-    if (hasMain) { var b = document.createElement('span'); b.className = 'goalsMainLine goalsMainBig'; b.textContent = period.mainGoalText; b.title = period.mainGoalText; host.appendChild(b); }
+    // Le titre de l'objectif périodique ne s'affiche JAMAIS dans le volet Tâches (Émilien, 19 nov. 2026) : seul « P12 » reste ; le titre se lit dans l'arbre des Objectifs.
   }
   // Changer de période : un seul contrôle (chevron ›) = période suivante (la dernière ramène à la première) ; le calendrier se pose sur son premier jour.
   $('goalsPeriodNext').addEventListener('click', function () {
