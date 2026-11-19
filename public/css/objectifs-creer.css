@@ -253,3 +253,4 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRdBar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; background: var(--purple); }
 .objRdBar.off { opacity: .3; }
 .objRdRow { gap: 8px; padding: 8px 0; align-items: center; }
+.objSemRow.past { opacity: .4; pointer-events: none; }

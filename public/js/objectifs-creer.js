@@ -910,7 +910,8 @@
   function semParse(d) { return String(d || '').split(' · ').map(function (s) { var i = s.indexOf(' : '); return i < 0 ? { label: '', ans: s.trim() } : { label: s.slice(0, i).trim(), ans: s.slice(i + 3).trim() }; }).filter(function (x) { return x.ans; }); }
   function semCompose(parts) { return parts.map(function (x) { return x.label ? x.label + ' : ' + x.ans : x.ans; }).join(' · '); }
   function openSemaines(spec, onEnd) {
-    var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1, rows = [];
+    var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1, rows = [], todayIso = new Date().toLocaleDateString('en-CA');
+    function past(x) { return x.w.end < todayIso; } // une semaine déjà passée est grisée : on n'y crée rien (le serveur refuse une échéance dans le passé)
     function mk(w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; }
     rows = spec.weeks.map(mk);
     panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.label; panelForm = { edit: true }; setBack(null);
@@ -932,7 +933,7 @@
     function generate() {
       msg.textContent = '';
       TMT.ui.attente(api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
-        var use = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return rows.some(function (x) { return !x.w.obj && r.endDate >= x.w.start && r.endDate <= x.w.end; }); }) : []; // seulement les semaines encore vides de cette période
+        var use = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return rows.some(function (x) { return !x.w.obj && !past(x) && r.endDate >= x.w.start && r.endDate <= x.w.end; }); }) : []; // seulement les semaines encore vides de cette période
         if (!use.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return null; }
         var body = use.map(function (r) { return { kind: 'nouveau', title: r.title, description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: r.endDate, weeks: r.weeks, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
         return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: pl.level === 'semaine' ? true : undefined, rows: body }).then(fresh);
@@ -940,20 +941,23 @@
     }
     function paint() {
       genBox.textContent = '';
-      if (spec.parentId && rows.some(function (x) { return !x.w.obj; })) genBox.appendChild(btn('cmpBtn cmpBtnIdle objSemGenBtn', tr('Génère tes objectifs hebdomadaires avec Noèsis'), generate));
+      if (spec.parentId && rows.some(function (x) { return !x.w.obj && !past(x); })) genBox.appendChild(btn('cmpBtn cmpBtnIdle objSemGenBtn', tr('Génère tes objectifs hebdomadaires avec Noèsis'), generate));
       list.textContent = '';
       rows.map(function (r, k) { return { r: r, k: k }; }).reverse().forEach(function (x) { // la semaine la plus ancienne en BAS (l'arbre monte)
-        var r = x.r, k = x.k, row = el('div', 'objSemRow'), isOpen = k === openI, head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
-        head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        function toggle() { openI = isOpen ? -1 : k; paint(); }
-        head.addEventListener('click', toggle); head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
+        var r = x.r, k = x.k, gone = past(r), row = el('div', 'objSemRow' + (gone ? ' past' : '')), isOpen = k === openI && !gone, head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
+        if (!gone) {
+          head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          var toggle = function () { openI = isOpen ? -1 : k; paint(); };
+          head.addEventListener('click', toggle); head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
+        }
         head.appendChild(el('span', 'objSemNo', 'S' + r.w.i));
         if (isOpen) {
           tEl = el('input', 'objSemTitleIn'); tEl.type = 'text'; tEl.maxLength = 140; tEl.value = r.t; tEl.placeholder = tr('Titre'); tEl.setAttribute('aria-label', tr('Titre'));
           tEl.addEventListener('click', function (e) { e.stopPropagation(); }); tEl.addEventListener('input', function () { r.t = tEl.value; sync(); });
         } else tEl = el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'));
         head.appendChild(tEl);
-        if (r.w.obj) { var del = btn('objSemDel', '✕', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
+        if (gone) head.appendChild(el('span', 'objSemPlus'));
+        else if (r.w.obj) { var del = btn('objSemDel', '✕', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
         else head.appendChild(el('span', 'objSemPlus', '+'));
         row.appendChild(head);
         if (isOpen) {
