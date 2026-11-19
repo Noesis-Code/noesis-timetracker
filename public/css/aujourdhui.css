@@ -96,8 +96,10 @@
 /* La barre « Ajouter une tâche » est au premier plan, fixée au-dessus de la barre des volets (même verre) ; les tâches défilent en dessous ; au glissement latéral elle suit la page. */
 .tasksDock { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); padding: 0; background: transparent; }
 .tasksDock.hidden { display: none; }
-@keyframes tasksDockIn { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
-.tasksDock.tasksDockIn { animation: tasksDockIn .22s ease-out; } /* la zone d'écriture entre de droite à gauche (bouton « + » de la barre des volets) */
+@keyframes tasksDockIn { from { clip-path: inset(-100vh 0 0 calc(100% - 52px)); } to { clip-path: inset(-100vh 0 0 0); } } /* part du « + » (à droite) et s'élargit jusqu'à toute la largeur */
+:root.composerOn .tabbar { visibility: hidden; } /* la barre d'ajout REMPLACE la barre des volets et le « + » */
+:root.composerOn .tasksDock:not(.goalsDayDock) { bottom: max(16px, env(safe-area-inset-bottom)); }
+.tasksDock.tasksDockIn { animation: tasksDockIn .22s ease-out; } /* la barre d'ajout s'élargit depuis le « + » */
 @media (prefers-reduced-motion: reduce) { .tasksDock.tasksDockIn { animation: none; } }
 .tasksToday { padding-bottom: calc(var(--tabbar-h, 76px) + 120px); } /* la dernière tâche reste lisible au-dessus de la barre fixe */
 .tasksDock .tasksComposer { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 */

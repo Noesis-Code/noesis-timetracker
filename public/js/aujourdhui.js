@@ -56,7 +56,9 @@
   // La zone d'écriture n'apparaît que par le bouton « + » de la barre des volets (18 nov. 2026, Émilien) ; une proposition ou l'étape Enregistrer d'Expansion la garde affichée.
   var composerOpen = false;
   function flowOn() { return !!dock && (dock.classList.contains('expSave') || (ui.proposal && !ui.proposal.classList.contains('hidden'))); }
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length && (composerOpen || flowOn()))); }
+  function syncDock() { if (!dock) return; dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length && (composerOpen || flowOn()))); document.documentElement.classList.toggle('composerOn', !dock.classList.contains('hidden')); } // la barre d'ajout REMPLACE la barre des volets et le « + » (19 nov. 2026, Émilien)
+  // Plus de « + » pour refermer : un toucher en dehors de la barre la referme (le texte écrit reste là), sauf pendant une proposition ou l'étape Enregistrer.
+  document.addEventListener('pointerdown', function (e) { if (composerOpen && dock && !flowOn() && !dock.contains(e.target) && !(e.target.closest && e.target.closest('.cmpGlass, [role="dialog"]'))) setComposer(false); });
   function setComposer(v) {
     v = !!v; if (v === composerOpen) return;
     composerOpen = v; syncDock();
