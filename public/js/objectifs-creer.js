@@ -893,8 +893,8 @@
     function sync() { stepBtn.disabled = !rows.some(changed) || !rows.every(valid); }
     function paint() {
       list.textContent = '';
-      rows.forEach(function (r, k) {
-        var row = el('div', 'objSemRow'), head = btn('objSemHead' + (k === openI ? ' open' : ''), '', function () { openI = openI === k ? -1 : k; paint(); });
+      rows.map(function (r, k) { return { r: r, k: k }; }).reverse().forEach(function (x) { // la semaine la plus ancienne en BAS (l'arbre monte)
+        var r = x.r, k = x.k, row = el('div', 'objSemRow'), head = btn('objSemHead' + (k === openI ? ' open' : ''), '', function () { openI = openI === k ? -1 : k; paint(); });
         head.appendChild(el('span', 'objSemNo', 'S' + r.w.i)); head.appendChild(el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'))); head.appendChild(el('span', 'objSemArrow', '›'));
         head.setAttribute('aria-expanded', k === openI ? 'true' : 'false'); row.appendChild(head);
         if (k === openI) {
