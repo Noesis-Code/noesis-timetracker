@@ -1168,7 +1168,7 @@
       }
       paintDays();
       var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
-      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); var sBody = el('div'); sBody.appendChild(sIn); advInner.appendChild(accRow(tr('Ton niveau actuel'), function () { return form.skill ? '✓' : '—'; }, sBody)); advInner.appendChild(accRow(tr('Résumé pour les membres'), function () { return String(form.resume || '').trim() ? '✓' : '—'; }, resumeField(form, sync)));
+      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); /* « Ton niveau actuel » retiré de l'écran (le niveau vit dans Stratégie > Personne > Niveau) ; l'ancien texte reste en base */ advInner.appendChild(accRow(tr('Résumé pour les membres'), function () { return String(form.resume || '').trim() ? '✓' : '—'; }, resumeField(form, sync)));
       // Parts d'un grand objectif (proportionnelles au temps prévu) : MODIFIABLES. Changer une part change le temps du sous-objectif et rééquilibre les autres (total constant) ; l'avant / après est montré
       // sous chaque ligne avant d'enregistrer ; « Enregistrer » applique le tout (serveur : une seule transaction).
       var partsBox = el('div', 'objField'), partRows = {}, partEdit = null, partPreview = null, partTimer = 0, partSeq = 0;
