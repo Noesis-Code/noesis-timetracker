@@ -30,7 +30,7 @@ assert(src.includes('o.progress') && !/progress\s*=\s*.*done/i.test(extract('gau
 assert(css.includes('.arGrid .goalsGridCell--empty { background: none; outline: 1px dashed') && !css.includes('arLvlSecteur .goalsGridCell') && !/backdrop-filter|--glass-bg/.test(css), 'cases vides : pointillé sans fond ni verre, tous niveaux');
 assert(css.includes('.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; }') && css.includes('clip-path: inset(0 0 var(--ar-p) 0)') && css.includes('border: 2px dashed var(--ar-c)'), 'jauge : plein en bas, pointillés seulement autour du vide');
 assert(css.includes(".arRailR .arHrs:empty::before { content: '–'; }"), 'heures non affichées : un tiret gris');
-assert(src.includes('M9 1h6v8h8v6h-8v8H9v-8H1V9h8z'), 'plus à bords carrés');
+assert(src.includes('M10.8 0h2.4v10.8H24v2.4H13.2V24h-2.4V13.2H0v-2.4h10.8z'), 'plus à bords carrés');
 console.log('arbre-propre-test OK');
 // 5. Nombre et plus : MÊME teinte très pâle (22 %) ; en édition, toucher n'importe où sur une carte ouvre la modification, hors édition on descend
 assert(css.includes('--ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, transparent)') && css.includes('.arHoleCount { color: var(--ar-hole-mark)') && css.includes('.arHolePlus { display: none; color: var(--ar-hole-mark)'), 'nombre et plus : même jeton à 22 %');

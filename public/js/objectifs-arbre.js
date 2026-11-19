@@ -280,7 +280,7 @@
     }
     return null;
   }
-  var PLUS_SVG = '<svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor" aria-hidden="true"><path d="M9 1h6v8h8v6h-8v8H9v-8H1V9h8z"/></svg>'; // grand PLUS à bords carrés (mode édition)
+  var PLUS_SVG = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M10.8 0h2.4v10.8H24v2.4H13.2V24h-2.4V13.2H0v-2.4h10.8z"/></svg>'; // grand PLUS à bords carrés (mode édition)
   function countMark(n) { var e = el('span', 'arHoleCount', String(n)); e.setAttribute('aria-hidden', 'true'); return e; } // hors édition : le NOMBRE d'objectifs dessous, grand, gris, sans pastille (18 nov. 2026)
   function plusMark() { var e = el('span', 'arHolePlus'); e.innerHTML = PLUS_SVG; e.setAttribute('aria-hidden', 'true'); return e; } // en édition : le grand plus gris à la place
   function emptyCell(w, endIso, onTouch, below, plus, enter) { // plus : création depuis cette case, EN MODE ÉDITION seulement (grand plus gris) ; hors édition le toucher descend / entre
