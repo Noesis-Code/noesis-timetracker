@@ -76,7 +76,6 @@
 .tasksPage { flex: 0 0 50%; min-width: 0; box-sizing: border-box; }
 .tasksPage.off { height: 0; overflow: hidden; visibility: hidden; }
 .tasksPages.locked .tasksPageA { pointer-events: none; opacity: .6; } /* choix validés : on les revoit en balayant, sans les modifier */
-.tasksPageHead { margin: 0 0 4px; font-size: 13px; color: var(--text-light); }
 .tasksToast { margin: 0; text-align: center; font-size: 13px; color: var(--text-light); }
 .tasksToast.hidden { display: none; }
 .tasksMsg { margin: 0; font-size: 13px; color: var(--text-light); }

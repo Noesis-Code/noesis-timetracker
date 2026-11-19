@@ -648,7 +648,6 @@
   function paintGenPage() {
     var g = state.gen, t = target();
     ui.tasksBox.textContent = '';
-    ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + (t ? t.activityName + ' › ' + String(t.categoryLabel || '').replace(' → ', ' › ') : '…')));
     if (!g) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Choisis d’abord l’activité.')));
     else {
       if (g.loading) TMT.ui.loader(ui.tasksBox);
@@ -712,7 +711,6 @@
     ui.kicker.textContent = tr('Expansion') + ' · ' + tr('Nouvelles tâches');
     ui.pages.classList.add('locked'); // les choix de la page 1 sont figés une fois validés
     ui.tasksBox.textContent = '';
-    ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + e.acts[0].name + (e.categoryLabel ? ' › ' + e.categoryLabel.replace(' → ', ' › ') : '')));
     if (e.loading) TMT.ui.loader(ui.tasksBox);
     if (e.tasks && !e.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
     (e.tasks || []).forEach(function (t, i) {

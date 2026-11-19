@@ -1,7 +1,6 @@
 /* « Ajuste ton temps » (15 nov. 2026) : la fenêtre unique et la ligne d'information. Le verre, la carte et le voile sont ceux de .cmpConfirmVeil / .cmpConfirmCard / .cmpGlass (R29, R31) ; ici seulement la mise en page. */
 .retCard { gap: 12px; }
-.retHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
-.retKicker { font-size: 13px; line-height: 1.3; color: var(--text-light); overflow-wrap: anywhere; }
+.retHead { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 32px; }
 .retTitle { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.3; color: var(--text); overflow-wrap: anywhere; }
 .retLine { margin: 0; font-size: 14px; line-height: 1.4; color: var(--text); }
 /* Tableau libellé | valeur : trait vertical et traits fins */

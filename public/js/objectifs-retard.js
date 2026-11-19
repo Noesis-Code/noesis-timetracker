@@ -19,7 +19,6 @@
   function paintWindow(f) {
     var c = el('div', 'cmpConfirmCard cmpGlass retCard'), head = el('div', 'retHead');
     c.setAttribute('role', 'dialog'); c.setAttribute('aria-modal', 'true');
-    head.appendChild(el('span', 'retKicker', f.activite + (f.categorie ? ' › ' + f.categorie : '')));
     head.appendChild(TMT.ui.closeBtn(function () { refuse(f); }, tr('Fermer')));
     c.appendChild(head);
     c.appendChild(el('h2', 'retTitle', tr('Ajuste ton temps')));
