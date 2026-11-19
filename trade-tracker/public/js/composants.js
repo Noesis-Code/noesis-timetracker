@@ -399,6 +399,31 @@
     dock.addEventListener('focusin', watch); dock.addEventListener('focusout', watch); field.addEventListener('focus', watch); field.addEventListener('blur', watch);
   }
   ui.dockKeyboard = dockKeyboard;
+  // R50 : dans un pop-up (ou une page de premier plan), le bouton « Enregistrer » est DÉCOLLÉ du corps et REMPLACE la barre des volets (même gabarit que le bouton du bas d'Objectifs/Tâches, css/composants.css .cmpDockSave).
+  // `btn` garde ses écouteurs et son état (disabled / .cmpBtnIdle, R35) ; `host` = la fenêtre qui porte le dock (il disparaît avec elle). Un repère invisible (.cmpDockSlot) reste à la place du bouton : le dock se montre
+  // seulement quand ce repère est affiché (fenêtre ouverte, bonne sous-page) et la barre des volets est masquée (classe dockSaveOn sur <html>) ; fenêtre retirée du DOM, le dock s'en va et la barre revient.
+  var docks = [], dockRO = null;
+  function dockSync() {
+    var any = false;
+    docks = docks.filter(function (d) {
+      if (!d.slot.isConnected) { d.dock.remove(); if (dockRO) dockRO.unobserve(d.slot); return false; }
+      var on = d.slot.offsetWidth > 0;
+      d.dock.classList.toggle('hidden', !on); if (on) any = true; return true;
+    });
+    document.documentElement.classList.toggle('dockSaveOn', any);
+  }
+  ui.dockEnregistrer = function (btn, host) {
+    var slot = document.createElement('span'); slot.className = 'cmpDockSlot'; slot.setAttribute('aria-hidden', 'true');
+    if (btn.parentNode) btn.parentNode.replaceChild(slot, btn); else host.appendChild(slot);
+    var dock = document.createElement('div'); dock.className = 'cmpDockSave hidden';
+    btn.classList.remove('iconBtn', 'btnBrique', 'cmpBtn'); btn.classList.add('tasksSaveBtn'); btn.style.margin = '0';
+    host.classList.add('cmpDockHost'); dock.appendChild(btn); host.appendChild(dock);
+    docks.push({ dock: dock, slot: slot });
+    if (root.ResizeObserver) { if (!dockRO) dockRO = new root.ResizeObserver(dockSync); dockRO.observe(slot); }
+    if (root.MutationObserver && !ui.dockBodyWatch) { ui.dockBodyWatch = true; new root.MutationObserver(dockSync).observe(document.body, { childList: true }); } // un pop-up retiré du <body> libère aussitôt la barre
+    dockSync();
+    return dock;
+  };
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;

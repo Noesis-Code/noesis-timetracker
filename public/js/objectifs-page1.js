@@ -244,10 +244,9 @@
           return { forcedCategory: f.sel.value, dueDate: f.dIn ? (f.dIn.value || null) : null, plannedUserId: f.wSel ? (f.wSel.value || null) : null, recurrence: f.rec ? f.rec.get() : null };
         }));
       });
-      actions.appendChild(ok);
-      body.appendChild(actions);
       overlay.appendChild(card);
       document.body.appendChild(overlay);
+      TMT.ui.dockEnregistrer(ok, overlay); // R50 : Enregistrer décollé, à la place de la barre des volets
     });
   }
 
@@ -381,7 +380,7 @@
         card.appendChild(actions);
       } else {
         title.textContent = TMT.aiMode === 'absence' ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
-        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null, fwrap = null;
+        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null, fwrap = null, pendingSave = null;
         if (TMT.aiMode === 'absence') {
           // Mode Absence : l'utilisateur choisit aussi la date et le responsable (modèle de modification de la page 2).
           fwrap = document.createElement('div');
@@ -496,20 +495,19 @@
           whereField.appendChild(whereCap); whereField.appendChild(whereBtn);
           list.appendChild(whereField);
           var whereErr = document.createElement('p'); whereErr.className = 'msg'; whereField.appendChild(whereErr);
-          var saveRow = document.createElement('div'); saveRow.className = 'goalsCaptureConfirmActions';
           var saveBtn = document.createElement('button');
           saveBtn.type = 'button'; saveBtn.className = 'iconBtn btnBrique'; saveBtn.textContent = t('Enregistrer');
           saveBtn.addEventListener('click', function () {
             if (!chosenKey) { whereErr.textContent = t('Choisis un pôle ou un secteur.'); return; }
             pick(chosenKey);
           });
-          saveRow.appendChild(saveBtn);
           if (fwrap) card.insertBefore(list, fwrap); else card.appendChild(list);
-          card.appendChild(saveRow);
+          pendingSave = saveBtn;
         }
       }
       overlay.appendChild(card);
       document.body.appendChild(overlay);
+      if (pendingSave) TMT.ui.dockEnregistrer(pendingSave, overlay); // R50 : Enregistrer décollé, à la place de la barre des volets
     });
   }
 
@@ -679,10 +677,9 @@
       chain.then(function () { saved = true; close(); if (cb.onSave) cb.onSave(); loadGoalsCaptureBadges(); })
         .catch(function (err) { errP.textContent = err.message; okBtn.disabled = false; });
     });
-    actions.appendChild(okBtn);
-    body.appendChild(actions);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    TMT.ui.dockEnregistrer(okBtn, overlay); // R50 : Enregistrer décollé, à la place de la barre des volets
     forms.forEach(function (f) { var ta = f.labelIn; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
   }
 

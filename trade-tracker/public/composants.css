@@ -336,3 +336,12 @@
 @keyframes cmpLoaderIn { to { opacity: 1; } }
 @keyframes cmpLoaderVague { 0% { opacity: .22; } 7% { opacity: 1; } 43% { opacity: 1; } 57% { opacity: .22; } 100% { opacity: .22; } }
 @media (prefers-reduced-motion: reduce) { .cmpLoader polygon { animation: none; opacity: .7; } }
+
+/* R50 : bouton « Enregistrer » d'un pop-up, DÉCOLLÉ du corps et à la place de la barre des volets (TMT.ui.dockEnregistrer, js/composants.js). Même bouton que celui du bas d'Objectifs/Tâches (.tasksSaveBtn, R35 : gris tant que rien n'a changé, violet au changement), mêmes 16 px de marge et 52 px de haut que la barre des volets. */
+.cmpDockSlot { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.cmpDockSave { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1; }
+.cmpDockSave.hidden { display: none; }
+.cmpDockSave .tasksSaveBtn { display: flex; height: 52px; }
+.cmpDockSave .tasksSaveBtn:disabled, .cmpDockSave .tasksSaveBtn.cmpBtnIdle { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); opacity: 1; cursor: default; }
+.cmpDockHost:has(> .cmpDockSave:not(.hidden)) > :not(.cmpDockSave):not(.cmpDockSlot) { margin-bottom: 84px; } /* le contenu de la fenêtre s'arrête au-dessus du bouton */
+:root.dockSaveOn .tabbar { visibility: hidden; } /* le bouton REMPLACE la barre des volets ; elle revient à la fermeture */

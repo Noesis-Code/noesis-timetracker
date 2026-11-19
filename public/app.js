@@ -11481,6 +11481,7 @@
     $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
     $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
   });
+  TMT.ui.dockEnregistrer($('settingsSaveBtn'), $('profileSettingsPanel')); // R50 : Enregistrer décollé, à la place de la barre des volets
   $('settingsSaveBtn').addEventListener('click', function () {
     $('settingsSaveBtn').disabled = true;
     // La photo ne fait plus partie de ce formulaire (voir plus haut,
@@ -16782,18 +16783,22 @@
   }
   function openNetContact(id) {
     $('netcMsg').textContent = '';
-    if (!id) { net.contactId = null; netcFill(null); $('netContactModal').classList.remove('hidden'); return; }
+    if (!id) { net.contactId = null; netcFill(null); netcIdle(true); $('netContactModal').classList.remove('hidden'); return; }
     api('GET', '/api/network/contacts/' + id).then(function (c) {
       net.contactId = c.id;
       netcFill(c);
       netcRenderExtra(c);
-      $('netContactModal').classList.remove('hidden');
+      netcIdle(true); $('netContactModal').classList.remove('hidden');
     }).catch(function (e) { $('netcMsg').textContent = e.message; });
   }
   function closeNetContact() { $('netContactModal').classList.add('hidden'); loadNetCrm(); }
   $('netContactClose').addEventListener('click', closeNetContact);
   $('netContactModal').addEventListener('click', function (e) { if (e.target === this) closeNetContact(); });
   $('netCrmAddBtn').addEventListener('click', function () { openNetContact(0); });
+  TMT.ui.dockEnregistrer($('netcSave'), $('netContactModal')); // R50 : Enregistrer décollé, à la place de la barre des volets
+  function netcIdle(on) { $('netcSave').disabled = on; $('netcSave').classList.toggle('cmpBtnIdle', on); } // R35 : gris tant que rien n'a changé, violet dès qu'on modifie un champ
+  ['input', 'change'].forEach(function (ev) { $('netContactModal').addEventListener(ev, function () { netcIdle(false); }); });
+  $('netcStrength').addEventListener('click', function () { netcIdle(false); });
   $('netcSave').addEventListener('click', function () {
     var body = {
       name: $('netcName').value, company: $('netcCompany').value, role: $('netcRole').value, whereMet: $('netcMet').value, city: $('netcCity').value, workCity: $('netcWork').value,
