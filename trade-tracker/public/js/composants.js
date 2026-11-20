@@ -148,7 +148,13 @@
     },
     toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
     setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
-    confirm: confirmBox
+    confirm: confirmBox,
+    // « Quitter sans enregistrer ? » (20 nov. 2026) : UN utilitaire pour tout ✕ de fenêtre qui a un bouton Enregistrer / Terminer. aChange() vrai => confirmation (TMT.ui.confirm), sinon fermeture directe.
+    fermerAvecConfirmation: function (fermer, aChange) {
+      var dirty = false; try { dirty = !!(aChange && aChange()); } catch (e) { dirty = false; }
+      if (!dirty) { fermer(); return Promise.resolve(true); }
+      return confirmBox(tr('Quitter sans enregistrer ?'), { ok: tr('Quitter') }).then(function (yes) { if (yes) fermer(); return !!yes; });
+    }
   };
   // Glisser-déposer d'une ligne dans son groupe OU vers un autre groupe (R27/R29 ; extrait de bindCatSecteurDrag d'app.js, 28 oct. 2026).
   // Pointer events + setPointerCapture sur la poignée ; la ligne tirée n'est jamais déplacée dans le DOM pendant le geste (transform

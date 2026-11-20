@@ -178,8 +178,10 @@
       card.appendChild(body);
       var done = false;
       function finish(v) { if (done) return; done = true; overlay.remove(); resolve(v); }
-      closeBtn.addEventListener('click', function () { finish(null); });
-      overlay.addEventListener('click', function (e) { if (e.target === overlay) finish(null); });
+      var touched = false; card.addEventListener('input', function () { touched = true; }); card.addEventListener('change', function () { touched = true; }); // ✕ : « Quitter sans enregistrer ? » seulement après un changement
+      function tryClose() { TMT.ui.fermerAvecConfirmation(function () { finish(null); }, function () { return touched; }); }
+      closeBtn.addEventListener('click', tryClose);
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) tryClose(); });
       function fld(text, el) {
         var w = document.createElement('label'); w.className = 'goalsPlacementField';
         var sp = document.createElement('span'); sp.className = 'meta'; sp.textContent = text;
@@ -354,8 +356,10 @@
       card.appendChild(header);
       var done = false;
       function finish(v) { if (done) return; done = true; overlay.remove(); var fl = document.querySelector('.goalsCaptureFloatTop'); if (fl) fl.remove(); resolve(v); }
-      closeBtn.addEventListener('click', function () { finish(null); });
-      overlay.addEventListener('click', function (e) { if (e.target === overlay) finish(null); });
+      var touched = false; card.addEventListener('input', function () { touched = true; }); card.addEventListener('change', function () { touched = true; }); // ✕ : « Quitter sans enregistrer ? » seulement après un changement
+      function tryClose() { TMT.ui.fermerAvecConfirmation(function () { finish(null); }, function () { return touched || !!chosenKey; }); }
+      closeBtn.addEventListener('click', tryClose);
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) tryClose(); });
 
       var taskLine = document.createElement('p');
       taskLine.className = 'meta goalsCaptureConfirmTask';
@@ -540,8 +544,10 @@
     body.className = 'goalsPlacementScroll';
     card.appendChild(body);
     function close() { overlay.remove(); if (!saved && cb.onCancel) cb.onCancel(); }
-    closeBtn.addEventListener('click', close);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    var touched = false; card.addEventListener('input', function () { touched = true; }); card.addEventListener('change', function () { touched = true; });
+    function tryClose() { TMT.ui.fermerAvecConfirmation(close, function () { return touched; }); } // ✕ : « Quitter sans enregistrer ? » seulement après un changement
+    closeBtn.addEventListener('click', tryClose);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) tryClose(); });
 
     var uid = TMT.getProfile().id;
     var forms = [];

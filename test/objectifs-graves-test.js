@@ -91,7 +91,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   e = tryIt(Object.assign({}, base, { endDate: '' })); assert(e && e.statusCode === 400, 'échéance vide : refusée');
   e = tryIt(Object.assign({}, base, { endDate: '2026-02-31' })); assert(e && e.statusCode === 400 && /valide/.test(e.message), 'date impossible (31 février) : refusée');
   e = tryIt(Object.assign({}, base, { endDate: 'demain' })); assert(e && e.statusCode === 400, 'texte non ISO : refusé');
-  e = tryIt(Object.assign({}, base, { startDate: '2020-01-01', endDate: '2020-06-01' }), true); assert(e && e.statusCode === 400 && /passé/.test(e.message), 'saisie utilisateur : échéance passée refusée');
+  e = tryIt(Object.assign({}, base, { startDate: '2020-01-01', endDate: '2020-06-01' }), true); assert(e && e.statusCode === 400 && /après aujourd’hui/.test(e.message), 'saisie utilisateur : échéance passée refusée (demain ou après seulement)');
   e = tryIt(Object.assign({}, base, { endDate: '2027-06-01' }), true); assert(e === null, 'échéance valide et future : acceptée');
   const before = db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ?').get(u).n;
   // migration : anciens objectifs sans échéance valide

@@ -10860,7 +10860,7 @@
   // mécanisme qu'Activité »). Elle a pris la place du « ← » flottant, dans le
   // bandeau plutôt qu'en surimpression — voir index.html et styles.css.
   // L'écouteur, lui, est rigoureusement le même qu'avant.
-  $('settingsCloseBtn').addEventListener('click', closeSettingsPanel);
+  $('settingsCloseBtn').addEventListener('click', function () { TMT.ui.fermerAvecConfirmation(closeSettingsPanel, function () { return !$('settingsSaveBtn').disabled; }); }); // « Quitter sans enregistrer ? » si l'identité a changé
 
   // Clic sur la zone « en dehors » qui entoure la carte : referme, comme
   // #activityPage (voir son propre écouteur, même forme exacte). Le test
@@ -16862,8 +16862,9 @@
     }).catch(function (e) { $('netcMsg').textContent = e.message; });
   }
   function closeNetContact() { $('netContactModal').classList.add('hidden'); loadNetCrm(); }
-  $('netContactClose').addEventListener('click', closeNetContact);
-  $('netContactModal').addEventListener('click', function (e) { if (e.target === this) closeNetContact(); });
+  function tryCloseNetContact() { TMT.ui.fermerAvecConfirmation(closeNetContact, function () { return !$('netcSave').disabled; }); } // « Quitter sans enregistrer ? » si un champ a changé
+  $('netContactClose').addEventListener('click', tryCloseNetContact);
+  $('netContactModal').addEventListener('click', function (e) { if (e.target === this) tryCloseNetContact(); });
   $('netCrmAddBtn').addEventListener('click', function () { openNetContact(0); });
   TMT.ui.dockEnregistrer($('netcSave'), $('netContactModal')); // R50 : Enregistrer décollé, à la place de la barre des volets
   function netcIdle(on) { $('netcSave').disabled = on; $('netcSave').classList.toggle('cmpBtnInactif', on); } // R35 : gris tant que rien n'a changé, violet dès qu'on modifie un champ

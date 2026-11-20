@@ -581,7 +581,7 @@ function checkEcheance(body, start, pasPassee) {
   const e = body && body.endDate;
   if (e === undefined || e === null || e === '') throw err('Indique l’échéance de l’objectif (une date précise).');
   if (!isDay(e)) throw err('L’échéance doit être une date valide.');
-  if (pasPassee && e < today()) throw err('L’échéance ne peut pas être dans le passé.');
+  if (pasPassee && e <= today()) throw err('L’échéance doit être après aujourd’hui.'); // demain ou après (20 nov. 2026)
   if (e <= (start || (isDay(body.startDate) ? body.startDate : today()))) throw err('L’échéance doit venir après le début de l’objectif.');
 }
 // Migration idempotente : un objectif existant sans échéance valide en reçoit une PAR DÉFAUT, rien n'est supprimé. Ordre : dernière date connue de ses périodes,

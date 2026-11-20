@@ -353,7 +353,8 @@
     var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'iconBtn btnBrique'; ok.textContent = t('Enregistrer');
     row.appendChild(ignore); row.appendChild(ok); card.appendChild(row);
     function close() { overlay.remove(); }
-    closeBtn.onclick = close; ignore.onclick = close;
+    var touched = false; card.addEventListener('input', function () { touched = true; });
+    closeBtn.onclick = function () { TMT.ui.fermerAvecConfirmation(close, function () { return touched; }); }; ignore.onclick = close; // ✕ : « Quitter sans enregistrer ? » après un changement ; « Ignorer » ferme directement
     ok.onclick = function () {
       ok.disabled = true;
       var jobs = inputs.filter(function (i) { return i.ti.value.trim(); }).map(function (i) {

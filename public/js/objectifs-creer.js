@@ -112,10 +112,11 @@
     var foot = el('div', 'objFoot'); cardEl.appendChild(foot);
     overlay.appendChild(cardEl); document.body.appendChild(overlay);
     function close() { overlay.remove(); if (opts.onClose) opts.onClose(); }
-    x.addEventListener('click', close);
+    function tryClose() { TMT.ui.fermerAvecConfirmation(close, opts.dirty); } // ✕ ou fond : confirmation si un changement n'est pas enregistré
+    x.addEventListener('click', tryClose);
     overlay.addEventListener('mousedown', function (e) { overlay._down = e.target === overlay; });
     var born = Date.now(); // le relâchement d'un appui long (carte fusionnée) ne ferme jamais la fenêtre qu'il vient d'ouvrir
-    overlay.addEventListener('click', function (e) { if (e.target === overlay && overlay._down && Date.now() - born > 700) close(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay && overlay._down && Date.now() - born > 700) tryClose(); });
     return { overlay: overlay, body: body, foot: foot, close: close, head: titleBox };
   }
   function field(label, node) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', label)); w.appendChild(node); return w; }
@@ -328,10 +329,13 @@
     slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
     if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
     panelForm = form; setBack(null);
-    function stepOff() { return cur === 'desc' ? !String(form.title || '').trim() : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
+    function todayLocal() { return new Date().toLocaleDateString('en-CA'); } // échéance : demain ou après seulement (20 nov. 2026)
+    var MSG_ECH = tr('L’échéance doit être après aujourd’hui.');
+    function stepOff() { return cur === 'desc' ? (!String(form.title || '').trim() || form.dateBad === true) : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
     function syncGo() { stepBtn.disabled = stepOff(); }
     var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.placeholder = tr('Titre'); titleIn.setAttribute('aria-label', tr('Titre'));
     titleIn.addEventListener('input', function () { form.title = titleIn.value; syncGo(); });
+    closeGuard = function () { return !!String(titleIn.value || '').trim() || form.dateFixe === true || !!form.description; }; // ✕ après saisie : « Quitter sans enregistrer ? »
     boxes.desc.appendChild(field(tr('Titre'), titleIn)); // libellé du champ du titre (l'en-tête du panneau reste « Objectif »)
     if (form.endFixed && form.cellDefaultEnd) { // depuis une case : ÉCHÉANCE et « Date fixe » juste sous le titre, dès le premier écran (une fonction, un seul endroit)
       var fxWrap = el('div', 'objFxWrap' + (form.dateFixe === true ? ' fixed' : '')), dueRow = el('div', 'objDueRow'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
@@ -342,7 +346,7 @@
       fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); fxWrap.classList.toggle('fixed', !!v); if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
       fxWrap.insertBefore(fxPick, dueRow);
       dueIn.addEventListener('change', function () {
-        var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; // l'échéance reste dans la case où l'on crée
+        var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; form.dateBad = v <= todayLocal(); msg.textContent = form.dateBad ? MSG_ECH : ''; syncGo(); if (form.dateBad) return; // aujourd’hui ou avant : message sous le champ, « Suivant » inactif // l'échéance reste dans la case où l'on crée
         var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
         form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines';
         if (form.cellPeriodic) form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
@@ -683,7 +687,7 @@
       var txt = form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       row.appendChild(el('span', 'objGridName', tr('Échéance')));
       if (form.cellPeriodic) { // périodique créé depuis une case : la date se touche (sélecteur borné à la période de la case), violet comme les autres lignes modifiables
-        var dp = datePick(txt, form.cellStart > form.startDate ? form.cellStart : form.startDate, form.cellEnd, form.endDate || form.cellEnd, function (v) {
+        var dp = datePick(txt, (function (a) { var d = new Date(); d.setDate(d.getDate() + 1); var t1 = d.toLocaleDateString('en-CA'); return a > t1 ? a : t1; })(form.cellStart > form.startDate ? form.cellStart : form.startDate), form.cellEnd, form.endDate || form.cellEnd, function (v) {
           var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
           form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
           loadRatt().then(function () { return infFetch(); }).then(infPaint); // la date change : parent et plan proposé recalculés
@@ -840,6 +844,7 @@
       if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; if (form.rdNeeded) { show('inf'); } else finishAll(); }); return; } // dernier écran (hebdomadaire) : les modifications proposées passent avant la création
       if (form.ratt && form.ratt.key !== rattKey2()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
+      if (form.endDate <= todayLocal()) { msg.textContent = MSG_ECH; return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); };
       // Sans réseau (20 nov. 2026) : l'objectif entre dans la file hors ligne (même voie que les tâches, une clé d'idempotence) ; le panneau se ferme comme après une création, l'objectif s'affiche en attente dans l'arbre, et le serveur applique ses règles au retour du réseau (refus = visible avec son message).
@@ -886,13 +891,13 @@
   // « D'où vient ce temps ? » (Ajouter / Déplacer) puis tableau Avant / Après équilibré (POST /api/objectifs/temps/plan, apply au moment d'Enregistrer). Résout { mode, apres } ou null (abandon).
   function openTempsAjuster(spec, query, oldMin, newMin) {
     return new Promise(function (resolve) {
-      var m = openModal(tr('Ajuster le temps')), done = false;
+      var tApres = null, done = false, m = openModal(tr('Ajuster le temps'), { dirty: function () { return !!tApres && Object.keys(tApres).length > 0; }, onClose: function () { if (!done) { done = true; resolve(null); } } });
       function finish(v) { if (done) return; done = true; m.close(); resolve(v); }
       var closeOrig = m.close; m.close = function () { closeOrig(); if (!done) { done = true; resolve(null); } };
       TMT.ui.attente(api('GET', '/api/objectifs/temps?' + query)).then(function (e) {
         var modes = (e && e.modes) || []; if (!modes.length) modes = ['ajouter'];
         function table() {
-          var apres = {}, lines = (e.takeLines && e.takeLines.deplacer) || [], rows = [], tbl, note = el('p', 'hint objTNote'), ok = btn('objFootBtn', tr('Valider'), function () { finish({ mode: 'deplacer', apres: apres }); });
+          var apres = tApres = {}, lines = (e.takeLines && e.takeLines.deplacer) || [], rows = [], tbl, note = el('p', 'hint objTNote'), ok = btn('objFootBtn', tr('Valider'), function () { finish({ mode: 'deplacer', apres: apres }); });
           function after(l) { return apres[l.key] === undefined ? l.avantMin : apres[l.key]; }
           function taken() { return lines.reduce(function (n, l) { return n + (l.avantMin - after(l)); }, 0); }
           function paint() { var bal = lines.length > 0 && taken() === newMin - oldMin; ok.disabled = !bal; var avant = oldMin + lines.reduce(function (n, l) { return n + l.avantMin; }, 0), ap = newMin + lines.reduce(function (n, l) { return n + after(l); }, 0); if (tbl) tbl.setTotal(avant, ap); note.textContent = ap === avant ? '' : tr(ap > avant ? 'Le total doit rester à {t} : reprends encore {d} sur les lignes du dessus.' : 'Le total doit rester à {t} : remets {d} sur une ligne.', { t: hh(avant), d: hh(Math.abs(ap - avant)) }); note.classList.toggle('hidden', ap === avant); }
@@ -1066,7 +1071,7 @@
   }
   function closeExtend() { extendCancel = null; endFlow(); }
   var closeGuard = null; // vrai quand le panneau (fiche ou Modifier) a un changement non enregistré : le ✕ demande alors « Quitter sans enregistrer ? » (TMT.ui.confirm)
-  function closePanel() { if (closeGuard && closeGuard()) { TMT.ui.confirm(tr('Quitter sans enregistrer ?'), { ok: tr('Quitter') }).then(function (yes) { if (yes) endFlow(); }); return; } endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
+  function closePanel() { TMT.ui.fermerAvecConfirmation(endFlow, closeGuard); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
 
 
   // Carte fusionnée de l’arbre : la liste des objectifs qu’elle contient ; chaque ligne choisit un objectif.

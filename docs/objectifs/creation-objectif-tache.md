@@ -4,6 +4,10 @@ Factuel, lu dans le code de `origin/staging` (b979346f). Rien n'est changé tant
 
 ## Objectif : barre « Nouvel objectif… » (`public/js/objectifs-creer.js`, `server/lib/objectifs.js` `creer`)
 
+**Échéance (20 nov. 2026, Émilien)** : un objectif ne se crée que si son échéance est DEMAIN ou après ; aujourd’hui ou avant bloque « Suivant » / « Terminer » (bouton inactif) avec « L’échéance doit être après aujourd’hui. » sous le champ, côté client ET serveur (même message). Une case entièrement passée de l’arbre n’a pas de « + » ; une période en cours reste créable. Le jour écrit dans le titre ne pré-remplit jamais une date aujourd’hui/passée. Les objectifs existants ne changent pas.
+
+**« Quitter sans enregistrer ? » (20 nov. 2026)** : tout ✕ d’une fenêtre qui a Enregistrer/Terminer demande confirmation (`TMT.ui.fermerAvecConfirmation(fermer, aChange)`, composants.js, fenêtre `TMT.ui.confirm`) après un changement, sinon ferme directement : création d’un objectif, fiche/Modifier, Ajuster le temps, confirmation de capture (3 pop-up), objectifs hebdomadaires proposés, fiche contact réseau, Réglages (identité). Laissés sans : fenêtres sans saisie ou d’action immédiate (suppressions, choix, Partager les tâches « Valider le partage », Ajouter un membre/responsable, Catégories).
+
 Barre : 140 caractères, épingle (photo/fichier → objectifs lus), ↑. Puis panneau en 3 à 5 pages « Suivant n/total » puis « Terminer » (rien n'est créé avant).
 
 | Page | Champ | Défaut | Obligatoire | Visible / Avancé |
