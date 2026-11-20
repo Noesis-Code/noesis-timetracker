@@ -226,6 +226,8 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objDock.objDockBar .objStepBtn { height: 52px; }
 
 /* Fiche d’une catégorie, menu Responsables (18 nov. 2026) : une ligne par responsable, croix officielle .cmpRemove--corner en haut à droite (R32), séparateur .cmpSepRow (R22). */
+.objDock .tasksProposeBody { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; } /* le tableau standard .retTable sort du bord (marge négative) : le défilant porte la marge du panneau (12 px) pour que rien ne dépasse, sinon le contenu de la fiche défilait de côté */
+.objDock .retTable { margin-left: -12px; margin-right: -12px; }
 .catStrategieBody { padding-bottom: 0; } /* la hauteur d'un pop-up suit son contenu : même espace en bas (panneau 12 px) qu'en haut */
 .catStrategieBody .msg { margin: 0; min-height: 0; } .catStrategieBody .msg:empty, .tasksPropose .objPanelFoot:has(> .objMsg:empty) { display: none; } /* message vide, pied vide : aucun espace réservé sous le dernier bloc */
 .catStrategieBody .repPct { color: var(--text); } /* pourcentage calculé (lecture seule), dans le tableau standard .retTable (composants.css) */
