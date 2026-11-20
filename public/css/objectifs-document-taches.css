@@ -1,38 +1,38 @@
 /* Ajouter des tâches depuis un document (Expansion) ; violet = couleur principale. */
 .docTasksRow { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
 .docTasksRow input[type=checkbox] { margin-top: 3px; accent-color: var(--purple); }
-.docTasksMeta { font-size: 12px; opacity: .7; margin-top: 2px; }
-.docTasksWarn { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(156, 140, 200, .16); border: 1px solid rgba(156, 140, 200, .5); font-size: 13px; }
+.docTasksMeta { font-size: 13px; opacity: .7; margin-top: 2px; }
+.docTasksWarn { margin-top: 12px; padding: 8px 12px; border-radius: 12px; background: rgba(var(--purple-rgb), .16); border: 1px solid rgba(var(--purple-rgb), .5); font-size: 13px; }
 
 /* Zone Expansion de l'onglet 1 (ex-page « Ajouter des tâches ») : posée dans la page, cartes en verre. */
-.goalsAddSoon { margin-left: 6px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--glass-border); }
+.goalsAddSoon { margin-left: 8px; font-size: 13px; padding: 2px 8px; border-radius: 999px; background: var(--glass-border); }
 .docTasksBody { padding: 0; }
 .docTasksDriveRow, .docTasksRow {
   background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); color: var(--text);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
-.docTasksDriveRow { border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 10px; font-size: 15px; }
+.docTasksDriveRow { border-radius: var(--radius-lg); padding: 12px 12px; margin-bottom: 12px; font-size: 15px; }
 .docTasksDriveOff { opacity: 0.6; cursor: default; }
-.docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 6px; }
-.docTasksChip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(156, 140, 200, .18); margin-top: 6px; }
-.docTasksApplyBtn { margin-top: 14px; width: 100%; padding: 12px; border-radius: var(--radius-lg); font-weight: 600; }
+.docTasksFilesBox { display: flex; flex-wrap: wrap; gap: 8px; }
+.docTasksChip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 8px; border-radius: 999px; background: rgba(var(--purple-rgb), .18); margin-top: 8px; }
+.docTasksApplyBtn { margin-top: 12px; width: 100%; padding: 12px; border-radius: var(--radius-lg); font-weight: 600; }
 .docTasksDrive { margin-bottom: 2px; }
-.docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.docTasksDriveBtn { width: 100%; padding: 10px; border-radius: 12px; font-weight: 600; }
-.docTasksConsent { font-size: 12px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
-.docTasksPick { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
-.docTasksPick:hover { background: rgba(156, 140, 200, .18); }
+.docTasksDriveHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.docTasksDriveBtn { width: 100%; padding: 12px; border-radius: 12px; font-weight: 600; }
+.docTasksConsent { font-size: 13px; opacity: .75; margin: 8px 0 0; line-height: 1.4; }
+.docTasksPick { display: block; width: 100%; text-align: left; margin-top: 8px; padding: 8px 12px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
+.docTasksPick:hover { background: rgba(var(--purple-rgb), .18); }
 .docTasksLink { background: none; border: 0; color: var(--purple); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
-.docTasksConfirm { font-size: 13px; margin: 4px 0 10px; }
+.docTasksConfirm { font-size: 13px; margin: 4px 0 12px; }
 /* Surveillance du dossier Drive + pop-up des tâches ajoutées (sombre seulement, même verre/halo). */
 .docTasksSync { margin-bottom: 2px; }
 .docTasksSync .docTasksSyncRow { font-size: 13px; padding: 0 4px; margin: -4px 0 12px; background: none; border: 0; box-shadow: none; }
-.docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
-.docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .55); }
+.docTasksInstr { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: transparent; color: inherit; font: inherit; font-size: 13px; resize: none; }
+.docTasksPop { position: fixed; inset: 0; z-index: 103; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--scrim); }
 .docTasksPop.hidden { display: none; }
-.docTasksPopCard { width: 100%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; padding: 14px; border-radius: 18px; color: var(--text); }
+.docTasksPopCard { width: 100%; max-width: var(--obj-pop-w); max-height: 80vh; display: flex; flex-direction: column; padding: 12px; border-radius: 18px; color: var(--text); }
 .docTasksPopList { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 8px 0; }
-.docTasksPopRow { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 28px 8px 4px; border-bottom: 1px solid var(--sep); font-size: 14px; }
+.docTasksPopRow { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 24px 8px 4px; border-bottom: 1px solid var(--sep); font-size: 14px; }
 .docTasksPopToast { min-height: 18px; font-size: 13px; }
 /* Modifications proposées : avant -> après, case cochée par défaut, croix rouge en haut à droite. Même verre/halo. */
 .docTasksChangeDiff { font-size: 14px; overflow-wrap: anywhere; }
@@ -56,14 +56,14 @@
 /* tâches proposées = lignes simples (ni verre, ni cadre, ni opacité), une fine ligne entre deux, comme les tâches de la Page 2 / l'historique. */
 .docTasksRow { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; margin-top: 0; padding: 12px 2px; opacity: 1; }
 .docTasksRowWrap:last-of-type .docTasksRow, .docTasksRowWrap:last-child .docTasksRow { border-bottom: 0; }
-.docTasksCancelRow { text-align: center; margin: 6px 0 20px; }
+.docTasksCancelRow { text-align: center; margin: 8px 0 16px; }
 .docTasksPickOn { background: rgba(var(--purple-rgb), .22); border-color: var(--purple); opacity: 1; }
 /* Dossiers surveillés (liste repliable). */
-.docTasksFolderList { margin-bottom: 6px; }
+.docTasksFolderList { margin-bottom: 8px; }
 .docTasksFolderRow { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 14px; }
 .docTasksFolderName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* rangée du bas (dossiers connectés orange + Déconnecter gris) ; crayon à cible tactile 44 px. */
-.docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-top: 4px; }
+.docTasksBottomRow { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin-top: 4px; }
 .docTasksBottomRow .docTasksFoldersLink { align-self: center; display: inline-flex; align-items: center; }
 .docTasksBottomRow .docTasksDiscLink { margin-left: auto; align-self: center; color: var(--text-light); }
 .docTasksFoldersInline { margin-top: 8px; }
@@ -72,28 +72,28 @@
 .docTasksFolderName { flex: 1 1 auto; }
 
 .docTasksFolderIco { vertical-align: -3px; margin-right: 8px; flex: none; }
-.docTasksFsActions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.docTasksFsActions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .docTasksFsActions .docTasksApplyBtn { margin-top: 0; }
 
 .docTasksFolderToggle { background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; }
-.docTasksFolderFiles { margin: 0 0 6px 24px; }
+.docTasksFolderFiles { margin: 0 0 8px 24px; }
 .docTasksFileRow { display: block; width: 100%; text-align: left; padding: 8px 0; border: 0; border-bottom: 1px solid var(--sep); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .docTasksFileRow:last-child { border-bottom: 0; }
 
 .docTasksFsActions { justify-content: space-between; }
-.docTasksFsActions .docTasksApplyBtn { flex: none; width: auto; padding: 8px 20px; border-radius: var(--radius-sm); font-size: 14px; }
+.docTasksFsActions .docTasksApplyBtn { flex: none; width: auto; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 14px; }
 
 /* Liste à chevrons : « Modifications proposées » / « Nouvelles tâches » (une seule carte, deux lignes séparées par un trait fin, pastille orange toute ronde). */
-.docTasksPair { display: flex; flex-direction: column; border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; margin: 6px 0 10px; }
-.docTasksTile { display: flex; align-items: center; gap: 10px; width: 100%; height: 52px; padding: 0 14px; box-sizing: border-box; background: transparent; color: inherit; font: inherit; font-size: 15px; border: 0; cursor: pointer; text-align: left; }
+.docTasksPair { display: flex; flex-direction: column; border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; margin: 8px 0 12px; }
+.docTasksTile { display: flex; align-items: center; gap: 12px; width: 100%; height: 52px; padding: 0 12px; box-sizing: border-box; background: transparent; color: inherit; font: inherit; font-size: 15px; border: 0; cursor: pointer; text-align: left; }
 .docTasksTile + .docTasksTile { border-top: 1px solid var(--sep); }
 .docTasksTileLabel { flex: 1 1 auto; min-width: 0; line-height: 24px; padding-bottom: 3px; }
-.docTasksCount { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--brique); color: var(--white); font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
+.docTasksCount { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--brique); color: var(--white); font-size: 13px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
 .docTasksCount.hidden { display: none; }
 #docTasksMsg:empty { margin: 0; min-height: 0; }
 #docTasksResults:empty { display: none; }
 
-.docTasksChangeWhen { font-size: 12px; color: var(--text-light); margin-bottom: 2px; }
+.docTasksChangeWhen { font-size: 13px; color: var(--text-light); margin-bottom: 2px; }
 .docTasksFor { color: var(--text-light); }
 .docTasksFor.me { color: var(--violet-me); font-weight: 600; }
 .docTasksOther .ptBody { opacity: .65; }
@@ -102,10 +102,10 @@
 .ptBody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.3; cursor: pointer; }
 .ptLabel { min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .ptTaskTitle { font-size: 14px; font-weight: 400; }
-.ptWeek { flex: none; margin-top: 1px; padding: 2px 7px; border-radius: 999px; background: var(--purple); color: var(--on-action); font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.ptSub { font-size: 12px; line-height: 1.4; opacity: .7; font-variant-numeric: tabular-nums; }
-.ptFlag { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--warn-line); background: rgba(156, 140, 200,.12); color: var(--warn-gold); font-size: 11.5px; }
-.ptOver { font-size: 12px; line-height: 1.4; color: var(--warn-gold); }
+.ptWeek { flex: none; margin-top: 1px; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: var(--on-action); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ptSub { font-size: 13px; line-height: 1.4; opacity: .7; font-variant-numeric: tabular-nums; }
+.ptFlag { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--warn-line); background: rgba(var(--purple-rgb), .12); color: var(--warn-gold); font-size: 13px; }
+.ptOver { font-size: 13px; line-height: 1.4; color: var(--warn-gold); }
 .ptBar { flex: none; display: flex; flex-wrap: wrap; padding: 8px 0 0; }
 .ptBar.hidden { display: none; }
 .ptBar .docTasksApplyBtn { margin-top: 0; width: 100%; min-height: 44px; }
@@ -117,39 +117,39 @@
 #docTasksChangesPop #docTasksChangesBox { overflow: hidden; display: flex; flex-direction: column; margin: 8px -14px; }
 #docTasksChangesPop #docTasksChangesTasks { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .ptView { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; }
-.ptPane { width: 100%; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; padding: 0 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.ptPane { width: 100%; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; padding: 0 12px; display: flex; flex-direction: column; gap: 12px; overscroll-behavior: contain; }
 .ptPane > * { flex: none; }
-.ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ptTopRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ptTotalR { font-size: 13px; opacity: .65; font-variant-numeric: tabular-nums; text-align: right; }
-.ptAllRow { display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+.ptAllRow { display: flex; align-items: center; gap: 12px; font-size: 15px; cursor: pointer; }
 .ptAllTxt { font-style: italic; font-weight: 600; }
 .ptTopRow > .ptAllRow { flex: 1 1 auto; }
-.ptPole { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ptPole { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ptPdot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--pc, var(--purple)); }
 .ptTitle { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
 .ptTitleBox { display: flex; flex-direction: column; min-width: 0; }
-.ptCardRow { display: flex; align-items: flex-start; gap: 10px; }
+.ptCardRow { display: flex; align-items: flex-start; gap: 12px; }
 .ptCardRow > input[type="checkbox"] { margin-top: 16px; }
-.ptCard { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+.ptCard { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 18px; text-align: left; font: inherit; color: inherit; cursor: pointer;
   background: color-mix(in srgb, var(--pc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--pc) 35%, transparent); }
-.ptCardTop { display: flex; align-items: center; gap: 10px; }
+.ptCardTop { display: flex; align-items: center; gap: 12px; }
 .ptCardTop strong { font-size: 18px; min-width: 0; overflow-wrap: anywhere; }
-.ptCardN { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--brique); color: var(--white); font-size: 12px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
+.ptCardN { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--brique); color: var(--white); font-size: 13px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
 .ptCard svg { flex: none; opacity: .6; }
-.ptChip { padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: 12px; }
+.ptChip { padding: 3px 8px; border-radius: 999px; background: var(--glass-border); font-size: 13px; }
 .ptCardSec { flex-direction: row; align-items: center; }
 .ptSecTxt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ptSecTxt strong { font-size: 17px; overflow-wrap: anywhere; }
 .ptHelp { margin: 0; font-size: 13px; opacity: .7; }
-.ptWeekHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; }
-.ptWeekRow { display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
+.ptWeekHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; }
+.ptWeekRow { display: flex; align-items: center; gap: 12px; min-width: 0; cursor: pointer; }
 .ptWeekRow .ptWeek { margin-top: 0; }
-.ptWeekTot { flex: none; font-size: 12px; opacity: .6; font-variant-numeric: tabular-nums; }
+.ptWeekTot { flex: none; font-size: 13px; opacity: .6; font-variant-numeric: tabular-nums; }
 .ptWeekSub { margin-top: -6px; padding-left: 30px; }
-.ptWeekTasks { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 8px 22px; }
-.ptClamp { display: block; width: calc(100% - 30px); box-sizing: border-box; margin-right: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptWeekTasks { display: flex; flex-direction: column; gap: 12px; padding: 2px 0 8px 24px; }
+.ptClamp { display: block; width: calc(100% - 30px); box-sizing: border-box; margin-right: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptClamp.open { white-space: normal; overflow: visible; }
-.ptTask { position: relative; padding-right: 28px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.ptTask { position: relative; padding-right: 24px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
 .ptTask > input[type="checkbox"] { margin-top: 1px; }
 .ptTask.ptNo { cursor: default; }
 .ptTask .ptBody { cursor: inherit; }
@@ -158,11 +158,11 @@
 .ptPane input[type="checkbox"]:disabled { opacity: .35; cursor: default; }
 .ptBar { flex-direction: column; align-items: stretch; gap: 0; padding-top: 0; }
 .ptDots { display: flex; justify-content: center; }
-#docTasksPDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#docTasksPDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px var(--track-bg); }
 #docTasksPDots .goalsDotBtn { height: 18px; }
 #docTasksPDots .goalsDotBtn.on .goalsDot { opacity: 1; }
 #docTasksPDots .goalsDotBtn.on { cursor: default; }
-#docTasksChangesTasks > .docTasksMeta { padding: 0 14px; }
+#docTasksChangesTasks > .docTasksMeta { padding: 0 12px; }
 
 /* Cases de « Nouvelles tâches » : contour d'origine inchangé, intérieur transparent (on ne voit que le contour) ; cochée = violet très translucide, coche blanche. */
 .ptPane input[type="checkbox"] { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -172,14 +172,14 @@
 .docTasksDelAll { align-self: center; }
 .docTasksDelAll[data-armed] { color: var(--danger); font-weight: 600; }
 
-.docTasksPauseRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13px; }
+.docTasksPauseRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 13px; }
 
 /* Réglages d'un dossier Drive : interrupteur « Mettre en pause » blanc ; croix rouge de retrait dans l'angle de la cellule (dossier déjà enregistré) ; Annuler à gauche d'Enregistrer au premier enregistrement. */
 #docTasksFsBody { position: relative; }
 #docTasksFsBody .toggleSwitch input:checked + .toggleSwitchTrack { background: var(--text); }
 .docTasksFsActions { justify-content: flex-end; }
 .docTasksFsActions .docTasksCancelBtn { flex: none; margin-right: auto; padding: 8px 12px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; cursor: pointer; }
-#docTasksFsBody:has(.cmpRemove--corner) { padding-top: 26px; } /* la croix rouge ne recouvre pas l'interrupteur */
+#docTasksFsBody:has(.cmpRemove--corner) { padding-top: 24px; } /* la croix rouge ne recouvre pas l'interrupteur */
 /* Flèche près du nom (dossier connecté, liste des dossiers) ; corbeille d'origine en bas à gauche du réglage d'un dossier (exception demandée, 31 oct. 2026). */
 :root .docTasksFolderToggle { flex: 0 1 auto; }
 :root .docTasksFolderToggle .cmpChev, :root .docTasksFoldersLink .cmpChev { margin-left: 2px; }

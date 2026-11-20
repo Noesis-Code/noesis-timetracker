@@ -3291,6 +3291,7 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalLine { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .extCalSeg { flex: 1 1 auto; width: auto; margin: 0; }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
+:root .extCalHrs { color: var(--purple); } /* R54 */
 
 /* 18 oct. 2026 : champs de « Répartition selon mon agenda » = transparents comme le reste ; champ des mots plus long, bords très arrondis. */
 .extCalRulesBlock input.calendarFeedUrl { background: transparent; color: var(--text); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 9px 14px; box-sizing: border-box; font-size: 13px; }

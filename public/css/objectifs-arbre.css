@@ -39,13 +39,13 @@ html.arbreOn #app::after { display: none; }
 .arEnter { animation: arEnter .22s ease-out; }
 @keyframes arEnter { from { opacity: 0; } to { opacity: 1; } } /* fondu seulement : jamais de décalage, les bulles restent exactement sous leur colonne */
 @media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
-.arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); pointer-events: none; }
+.arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: var(--shadow-card); pointer-events: none; }
 .arToast.hidden { display: none; }
 .arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
 
 .arBubble span { overflow-wrap: anywhere; }
 /* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
-.arNode.arDragging { z-index: 7; opacity: .9; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
+.arNode.arDragging { z-index: 7; opacity: .9; box-shadow: var(--shadow-pop); }
 .arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
 .arNode.arDropBad { opacity: .45; }
 /* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité) ; touchable sur toute sa surface (ajouter un objectif). */

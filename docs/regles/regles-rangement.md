@@ -1,4 +1,4 @@
-# Référence design unique (règles R1–R52 et F1–F5, obligatoires, décision d'Émilien du 20 oct. 2026)
+# Référence design unique (règles R1–R54 et F1–F5, obligatoires, décision d'Émilien du 20 oct. 2026)
 
 Tout agent lit ce fichier avant de toucher à l'interface (`public/`). Le relecteur refuse toute branche qui les viole sans justification écrite.
 
@@ -84,3 +84,4 @@ R1 [ ] R2 [ ] R3 [ ] R4 [ ] R5 [ ] R6 [ ] R7 [ ] R8 [ ] R9 [ ] R11 [ ] R12 [ ] R
 (une règle non cochée = une phrase de justification)
 ```
 - R53. Couleur des catégories dans les tableaux (décision d'Émilien, 19 nov. 2026) : dans TOUS les tableaux, le nom d'une catégorie prend sa couleur : activité = sa couleur, pôle = sa nuance (rang `shadeRank`), secteur = la nuance de son pôle (R16) ; plusieurs lignes peuvent porter la même couleur. Les lignes sans catégorie (« Total », « Reste », « Toutes tes activités », noms de membres) gardent la couleur normale. Composant unique : `TMT.ui.colorer([{ el, a, p }])` (`js/composants.js`), jamais recopié ; les tableaux d'Objectifs (`objTable`, pop-up des heures) l'appellent déjà. Chaque écran est audité (règle « Nouvelle règle = application partout »).
+- R54. Heure ou pourcentage modifiable = violet (audit d'Émilien, 20 nov. 2026) : une heure ou un pourcentage MODIFIABLE est toujours violet (--purple #9C8CC8), le « h » inclus ; un pourcentage calculé (non modifiable) reste en --text. Champs concernés : .retInput/.retVal, .objHoursVal (heures et parts en %), .objTEdit, .recurNum, .extCalHrs. Aucune couleur nouvelle. Chaque écran est audité (règle « Nouvelle règle = application partout »).
