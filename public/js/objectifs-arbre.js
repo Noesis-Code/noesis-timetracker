@@ -542,8 +542,8 @@
   }
   function offlineZone() {
     var q = TMT.offlineObjectifs ? TMT.offlineObjectifs.list() : []; if (!q.length) return;
-    var z = el('div', 'activityGoalsCategoryAutoTaskOffline'); z.appendChild(el('p', 'activityGoalsCategoryAutoTaskOfflineTitle', tr('À classer') + ' (' + q.length + ')'));
-    q.forEach(function (o) { z.appendChild(el('p', 'meta activityGoalsCategoryAutoTaskOfflineRow' + (o.failed ? ' isFailed' : ''), o.failed ? '✗ ' + o.label + ' — ' + tr('non ajoutée') + (o.error ? ' : ' + o.error : '') : '⏳ ' + o.label + ' — ' + tr('la synchronisation se fera au retour du réseau'))); });
+    var z = el('div', 'activityGoalsCategoryAutoTaskOffline cmpGlass'); z.appendChild(el('p', 'activityGoalsCategoryAutoTaskOfflineTitle', tr('À classer') + ' (' + q.length + ')'));
+    q.forEach(function (o) { z.appendChild(el('p', 'meta activityGoalsCategoryAutoTaskOfflineRow' + (o.failed ? ' isFailed' : ''), o.failed ? '✗ ' + o.label + ' — ' + (o.error || tr('non ajoutée')) : '⏳ ' + o.label)); });
     tree.appendChild(z);
   }
   function render() {

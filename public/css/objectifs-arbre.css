@@ -213,3 +213,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGauge .arCardName { background: linear-gradient(0deg, var(--bg) var(--ar-p, 0%), var(--ar-c) var(--ar-p, 0%)) 0 50% / 100% 100cqh no-repeat; /* dégradé aussi haut que la CARTE (100cqh), recalé sur elle quelle que soit la hauteur du texte */ -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
 /* OBJECTIFS PASSÉS : cartes (secteur, pôle, activité, fusionnées) beaucoup plus ternes ; le présent et le futur gardent leur éclat. */
 .arGrid .arPastRow .goalsGridCell--filled { opacity: var(--ar-past-op); filter: saturate(var(--ar-past-sat)); }
+/* Objectifs créés sans réseau (20 nov. 2026) : la zone « À classer » des tâches, réutilisée telle quelle (verre commun .cmpGlass), POSÉE par-dessus le haut de l'arbre (une ligne par objectif, 64 px au plus) : elle ne pousse jamais la grille. */
+.objArbre > .activityGoalsCategoryAutoTaskOffline { position: absolute; top: 0; left: 0; right: 0; z-index: 3; margin: 0; max-height: 64px; overflow-y: auto; }
+.objArbre > .activityGoalsCategoryAutoTaskOffline .activityGoalsCategoryAutoTaskOfflineRow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.objArbre > .activityGoalsCategoryAutoTaskOffline .activityGoalsCategoryAutoTaskOfflineRow.isFailed { color: var(--text-light); }
