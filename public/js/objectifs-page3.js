@@ -853,10 +853,8 @@
         var hasObj = !!(slot.w && slot.w.text), line;
         // Le calendrier n'AJOUTE ni ne modifie aucun objectif (arbre périodique, mode modifier) : il affiche les titres présents, sinon rien.
         if (hasObj) {
-          // Statut : coloré (vert / jaune / rouge) dès que la semaine a commencé ET qu'elle a des tâches ; transparent sinon (à venir ou sans tâche). Un clic fait tourner les couleurs.
-          var wState = slot.s <= today && slot.w.taskTotal > 0 ? (slot.w.status || 'non_atteint') : null;
           line = document.createElement('div'); line.className = 'goalsCalWeekLine';
-          var sBtn = TMT.ui.statusBtn(wLabel, wState, function (next) { saveWeeklyStatus(slot.w.id, next); }); gutter.replaceChild(sBtn, gutterS);
+          // plus de couleur de statut (vert / jaune / rouge) sur le numéro de semaine : texte nu (Émilien, 20 nov. 2026)
           var wt = document.createElement('span'); wt.className = 'goalsCalWeekTitle'; wt.textContent = slot.w.text; wt.title = slot.w.text; line.appendChild(wt);
           if (slot.w.noRoomToCarry || slot.w.overloaded || (real && real.periodNumber === slot.p.periodNumber && slot.s <= today && slot.e >= today)) { var dot = document.createElement('span'); dot.className = 'notifDot goalsWeekDot'; line.appendChild(dot); wt.title += ' — ' + t('Cible peut-être irréaliste'); } // pastille
         }
