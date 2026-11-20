@@ -10,6 +10,10 @@ function dayOf(d) {
   const p = (n) => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
+// Historique des jours (20 nov. 2026, Émilien) : une tâche à faire un jour donné COMPTE ce jour-là même si elle est ensuite déplacée sans avoir été faite ; elle peut donc compter plusieurs jours de suite tant qu'elle n'est pas faite.
+// Une ligne par (utilisateur, tâche, jour), posée à chaque ouverture de la liste du jour courant ; sert au « faites / prévues » d'un jour passé.
+db.exec('CREATE TABLE IF NOT EXISTS task_day_plan (userId TEXT NOT NULL, taskId INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (userId, taskId, day))');
+const insPlan = db.prepare('INSERT OR IGNORE INTO task_day_plan (userId, taskId, day) VALUES (?, ?, ?)');
 function validToday(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : dayOf(new Date()); }
 
 // dayParam (facultatif) : un autre jour à consulter (demain, après-demain, hier…). Jour courant : à faire = échéance aujourd'hui, en retard ou sans date.
@@ -100,7 +104,13 @@ function tasksToday(userId, todayParam, dayParam) {
   others.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || (x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : x.id - y.id));
   done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
-  return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(upc, others, done) };
+  if (!other) { try { todo.forEach((t) => { if (!t.upcoming && t.dueDate <= realToday) insPlan.run(String(userId), t.id, realToday); }); } catch (e) { /* non bloquant */ } } // jour courant : ce qui est à faire aujourd'hui compte aujourd'hui
+  let plannedCount = null;
+  if (other && day < realToday) { // jour passé : prévues ce jour-là = lignes de l'historique ; sans historique (avant ce suivi) : faites + à faire dont l'échéance était ce jour-là
+    const rows = db.prepare('SELECT COUNT(*) AS c FROM task_day_plan WHERE userId = ? AND day = ?').get(String(userId), day).c;
+    plannedCount = rows || (done.length + todo.length);
+  }
+  return { today, plannedCount, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(upc, others, done) };
 }
 
 // Archive de la vue Aujourd'hui : tâches faites des 7 derniers jours, TOUTES les activités de l'utilisateur (la liste de l'onglet Tâches, goalstasks.archivesForActivity, pour chaque activité),
