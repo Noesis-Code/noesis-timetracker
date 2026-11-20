@@ -273,7 +273,7 @@
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
     var label = cur ? cur.name + (filt.pole != null && (pole || filt.poleLabel) ? ' › ' + (filt.sector || (pole ? pole.label : filt.poleLabel)) : '') : tr('Toutes les activités');
     var head = el('button', 'caSubProjectBtn tasksFilterBtn' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
-    head.title = label; head.setAttribute('aria-label', label); head.appendChild(el('span', null, cur ? (filt.pole != null && (pole || filt.poleLabel) ? (filt.sector || (pole ? pole.label : filt.poleLabel)) : cur.name) : tr('Tous'))); // le bouton porte le nom du secteur, sinon du pôle, sinon de l'activité // même bouton que le filtre des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; il désigne seulement l'activité
+    head.title = label; head.setAttribute('aria-label', label); var hl = el('span', null, cur ? (filt.pole != null && (pole || filt.poleLabel) ? (filt.sector || (pole ? pole.label : filt.poleLabel)) : cur.name) : tr('Tous')); var hc = filt.sector && cur ? poleColorOf(filt.act, filt.pole) : null; if (hc) hl.style.color = hc; head.appendChild(hl); // un secteur choisi : ses lettres prennent la couleur de son pôle (sans pastille) // le bouton porte le nom du secteur, sinon du pôle, sinon de l'activité // même bouton que le filtre des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; il désigne seulement l'activité
     head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (filtOpen && !struct) loadStruct(); });
     filterBox.appendChild(head);
     if (!filtOpen) return;
@@ -304,7 +304,8 @@
     function paintFilterPage3() {
       var dd = filtData(filtBrowse), p = dd.poles.filter(function (q) { return q.key === filtPole; })[0]; if (!p) return; p3.textContent = '';
       filtRow(p3, tr('Tout le pôle'), 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }); });
-      (dd.secs[p.key] || []).forEach(function (x) { filtRow(p3, x.label, 0, filt.act === filtBrowse && filt.pole === p.key && filt.sector === x.label, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: x.label, sectorKey: x.key }); }); });
+      var pc3 = poleColorOf(filtBrowse, p.key);
+      (dd.secs[p.key] || []).forEach(function (x) { var sr = filtRow(p3, x.label, 0, filt.act === filtBrowse && filt.pole === p.key && filt.sector === x.label, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: x.label, sectorKey: x.key }); }); if (pc3) sr.style.color = pc3; }); // lettres de la couleur du pôle, sans pastille
     }
     var page = 0;
     function size() { panel.style.height = (pages[page].offsetHeight + 8) + 'px'; }
