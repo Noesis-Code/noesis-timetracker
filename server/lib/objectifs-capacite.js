@@ -21,6 +21,20 @@ function objectifsEnCours(activityId, poleKey, day) {
   return out.filter((o) => !parents.has(o.id));
 }
 
+// Objectifs EN COURS de niveau ACTIVITÉ (sans pôle) : leurs heures sont RÉPARTIES ÉGALEMENT entre les pôles de l'activité par défaut (décision d'Émilien, 20 nov. 2026) ; modifiables ensuite par des sous-objectifs
+// ou Ajouter/Déplacer. Un objectif activité qui est l'ancêtre d'un objectif de pôle ou de secteur en cours est écarté (ses heures sont déjà celles de ses étapes). Retourne [{ userId, minutes }] déjà divisés par le nombre de pôles.
+function objectifsActivite(activityId, day) {
+  const nPoles = (require('./goals').categoriesForActivity(activityId) || []).length;
+  if (!nPoles) return [];
+  const rows = db.prepare("SELECT id, userId, metaJson FROM user_objectives WHERE activityId = ? AND isMacro = 0 AND COALESCE(level,'activite') = 'activite' AND startDate <= ? AND endDate >= ?").all(Number(activityId), day, day);
+  if (!rows.length) return [];
+  const anc = new Set();
+  db.prepare("SELECT parentId FROM user_objectives WHERE activityId = ? AND isMacro = 0 AND level IN ('pole','secteur') AND startDate <= ? AND endDate >= ? AND parentId IS NOT NULL").all(Number(activityId), day, day).forEach((r) => { let p = r.parentId, g = 0; while (p && g++ < 10) { anc.add(p); const up = db.prepare('SELECT parentId FROM user_objectives WHERE id = ?').get(p); p = up && up.parentId; } });
+  const out = [];
+  rows.forEach((r) => { let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; } const h = Number(m.hoursPerWeek); if (m.abandoned || !(h > 0) || anc.has(r.id)) return; out.push({ userId: r.userId, minutes: Math.round(h * 60) / nPoles }); });
+  return out;
+}
+
 // Part (0 à 1) d'une personne sur un objectif de la catégorie `catKey` (secteur) ou du pôle. Activité à un seul membre : 100 % de SES objectifs.
 // Activité partagée : pour cent de la Répartition en vigueur (repartition-membres, héritage vers le haut) ; sans répartition posée, parts ÉGALES entre les membres dont la portée couvre la catégorie.
 function partDe(activityId, poleKey, catKey, userId, objectifUserId) {
@@ -40,12 +54,13 @@ function weeklyShareMinutes(activityId, poleKey, userId, day) {
     const shared = db.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE activityId = ?').get(Number(activityId)).n >= 2;
     let rows = objectifsEnCours(activityId, poleKey, d);
     if (!shared) rows = rows.filter((o) => o.userId === userId); // activité personnelle : ses objectifs seulement
-    let pole = 0, sect = 0;
+    let pole = 0, sect = 0, act = 0;
+    (shared ? objectifsActivite(activityId, d) : objectifsActivite(activityId, d).filter((o) => o.userId === userId)).forEach((o) => { act += o.minutes * partDe(Number(activityId), poleKey, null, userId, o.userId); });
     rows.forEach((o) => {
       const part = partDe(Number(activityId), poleKey, o.level === 'secteur' ? o.categoryKey : null, userId, o.userId);
       if (o.level === 'secteur') sect += o.minutes * part; else pole += o.minutes * part;
     });
-    const total = Math.round(Math.max(pole, sect));
+    const total = Math.round(Math.max(pole, sect) + act);
     return total > 0 ? total : null;
   } catch (e) { return null; } // jamais d'échec du planning pour une lecture d'heures : repli sur l'ancienne chaîne
 }
@@ -55,7 +70,8 @@ function weeklyShareMinutes(activityId, poleKey, userId, day) {
 function totalMinutes(activityId, key, day) {
   try {
     const d = isDay(day) ? day : today(), goals = require('./goals'), k = key === '_' || key == null ? '' : String(key);
-    const poleSum = (pk, only) => { let pole = 0, sect = 0; objectifsEnCours(activityId, pk, d).forEach((o) => { if (o.level === 'secteur') { if (!only || o.categoryKey === only) sect += o.minutes; } else if (!only) pole += o.minutes; }); return Math.max(pole, sect); };
+    const actPart = () => objectifsActivite(activityId, d).reduce((a, o) => a + o.minutes, 0);
+    const poleSum = (pk, only) => { let pole = 0, sect = 0; objectifsEnCours(activityId, pk, d).forEach((o) => { if (o.level === 'secteur') { if (!only || o.categoryKey === only) sect += o.minutes; } else if (!only) pole += o.minutes; }); return Math.max(pole, sect) + (only ? 0 : actPart()); };
     let t = 0;
     if (!k) (goals.categoriesForActivity(activityId) || []).forEach((p) => { t += poleSum(p.key); });
     else if ((goals.categoriesForActivity(activityId) || []).some((p) => p.key === k)) t = poleSum(k);

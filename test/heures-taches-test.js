@@ -53,4 +53,10 @@ obj('toi', duo, 'secteur', D, D1, 3);
 assert(cap.totalMinutes(duo, D) === 600 && cap.totalMinutes(duo, D1) === 180 && cap.totalMinutes(duo, '_') === 600, 'pôle = max(pôle, somme des secteurs) ; secteur et activité lus');
 db.prepare('DELETE FROM user_objectives WHERE id = ?').run(od);
 assert(cap.totalMinutes(duo, D) === 180, 'sans objectif de pôle : la somme des secteurs');
+// ---- objectif de niveau activité : heures réparties ÉGALEMENT entre les pôles, total activité = somme des pôles ----
+const act2 = mk('Deux pôles', ['toi']), Q1 = lastKey(categories.addCategory(act2, 'Q1')), Q2 = lastKey(categories.addCategory(act2, 'Q2'));
+const oa = obj('toi', act2, 'activite', null, null, 10);
+assert(cap.weeklyShareMinutes(act2, Q1, 'toi') === 300 && cap.weeklyShareMinutes(act2, Q2, 'toi') === 300 && cap.totalMinutes(act2, '_') === 600, 'objectif activité 10 h : 5 h par pôle, total activité 10 h');
+obj('toi', act2, 'pole', Q1, null, 2);
+assert(cap.weeklyShareMinutes(act2, Q1, 'toi') === 420 && cap.weeklyShareMinutes(act2, Q2, 'toi') === 300 && cap.totalMinutes(act2, '_') === 720 && cap.totalMinutes(act2, Q1) + cap.totalMinutes(act2, Q2) === cap.totalMinutes(act2, '_'), 'un pôle modifié : le total activité reste la somme des pôles');
 console.log(failed ? '\n' + failed + ' échec(s)' : '\nTout passe'); process.exit(failed ? 1 : 0);
