@@ -3,7 +3,7 @@
 // DEVISES (décision du 20 oct. 2026) : plafonds et seuils en DOLLARS CANADIENS ; coûts réels (API Anthropic, ai_usage_log.costUsd) en DOLLARS AMÉRICAINS.
 // Chaque plafond est converti en USD par server/lib/fx.js (AI_USD_PER_CAD) avant toute comparaison ; capMonth()/capWeek() renvoient des USD, capMonthCad()/capWeekCad() des CAD.
 // Deux plafonds par compte, seuls : HEBDOMADAIRE (3,5 CAD par semaine civile, lundi-dimanche, heure de Montréal) et MENSUEL (15 CAD par mois civil).
-// EXCEPTION (décision d'Émilien, 10 nov. 2026) : un compte GRATUIT (sans accès Expansion) n'a qu'UN plafond, mensuel, de 3 CAD (AI_BUDGET_FREE_MONTH_CAD), aucun hebdomadaire ; un compte avec Expansion actif garde 15 CAD/mois et 3,5 CAD/semaine, même sans activité.
+// EXCEPTION (décisions d'Émilien, 10 et 20 nov. 2026) : un compte GRATUIT (sans accès Expansion) a un plafond mensuel de 3 CAD (AI_BUDGET_FREE_MONTH_CAD) ET un plafond hebdomadaire décroissant = la moitié du crédit mensuel restant au début de la semaine (IA_GRATUITE_PART_HEBDO, freeStatus) ; jamais plus, quelle que soit la fonction IA ; un compte avec Expansion actif garde 15 CAD/mois et 3,5 CAD/semaine, même sans activité.
 // Plus de plafond journalier ni par fonction (décision d'Émilien, 21 oct. 2026). Tous les comptes et les appels sans utilisateur ('system') y sont soumis.
 // Le coût réel vient du champ `usage` de chaque réponse de l'API Anthropic (cache de prompt : lecture ×0,1,
 // création ×1,25 du prix d'entrée ; lots Anthropic : facteur 0,5 passé à record).
@@ -180,10 +180,15 @@ function estimateMaxCost(body, factor) {
 // Dépenses = réel + en vol (appels directs réservés + lots). period : 'semaine' ou 'mois' (le plus tardif des plafonds atteints).
 function status(userId, now) {
   const uid = userId || SYSTEM_USER;
+  if (isFreeUser(uid)) { // compte gratuit : plafonds mensuel ET hebdomadaire décroissant (freeStatus), tous les comptes d'activité confondus
+    const f = freeStatus(uid, now);
+    return { spentMonth: f.spentMonth, spentWeek: f.spentWeek, capMonth: f.credit, capWeek: f.weekCap, capMonthCad: capFreeMonthCad(), capWeekCad: fx.toCad(f.weekCap), free: true,
+      remaining: Math.max(0, f.remaining), blocked: !f.ok, period: f.ok ? null : f.period, resumesOn: f.ok ? null : f.resumesOn };
+  }
   const inflight = reservedOf(uid) + batchesInFlight(uid);
   const sM = spentMonth(uid, now) + inflight, sW = spentWeek(uid, now) + inflight;
-  const free = isFreeUser(uid); // compte gratuit : plafond mensuel gratuit seul, aucun plafond hebdomadaire (cW = Infinity)
-  const cM = free ? capFreeMonth() : capMonth(), cW = free ? Infinity : capWeek();
+  const free = false; // le compte gratuit est traité plus haut
+  const cM = capMonth(), cW = capWeek();
   const bM = sM >= cM - 1e-9, bW = sW >= cW - 1e-9, blocked = bM || bW;
   return {
     spentMonth: sM, spentWeek: sW, capMonth: cM, capWeek: cW, capMonthCad: free ? capFreeMonthCad() : capMonthCad(), capWeekCad: free ? null : capWeekCad(), free,
@@ -234,6 +239,7 @@ function record(userId, model, usage, feature, now, factor) {
         cacheReadTokens = cacheReadTokens + excluded.cacheReadTokens, cacheWriteTokens = cacheWriteTokens + excluded.cacheWriteTokens`)
       .run(String(userId || SYSTEM_USER), todayLocal(now), String(model || 'inconnu'), String(feature || 'autre'), inTok, outTok, computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1),
         Number(u.cache_read_input_tokens) || 0, Number(u.cache_creation_input_tokens) || 0);
+    if (isFreeUser(userId)) freeAddCost(computeCost(model, u) * (Number.isFinite(factor) && factor > 0 ? factor : 1), now); // pool global gratuit : tout coût d'un compte gratuit y entre (appel direct comme lot)
     alertIfDayCostHigh(now);
   } catch (e) { console.warn('[aibudget] enregistrement impossible :', e && e.message); }
 }
@@ -364,18 +370,35 @@ function isFreeUser(key) {
   if (key == null || key === '') return false;
   const id = splitKey(key).userId;
   if (!id || id === SYSTEM_USER) return false;
-  try { return !require('./offer1access').hasOffer1Access(id); } catch (e) { return false; }
+  try { return !require('./offer1access').hasOffer1Access(id); } catch (e) { return true; } // doute = gratuit (plafond le plus strict) : jamais d'accès payant par erreur
 }
 function freeSpentBetween(key, from, to) {
   const id = splitKey(key).userId;
   return db.prepare('SELECT COALESCE(SUM(costUsd), 0) AS s FROM ai_usage_log WHERE (userId = ? OR userId LIKE ?) AND day >= ? AND day <= ?').get(String(id), String(id) + '#a%', from, to).s || 0;
 }
 // État du crédit gratuit : { credit, spentMonth, remaining, ok, resumesOn } (USD)
+// PLAFOND HEBDOMADAIRE du gratuit (décision d'Émilien, 20 nov. 2026) : le plafond d'une semaine civile (lundi-dimanche, Montréal) = IA_GRATUITE_PART_HEBDO (défaut 0,5 = la MOITIÉ) du crédit mensuel
+// RESTANT au début de cette semaine ; il décroît donc de lui-même (1,5 $ CA, puis la moitié du reste...) et n'excède jamais le crédit mensuel restant. Semaine à cheval sur deux mois : la semaine
+// « commence » le 1er du nouveau mois (crédit entier). Le mensuel reste le plafond absolu. Dépenses comptées = réel (activités confondues) + appels directs en vol + lots soumis (tous les comptes d'activité).
+function freeWeekShare() { const n = Number(process.env.IA_GRATUITE_PART_HEBDO); return Number.isFinite(n) && n > 0 && n <= 1 ? n : 0.5; }
+function freeInflight(key) {
+  const id = splitKey(key).userId;
+  let s = 0;
+  for (const [k, v] of reserved) if (splitKey(k).userId === id) s += v;
+  try { s += db.prepare("SELECT COALESCE(SUM(estCost), 0) AS c FROM drive_batches WHERE userId = ? AND status = 'submitted'").get(String(id)).c || 0; } catch (e) { /* table absente */ }
+  return s;
+}
 function freeStatus(key, now) {
   const day = todayLocal(now), monthStart = day.slice(0, 7) + '-01';
-  const credit = freeCreditUsd(), spentMonth = freeSpentBetween(key, monthStart, day.slice(0, 7) + '-31');
-  const remaining = credit - spentMonth;
-  return { credit, spentMonth, remaining, ok: remaining > 1e-12, resumesOn: nextMonthStart(now) };
+  const inflight = freeInflight(key);
+  const credit = freeCreditUsd(), spentMonth = freeSpentBetween(key, monthStart, day.slice(0, 7) + '-31') + inflight;
+  const ws = weekStart(now), base = ws > monthStart ? ws : monthStart; // début de la période hebdomadaire comptée dans ce mois
+  const spentBefore = base === monthStart ? 0 : freeSpentBetween(key, monthStart, addDaysIso(base, -1));
+  const weekCap = Math.max(0, freeWeekShare() * (credit - spentBefore)), spentWeek = spentMonth - spentBefore;
+  const monthLeft = credit - spentMonth, weekLeft = weekCap - spentWeek;
+  const remaining = Math.min(monthLeft, weekLeft), ok = remaining > 1e-12;
+  const monthBlocked = monthLeft <= 1e-12, next = nextMonthStart(now), nextWeek = weekStart(now, 7);
+  return { credit, spentMonth, spentWeek, weekCap, remaining, ok, period: monthBlocked ? 'mois' : 'semaine', resumesOn: !ok && !monthBlocked && nextWeek < next ? nextWeek : next };
 }
 function addDaysIso(d, n) { const t = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)) + n)); return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate()); }
 function freeBlockedMessage(st) { return 'Crédit IA épuisé, reprend le ' + dateLabelFr(st.resumesOn) + '.'; }
@@ -456,9 +479,16 @@ function freeCheck(key, now, estimate) {
   if (mc.cost >= mc.cutoff - 1e-12) return { ok: false, resumesOn: nextMonthStart(now), message: 'Disponible avec Expansion : l’IA gratuite reprend le ' + dateLabelFr(nextMonthStart(now)) + '.' };
   const st = freeStatus(key, now), est = Number(estimate) > 0 ? Number(estimate) : 0;
   if (st.ok && st.remaining + 1e-9 >= est) return { ok: true };
-  return { ok: false, resumesOn: st.resumesOn, message: freeBlockedMessage(st) };
+  return { ok: false, resumesOn: st.resumesOn, period: st.period, message: freeBlockedMessage(st) };
 }
 // Corps d'appel d'un compte gratuit : modèle fort remplacé par le modèle léger.
+// Mêmes règles sur un objet de paramètres (lots Anthropic).
+function lightParams(p) {
+  if (p && typeof p === 'object' && typeof p.model === 'string' && !/haiku/i.test(p.model)) return { ...p, model: require('./aimodels').FAST };
+  return p;
+}
+// Réserve un coût maximal le temps d'un envoi asynchrone (lot) : deux soumissions simultanées ne passent pas toutes deux. Renvoie la fonction de libération.
+function hold(uid, est) { const u = uid || SYSTEM_USER, v = Number(est) > 0 ? Number(est) : 0; reserve(u, v); let done = false; return () => { if (!done) { done = true; release(u, v); } }; }
 function lightBody(init) {
   if (!init || typeof init.body !== 'string') return init;
   try {
@@ -474,7 +504,7 @@ function lightBody(init) {
 async function fetchAnthropic(feature, url, init, userId) {
   const uid = userId || currentUser() || SYSTEM_USER;
   const free = isFreeUser(uid);
-  if (free) { init = lightBody(init); const fc = freeCheck(uid, undefined, estimateMaxCost(init && init.body)); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: 'mois' }); }
+  if (free) { init = lightBody(init); const fc = freeCheck(uid, undefined, estimateMaxCost(init && init.body)); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: fc.period || 'mois' }); }
   const est = estimateMaxCost(init && init.body);
   const c = check(uid, undefined, est);
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
@@ -483,17 +513,24 @@ async function fetchAnthropic(feature, url, init, userId) {
   try {
     let res;
     try { res = await fetchWithRetry(url || ANTHROPIC_URL, init && typeof init.body === 'string' ? { ...init, body: aiscrub.scrubBody(init.body) } : init); } // Loi 25 : coordonnées masquées avant envoi
-    catch (e) { breakerResult(!!e && (e.name === 'TypeError' || /\bECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/.test(String(e.message || '') + String(e.code || ''))), Date.now()); throw e; }
+    catch (e) {
+      if (free && e && (e.name === 'AbortError' || e.name === 'TimeoutError')) { try { record(uid, JSON.parse(init.body).model, { input_tokens: Math.ceil(String(init.body).length / 4) }, feature + ':abandon'); } catch (e2) { /* ignoré */ } } // requête peut-être traitée : pour un compte gratuit, l'entrée est comptée (limite documentée dans docs/ia/ia-appels.md pour les autres)
+      breakerResult(!!e && (e.name === 'TypeError' || /\bECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/.test(String(e.message || '') + String(e.code || ''))), Date.now()); throw e; }
     breakerResult(!!res && (res.status === 529 || (res.status >= 502 && res.status <= 504)), Date.now());
     if (res && (res.status === 401 || res.status === 403)) alertKeyRefused(res.status);
     if (res && res.ok && typeof res.clone === 'function') {
+      let counted = false;
       try {
         const body = await res.clone().json();
-        if (body && body.usage) { const mdl = body.model || (init && init.body && JSON.parse(init.body).model); record(uid, mdl, body.usage, feature); if (free) freeAddCost(computeCost(mdl, body.usage)); }
-      } catch (e) { /* réponse non lisible : rien à enregistrer */ }
+        if (body && body.usage) { const mdl = body.model || (init && init.body && JSON.parse(init.body).model); record(uid, mdl, body.usage, feature); counted = true; } // record alimente aussi le pool gratuit
+      } catch (e) { /* réponse non lisible */ }
+      if (!counted) { // réponse 200 sans usage lisible : coût maximal estimé, jamais zéro
+        let mdl = null; try { mdl = JSON.parse(init.body).model; } catch (e) { /* corps non JSON */ }
+        record(uid, mdl, { input_tokens: Math.round(est / priceFor(mdl).in * 1e6) }, feature + ':estime');
+      }
     }
     return res;
   } finally { release(uid, est); }
 }
 
-module.exports = { capFreeMonth, capFreeMonthCad, freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { capFreeMonth, capFreeMonthCad, freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, lightParams, hold, freeInflight, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };

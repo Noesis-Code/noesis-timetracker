@@ -32,11 +32,19 @@ async function request(url, init) {
 // requests : [{ custom_id, params }]
 // userId : le budget IA (jour + tranche, lots en vol compris) est vérifié sur le coût maximal du lot (x0,5) avant tout envoi.
 async function submit(requests, userId) {
+  const uid = userId || aibudget.currentUser() || aibudget.SYSTEM_USER;
+  const free = aibudget.isFreeUser(uid);
+  if (free) requests = (requests || []).map((r) => (r && r.params ? { ...r, params: aibudget.lightParams(r.params) } : r)); // compte gratuit : modèle léger seul
   const est = (requests || []).reduce((a, r) => a + aibudget.estimateMaxCost(r && r.params, 0.5), 0);
-  const c = aibudget.check(userId || aibudget.currentUser() || aibudget.SYSTEM_USER, undefined, est);
+  if (free) { const fc = aibudget.freeCheck(uid, undefined, est); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: fc.period || 'mois' }); }
+  const c = aibudget.check(uid, undefined, est);
   if (!c.ok) throw Object.assign(new Error(c.message), { aiBlocked: true, resumesOn: c.resumesOn, period: c.period });
-  const res = await request(BASE, { method: 'POST', body: JSON.stringify({ requests: (requests || []).map((r) => (r && r.params ? { ...r, params: aiscrub.scrubParams(r.params) } : r)) }) });
-  const j = await res.json();
+  const release = aibudget.hold(uid, est); // réservé pendant l'envoi : deux soumissions simultanées ne dépassent pas le plafond
+  let j;
+  try {
+    const res = await request(BASE, { method: 'POST', body: JSON.stringify({ requests: (requests || []).map((r) => (r && r.params ? { ...r, params: aiscrub.scrubParams(r.params) } : r)) }) });
+    j = await res.json();
+  } finally { release(); }
   if (!j || !j.id) throw new Error('lot sans identifiant');
   return { id: j.id };
 }

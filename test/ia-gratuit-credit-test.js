@@ -20,15 +20,19 @@ const spend = (u, usd, when, feature) => ab.record(u, haiku, { input_tokens: usd
   assert(ab.isFreeUser('gr-a') && !ab.isFreeUser('gr-exp') && !ab.isFreeUser('system') && !ab.isFreeUser(null), 'gratuit = sans accès Expansion ; compte Expansion et système exclus');
   // plafond mensuel unique de 3 CAD (= 2,16 USD au taux 0,72), aucun plafond hebdomadaire
   let s = ab.freeStatus('gr-a', D(11, 2));
-  assert(near(s.credit, 2.16) && near(s.remaining, 2.16) && s.ok && s.resumesOn === '2026-12-01', 'crédit de 3 CAD/mois (2,16 USD) ; reprise le 1er du mois suivant');
+  assert(near(s.credit, 2.16) && near(s.remaining, 1.08) && s.ok && s.resumesOn === '2026-12-01', 'crédit de 3 CAD/mois (2,16 USD) ; reprise le 1er du mois suivant');
   const st0 = ab.status('gr-a', D(11, 2));
-  assert(st0.free && st0.capWeek === Infinity && st0.capWeekCad === null && near(st0.capMonthCad, 3) && near(st0.capMonth, 2.16), 'compte gratuit : plafond mensuel 3 CAD, plus de plafond hebdomadaire');
-  spend('gr-a', 2.0, D(11, 3)); // une seule semaine : 2 USD > 35 % du solde de l'ancien étalement
-  s = ab.freeStatus('gr-a', D(11, 4)); assert(near(s.remaining, 0.16) && s.ok, 'aucun étalement hebdomadaire : toute la dépense du mois compte, le reste est de 0,16 USD');
-  s = ab.freeStatus('gr-a', D(11, 24)); assert(near(s.remaining, 0.16), 'la semaine suivante ne remet rien à zéro');
-  spend('gr-a', 0.2, D(11, 25));
+  assert(st0.free && near(st0.capMonthCad, 3) && near(st0.capMonth, 2.16) && near(st0.capWeekCad, 1.5) && near(st0.capWeek, 1.08), 'compte gratuit : plafond mensuel 3 CAD ET hebdomadaire = moitié du restant (1,5 CAD la 1re semaine)');
+  spend('gr-a', 1.0, D(11, 3)); // semaine du 2 nov. : plafond 1,08 USD, 1,0 dépensé
+  s = ab.freeStatus('gr-a', D(11, 4)); assert(near(s.remaining, 0.08) && s.ok, 'semaine 1 : reste 0,08 USD sur 1,08');
+  spend('gr-a', 0.09, D(11, 5));
+  s = ab.freeStatus('gr-a', D(11, 6)); assert(!s.ok && s.period === 'semaine' && s.resumesOn === '2026-11-09' && !ab.freeCheck('gr-a', D(11, 6)).ok, 'semaine épuisée (1,09 > 1,08) : bloqué jusqu’au lundi 9 nov., alors que le mois n’est pas épuisé');
+  s = ab.freeStatus('gr-a', D(11, 9)); assert(near(s.weekCap, 0.5 * (2.16 - 1.09)) && near(s.remaining, 0.535) && s.ok, 'semaine 2 : plafond = moitié du crédit mensuel restant au début de la semaine (0,535 USD)');
+  s = ab.freeStatus('gr-a', D(11, 24)); assert(near(s.weekCap, 0.535) && near(s.remaining, 0.535), 'toujours la moitié du restant au lundi 23 nov. (rien dépensé depuis)');
+  spend('gr-a', 1.5, D(11, 25)); // dépassement du crédit mensuel
+  s = ab.freeStatus('gr-a', D(11, 26)); assert(!s.ok && s.period === 'mois' && s.weekCap <= s.credit && s.spentMonth >= s.credit, 'mois épuisé : plafond mensuel strict, jamais dépassé par la règle hebdomadaire');
   assert(!ab.freeCheck('gr-a', D(11, 26)).ok && ab.check('gr-a', D(11, 26)).period === 'mois' && /pour ce mois. Elle reprend le 1er décembre/.test(ab.check('gr-a', D(11, 26)).message), 'épuisé : bloqué pour le mois, reprise au 1er décembre (jamais lundi)');
-  s = ab.freeStatus('gr-a', D(12, 1)); assert(near(s.spentMonth, 0) && near(s.remaining, 2.16) && s.ok, 'remise à zéro le 1er décembre');
+  s = ab.freeStatus('gr-a', D(12, 1)); assert(near(s.spentMonth, 0) && near(s.remaining, 1.08) && s.ok, 'remise à zéro le 1er décembre');
   s = ab.freeStatus('gr-a', D(11, 30)); assert(!s.ok, 'le 30 novembre appartient encore à novembre');
   // variable AI_BUDGET_FREE_MONTH_CAD modifiée : 6 CAD au lieu de 3, sans coder
   process.env.AI_BUDGET_FREE_MONTH_CAD = '6';
