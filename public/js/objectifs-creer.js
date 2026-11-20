@@ -892,7 +892,7 @@
           rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: newMin });
           lines.forEach(function (l) { rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, ref: refOf(e, 'line', l.key), chrono: l.chronoMin, avant: l.objMin, apres: after(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { apres[l.key] = v; paint(); } } }); });
           tbl = objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows, total: true });
-          m.body.textContent = ''; m.body.appendChild(tbl.node); m.body.appendChild(note); m.foot.textContent = ''; m.foot.appendChild(ok); paint();
+          m.body.textContent = ''; m.body.appendChild(tbl.node); m.body.appendChild(note); m.foot.textContent = ''; m.foot.appendChild(ok); paint(); TMT.ui.dockEnregistrer(ok, m.overlay); /* R50 : bouton décollé, à la place de la barre des volets */
         }
         function choose() {
           m.body.textContent = ''; m.body.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?'))); var box = el('div', 'aiModeChoices objCenterChoices');
