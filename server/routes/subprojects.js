@@ -14,6 +14,7 @@
 const express = require('express');
 const sp = require('../lib/subprojects');
 const textlimits = require('../lib/textlimits');
+const portee = require('../lib/portee');
 // Chantier Objectifs — C (auto-planification Offre1, 15 septembre 2026) :
 // déclenché après création/modification d'une tâche, jamais bloquant.
 const goalsauto = require('../lib/goalsauto');
@@ -28,7 +29,7 @@ const router = express.Router();
 // fonctions de server/lib/subprojects.js qui valident une catégorie/un
 // membre (goalCategory, plannedUserId) lancent une erreur { statusCode }.
 function handleSubProjectsError(res, err) {
-  if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+  if (err && err.statusCode) return res.status(err.statusCode).json({ error: err.message, code: err.errCode || undefined });
   console.error('[sous-projets]', err);
   return res.status(500).json({ error: 'Erreur serveur' });
 }
@@ -45,6 +46,7 @@ router.get('/sub-project-items/:id', (req, res) => {
   if (!item) return res.status(404).json({ error: 'Tâche introuvable.' });
   const access = sp.checkSubProjectAccess(req.userId, item.subProjectId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
+  if (!portee.peutLireTache(req.userId, access.subProject.activityId, access.subProject.goalCategory, item)) return res.status(403).json({ error: 'Cette tâche ne t’est pas attribuée.', code: 'TACHE_NON_ATTRIBUEE' });
   res.json(item);
 });
 
@@ -55,6 +57,8 @@ router.put('/sub-project-items/:id', (req, res) => {
 
   const access = sp.checkSubProjectAccess(userId, item.subProjectId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
+  // Activité partagée : un simple membre ne fait que cocher les tâches qui lui sont attribuées ; créer/modifier le contenu est réservé aux responsables (selon leur portée) et au propriétaire.
+  try { portee.exigerModificationTache(userId, access.subProject.activityId, access.subProject.goalCategory, item, req.body); } catch (e) { return handleSubProjectsError(res, e); }
 
   if (req.body.label !== undefined) {
     const chk = textlimits.clean(req.body.label, { max: MAX_ITEM_LABEL_LENGTH, word: 'Intitulé' });
@@ -95,6 +99,7 @@ router.delete('/sub-project-items/:id', (req, res) => {
 
   const access = sp.checkSubProjectAccess(req.userId, item.subProjectId);
   if (access.error) return res.status(access.error.status).json(access.error.body);
+  try { portee.exigerEcritureTache(req.userId, access.subProject.activityId, access.subProject.goalCategory); } catch (e) { return handleSubProjectsError(res, e); }
 
   try {
     sp.deleteItem(item.id);

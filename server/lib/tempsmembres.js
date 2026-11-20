@@ -40,6 +40,14 @@ const MAX_MIN = 168 * 60;
 
 // Responsables : module unique server/lib/responsables.js (activity_managers), jamais dupliqué ici.
 function isResponsable(activityId, userId) { return !!userId && responsables.isManager(userId, Number(activityId)); }
+// Régler le temps prévu d'un AUTRE membre : responsable d'activité, ou (activité partagée) responsable d'un pôle/secteur pour un pôle de sa portée gérée et un membre de cette portée (portee.js).
+function peutRegler(activityId, by, poleKey, memberId) {
+  if (isResponsable(activityId, by)) return true;
+  const pt = require('./portee'), mg = pt.managed(by, activityId);
+  if (!pt.estPartagee(activityId) || !mg.roots.length || poleKey === null || poleKey === undefined || !mg.has(poleKey)) return false;
+  const vus = pt.membresVisibles(by, activityId);
+  return !vus || vus.has(memberId);
+}
 function responsablesFor(activityId) { return responsables.ids(activityId); }
 
 // Clé de pôle normalisée : null = l'activité entière ; un secteur remonte à son pôle (règle verrouillée).
@@ -99,7 +107,7 @@ function changePlanned(opts, notify) {
   if (!db.prepare('SELECT 1 FROM activities WHERE id = ?').get(activityId)) return { status: 404, error: 'Activité introuvable.' };
   if (!isActivityMember(by, activityId)) return { status: 403, error: "Tu n'es pas membre de cette activité." };
   if (!isActivityMember(memberId, activityId)) return { status: 403, error: "Cette personne n'est pas membre de cette activité." };
-  if (by !== memberId && !isResponsable(activityId, by)) return { status: 403, error: 'Seul un responsable modifie le temps d\'un autre membre.' };
+  if (by !== memberId && !peutRegler(activityId, by, normPole(activityId, opts.poleKey), memberId)) return { status: 403, error: 'Seul un responsable modifie le temps d\'un autre membre.' };
   const poleKey = normPole(activityId, opts.poleKey);
   if (!validPole(activityId, poleKey)) return { status: 400, error: 'Pôle inconnu.' };
   if (poleKey === null && hasPoles(activityId)) return { status: 400, error: 'Le temps prévu se règle par pôle.' };
@@ -118,7 +126,7 @@ function changePlanned(opts, notify) {
     if (fromPole === poleKey || !validPole(activityId, fromPole)) return { status: 400, error: 'Pôle source invalide.' };
     lines.push({ activityId, poleKey: fromPole, memberId, afterMin: Math.max(0, (plannedMin(activityId, fromPole, memberId) || 0) - delta) });
   } else if (origin === 'echange') {
-    if (!isResponsable(activityId, by)) return { status: 403, error: 'Réservé aux responsables.' };
+    if (!peutRegler(activityId, by, poleKey, memberId) || !peutRegler(activityId, by, poleKey, opts.withMemberId)) return { status: 403, error: 'Réservé aux responsables.' };
     const other = opts.withMemberId;
     if (!other || other === memberId || !isActivityMember(other, activityId)) return { status: 400, error: 'Membre de l\'échange invalide.' };
     lines.push({ activityId, poleKey, memberId: other, afterMin: Math.max(0, (plannedMin(activityId, poleKey, other) || 0) - delta) });
@@ -184,30 +192,33 @@ function tableFor(activityId, callerId, todayIso) {
   const act = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ?').get(activityId);
   if (!act) return { status: 404, error: 'Activité introuvable.' };
   if (!isActivityMember(callerId, activityId)) return { status: 403, error: "Tu n'es pas membre de cette activité." };
+  // Confidentialité (19 nov. 2026) : activité partagée = soi seul (simple membre) ou la portée gérée (responsable de pôle/secteur) ; portee.js.
+  const pt = require('./portee'), vus = pt.membresVisibles(callerId, activityId), mgr = vus ? pt.managed(callerId, activityId) : null;
+  const poleOk = (k) => !mgr || !mgr.roots.length || mgr.has(k); // responsable de catégorie : seulement les pôles/secteurs de sa portée gérée
   const members = db.prepare(`SELECT m.userId, m.color, u.name FROM activity_members m JOIN users u ON u.id = m.userId
-    WHERE m.activityId = ? ORDER BY m.joinedAt ASC`).all(activityId);
+    WHERE m.activityId = ? ORDER BY m.joinedAt ASC`).all(activityId).filter((m) => !vus || vus.has(m.userId));
   const resp = responsablesFor(activityId);
   const past = pastMinutes(activityId, todayIso);
-  const poles = (goals.categoriesForActivity(activityId) || []).map((p) => ({ key: p.key, label: p.label }));
+  const poles = (goals.categoriesForActivity(activityId) || []).filter((p) => poleOk(p.key)).map((p) => ({ key: p.key, label: p.label }));
   const row = (poleKey, m) => {
     const pm = poleKey === null ? past.byMember.get(m.userId) : past.byPole.get(m.userId + '|' + poleKey);
     return { userId: m.userId, pastMin: Math.round(pm || 0), plannedMin: plannedMin(activityId, poleKey, m.userId) };
   };
-  const levels = [{ key: null, label: act.name }].concat(poles).map((l) => {
+  const levels = (mgr && mgr.roots.length ? [] : [{ key: null, label: act.name }]).concat(poles).map((l) => {
     const rows = members.map((m) => row(l.key, m));
     const sum = (f) => rows.reduce((s, r) => s + (r[f] || 0), 0);
     return { key: l.key, label: l.label, rows, pastMin: sum('pastMin'), plannedMin: rows.some((r) => r.plannedMin !== null) ? sum('plannedMin') : null };
   });
   // Barres (8 nov. 2026) : temps travaillé par membre pour l'activité, chaque pôle (secteurs compris) et chaque secteur.
   const barRows = (map, key) => members.map((m) => ({ userId: m.userId, pastMin: Math.round(map.get(m.userId + '|' + key) || 0) }));
-  const bars = [{ key: null, label: act.name, kind: 'activite', rows: members.map((m) => ({ userId: m.userId, pastMin: Math.round(past.byMember.get(m.userId) || 0) })) }];
+  const bars = mgr && mgr.roots.length ? [] : [{ key: null, label: act.name, kind: 'activite', rows: members.map((m) => ({ userId: m.userId, pastMin: Math.round(past.byMember.get(m.userId) || 0) })) }];
   poles.forEach((p) => {
     bars.push({ key: p.key, label: p.label, kind: 'pole', rows: barRows(past.byPole, p.key) });
-    (goals.secteursForPole(activityId, p.key) || []).forEach((s) => bars.push({ key: s.key, label: s.label, kind: 'secteur', pole: p.key, rows: barRows(past.byCat, s.key) }));
+    (goals.secteursForPole(activityId, p.key) || []).filter((s) => poleOk(s.key)).forEach((s) => bars.push({ key: s.key, label: s.label, kind: 'secteur', pole: p.key, rows: barRows(past.byCat, s.key) }));
   });
   const names = new Map(members.map((m) => [m.userId, m.name]));
   const nameOf = (id) => names.get(id) || userName(id);
-  const history = db.prepare('SELECT * FROM member_time_changes WHERE activityId = ? ORDER BY id DESC LIMIT 300').all(activityId).map((h) => ({
+  const history = db.prepare('SELECT * FROM member_time_changes WHERE activityId = ? ORDER BY id DESC LIMIT 300').all(activityId).filter((h) => !vus || (vus.has(h.memberId) && (h.memberId === callerId || h.poleKey == null || poleOk(h.poleKey)))).map((h) => ({
     id: h.id, at: h.at, level: levelLabel(activityId, h.poleKey), poleKey: h.poleKey,
     memberId: h.memberId, member: nameOf(h.memberId), changedBy: h.changedBy, by: nameOf(h.changedBy),
     beforeMin: h.beforeMin, afterMin: h.afterMin, origin: h.origin, originLabel: ORIGIN_LABELS[h.origin] || h.origin,
@@ -220,7 +231,7 @@ function tableFor(activityId, callerId, todayIso) {
     activity: { id: act.id, name: act.name },
     weeks: WEEKS, from: past.start, to: past.end,
     members: members.map((m) => ({ userId: m.userId, name: m.name, color: m.color, responsable: resp.includes(m.userId) })),
-    isResponsable: resp.includes(callerId),
+    isResponsable: resp.includes(callerId) || !!(mgr && mgr.roots.length),
     me: callerId,
     plannedByPole: poles.length > 0, // le prévu se règle par pôle (Feuille de route) ; sinon au niveau de l'activité
     levels,

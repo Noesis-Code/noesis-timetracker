@@ -713,21 +713,25 @@ function visitorInsights(activityId, ownerId, yearParam, opts) {
 // Membres seulement (la route garde). Agrégats uniquement : aucun titre de tâche. Responsable d'une tâche =
 // celui qui l'a faite, sinon la personne à qui elle est planifiée (plannedUserId). Même portée que les cartes
 // (taskRange : année / période / semaine / tout).
-function memberStats(activityId, scopeParam, yearParam, poleKey) {
+function memberStats(activityId, scopeParam, yearParam, poleKey, viewerId) {
+  // Confidentialité (19 nov. 2026), activité partagée : un simple membre ne voit que SES données ; un responsable, celles de la portée qu'il gère.
+  const pt = require('./portee'), vs = viewerId && pt.estPartagee(activityId) ? pt.managed(viewerId, activityId) : null, limited = !!vs && !vs.all;
   const realToday = todayLocal();
   const cur = Number(realToday.slice(0, 4));
   const scopeName = scopeParam === 'period' || scopeParam === 'week' ? scopeParam : (scopeParam === 'all' ? 'all' : 'year');
   const year = scopeName === 'all' ? 'all' : cur;
   const range = taskRange(scopeName === 'all' ? 'year' : scopeName, year, realToday);
-  const scope = loadScope(activityId, poleKey ? String(poleKey) : null); // filtre « pôle » de la fenêtre Activité (clé inconnue / 'none' => aucune tâche)
+  const scope = loadScope(activityId, poleKey ? String(poleKey) : null);
+  if (limited) scope.poles = scope.poles.filter((p) => p.keys.some((k) => vs.has(k))); // filtre « pôle » de la fenêtre Activité (clé inconnue / 'none' => aucune tâche)
   const planned = {};
   db.prepare(`SELECT i.id, i.plannedUserId FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory IS NOT NULL AND i.plannedUserId IS NOT NULL`).all(activityId).forEach((r) => { planned[r.id] = r.plannedUserId; });
   const undated = scopeName === 'year' || scopeName === 'all';
-  const loaded = loadTasks(activityId, scope.keyToPole);
+  const respOfRaw = (t) => (t.done ? (t.doneBy || planned[t.id]) : planned[t.id]);
+  const loaded = loadTasks(activityId, scope.keyToPole).filter((t) => !limited || vs.has(t.key) || respOfRaw(t) === viewerId);
   const tasks = loaded.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
   const members = db.prepare(`SELECT u.id AS id, u.name AS name, u.lastName AS lastName, u.color AS color, u.avatar AS avatar
-    FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY am.joinedAt, u.id`).all(activityId);
+    FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY am.joinedAt, u.id`).all(activityId).filter((m) => !limited || vs.roots.length > 0 || m.id === viewerId);
   const by = {};
   members.forEach((m) => { by[m.id] = { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, avatar: m.avatar || null, assigned: 0, done: 0, withDue: 0, onTime: 0, late: 0 }; });
   let total = 0; let totalDone = 0;
@@ -768,8 +772,9 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
   doneTasks.forEach((t) => { const i = idx(t.doneDay); if (i >= 0) buckets[respOf(t)][i] += 1; });
   // « Qui fait quoi » (partage des tâches, 8 nov. 2026) : heures enregistrées et tâches faites PAR case (pas cumulées), une paire de courbes par membre.
   const hours = {}; members.forEach((m) => { hours[m.id] = new Array(n).fill(0); });
-  db.prepare('SELECT userId, isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? GROUP BY userId, isoDate').all(activityId).forEach((r) => {
+  db.prepare('SELECT userId, isoDate, goalCategory AS c, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? GROUP BY userId, isoDate, goalCategory').all(activityId).forEach((r) => {
     if (!hours[r.userId] || !r.isoDate) return;
+    if (limited && r.userId !== viewerId && !vs.has(r.c)) return;
     const i = idx(r.isoDate); if (i >= 0) hours[r.userId][i] += r.s / 3600;
   });
   let max = 0; let maxHours = 0; let maxTasks = 0;

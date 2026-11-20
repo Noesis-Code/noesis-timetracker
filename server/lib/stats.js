@@ -222,7 +222,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
       WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
       GROUP BY t.isoDate, t.goalCategory
       ORDER BY t.isoDate ASC, seconds DESC
-    `).all(userId, activityId, start, end)
+    `).all(userId, activityId, start, end).filter((r) => !(o.viewScope && !o.viewScope.all && !o.viewScope.has(r.category))) // regard d'un responsable sur un autre membre : sa portée seulement
     : db.prepare(`
       SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,
              a.name AS activity, COALESCE(am.color, '#3498db') AS color, SUM(t.durationSeconds) AS seconds,
@@ -410,7 +410,7 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
         SELECT t.startTime, t.endTime, t.goalCategory AS category
         FROM time_entries t
         WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
-      `).all(userId, onlyActivityId, start, end)
+      `).all(userId, onlyActivityId, start, end).filter((r) => !(opts.viewScope && !opts.viewScope.all && !opts.viewScope.has(r.category)))
     : db.prepare(`
     SELECT t.startTime, t.endTime, a.id AS activityId, a.name AS activity,
            COALESCE(am.color, '#3498db') AS color

@@ -36,12 +36,12 @@ function aiMode(userId) {
 }
 function descOf(metaJson) { try { return String(JSON.parse(metaJson || '{}').description || '').replace(/\s+/g, ' ').trim().slice(0, 300); } catch (e) { return ''; } } // « Description (pour l'IA) » : 300 caractères au plus
 function bigOnes(userId, activityId, year) {
-  return db.prepare(`SELECT o.id, o.title, o.endDate, o.metaJson FROM user_objectives o
+  return db.prepare(`SELECT o.id, o.title, o.endDate, o.metaJson, o.poleKey, o.categoryKey FROM user_objectives o
     WHERE o.userId = ? AND o.isMacro = 0 AND o.activityId = ? AND substr(o.endDate, 1, 4) = ?
       AND EXISTS (SELECT 1 FROM user_objectives c WHERE c.parentId = o.id AND c.userId = o.userId)
     ORDER BY o.endDate, o.id`).all(userId, activityId, String(year))
     .filter((r) => { try { return !JSON.parse(r.metaJson || '{}').abandoned; } catch (e) { return true; } })
-    .map((r) => ({ id: r.id, title: r.title, endDate: r.endDate, desc: descOf(r.metaJson) }));
+    .map((r) => ({ id: r.id, title: r.title, endDate: r.endDate, desc: descOf(r.metaJson), poleKey: r.poleKey, categoryKey: r.categoryKey }));
 }
 const hashOf = (bigs) => crypto.createHash('sha256').update(JSON.stringify(bigs.map((b) => [b.id, b.title, b.endDate, b.desc]))).digest('hex');
 const titlesText = (bigs) => bigs.map((b) => '- ' + b.title).join('\n');
@@ -75,7 +75,8 @@ async function resumeAnnuel(userId, activityId, year) {
   const y = Number(year), aid = Number(activityId);
   if (!Number.isInteger(y) || y < 2000 || y > 2100) throw err('Année invalide.');
   if (!db.prepare('SELECT 1 FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND m.activityId = ? AND a.active = 1').get(userId, aid)) throw err('Activité introuvable.', 404);
-  const bigs = bigOnes(userId, aid, y);
+  const pt = require('./portee');
+  const bigs = bigOnes(userId, aid, y).filter((b) => pt.objectifVisible(userId, aid, b.poleKey, b.categoryKey)); // activité partagée : seulement les objectifs de la portée du responsable (un simple membre : aucun)
   if (!bigs.length) return { text: '', source: 'titres', generatedAt: null, count: 0, iaPersonnelle: false };
   const mode = aiMode(userId);
   if (mode !== 'expansion') return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic
@@ -110,6 +111,7 @@ function titlesFor(userId, body) {
     body.columns.slice(0, 10).forEach((c) => {
       const aid = Number(c && c.activityId);
       if (!db.prepare('SELECT 1 FROM activity_members WHERE userId = ? AND activityId = ?').get(userId, aid)) throw err('Activité introuvable.', 404);
+      require('./portee').exigerObjectif(userId, aid, c.poleKey || null, c.categoryKey || null); // activité partagée : portée du responsable
       let where = "activityId = ? AND (level IS NULL OR level = 'activite')", args = [aid];
       if (c.poleKey && c.categoryKey) { where = "activityId = ? AND level = 'secteur' AND poleKey = ? AND categoryKey = ?"; args = [aid, String(c.poleKey), String(c.categoryKey)]; }
       else if (c.poleKey) { where = "activityId = ? AND level = 'pole' AND poleKey = ?"; args = [aid, String(c.poleKey)]; }

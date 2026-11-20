@@ -53,7 +53,7 @@ function requireMembership(userId, activityId) {
 }
 
 function handleGoalsError(res, err) {
-  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message });
+  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message, code: err.errCode || undefined });
   console.error('[goals]', err);
   return res.status(500).json({ error: 'Erreur serveur' });
 }
@@ -560,7 +560,7 @@ router.get('/activities/:id/goals/tasks/overview', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    res.json(goalstasks.tasksOverviewForActivity(activityId, req.query.today));
+    res.json(goalstasks.tasksOverviewForActivity(activityId, req.query.today, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -575,7 +575,7 @@ router.get('/activities/:id/goals/tasks/archives', (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
-    res.json(goalstasks.archivesForActivity(activityId));
+    res.json(goalstasks.archivesForActivity(activityId, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -804,7 +804,7 @@ router.get('/goals/capture/badges', (req, res) => {
       out[a.id] = goalstasks.unseenCountsForActivity(a.id);
       // X/Y des tâches du jour, affiché sur la puce de la page 1.
       try {
-        const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today);
+        const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today, userId);
         out[a.id].daily = { done: ov.done, total: ov.total };
       } catch (e) { out[a.id].daily = { done: 0, total: 0 }; }
     });

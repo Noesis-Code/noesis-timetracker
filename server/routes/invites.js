@@ -81,6 +81,7 @@ router.post('/invites/:id/accept', (req, res) => {
       const color = mergeMembership ? mergeMembership.color : palette[n % palette.length];
       db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)')
         .run(activity.id, userId, color, new Date().toISOString());
+      require('../lib/portee').poserALAcceptation(activity.id, userId, invite.scopeKey, invite.fromUserId); // portée de l'invitation (pôle/secteur) ; sans portée = activité entière
     }
 
     if (mergeActivity) {

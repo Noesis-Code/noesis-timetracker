@@ -65,6 +65,7 @@ const P = {
   task_rangement_corrections: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rangement des tâches (remise à zéro par l\'API, effacé avec le compte)' },
   rangement_consentement: { cols: ['userId'], erase: 'explicit', exp: 'NON: preuve du consentement à l\'amélioration anonyme du modèle (effacée avec le compte)' },
   paliers_delais: { cols: ['userId'], erase: 'explicit', exp: 'NON: délais réels entre paliers pour personnaliser les durées (remise à zéro par l\'API, effacé avec le compte)' },
+  member_scopes: { cols: ['userId'], erase: 'explicit', exp: 'NON: pôle ou secteur auquel appartient un membre (effacée avec le compte)' },
   activity_managers: { cols: ['userId'], erase: 'explicit', exp: 'NON: liste des responsables d\'une activité (effacée avec le compte)' },
   member_time_changes: { cols: ['memberId'], erase: 'cascade', exp: 'NON: historique des temps prévus d\'un membre (effacé avec le compte)' },
   goal_overload_dismissals: { cols: ['userId'], erase: 'explicit', exp: 'NON: alerte de surcharge écartée' },

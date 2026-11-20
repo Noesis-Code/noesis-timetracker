@@ -35,7 +35,7 @@ function tasksToday(userId, todayParam, dayParam) {
     acts.forEach((a) => { const poleLabels = {}, poleIdx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { poleLabels[p.key] = p.label; poleIdx[p.key] = i; }); // poleIdx : rang du pôle, pour sa nuance (comme les objectifs)
       const marks = require('./goalsoverload').getMarks(userId, a.id); // charge au-delà de +20 % du rythme tenu : marque sur le secteur
       const memberNames = {}; if (sharedActs.has(a.id)) goals.membersForActivity(a.id).forEach((m) => { memberNames[m.id] = m.name; });
-      goalstasks.allTasksWithGroup(a.id).forEach((t) => {
+      goalstasks.allTasksWithGroup(a.id, false, userId).forEach((t) => {
         const foreign = !!(t.plannedUserId && t.plannedUserId !== userId);
         if (foreign && (other || t.done)) return;
         const due = t.dueDate || today;
@@ -60,7 +60,7 @@ function tasksToday(userId, todayParam, dayParam) {
   // les prochaines tâches datées du même pôle (échéance croissante) complètent. Marquées upcoming : jamais comptées, jamais dans « Faites aujourd'hui ».
   const upc = [];
   if (!other && !all) acts.forEach((a) => {
-    const daily = goalstasks.dailyListForActivity(a.id, today);
+    const daily = goalstasks.dailyListForActivity(a.id, today, userId);
     const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
     // Règle d'Émilien, par secteur (ou par pôle sans secteur) : la base (à faire aujourd'hui, en retard, sans date) est montrée en entier ; si elle compte moins de
     // minLines tâches, les prochaines tâches À VENIR du même secteur (échéance croissante) complètent jusqu'à minLines au total, jamais plus.
@@ -121,7 +121,7 @@ function archiveAll(userId) {
   acts.forEach((a) => {
     const shared = db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1;
     const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
-    goalstasks.archivesForActivity(a.id).tasks.forEach((t) => {
+    goalstasks.archivesForActivity(a.id, userId).tasks.forEach((t) => {
       if (t.plannedUserId && t.plannedUserId !== userId) return;
       // Mêmes champs que les tâches faites de GET /api/goals/today : la ligne d'Archive est celle de la liste du jour.
       out.push({ id: t.id, label: t.label, done: true, doneAt: t.doneAt, dueDate: t.dueDate, activityId: a.id, activityName: a.name, activityColor: a.color || null,

@@ -171,4 +171,4 @@ function retirerCategorie(userId, activityId, key, targetId) {
   else db.prepare('DELETE FROM category_managers WHERE activityId = ? AND categoryKey = ? AND userId = ?').run(a.id, n.key, String(targetId));
   return listeCategorie(userId, a.id, key);
 }
-module.exports = { categorie, definirCategorie, ids, migrerAncienneTable, lister, ajouter, retirer, isManager, listeCategorie, ajouterCategorie, retirerCategorie };
+module.exports = { categorie, definirCategorie, ids, migrerAncienneTable, lister, ajouter, retirer, isManager, listeCategorie, ajouterCategorie, retirerCategorie, niveauDe, rangSur, etat };

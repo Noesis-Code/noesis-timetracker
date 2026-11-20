@@ -225,6 +225,11 @@ router.post('/activities/:id/invite', (req, res) => {
   const membership = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, userId);
   if (!membership) return res.status(403).json({ error: "Tu ne fais pas partie de cette activité." });
 
+  // Portée (19 nov. 2026) : `scopeKey` (pôle ou secteur) invite SEULEMENT dans cette catégorie ; absent = activité entière. Un responsable invite dans sa catégorie ou en dessous ; sans scopeKey, seul un membre de portée activité invite.
+  const scopeKey = req.body.scopeKey == null || req.body.scopeKey === '' ? null : String(req.body.scopeKey);
+  try { if (scopeKey && scopeKey !== '_') require('../lib/portee').membresDe(userId, activity.id, scopeKey); } catch (e) { return res.status(e.statusCode || 400).json({ error: e.message }); }
+  if (!require('../lib/portee').peutInviter(userId, activity.id, scopeKey)) return res.status(403).json({ error: 'Tu ne peux pas inviter ici : seuls les responsables invitent dans leur pôle ou secteur.', code: 'INVITATION_RESERVEE_RESPONSABLES' });
+
   const pseudo = (req.body.pseudo || '').trim();
   if (!pseudo) return res.status(400).json({ error: 'Le pseudo de la personne à inviter est requis.' });
 
@@ -239,8 +244,8 @@ router.post('/activities/:id/invite', (req, res) => {
   const pending = db.prepare("SELECT 1 FROM activity_invites WHERE activityId = ? AND toUserId = ? AND status = 'pending'").get(activity.id, target.id);
   if (pending) return res.status(409).json({ error: `${target.name} a déjà une invitation en attente pour cette activité.` });
 
-  db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt) VALUES (?, ?, ?, 'pending', ?)")
-    .run(activity.id, userId, target.id, new Date().toISOString());
+  db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt, scopeKey) VALUES (?, ?, ?, 'pending', ?, ?)")
+    .run(activity.id, userId, target.id, new Date().toISOString(), scopeKey && scopeKey !== '_' ? scopeKey : null);
 
   // Notification push à la personne invitée (1er septembre 2026) — jusqu'ici,
   // seule la pastille rouge de l'icône "avion en papier" le signalait, et
@@ -278,6 +283,9 @@ router.post('/activities/:id/separate', (req, res) => {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la séparer.' });
   }
  
+  let nouveauProprietaire = null;
+  try { nouveauProprietaire = require('../lib/portee').exigerSuccesseur(activity.id, userId); } catch (e) { return res.status(e.statusCode || 500).json({ error: e.message, code: e.errCode }); } // propriétaire sans responsable : il ne part pas
+
   const clash = db.prepare(`
     SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.name = ? COLLATE NOCASE AND a.id != ?
@@ -322,10 +330,8 @@ router.post('/activities/:id/separate', (req, res) => {
     // S'il en était le propriétaire, transfert automatique (comme pour une
     // suppression) — il restait forcément au moins un autre membre puisque
     // l'activité était partagée (>= 2 membres) avant cette opération.
-    if (activity.ownerId === userId) {
-      const remaining = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? ORDER BY joinedAt ASC').all(activity.id);
-      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(remaining[0].userId, activity.id);
-    }
+    if (activity.ownerId === userId) db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(nouveauProprietaire, activity.id); // le plus ancien responsable d'activité (portee.js)
+    require('../lib/portee').oublier(activity.id, userId);
  
     db.exec('COMMIT');
   } catch (e) {
@@ -390,6 +396,7 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
   try {
     db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // exclure un membre le retire des responsables
     db.prepare('DELETE FROM category_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et des responsables de catégorie (retour à l'héritage)
+    db.prepare('DELETE FROM member_scopes WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et de ses appartenances par catégorie
     // Nouvelle activité personnelle pour la personne exclue, même logique que
     // "Séparer" (voir plus haut) : elle garde son historique déjà enregistré.
     const info = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, ?, 1, ?, ?)')
@@ -567,6 +574,9 @@ router.delete('/activities/:id', (req, res) => {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la supprimer.' });
   }
 
+  let nouveauProprietaire = null;
+  try { nouveauProprietaire = require('../lib/portee').exigerSuccesseur(activity.id, userId); } catch (e) { return res.status(e.statusCode || 500).json({ error: e.message, code: e.errCode }); } // propriétaire sans responsable : il ne part pas
+
   const keepHistory = req.query.keepHistory === '1' || req.query.keepHistory === 'true';
 
   db.exec('BEGIN');
@@ -596,9 +606,10 @@ router.delete('/activities/:id', (req, res) => {
         db.prepare('DELETE FROM activities WHERE id = ?').run(activity.id);
       }
     } else if (activity.ownerId === userId) {
-      // Transfert automatique de la propriété vers le membre restant le plus ancien.
-      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(remaining[0].userId, activity.id);
+      // Transfert automatique de la propriété vers le plus ancien responsable d'activité (portee.js ; sans responsable, le départ a été refusé plus haut).
+      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(nouveauProprietaire, activity.id);
     }
+    require('../lib/portee').oublier(activity.id, userId);
 
     db.exec('COMMIT');
   } catch (e) {

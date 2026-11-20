@@ -49,8 +49,11 @@ function inScope(userId, activityId) {
   if (!a) throw err('Choisis une de tes activités.');
   return a;
 }
+// Activité partagée : les heures allouées suivent les objectifs, réservés aux responsables et limités à leur portée (portee.js) ; activité à un seul membre : libre.
+const visibleCat = (userId, c) => require('./portee').objectifVisible(userId, c.activityId, c.level === 'activite' ? null : c.poleKey || null, c.level === 'secteur' ? c.categoryKey || null : null);
 function checkCat(userId, spec) {
   inScope(userId, spec.activityId);
+  require('./portee').exigerObjectif(userId, spec.activityId, spec.level === 'activite' ? null : spec.poleKey || null, spec.level === 'secteur' ? spec.categoryKey || null : null);
   if (!LEVELS.includes(spec.level)) throw err('Niveau invalide.');
   const goals = require('./goals'), poles = goals.categoriesForActivity(Number(spec.activityId)) || [];
   if (spec.level !== 'activite' && !poles.some((p) => p.key === spec.poleKey)) throw err('Choisis un pôle de cette activité.');
@@ -90,12 +93,12 @@ function colsOf(userId, spec) {
   const goals = require('./goals');
   if (spec.level === 'activite') {
     const ids = (Array.isArray(spec.activityIds) && spec.activityIds.length ? spec.activityIds : db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1').all(userId).map((x) => x.id)).map(Number);
-    return ids.map((id) => ({ activityId: id, level: 'activite' }));
+    return ids.map((id) => ({ activityId: id, level: 'activite' })).filter((c) => visibleCat(userId, c));
   }
   inScope(userId, spec.activityId);
   const act = Number(spec.activityId);
-  if (spec.level === 'pole') return (goals.categoriesForActivity(act) || []).map((p) => ({ activityId: act, level: 'pole', poleKey: p.key }));
-  return (goals.secteursForPole(act, spec.poleKey) || []).map((s) => ({ activityId: act, level: 'secteur', poleKey: spec.poleKey, categoryKey: s.key }));
+  if (spec.level === 'pole') return (goals.categoriesForActivity(act) || []).map((p) => ({ activityId: act, level: 'pole', poleKey: p.key })).filter((c) => visibleCat(userId, c));
+  return (goals.secteursForPole(act, spec.poleKey) || []).map((s) => ({ activityId: act, level: 'secteur', poleKey: spec.poleKey, categoryKey: s.key })).filter((c) => visibleCat(userId, c));
 }
 const DAY = 86400000;
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * DAY).toISOString().slice(0, 10);
@@ -190,7 +193,8 @@ function membres(userId, c, start, end, today) {
     const goals = require('./goals'), act = Number(c.activityId);
     const keys = c.level === 'activite' ? null : c.level === 'pole' ? [c.poleKey].concat((goals.secteursForPole(act, c.poleKey) || []).map((x) => x.key)) : [c.categoryKey];
     const stop = end < today ? end : today, weeks = stop >= start ? Math.max(1, (daysBetween(start, stop) + 1) / 7) : null;
-    const mem = db.prepare('SELECT m.userId, u.name FROM activity_members m JOIN users u ON u.id = m.userId WHERE m.activityId = ? ORDER BY m.joinedAt').all(act);
+    const vus = require('./portee').membresVisibles(userId, act); // activité partagée : soi, ou les membres de la portée gérée
+    const mem = db.prepare('SELECT m.userId, u.name FROM activity_members m JOIN users u ON u.id = m.userId WHERE m.activityId = ? ORDER BY m.joinedAt').all(act).filter((m) => !vus || vus.has(m.userId));
     let t = null; try { t = require('./tempsmembres').tableFor(act, userId, today); if (t && t.error) t = null; } catch (e) { t = null; }
     const lvl = t && c.level !== 'secteur' ? (t.levels || []).find((l) => l.key === (c.level === 'activite' ? null : c.poleKey)) : null;
     const resp = require('./responsables').ids(act) || [];
