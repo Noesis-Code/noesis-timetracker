@@ -1,30 +1,19 @@
-/* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
+/* Noèsis TimeTracker — Feuille de route : arbre périodique de l'activité
  *
- * scission physique de objectifs-page2.js en 2 fichiers
- * exclusifs, un par onglet de la Page 2 (décision d'Emilien). Voir l'en-tête
- * de objectifs-page2-taches.js pour la répartition complète et le contrat
- * minimal entre les 2 fichiers. Ce fichier contient :
- *   - le cadre de pôle #goalsActivityHeader (‹ pôle ›, balayage) ;
- *   - la grille périodique comparative (#goalsGridScroll/#goalsGridHead/
- *     #goalsGrid), l'ajout de catégorie (« page + »), la navigation vers les
- *     réglages de catégorie ;
+ * Contenu de la fenêtre d'une activité (coque : fenetre-activite.js, chargé AVANT ce fichier). Ce fichier contient :
+ *   - le cadre de pôle #goalsActivityHeader (‹ pôle ›, balayage), inséré juste avant #goalsObjectifsView ;
+ *   - la grille périodique comparative (#goalsGridScroll/#goalsGridHead/#goalsGrid), l'ajout de catégorie (« page + »),
+ *     la navigation vers les réglages de catégorie ;
  *   - le rail tactile (#goalsScrubZone/#goalsScrubLabel).
- * Déplacement PUR : aucune logique modifiée. Ce fichier est chargé APRÈS
- * objectifs-page2-taches.js, qui crée la coque de la fenêtre : il y insère
- * son cadre de pôle juste avant #goalsPage2ModeSwitch et son contenu dans
- * l'emplacement #goalsObjectifsView (masqué tant que l'onglet Tâches est
- * actif — c'est objectifs-page2-taches.js, setGoalsPage2Mode(), qui bascule).
- * Points d'entrée exportés vers app.js/objectifs-page3.js en bas de fichier ;
- * TMT.resetGoalsObjectifsState() est appelée par openGoalsForActivity()
- * (objectifs-page2-taches.js) à chaque ouverture/changement d'activité.
+ * Points d'entrée exportés vers app.js/objectifs-page3.js en bas de fichier ; TMT.resetGoalsObjectifsState() est appelée par
+ * openGoalsForActivity() (fenetre-activite.js) à chaque ouverture/changement d'activité.
  */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
 
-  // Cadre de pôle : inséré entre l'en-tête fixe et la bascule Tâches/Objectifs
-  // (créés par objectifs-page2-taches.js, chargé avant ce fichier).
-  document.getElementById('goalsPage2ModeSwitch').insertAdjacentHTML('beforebegin', `
+  // Cadre de pôle : inséré juste avant l'emplacement #goalsObjectifsView (créé par fenetre-activite.js, chargé avant ce fichier).
+  document.getElementById('goalsObjectifsView').insertAdjacentHTML('beforebegin', `
 
         <!-- demande directe d'Emilien : le cadre du pôle
              sélectionné (#goalsActivityHeader) remonte ICI, entre l'en-tête
@@ -588,7 +577,7 @@
     TMT.currentGoalsPoleIndex = index;
     var shade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
     applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages
-    if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
+    header.style.setProperty('--poleColor', shade); // le nom du pôle prend la couleur du pôle (R16), jamais celle d'un secteur
   }
 
 
@@ -1478,7 +1467,7 @@
 
 
   // Remise à zéro de l'état de la grille à chaque ouverture/changement
-  // d'activité — appelée par openGoalsForActivity() (objectifs-page2-taches.js),
+  // d'activité — appelée par openGoalsForActivity() (fenetre-activite.js),
   // à l'emplacement exact où ces lignes vivaient avant la scission.
   TMT.resetGoalsObjectifsState = function () {
     // Repart de la période en cours à chaque changement d'activité : la

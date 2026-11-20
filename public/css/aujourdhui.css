@@ -55,7 +55,7 @@
 .tasksChoice.off { display: flex; flex-direction: column; justify-content: center; color: var(--text-light); cursor: default; }
 .tasksChoice.off small { font-size: 13px; }
 .tasksMsgLink { border: 0; background: none; padding: 0; font: inherit; color: var(--violet-soft); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.tasksChoice { min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.tasksChoice { display: flex; align-items: center; min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--sep); background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .tasksComposer { flex: none; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 8px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
 .tasksClip { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-light); cursor: pointer; }
 .tasksClip svg { width: 20px; height: 20px; }
@@ -164,6 +164,8 @@
 /* Pop-up des tâches du jour touché (comme la page 3) : au-dessus de la barre d'ajout ; la liste sous le calendrier n'existe plus à ce moment-là. */
 .tasksDayPop .tasksPopList { margin: 0; }
 .tasksDayPop .tasksProposeBody { overflow-y: auto; min-height: 0; }
+.tasksPropose, .tasksProposeBody, .tasksDayPop .tasksPopList { overscroll-behavior: contain; touch-action: pan-y; } /* le défilement reste dans le pop-up (jour touché, création de tâches) */
+html.composerOn, html.composerOn body, html:has(.tasksPropose:not(.hidden)), html:has(.tasksPropose:not(.hidden)) body { overflow: hidden; overscroll-behavior: none; } /* barre d'écriture ou pop-up ouvert : la page derrière ne bouge pas (le clavier ne la fait plus remonter) ; calendrier et tâches restent visibles */
 .tasksDayPop .tasksPopRow:last-child, .tasksDayPop .tasksPopList > :last-child .tasksPopRow:last-child { border-bottom: 0; } /* pas de trait sous la dernière tâche */
 .tasksToday.calUnfolded > .tasksPopList, .tasksToday.calUnfolded > .tasksTopRow { display: none; } /* calendrier déplié : la liste et le compteur n'existent que dans le pop-up du jour touché (jamais dessous) ; replié : liste normale */
 .tasksDayPop .tasksProposeHead .tasksDayCount { margin-left: auto; margin-right: 8px; align-self: center; }

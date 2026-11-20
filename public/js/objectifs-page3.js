@@ -802,8 +802,6 @@
   }
 
 
-  function closeGoalsDayAddForms() { /* plus de formulaires de jours sur la page */ }
-  TMT.closeGoalsDayAddForms = closeGoalsDayAddForms;
 
 
   // ----- Calendrier de MOIS (grille L à D) : une barre par semaine avec l'objectif HEBDOMADAIRE, le jour d'échéance de l'objectif PÉRIODIQUE marqué -----

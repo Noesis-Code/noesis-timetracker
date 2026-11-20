@@ -1,6 +1,6 @@
 /* Noèsis — Lignes de tâche partagées : ligne repliable (secteur / pôle / activité), ligne de tâche (case, texte, date, icône de modification), panneau de modification
  * (texte, date, répétition, responsable, suppression) et champ « Répéter ». Utilisées par l'onglet « Tâches » (aujourdhui.js), l'ajout de tâche (objectifs-page1.js) et le calendrier
- * (objectifs-page3.js). Extraites de objectifs-page2-taches.js lors de la suppression de la page « Tâches de l'activité » : code inchangé. */
+ * (objectifs-page3.js). Extraites de l'ancienne fenêtre des tâches lors de la suppression de la page « Tâches de l'activité » : code inchangé. */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};

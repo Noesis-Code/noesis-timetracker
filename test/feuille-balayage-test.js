@@ -16,8 +16,8 @@ assert(/#goalsCapturePage\) \{[^}]*overflow-x: clip[^}]*touch-action: pan-y/.tes
 const css2 = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
 assert(/\.tasksPopList \{[^}]*overflow-x: hidden/.test(css2), 'liste de tâches : aucun défilement latéral natif (la liste ne se décale plus seule, le balayage part)');
 assert(/input:not\(\[type=checkbox\]\)/.test(stats), 'un balayage qui commence sur une case à cocher reste possible');
-const p2 = read('objectifs-page2-taches.js');
-assert(p2.includes("GOALS_PAGE2_ORDER = ['goals']"), 'dans l activité : Objectifs seul (la page 3 Calendrier est retirée : le calendrier est dans la vue Tâches)');
+const p2 = read('fenetre-activite.js');
+assert(!/GOALS_PAGE2_ORDER|setGoalsPage2Mode/.test(p2) && p2.includes('goalsObjectifsView'), 'dans l activité : Objectifs seul, plus de bascule de pages (le calendrier est dans la vue Tâches)');
 assert(!p2.includes('data-dot='), 'plus de points de pagination sur la page 2 de la Feuille de route');
 assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.test(p2), 'une activité s\'ouvre sur Objectifs');
 assert(!/keepGoalsView/.test(stats), 'plus de pager Statistiques : rien à signaler au retour vers la Feuille de route');

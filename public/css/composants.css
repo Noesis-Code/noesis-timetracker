@@ -354,3 +354,6 @@ label.retVal { cursor: text; }
 .discoveryCircles.membresPick { flex-wrap: wrap; overflow: visible; margin: 0 0 16px; }
 .membresPick .discoveryCircleBtn .meta { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .membresPick .discoveryCircleBtn[aria-pressed="true"] .smallAvatar { outline: 2px solid var(--purple); outline-offset: 2px; }
+
+/* Point de pagination (zone tactile 44 px ; le point visuel reste à 7 px). */
+.goalsDotBtn { width: 17px; height: 44px; /* pas de 17 px = écartement d'origine (7 px + 10 px) */ padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }

@@ -2,10 +2,10 @@
 const fs = require('fs');
 let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const rd = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
-const bar = rd('public/js/barre-volets.js'), mod = rd('public/js/modules.js'), today = rd('public/js/aujourdhui.js'), css = rd('public/css/barre-volets.css') + rd('public/css/aujourdhui.css') + rd('public/css/bureau.css') + rd('public/css/objectifs-page2-taches.css'), i18n = rd('public/i18n.js');
+const bar = rd('public/js/barre-volets.js'), mod = rd('public/js/modules.js'), today = rd('public/js/aujourdhui.js'), css = rd('public/css/barre-volets.css') + rd('public/css/aujourdhui.css') + rd('public/css/bureau.css') + rd('public/css/fenetre-activite.css'), i18n = rd('public/i18n.js');
 // 1. Plus d'appui long, de mode édition de la barre, de « + » d'ajout ni de styles R17bis de la barre
 assert(!/LONG_MS|MOVE_PX|startDrag|addX|barX|barGhost|barPlus|barAdding|barEdit|barSolo|setAdding|askAdd|askRemove|justEdited/.test(bar), 'barre : appui long, poignée, croix rouge et pop-up d\'ajout supprimés');
-assert(!/barGhost|barPlus|barAdding|barEdit|barSolo|cmpAddBadge|barX|tabBtnAdd\.barPaid|tabbarHasPlus/.test(css) && !/tabbarHasPlus/.test(rd('public/js/objectifs-page2-taches.js')), 'CSS et page 2 : styles de l\'ajout par le « + » supprimés');
+assert(!/barGhost|barPlus|barAdding|barEdit|barSolo|cmpAddBadge|barX|tabBtnAdd\.barPaid|tabbarHasPlus/.test(css) && !/tabbarHasPlus/.test(rd('public/js/fenetre-activite.js')), 'CSS et page 2 : styles de l\'ajout par le « + » supprimés');
 assert(!i18n.includes('Retirer de la barre') && !i18n.includes("'Ajouter un onglet'"), 'i18n : textes de l\'ancien « + » retirés');
 // 2. Le bouton n'existe que sur la Feuille de route (Tâches / Objectifs) ; action selon la vue
 assert(bar.includes("btnOf('tasks')") && bar.includes("btnOf('objectives')") && bar.includes("classList.contains('active')") && bar.includes("TMT.todayView.toggleComposer ? 'tasks' : null") && bar.includes("? 'tree' : null") && bar.includes("setCls(addBtn, 'barNoAdd', !kind)"), 'bouton présent seulement sur le volet Feuille de route, absent ailleurs');

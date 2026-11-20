@@ -700,8 +700,6 @@ textarea {
   transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 .periodBtn.active { background: var(--purple); color: var(--on-action); border-color: var(--purple); }
-#goalsPage2ModeDiscBtn { position: relative; }
-#goalsPage2ModeDiscBtn .notifDot { top: 2px; right: 2px; border-color: var(--card); }
 @media (hover: hover) {
   .periodBtn:hover:not(.active) { background: var(--hover-bg); }
 }
@@ -1291,18 +1289,6 @@ body.scrollLock { overflow: hidden; }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
 .chatComposer .msg:empty { display: none; }
 
-/* ----- Fil d'activité : le composeur tient le bas de l'ÉCRAN ----- */
-#goalsActivitySwitcherScroll.chatMode { overflow-y: hidden; }
-#goalsActivitySwitcherScroll.chatMode #goalsDiscView,
-#goalsActivitySwitcherScroll.chatMode #communityDiscussionBlock {
-  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-}
-#goalsActivitySwitcherScroll.chatMode #communityDiscussionBlock { margin-bottom: 0; }
-#goalsActivitySwitcherScroll.chatMode #communityDiscussionList {
-  flex: 1 1 auto; min-height: 0; max-height: none;
-}
-#goalsActivitySwitcherScroll.chatMode .discussionComposer { flex: 0 0 auto; }
-
 /* Flux "Suivi" (#followingFeed, Communauté) : contrairement à #communityMyPostsList/#profileDiscussionCommunityList (encadrées par .discussionList, boîte à … */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1479,7 +1465,7 @@ body.scrollLock { overflow: hidden; }
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage),
 .goalTaskEditModal { align-items: center; padding: 16px; box-sizing: border-box; }
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage) > .communityMembersModalCard,
-.goalTaskEditCard, .goalsDiscSheet { border: 1px solid var(--sheet-line); border-radius: var(--radius-xl); }
+.goalTaskEditCard { border: 1px solid var(--sheet-line); border-radius: var(--radius-xl); }
 /* Fenêtres imbriquées dans une page plein écran (ex. Membres dans la fenêtre d'activité) : mêmes règles, ligne fine incluse. */
 #activityPage .communityMembersModal > .communityMembersModalCard,
 #profilePage .communityMembersModal > .communityMembersModalCard,
@@ -3297,7 +3283,6 @@ html[data-modules-off~="calendar"] [data-module~="calendar"],
 html[data-modules-off~="ai"] [data-module~="ai"],
 html.noRoadmapBar [data-module~="ai"],
 html[data-modules-off~="notifications"] [data-module~="notifications"],
-html[data-modules-off~="sharing"] #goalsPage2ModeDiscBtn,
 html[data-modules-off~="sharing"] #activitiesList .unreadBadge { display: none !important; }
 
 /* Trace « désactivé dans Modules » : visible seulement quand le module concerné est éteint ; un appui ouvre Réglages > Modules. */

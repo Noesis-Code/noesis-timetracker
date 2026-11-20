@@ -1,7 +1,7 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
  *
  * scission de objectifs-page2.css en 2 fichiers exclusifs,
- * un par onglet (voir l'en-tête de js/objectifs-page2-taches.js). Déplacement
+ * un par onglet (voir l'en-tête de js/fenetre-activite.js). Déplacement
  * PUR : aucune règle changée. Contient le cadre de pôle (.goalsActivityHeader,
  * .goalsSwipeBtn), la grille (.goalsGrid*) et le rail tactile (.goalsScrub*).
  * Historique antérieur à la scission conservé ci-dessous (ancien en-tête :
@@ -294,3 +294,8 @@
 .goalsYearBands { margin: 0 0 8px; }
 .goalsYearBand { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
 .goalsYearBand.on { color: var(--text); cursor: default; }
+
+/* Sélecteur de pôle simplifié (28 oct. 2026) : texte seul « ‹ Entreprise › », sans cadre, fond, liseré ni pastille ; flèches discrètes aux extrémités (zone de toucher 44 px, R37). */
+:root #goalsActivitySwitcher #goalsActivityHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; min-height: 44px; }
+#goalsActivityHeader #goalsPoleDot { display: none; }
+#goalsActivityHeader .activityPageName { color: var(--poleColor, var(--text)); }

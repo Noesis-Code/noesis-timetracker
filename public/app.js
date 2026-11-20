@@ -8764,7 +8764,7 @@
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDiscussionMessage(); }
   });
 
-  // Points d'entrée pour la Page 2 d'Objectifs (objectifs-page2-taches.js).
+  // Points d'entrée pour la Page 2 d'Objectifs (fenetre-activite.js).
   window.TMT.discussion = {
     // Activité partagée affichée : charge le fil SANS le marquer lu (la
     // pastille de l'onglet signale les non-lus) et lance le rafraîchissement.

@@ -70,12 +70,12 @@
     v = !!v; if (v && !canAddHere()) v = false;
     if (v === composerOpen) return;
     composerOpen = v; syncDock();
-    if (v && dock) { dock.classList.remove('tasksDockIn'); void dock.offsetWidth; dock.classList.add('tasksDockIn'); if (ui.text) ui.text.focus(); } // apparition de droite à gauche (css/aujourdhui.css)
+    if (v && dock) { dock.classList.remove('tasksDockIn'); void dock.offsetWidth; dock.classList.add('tasksDockIn'); if (ui.text) ui.text.focus({ preventScroll: true }); } // apparition de droite à gauche (css/aujourdhui.css)
     try { document.dispatchEvent(new CustomEvent('tmt:composer')); } catch (e) { /* vieux navigateur */ }
   } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
   function build(container) {
     root = el('div', 'tasksToday');
-    listBox = el('div', 'tasksPopList tasksTree');
+    listBox = el('div', 'tasksPopList tasksTree'); listBox.id = 'tasksListBox';
     root.appendChild(buildFilter()); root.appendChild(buildCal()); root.appendChild(buildCalHost()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
@@ -367,11 +367,13 @@
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
     ui.close = TMT.ui.closeBtn(function () {
       if (state.gen && state.gen.tasks && state.gen.tasks.length) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir effacer les tâches générées ?'), { ok: tr('Effacer'), danger: true }).then(function (yes) { if (yes) reset(); }); return; }
-      if (state.exp || state.expStep) reset(); else if (state.review && target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
+      if (state.exp || state.expStep) { reset(); return; }
+      if (state.review && ui.text.value.trim()) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir quitter sans enregistrer ?'), { ok: tr('Quitter') }).then(function (yes) { if (yes) reset(); }); return; } // la ✕ ne l'enregistre plus : elle la supprime, après confirmation (20 nov. 2026, Émilien) ; c'est « Enregistrer » qui l'enregistre
+      reset(); }, tr('Fermer')); // ✕ en haut à droite (R13)
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
-    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'));
+    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : Enregistrer valide ce rangement.'));
     ui.pages = el('div', 'tasksPages'); ui.track = el('div', 'tasksTrack');
     var pageA = el('div', 'tasksPage tasksPageA'); pageA.appendChild(ui.fields); pageA.appendChild(ui.hint);
     ui.tasksBox = el('div', 'tasksPage tasksPageB off');
@@ -400,7 +402,7 @@
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
     ui.save = el('button', 'tasksSaveBtn', tr('Enregistrer')); ui.save.type = 'button'; // remplace la zone d'écriture à l'étape 2 d'Expansion (liste des tâches à valider)
-    ui.save.addEventListener('click', function () { expSave(); });
+    ui.save.addEventListener('click', function () { if (state.review && !state.exp && !state.expStep) send(); else expSave(); });
     box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(ui.save); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg); box.appendChild(ui.exHint);
     return box;
   }
@@ -410,6 +412,8 @@
   function poleOf(o) { return String(o.categoryLabel || '').split(' → ')[0]; }
   function sectorOf(o) { var p = String(o.categoryLabel || '').split(' → '); return p.length > 1 ? p[1] : ''; }
   function actCount() { var seen = {}, n = 0; state.options.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; n++; } }); return n; }
+  function actColorOf(actId) { var a = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (x) { return String(x.id) === String(actId); })[0]; return (a && a.color) || ''; } // couleur de l'activité (point à gauche)
+  function poleColorOfOption(o) { var p = ((struct && struct[String(o.activityId)]) || []).filter(function (q) { return q.label === poleOf(o); })[0]; return p ? poleColorOf(o.activityId, p.key) : actColorOf(o.activityId); } // nuance standard du pôle ; le secteur reprend celle de son pôle
   function sectorsOfPole(t) { return state.options.filter(function (o) { return t && o.activityId === t.activityId && poleOf(o) === poleOf(t) && sectorOf(o); }); }
   function dateText(iso) {
     if (!iso) iso = dayIso();
@@ -449,6 +453,7 @@
     var t = target(), poleId = t ? t.activityId : state.poleId;
     var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
     ui.proposal.classList.toggle('hidden', !(state.review || state.expStep || readOnly) || (!t && !state.options.length && !readOnly)); // jamais visible pendant l'écriture : seulement après ↑
+    if (state.review && !readOnly && !state.expStep) dock.classList.add('expSave'); // pendant la revue, ↑ devient « Enregistrer »
     ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : state.expStep ? tr('Expansion') + ' · ' + tr('Où ranger les tâches') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
     ui.close.classList.toggle('hidden', !!readOnly);
     if (readOnly) state.open = '';
@@ -460,7 +465,7 @@
     if (!state.expStep && !readOnly) ui.fields.appendChild(advBlock()); // « Avancé » : replié, un seul choix « Nature »
     if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Exécutant', state.who ? state.who.name : '—', readOnly));
     if (state.expStep) { ui.hint.textContent = tr('Balaie vers la gauche pour voir les tâches générées.'); ui.hint.classList.remove('hidden'); }
-    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
+    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : Enregistrer valide ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
   }
   // « Avancé » de la création manuelle d'une tâche : replié par défaut ; « Nature » (Maintenir / Développer) VIDE par défaut = l'IA décide en silence d'après le titre ; aucun choix de phase. Retoucher le choix l'annule.
@@ -488,7 +493,7 @@
     box.appendChild(row); return box;
   }
   function closeChooser() { state.open = ''; }
-  function choice(box, label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
+  function choice(box, label, fn, look) { var b = el('button', 'tasksChoice', label); b.type = 'button'; if (look && look.dot) b.insertBefore(dotEl(look.dot), b.firstChild); if (look && look.text) b.style.color = look.text; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
   function toggleChooser(key) { state.open = state.open === key ? '' : key; paintProposal(); }
   // Les choix du champ ouvert (construits sous lui par fieldRow).
   function chooserFor(key) {
@@ -504,16 +509,16 @@
           state.poleId = o.activityId; state.who = null;
           state.choice = same || (mine.length === 1 ? mine[0] : null);
           if (!state.choice && state.proposal && state.proposal.activityId !== o.activityId) state.proposal = null;
-        });
+        }, { dot: actColorOf(o.activityId) });
       });
     } else if (key === 'pole') {
       var seenP = {};
       state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) {
         var pl = poleOf(o); if (seenP[pl]) return; seenP[pl] = true;
-        choice(box, pl, function () { state.choice = o; });
+        choice(box, pl, function () { state.choice = o; }, { text: poleColorOfOption(o) });
       });
     } else if (key === 'secteur') {
-      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }); });
+      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }, { text: poleColorOfOption(o) }); });
     } else if (key === 'who') {
       choice(box, '—', function () { state.who = null; });
       (state.members[poleId] || []).forEach(function (m) { choice(box, m.name, function () { state.who = { id: m.id, name: m.name }; }); });
@@ -754,7 +759,7 @@
     row.appendChild(b); wrap.appendChild(row);
     if (state.open === 'exp' && !b.disabled) {
       var box = el('div', 'tasksChooser');
-      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }); });
+      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }, { dot: actColorOf(a.id) }); });
       ((state.essor && state.essor.others) || []).forEach(function (a) {
         var off = el('div', 'tasksChoice off'); off.appendChild(el('span', null, a.name)); off.appendChild(el('small', null, tr('Sans Expansion'))); box.appendChild(off);
       });
@@ -807,7 +812,7 @@
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
     if (state.exp || state.expStep) { state.exp = null; state.gen = null; state.expStep = 0; ui.pages.classList.remove('locked'); goPage(1, true); setExpMode(false); ui.proposal.classList.add('hidden'); }
-    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
+    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); dock.classList.remove('expSave'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
@@ -942,7 +947,7 @@
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
       if (!shown) {
         state.review = true; paintProposal(); ui.proposal.classList.remove('hidden');
-        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche ↑ (ou ✕).') : tr('Choisis où ranger la tâche.');
+        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche Enregistrer.') : tr('Choisis où ranger la tâche.');
         if (!t && state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity');
         return null;
       }

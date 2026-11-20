@@ -312,7 +312,7 @@
 
 /* Chargement (R49) : UN voile de verre presque opaque sur toute l'application (barre des volets comprise), le N animé au centre, rien d'autre.
    Créé par TMT.chargement.show() / TMT.ui.attente() (composants.js) ; n'apparaît qu'après 1 s ; ne capte aucun clic tant qu'il est invisible. */
-.cmpVoile { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; animation: cmpVoileOn .01s linear 1s forwards; background: var(--glass-calm-bg-strong); -webkit-backdrop-filter: var(--glass-calm-blur-strong); backdrop-filter: var(--glass-calm-blur-strong); }
+.cmpVoile { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; animation: cmpVoileOn .01s linear 1s forwards; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* verre commun = jetons de .cmpGlass (R31), jamais de fond plein */
 .cmpVoile svg { display: block; width: 38px; height: 48px; fill: var(--text); flex: none; }
 .cmpVoile polygon { opacity: .22; animation: cmpLoaderVague 1.4s linear infinite; }
 .cmpVoile polygon:nth-child(2) { animation-delay: 0s; }
@@ -354,3 +354,6 @@ label.retVal { cursor: text; }
 .discoveryCircles.membresPick { flex-wrap: wrap; overflow: visible; margin: 0 0 16px; }
 .membresPick .discoveryCircleBtn .meta { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .membresPick .discoveryCircleBtn[aria-pressed="true"] .smallAvatar { outline: 2px solid var(--purple); outline-offset: 2px; }
+
+/* Point de pagination (zone tactile 44 px ; le point visuel reste à 7 px). */
+.goalsDotBtn { width: 17px; height: 44px; /* pas de 17 px = écartement d'origine (7 px + 10 px) */ padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
