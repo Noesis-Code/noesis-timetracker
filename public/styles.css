@@ -2286,20 +2286,6 @@ button { -webkit-user-select: none; user-select: none; }
 /* ⚠️ SEUL élément qui neutralise le geste natif : le reste de la page défile
    normalement, même en mode édition. */
 
-.subProjectDeleteX {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--danger);
-  font-size: 0.9rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
 /* ===================== CHRONO → SOUS-PROJETS (4 septembre 2026) ===================== */
 .chronoSubProjectWrap {
   /* 4 septembre 2026, demande d'Emilien : « recentrer la section sous-projets entre le temps qui défile et le bouton stop. */
@@ -2895,7 +2881,7 @@ button { -webkit-user-select: none; user-select: none; }
    sous-projets/activités, .danger, retrait de photo…) passent à l'orange brique des boutons Ajouter/Rechercher/Envoyer.
    Les pastilles de notification et indicateurs d'état restent rouges (ce ne sont pas des boutons). */
 .chronoBtn-stop.chronoBtn-stop { background: var(--brique-stop); color: var(--on-action); } /* rouge un peu moins crayeux (demande d'Emilien, 30 sept.) */
-.iconBtn.danger.danger, .activityDeleteX.activityDeleteX, .subProjectDeleteX.subProjectDeleteX {
+.iconBtn.danger.danger, .activityDeleteX.activityDeleteX {
   border-color: var(--danger); color: var(--danger);   /* R12 : rouge = suppression de données */
 }
 .discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: var(--brique-text); }

@@ -104,13 +104,6 @@
    classe ou une modification de la classe partagée — même technique déjà en
    place dans le Design pour un cas symétrique
    (.activityGoalsSecteurRow.editing .subProjectDeleteX, styles.css). */
-.goalsTasksGroup .subProjectItem .subProjectDeleteX {
-  border: none;
-  background: none;
-  width: auto;
-  height: auto;
-  padding: 4px;
-}
 
 
 /* ancienne règle #goalsBackToCaptureBtn (margin-right:4px,
@@ -125,7 +118,6 @@
 
 /* poignée ≡ à gauche de la case, bouton modifier (crayon),
    case grise (couleur de la section). */
-.goalsTasksGroup .subProjectItem .goalsTaskTrashBtn { display: inline-flex; align-items: center; justify-content: center; padding: 8px; color: var(--text-light); }
 .goalsTasksGroup .subProjectItem input[type="checkbox"] {
   -webkit-appearance: none; appearance: none; width: 28px; height: 28px; border-radius: 50%;
   background: transparent; border: 2px solid var(--text-light);

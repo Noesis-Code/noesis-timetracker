@@ -238,15 +238,13 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objSemGenBtn { width: 100%; min-height: 44px; border: 0; border-radius: 999px; background: var(--brique); color: var(--mine-violet-text); font: inherit; font-size: 15px; cursor: pointer; } /* violet quand on peut toucher, violet pâle sinon */
 .objSemGenBtn:disabled { opacity: .45; cursor: default; }
 .objSemList { flex: none; border: 1px solid var(--glass-border); background: var(--glass-bg); border-radius: var(--radius-xl); overflow: hidden; }
-.objSemRow { border-bottom: 1px solid var(--glass-border); }
+.objSemRow { border-bottom: 1px solid var(--sep); }
 .objSemRow:last-child { border-bottom: 0; }
 .objSemHead { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px 0 12px; color: var(--text); cursor: pointer; }
 .objSemNo { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--track-bg); color: var(--text-light); font-size: 13px; font-weight: 700; }
 .objSemTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .objSemTitle.empty { color: var(--text-light); }
 :root .objSemHead input.objSemTitleIn { flex: 1; min-width: 0; min-height: 44px; padding: 0; font: inherit; font-size: 16px; color: var(--text); background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; outline: 0; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-.objSemPlus, .objSemDel { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; background: none; color: var(--violet-soft); font: inherit; font-size: 22px; cursor: pointer; }
-.objSemDel { font-size: 15px; color: var(--text-light); }
 .objSemBody { padding: 0 12px 12px 52px; }
 .objSemQ { margin: 8px 0 0; font-size: 13px; color: var(--text-light); }
 .objSemChips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -262,7 +260,7 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objSemRow.past { opacity: .4; pointer-events: none; }
 .objSemRow.weekOpen > .objSemHead { background: var(--poleColor, transparent); color: var(--poleText, var(--text)); }
 .objSemRow.weekOpen > .objSemHead .objSemNo { background: rgba(0, 0, 0, .18); color: var(--poleText, var(--text)); }
-:root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn, .objSemRow.weekOpen > .objSemHead .objSemPlus, .objSemRow.weekOpen > .objSemHead .objSemDel { color: var(--poleText, var(--text)); }
+:root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn { color: var(--poleText, var(--text)); }
 .objSemRow.weekOpen > .objSemHead input.objSemTitleIn::placeholder { color: var(--poleText, var(--text)); opacity: .65; }
 .objFxWrap { border: 1px solid transparent; border-radius: 22px; padding: 8px 12px; margin: 0 -12px; } /* à « Fixe » : cadre (trait fin, coins arrondis) autour de Souple / Fixe et de l'échéance (19 nov. 2026) */
 .objFxWrap.fixed { border-color: var(--sep); }

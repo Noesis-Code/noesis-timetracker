@@ -296,18 +296,17 @@
 .cmpSepRow::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--sep); pointer-events: none; }
 /* R51 : la DERNIÈRE ligne d'une liste, d'une section ou d'un pop-up n'a JAMAIS de trait en dessous. Règle commune (jamais de correction au cas par cas) : .cmpSepRow et toute ligne de liste qui porte un trait du bas le perdent quand elle est la dernière de son conteneur. Un bouton d'action posé APRÈS la liste, dans le même conteneur, est un frère : la ligne n'est alors plus la dernière et garde son trait (le trait sépare la liste du bouton) ; posé hors du conteneur de la liste, il laisse la liste finir sans trait. */
 .cmpSepRow:last-child::after { content: none; }
-.retTRow.cmpSepRow { border-bottom: 0; } /* R22/R51 : l'en-tête du tableau (Répartition) prend le trait commun .cmpSepRow, pas un second trait */
 :root:root:root :is(.tasksPopRow, .docTasksPopRow, .docTasksRow, .docTasksFileRow, .retTRow, .consentItem, .notifRow, .categoryPickerRow, .categoryDropdownOption, .historyEntryCompact, .subProjectRowHeader, .subProjectItem, .objWeek, .activityEditBar):last-child { border-bottom: 0; }
 :root:root:root :is(#settingsParamsCard .notifRow, #settingsParamsCard .consentItem, #activitiesList .activityEditBar, .catList .activityEditBar):last-child { border-bottom: 0; }
 
 /* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
 .tasksFilterBtn[aria-expanded="true"]::after, .statsPeriodMenuWrap:has(> .statsPeriodMenu:not(.hidden)) > .caSubProjectBtn::after { content: '\25B4'; } /* bouton « Tous ▾ » des filtres d'activité (Bilan, Tâches, statistiques) : la flèche change de sens à l'ouverture */
-.calWeekRow { position: relative; margin-left: 14px; }
+.calWeekRow { position: relative; margin-left: 30px; }
 .calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
-.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
+.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(calc(-100% - 3px), -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 0; border: 0; background: none; color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
 .calWeekNum > i { font-style: normal; color: var(--purple); } /* numéro de période sous le S, dans la même pastille sur le trait */ /* numéro de la semaine centré sur le trait gauche du cadre */
 .calWeekRow .goalsCalWeekTitle { text-align: center; padding: 0 22px; } /* titre de l'objectif hebdomadaire : centré, à l'écart du numéro S/P (gauche) et de la pastille (droite), jamais collé aux côtés */
-.goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 14px; }
+.goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 30px; }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
 
