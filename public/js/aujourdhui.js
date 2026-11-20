@@ -265,7 +265,7 @@
   function filtRow(parent, text, level, on, fn, color) {
     var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; if (color) b.insertBefore(dotEl(color), b.firstChild); b.addEventListener('click', fn); parent.appendChild(b); return b;
   }
-  document.addEventListener('click', function (e) { if (filtOpen && filterBox && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); } });
+  document.addEventListener('click', function (e) { /* une ligne retirée du DOM par le redessin du panneau n'est pas un toucher dehors */ if (filtOpen && filterBox && e.target.isConnected && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); } });
   function paintFilter() {
     if (!filterBox) return; filterBox.textContent = ''; if (filterRow) filterRow.classList.toggle('open', filtOpen);
     var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
