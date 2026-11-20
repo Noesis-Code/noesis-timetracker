@@ -99,7 +99,7 @@ Fichiers très partagés (un seul agent à la fois dessus, sinon conflits de mer
 | Objectifs — Pôles/secteurs/tâches | gestion pôles/secteurs de `goals.js`/`routes/goals.js`, `goalstasks.js`, `goalstaskclassify.js`, panneau « gérer mes catégories », fenêtre Activité (Tâches/Discussion) | seuls les pôles portent une couleur, jamais les secteurs |
 | Objectifs — Planification IA | `goalsauto.js`, `scripts/apply-offre1-*.js` | |
 | Capture hors ligne | `public/offline-queue.js`, `public/sw.js`, `manifest.webmanifest` | |
-| Sous-projets | `server/lib/subprojects.js` & co, `routes/subprojects*.js` | UI masquée depuis le 17 sept. ; `bindSubProjectDrag` = code mort à retirer |
+| Sous-projets | `server/lib/subprojects.js` & co, `routes/subprojects*.js` | UI masquée depuis le 17 sept. |
 | Offre 1 / Paiement | `offerdelivery.js`, `subscriptioncron.js`, `stripe.js`, `routes/offercheckout.js`, `stripewebhook.js` | Stripe jamais testé en live |
 | Design — coquille | `.topbar`/`.tabbar`, clavier virtuel, viewport, écran de chargement, `theme-palette.js` | |
 | Design — cohérence UX | technique commune transverse (fermetures, glisser-déposer, confirmations, icônes, boutons d'envoi dans la zone) | jamais la logique propre d'un écran |

@@ -35,8 +35,10 @@ assert(/\.objGridHead \{[^}]*font-size: 11px; color: var\(--text\)/.test(css) &&
 assert((js.match(/function objTable\(/g) || []).length === 1 && js.includes('objTable({ levelLabel') && (js.match(/objTable\(\{/g) || []).length === 3 && !js.includes('Reste de ta capacité') && !/restLabel = 'Reste de ta capacité'/.test(read('server', 'lib', 'tempsbudget.js')) && !js.includes('function trow(') && !js.includes('function tsep('), 'une seule fonction de rendu du tableau (écran 1, écran « Déplacer » et pop-up des heures), plus de « Reste de ta capacité », anciens assistants de ligne supprimés');
 {
   const a1 = js.indexOf('  function hh(min)'), a2 = js.indexOf('\n', a1);
+  const heuresLine = read('public/js/composants.js').split('\n').filter((l) => l.trim().indexOf('heures: function') === 0)[0].trim().replace('heures: ', '').split('}, //')[0] + '}';
+  global.TMT = { ui: { heures: new Function('return ' + heuresLine)() } }; // le format d'heures unique (TMT.ui.heures)
   const hh = new Function(js.slice(a1, a2) + '; return hh;')();
-  assert(hh(780) === '13h' && hh(795) === '13h15' && hh(810) === '13h30' && hh(825) === '13h45' && hh(30) === '0h30' && hh(0) === '0h' && hh(125) === '2h05' && hh(168 * 60) === '168h' && hh(null) === '—', 'format des durées : 13h, 13h15, 13h30, 13h45, 0h30, 2h05 (minutes de la roue telles quelles), jamais de décimale');
+  assert(hh(780) === '13 h' && hh(795) === '13 h 15' && hh(810) === '13 h 30' && hh(825) === '13 h 45' && hh(30) === '30 min' && hh(0) === '0 min' && hh(125) === '2 h 05' && hh(168 * 60) === '168 h' && hh(null) === '—', 'format des durées : 13 h, 13 h 15, 30 min, 2 h 05 (TMT.ui.heures, un seul format), jamais de décimale');
   assert(!js.includes('hrs(') && !/\d,\d/.test(js.slice(a1, a2)) && (js.match(/function hh\(/g) || []).length === 1, 'une seule fonction de formatage pour toute la page (tableaux, Avant / Après, effet)');
 }
 

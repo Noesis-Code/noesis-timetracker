@@ -10,7 +10,8 @@
   var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
   var api = function (m, u, b) { return TMT.api(m, u, b); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
+  // UN SEUL format d'heures (composants.js)
+  function hh(min) { return TMT.ui.heures(min); }
   var veil = null, busy = false;
 
   function close() { if (veil) { veil.remove(); veil = null; } }

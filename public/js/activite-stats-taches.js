@@ -14,9 +14,7 @@
   function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
   // Durées : « 1 h 30 », « 3 h », « 20 min ».
   function fmtMin(m) {
-    m = Math.max(0, Math.round(m)); var h = Math.floor(m / 60), r = m % 60;
-    if (!h) return r + ' min';
-    return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '');
+    return TMT.ui.heures(m); // UN SEUL format d'heures (composants.js)
   }
   // Saisie libre : « 1 h 30 », « 1h30 », « 20 min », « 1,5 » (heures), « 2 » (heures). null si illisible.
   function parseMin(s) {

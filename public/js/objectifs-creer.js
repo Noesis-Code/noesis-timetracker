@@ -15,7 +15,8 @@
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   // UNE seule fonction de formatage des durées pour toute la page Temps : heures puis minutes, jamais de décimale (« 13h », « 13h15 », « 13h30 », « 0h30 », « 2h05 »). Les minutes choisies à la roue s'affichent telles quelles.
-  function hh(min) { if (min == null) return '—'; var m = Math.round(min), h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? (r < 10 ? '0' : '') + r : ''); }
+  // UN SEUL format d'heures (composants.js)
+  function hh(min) { return TMT.ui.heures(min); }
   // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
   // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
   function tbtn(minutes, label, onPick, maxMin) { // maxMin (facultatif) : une source ne fait que baisser, jamais au-dessus de son « Avant »
@@ -449,7 +450,6 @@
     // Phrase de la suggestion : un calcul, des symboles. « Niveau : heures totales ÷ semaines = heures par semaine · Chrono (écart du milieu) »
     function tpSentence() {
       var g = tp.sugg, lv = { debutant: 'Débutant', intermediaire: 'Intermédiaire', avance: 'Avancé' }[g.level] || '', a = hh(g.totalMin.min), b = hh(g.totalMin.max), ch = tp.e && tp.e.me ? tp.e.me.passeMin : null;
-      if (/h$/.test(a)) a = a.slice(0, -1);
       var out = (lv ? tr(lv) + ' : ' : '') + a + '–' + b + ' ÷ ' + g.weeks + ' ' + tr('sem') + ' = ' + hh(g.perWeekMin.lo) + '–' + hh(g.perWeekMin.hi);
       if (ch != null) { var d = g.perWeekMin.mid - ch; out += ' · ' + tr('Chrono') + ' ' + hh(ch) + ' (' + (d < 0 ? '−' : '+') + hh(Math.abs(d)) + ')'; }
       return out;
@@ -1000,9 +1000,9 @@
           tEl.addEventListener('click', function (e) { e.stopPropagation(); }); tEl.addEventListener('input', function () { r.t = tEl.value; sync(); });
         } else tEl = el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'));
         head.appendChild(tEl);
-        if (gone) head.appendChild(el('span', 'objSemPlus'));
-        else if (r.w.obj) { var del = btn('objSemDel', '✕', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
-        else head.appendChild(el('span', 'objSemPlus', '+'));
+        if (gone) head.appendChild(el('span', 'cmpRemove cmpRemove--add'));
+        else if (r.w.obj) { var del = btn('cmpRemove', '', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
+        else head.appendChild(el('span', 'cmpRemove cmpRemove--add'));
         if (isOpen && spec.color) { row.style.setProperty('--poleColor', spec.color); row.style.setProperty('--poleText', TMT.readableTextOn ? TMT.readableTextOn(spec.color) : '#15111C'); } // la semaine choisie prend la couleur du pôle (format du calendrier)
         row.appendChild(head);
         if (isOpen) {
@@ -1180,7 +1180,7 @@
         if (advOpenE) { advBox.appendChild(advInner); paintGuideInto(restBox, form, function () { sync(); }, undefined, 'rest'); }
       }
       advInner.appendChild(restBox); var dayBox = el('div'), daysRow = accRow(tr('Jours'), function () { return ''; }, dayBox); daysRow.classList.add('hidden'); advInner.appendChild(daysRow);
-      function durSentence(m) { return m < 60 ? m + ' min' : hh(m); }
+      function durSentence(m) { return hh(m); }
       function byRefresh(hoursChanged) { // les heures par semaine ont changé : les jours reprennent la répartition par défaut (ou suivent proportionnellement les jours déjà réglés)
         window.clearTimeout(byTimer);
         if (hoursChanged && byShow()) {
@@ -1224,7 +1224,7 @@
       var partsBox = el('div', 'objField'), partRows = {}, partEdit = null, partPreview = null, partTimer = 0, partSeq = 0;
       paintAdvE();
       function partDirty() { return !!(partEdit && partPreview && o.parts && o.parts.items.some(function (it) { return it.id === partEdit.id && it.percent !== partEdit.percent; })); }
-      function fmtHh(h) { return h == null ? '—' : (Math.round(h * 10) / 10) + ' h'; }
+      function fmtHh(h) { return h == null ? '—' : TMT.ui.heures(h * 60); }
       function noteOf(it) {
         var t = [];
         if (it.hoursAfter != null && it.hoursBefore !== it.hoursAfter) t.push(fmtHh(it.hoursBefore) + ' → ' + fmtHh(it.hoursAfter) + ' ' + tr('par semaine'));

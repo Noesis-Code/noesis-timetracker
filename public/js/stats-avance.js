@@ -155,10 +155,7 @@
 
   // ---------- Utilitaires ----------
   function fmtMin(m) {
-    m = Math.max(0, Math.round(Number(m) || 0));
-    if (m < 60) return m + ' min';
-    var h = Math.floor(m / 60), r = m % 60;
-    return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '');
+    return TMT.ui.heures(Number(m) || 0); // UN SEUL format d'heures (composants.js)
   }
   function fmtNum(n) { return String(Math.round(n * 10) / 10).replace('.', ','); }
   function sgn(n, unit) { return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n) + (unit || ''); }

@@ -273,7 +273,7 @@
     // changer le texte, la date et (activité partagée) le responsable, et garde la suppression.
     var edit = document.createElement('button');
     edit.type = 'button';
-    edit.className = 'subProjectDeleteX goalsTaskTrashBtn goalsTaskEditBtn';
+    edit.className = 'cmpEdit goalsTaskEditBtn'; // composant unique du crayon (R29)
     edit.innerHTML = TMT.ui.editIcon();
     edit.title = t('Modifier cette tâche');
     edit.setAttribute('aria-label', t('Modifier cette tâche'));

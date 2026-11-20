@@ -279,8 +279,7 @@
 
   function formatGoalHours(minutes) {
     if (minutes == null) return null;
-    var h = Math.round((minutes / 60) * 10) / 10;
-    return (h === Math.round(h) ? h : h.toFixed(1)) + 'h';
+    return TMT.ui.heures(minutes); // UN SEUL format d'heures (composants.js)
   }
 
 
@@ -351,7 +350,7 @@
     var err = document.createElement('p'); err.className = 'msg'; card.appendChild(err);
     var row = document.createElement('div'); row.className = 'goalsCaptureConfirmActions';
     var ignore = document.createElement('button'); ignore.type = 'button'; ignore.className = 'iconBtn'; ignore.textContent = t('Ignorer');
-    var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'iconBtn btnBrique'; ok.textContent = t('Valider');
+    var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'iconBtn btnBrique'; ok.textContent = t('Enregistrer');
     row.appendChild(ignore); row.appendChild(ok); card.appendChild(row);
     function close() { overlay.remove(); }
     closeBtn.onclick = close; ignore.onclick = close;
@@ -608,9 +607,9 @@
     var table = document.createElement('div'); table.className = 'goalEstTable';
     ['', 'Moyenne', 'Cible'].forEach(function (h) { var c = document.createElement('div'); if (h) { c.className = 'goalEstHead'; c.textContent = t(h); } table.appendChild(c); });
     var lbl = document.createElement('div'); lbl.className = 'goalEstRowLabel'; lbl.textContent = t('Semaine');
-    var avgEl = document.createElement('div'); avgEl.className = 'goalEstAvg'; avgEl.textContent = TMT.fmtCapMinutes(avg) || '0:00';
+    var avgEl = document.createElement('div'); avgEl.className = 'goalEstAvg'; avgEl.textContent = TMT.ui.heures(avg || 0);
     var maxBtn = document.createElement('button'); maxBtn.type = 'button'; maxBtn.className = 'goalEstMax';
-    function paintMax() { maxBtn.textContent = TMT.fmtCapMinutes(d.target || 0) || '0:00'; maxBtn.classList.toggle('isEmpty', !d.target); }
+    function paintMax() { maxBtn.textContent = TMT.ui.heures(d.target || 0); maxBtn.classList.toggle('isEmpty', !d.target); }
     maxBtn.addEventListener('click', function () {
       TMT.openDurationPicker({ title: 'Cible', minutes: d.target || 0, onDone: function (v) { d.target = v > 0 ? v : null; paintMax(); } });
     });
@@ -745,10 +744,10 @@
         var capBtn = document.createElement('button');
         capBtn.type = 'button';
         capBtn.className = 'goalWeeklyCapBtn' + (w.estimateSource === 'manual' ? ' manual' : '');
-        capBtn.textContent = t('Capacité') + ' : ' + (capMin ? formatGoalHours(capMin) : '—');
+        capBtn.textContent = t('Heures') + ' : ' + (capMin ? formatGoalHours(capMin) : '—');
         capBtn.addEventListener('click', function () {
           TMT.openDurationPicker({
-            title: 'Capacité', minutes: capMin || 0,
+            title: 'Heures', minutes: capMin || 0,
             onDone: function (v) { saveWeeklyCapacity(period.periodNumber, weekIndex, w.text, v > 0 ? v : 0); },
           });
         });
@@ -1155,9 +1154,9 @@
       }
       var getMax = function () { var v = parseInt(maxBtn.dataset.minutes, 10); return isFinite(v) && v > 0 ? v : null; };
       var paintEst = function () {
-        avgEl.textContent = TMT.fmtCapMinutes(autoMinutes) || '0:00';
+        avgEl.textContent = TMT.ui.heures(autoMinutes || 0);
         var m = getMax();
-        maxBtn.textContent = TMT.fmtCapMinutes(m) || '0:00';
+        maxBtn.textContent = TMT.ui.heures(m || 0);
         maxBtn.classList.toggle('isEmpty', !m);
         useBtn.disabled = autoMinutes == null;
       };
@@ -1337,7 +1336,7 @@
     var el = $('activityGoalsMainEstimate');
     if (!el) return;
     var total = plan && plan.periodNumber === period.periodNumber && plan.periodTotal != null ? plan.periodTotal : period.mainGoalEstimateMinutes;
-    var line = total != null ? '≈ ' + formatGoalHours(total) + ' ' + t('estimées pour la période') : t('Temps estimé : à définir');
+    var line = total != null ? t('Heures') + ' : ' + formatGoalHours(total) : t('Heures') + ' : ' + t('à définir');
     el.textContent = line;
   }
 

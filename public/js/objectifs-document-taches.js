@@ -482,12 +482,12 @@
     var host = $('docTasksResults');
     if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">L’IA n’a trouvé aucune tâche à proposer (photo trop floue, ou rien de lisible). Reprends la photo de plus près, ou écris la liste dans la consigne.</p>'; return; }
     var html = proposals.map(function (t, i) {
-      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? TMT.ui.heures(t.minutes) : ''].filter(Boolean).join(' · ');
       var pick = '';
       if (t.toChoose && categories.length) {
         pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-c="' + i + '">'
           + categories.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
-        meta = [dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+        meta = [dayOrWeekLabel(t), t.minutes ? TMT.ui.heures(t.minutes) : ''].filter(Boolean).join(' · ');
       }
       return '<div class="docTasksRowWrap"><label class="docTasksRow"><input type="checkbox" data-i="' + i + '" checked><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span></label>' + pick + '</div>';
     }).join('');
@@ -515,7 +515,7 @@
   function cToast(t) { $('docTasksChangesToast').textContent = t || ''; }
   function showVal(field, v) {
     if (v === '' || v == null) return '—';
-    if (field === 'time') return v + ' min';
+    if (field === 'time') return TMT.ui.heures(Number(v));
     return v;
   }
   function renderChanges() {
@@ -556,7 +556,7 @@
   }
   var pmeta = { poles: {}, secteurs: {}, order: {}, poleIdx: {}, weeks: {}, periods: {}, existing: {} };
   var PBATCH = 200; // plafond du serveur par appel de résolution
-  function fmtH(m) { m = Math.round(m || 0); var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : ''); }
+  function fmtH(m) { return TMT.ui.heures(m || 0); } // UN SEUL format d'heures (composants.js)
   function nTasks(n) { return isCh() ? n + (n > 1 ? ' modifications' : ' modification') : n + (n > 1 ? ' tâches' : ' tâche'); }
   function isoAdd(iso, n) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return '';
@@ -701,7 +701,7 @@
   function taskHtml(l) {
     if (isCh()) return changeHtml(l);
     var t = l.task, day = dayOrWeekLabel({ day: t.day, week: t.week, noRoom: t.noRoom });
-    var sub = [day, t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+    var sub = [day, t.minutes ? TMT.ui.heures(t.minutes) : ''].filter(Boolean).join(' · ');
     var h = '<div class="ptTask' + (l.ok ? '' : ' ptNo') + '" data-tid="' + t.id + '"><input type="checkbox" data-tid="' + t.id + '" aria-label="Sélectionner"' + (l.ok ? '' : ' disabled') + '><div class="ptBody"><div class="ptLabel ptTaskTitle">' + esc(t.title) + '</div>';
     if (sub) h += '<div class="ptSub">' + esc(sub) + '</div>';
     if (t.moved) h += '<div><span class="ptFlag">déplacée (semaine pleine)</span></div>';

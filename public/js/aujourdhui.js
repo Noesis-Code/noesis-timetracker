@@ -21,12 +21,7 @@
     var p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', d); s.appendChild(p);
     return s;
   }
-  function minutesLabel(m) {
-    m = Math.max(0, Math.round(m || 0));
-    var h = Math.floor(m / 60), r = m % 60;
-    if (!h) return r + ' min';
-    return r ? h + ' h ' + (r < 10 ? '0' : '') + r : h + ' h';
-  }
+  function minutesLabel(m) { return TMT.ui.heures(m || 0); } // UN SEUL format d'heures (composants.js)
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   // Affichage instantané (29 oct. 2026, demande d'Émilien) : la dernière réponse de chaque jour est gardée (mémoire ; aujourd'hui aussi en stockage local,
   // pour le premier affichage après ouverture de l'app) et dessinée tout de suite ; la réponse du serveur la remplace ensuite.

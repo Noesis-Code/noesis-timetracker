@@ -57,10 +57,10 @@ assert(!/Temps prévu/.test(ficheSrc) && !/member-times/.test(ficheSrc), 'fiche 
 assert(!/suggestion/.test(rep), 'plus de proposition de changer le niveau du dessus');
 assert(!/data-role', 'save'|textContent = t\('Enregistrer'\)/.test(rep), 'Répartition : plus de bouton « Enregistrer » propre au bloc');
 assert(/Pour garder le total, ajuster/.test(rep) && /Accepter/.test(rep) && /Refuser/.test(rep), 'propositions d’ajustement vers le bas conservées (Accepter / Refuser)');
-assert(/Reprendre celle du dessus/.test(rep) && /className = 'activityEditRow'/.test(rep), '« Reprendre celle du dessus » : ligne discrète au composant existant');
+assert(/Reprendre celle du dessus/.test(rep) && /className = 'activityEditRow cmpSepRow'/.test(rep), '« Reprendre celle du dessus » : ligne discrète au composant existant, séparateur commun (R22/R51 : jamais sous la dernière)');
 assert(/rep\.valid\(\)/.test(cr) && /repBlock\.rep\.save/.test(cr), 'fiche : le bouton du bas enregistre la répartition, seulement si le total d’heures est > 0');
 const strat = app.slice(app.indexOf('function buildStrategieBlock('), app.indexOf('function buildRepartitionBlock('));
-assert(/activityEditRow cmpSepRow/.test(strat) && !/cmpSepRow/.test(rep), 'séparateurs : un trait sous Stratégie, aucun sous Répartition des tâches (dernière option)');
+assert(/activityEditRow cmpSepRow/.test(strat) && rep.indexOf("head.className = 'activityEditRow cmpSepRow'") < 0, 'séparateurs : un trait sous Stratégie, aucun sous l’en-tête Répartition des tâches (dernière option)');
 assert(/activityEditRow cmpSepRow/.test(read('public/js/responsables-ui.js')), 'séparateur sous Responsables (inchangé)');
 // ---- Dock : tout bouton du bas remplace la barre ET le « + » ----
 const fiche = cr.slice(cr.indexOf('function openFiche('), cr.indexOf('function openEdit(') > 0 ? cr.indexOf('function proposeReorg(') : undefined);

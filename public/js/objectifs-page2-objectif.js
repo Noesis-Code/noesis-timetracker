@@ -876,7 +876,7 @@
         var fit = function () { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
         ta.addEventListener('input', fit);
         var ok = document.createElement('button');
-        ok.type = 'button'; ok.className = 'goalsYearSave'; ok.textContent = t('Enregistrer');
+        ok.type = 'button'; ok.className = 'cmpBtn'; ok.textContent = t('Enregistrer');
         ok.addEventListener('click', function () {
           ok.disabled = true;
           api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/year-goals/' + encodeURIComponent(c.key), { text: ta.value, year: goalsTreeYearNow() })

@@ -82,12 +82,14 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   const js = read('public/js/objectifs-creer.js'), css = read('public/css/objectifs-creer.css'), doc = read('docs/ia/ia-appels.md');
   const hhSrc = js.slice(js.indexOf('  function hh(min)'), js.indexOf('\n', js.indexOf('  function hh(min)')));
   const sSrc = js.slice(js.indexOf('    function tpSentence()'), js.indexOf('    function tpScreen1()'));
-  const mkS = new Function('tp', 'tr', hhSrc + '\n' + sSrc + '\nreturn tpSentence;');
+  const heuresSrc = read('public/js/composants.js').split(/\r?\n/).filter((l) => /^\s*heures: function/.test(l))[0].replace(/^\s*heures: /, '').replace(/\},\s*\/\/.*$/, '}'); // le format d'heures unique (TMT.ui.heures)
+  const TMT = { ui: { heures: new Function('return ' + heuresSrc)() } };
+  const mkS = new Function('TMT', 'tp', 'tr', hhSrc + '\n' + sSrc + '\nreturn tpSentence;').bind(null, TMT);
   const tr = (s) => s;
   const sg = { level: 'intermediaire', totalMin: { min: 5400, max: 8400 }, weeks: 30, perWeekMin: { lo: 180, mid: 240, hi: 285 } };
-  assert(mkS({ sugg: sg, e: { me: { passeMin: 360 } } }, tr)() === 'Intermédiaire : 90–140h ÷ 30 sem = 3h–4h45 · Chrono 6h (−2h)', 'phrase : niveau : totaux ÷ semaines = fourchette par semaine · Chrono (écart signé du milieu)');
-  assert(mkS({ sugg: sg, e: { me: { passeMin: 120 } } }, tr)() === 'Intermédiaire : 90–140h ÷ 30 sem = 3h–4h45 · Chrono 2h (+2h)', 'écart positif : « + »');
-  assert(mkS({ sugg: sg, e: { me: { passeMin: null } } }, tr)() === 'Intermédiaire : 90–140h ÷ 30 sem = 3h–4h45', 'sans Chrono : pas de partie « Chrono »');
+  assert(mkS({ sugg: sg, e: { me: { passeMin: 360 } } }, tr)() === 'Intermédiaire : 90 h–140 h ÷ 30 sem = 3 h–4 h 45 · Chrono 6 h (−2 h)', 'phrase : niveau : totaux ÷ semaines = fourchette par semaine · Chrono (écart signé du milieu)');
+  assert(mkS({ sugg: sg, e: { me: { passeMin: 120 } } }, tr)() === 'Intermédiaire : 90 h–140 h ÷ 30 sem = 3 h–4 h 45 · Chrono 2 h (+2 h)', 'écart positif : « + »');
+  assert(mkS({ sugg: sg, e: { me: { passeMin: null } } }, tr)() === 'Intermédiaire : 90 h–140 h ÷ 30 sem = 3 h–4 h 45', 'sans Chrono : pas de partie « Chrono »');
   assert(js.includes("if (tp.sugg) page.appendChild(el('p', 'hint objTNote', tpSentence()))") && js.includes('tp.valueMin = g ? g.perWeekMin.mid'), 'phrase grise sous le tableau (classe existante) ; valeur de départ = milieu, sinon Chrono');
   assert(!/niveau-heures|objTSug/.test(css) && doc.includes('`niveau-heures`'), 'aucune classe ni couleur nouvelle ; appel documenté');
   console.log(failed ? '\nniveau-heures-test : ' + failed + ' ÉCHEC(S)' : '\nniveau-heures-test : OK'); process.exit(failed ? 1 : 0);
