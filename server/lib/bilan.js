@@ -37,9 +37,13 @@ function lastPeriods(today) {
 const weekdayIdx = (d) => (new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7; // lundi = 0
 const r1 = (v) => Math.round(v * 10) / 10;
 
+// doneAt est un horodatage UTC (ISO) : le JOUR d'une tâche faite est sa date LOCALE (comme statsinsights.js : une tâche cochée à 22 h ne tombe pas au lendemain). Le SQL ne garde qu'une fenêtre large (±1 jour), le tri exact se fait ici.
 function doneTasks(activityId, start, end) {
-  return db.prepare(`SELECT i.id, i.doneBy, i.plannedUserId, sp.goalCategory AS k, substr(i.doneAt, 1, 10) AS day FROM sub_project_items i JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
-    WHERE sp.activityId = ? AND s.kind = 'tasks' AND i.done = 1 AND i.doneAt IS NOT NULL AND substr(i.doneAt, 1, 10) BETWEEN ? AND ?`).all(Number(activityId), start, end);
+  const dates = require('./dates');
+  return db.prepare(`SELECT i.id, i.doneBy, i.plannedUserId, sp.goalCategory AS k, i.doneAt AS doneAt FROM sub_project_items i JOIN sub_project_sections s ON s.id = i.sectionId JOIN sub_projects sp ON sp.id = s.subProjectId
+    WHERE sp.activityId = ? AND s.kind = 'tasks' AND i.done = 1 AND i.doneAt IS NOT NULL AND substr(i.doneAt, 1, 10) BETWEEN ? AND ?`).all(Number(activityId), addDays(start, -1), addDays(end, 1))
+    .map((r) => { const d = new Date(r.doneAt); return Object.assign(r, { day: Number.isNaN(d.getTime()) ? null : dates.userDayOf(d) }); })
+    .filter((r) => r.day && r.day >= start && r.day <= end);
 }
 // Confidentialité (19 nov. 2026) : dans une activité partagée, un simple membre ne voit que ses données ; un responsable, celles de la portée qu'il gère. Renvoie null = aucune limite.
 function regard(userId, activityId) {
@@ -105,9 +109,9 @@ function proportion(userId, activityId, today, cat) {
   const wantedRows = {}; try { db.prepare('SELECT userId, minutes FROM task_share_wanted WHERE activityId = ?').all(act.id).forEach((r) => { wantedRows[r.userId] = r.minutes; }); } catch (e) { /* table créée par partagetaches.js */ }
   const entered = {}; db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(act.id).forEach((r) => { entered[r.userId] = r.pct; });
   const hasEntered = Object.keys(entered).length > 0;
-  const RM = require('./repartition-membres'); RM.migrerPartsSaisies(act.id); const rep = RM.partsActivite(act.id); // la part demandée vient de la Répartition des tâches de l'activité (niveau « _ »)
+  const RM = require('./repartition-membres'); RM.migrerPartsSaisies(act.id); const rep = cat ? RM.partsEnVigueur(act.id, String(cat)) : RM.partsActivite(act.id); // la part demandée vient de la Répartition des tâches : celle de la catégorie choisie (héritée sinon), à défaut celle de l'activité (niveau « _ »)
   const wTotal = mem.reduce((a, m) => a + (wantedRows[m.id] > 0 ? wantedRows[m.id] : 0), 0);
-  return { activityId: act.id, rows: mem.map((m) => ({ userId: m.id, name: m.name, realPct: total ? Math.round(done.filter((x) => resp(x) === m.id).length / total * 100) : null, wantedPct: rep ? (rep[m.id] != null ? rep[m.id] : null) : hasEntered ? (entered[m.id] != null ? entered[m.id] : null) : (wTotal && wantedRows[m.id] > 0 ? Math.round(wantedRows[m.id] / wTotal * 100) : null), enteredPct: entered[m.id] != null ? entered[m.id] : null })) };
+  return { activityId: act.id, rows: mem.map((m) => ({ userId: m.id, name: m.name, realPct: total ? Math.round(done.filter((x) => resp(x) === m.id).length / total * 100) : null, wantedPct: rep ? (rep[m.id] != null ? rep[m.id] : null) : cat ? null : hasEntered ? (entered[m.id] != null ? entered[m.id] : null) : (wTotal && wantedRows[m.id] > 0 ? Math.round(wantedRows[m.id] / wTotal * 100) : null), enteredPct: entered[m.id] != null ? entered[m.id] : null })) };
 }
 
 // Écriture de la proportion demandée (fiche de l'activité dans l'arbre) : parts = { userId: pourcentage 0 à 100 } ; un responsable règle celle de tous, un non-responsable seulement la sienne ; somme <= 100. null retire la valeur.

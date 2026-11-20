@@ -8,6 +8,12 @@ const partage = require('../lib/partagetaches');
 
 const router = express.Router();
 
+// Confidentialité (20 nov. 2026) : dans une activité partagée, les agrégats d'objectifs et le partage des tâches de TOUS les membres sont réservés au propriétaire et aux responsables d'activité (portee.js). Activité non partagée : inchangé.
+function responsablesSeulement(activityId, userId) {
+  const pt = require('../lib/portee');
+  return !pt.estPartagee(activityId) || pt.managed(userId, activityId).all;
+}
+
 router.get('/stats/activity-progress', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
@@ -17,6 +23,7 @@ router.get('/stats/activity-progress', (req, res) => {
   if (!activity) return res.status(404).json({ error: 'Activité introuvable.' });
   const membership = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId);
   if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
+  if (!responsablesSeulement(activityId, userId)) return res.status(403).json({ error: 'Seuls les responsables voient les objectifs de l’activité.', code: 'DONNEES_RESERVEES_RESPONSABLES' });
   try { return res.json(progress.progressForActivity(activityId)); } catch (err) {
     console.error('[stats-activity-progress]', err);
     return res.status(500).json({ error: 'Erreur serveur' });
@@ -35,26 +42,8 @@ router.get('/stats/activity-insights', (req, res) => {
   if (!membership) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
   const poleKey = req.query.poleKey ? String(req.query.poleKey) : null;
   try { return res.json(insights.insightsForActivity(activityId, userId, poleKey, req.query.year, { scope: req.query.scope, offset: req.query.offset, woff: req.query.woff, toff: req.query.toff, kind: req.query.kind })); } catch (err) {
+    if (err.statusCode === 403) return res.status(403).json({ error: err.message, code: err.errCode });
     console.error('[stats-activity-insights]', err);
-    return res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-// GET /api/stats/activity-insights/glisse?activityId=…&periodStart=AAAA-MM-JJ[&week=1..4] — détail d'une bulle « Où ça glisse ».
-// Membre de l'activité seulement (jamais pour un profil visité : cette route ne prend pas de userId).
-router.get('/stats/activity-insights/glisse', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.query.activityId);
-  if (!Number.isInteger(activityId)) return res.status(400).json({ error: 'activityId requis.' });
-  if (!db.prepare('SELECT id FROM activities WHERE id = ?').get(activityId)) return res.status(404).json({ error: 'Activité introuvable.' });
-  if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, userId)) return res.status(403).json({ error: "Tu n'es pas membre de cette activité." });
-  const ps = String(req.query.periodStart || '');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ps)) return res.status(400).json({ error: 'periodStart requis.' });
-  const week = req.query.week ? Number(req.query.week) : null;
-  if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 4)) return res.status(400).json({ error: 'week invalide.' });
-  try { return res.json(insights.glisseDetail(activityId, ps, week)); } catch (err) {
-    console.error('[stats-glisse]', err);
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -88,7 +77,7 @@ function memberGuard(req, res, activityId) {
 router.get('/stats/recurring-tasks', (req, res) => {
   const activityId = Number(req.query.activityId);
   if (!memberGuard(req, res, activityId)) return undefined;
-  try { return res.json(partage.recurringTable(activityId, String(req.query.scope || 'year'), req.query.cat ? String(req.query.cat) : null)); } catch (err) {
+  try { return res.json(partage.recurringTable(activityId, String(req.query.scope || 'year'), req.query.cat ? String(req.query.cat) : null, req.userId)); } catch (err) {
     console.error('[stats-recurring-tasks]', err);
     return res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -96,6 +85,7 @@ router.get('/stats/recurring-tasks', (req, res) => {
 router.get('/stats/task-share', (req, res) => {
   const activityId = Number(req.query.activityId);
   if (!memberGuard(req, res, activityId)) return undefined;
+  if (!responsablesSeulement(activityId, req.userId)) return res.status(403).json({ error: 'Seuls les responsables partagent les tâches.', code: 'DONNEES_RESERVEES_RESPONSABLES' });
   try { return res.json(partage.proposal(activityId, String(req.query.mode || 'week'))); } catch (err) {
     console.error('[stats-task-share]', err);
     return res.status(500).json({ error: 'Erreur serveur' });
@@ -104,6 +94,7 @@ router.get('/stats/task-share', (req, res) => {
 router.post('/stats/task-share', (req, res) => {
   const activityId = Number(req.body && req.body.activityId);
   if (!memberGuard(req, res, activityId)) return undefined;
+  if (!responsablesSeulement(activityId, req.userId)) return res.status(403).json({ error: 'Seuls les responsables partagent les tâches.', code: 'DONNEES_RESERVEES_RESPONSABLES' });
   try { return res.json(partage.save(activityId, req.body)); } catch (err) {
     if (err.statusCode === 400) return res.status(400).json({ error: err.message });
     console.error('[stats-task-share-save]', err);

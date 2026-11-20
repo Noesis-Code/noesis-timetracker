@@ -4,7 +4,7 @@ let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); els
 const rd = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const sa = rd('public/js/stats-avance.js'), grp = rd('public/js/activite-stats-taches.js'), css = rd('public/css/stats-avance.css');
 const keys = (sa.match(/\n      \{ key: '([a-zA-Z]+)'/g) || []).map((x) => x.replace(/[^a-zA-Z]|key/g, '').replace(/^\{/, ''));
-assert(JSON.stringify(keys) === JSON.stringify(['weekdays', 'capacity', 'advance']), 'cartes restantes : Jours où tu travailles vraiment, Capacité par jour, Avancement (' + keys.join(', ') + ')');
+assert(JSON.stringify(keys) === JSON.stringify(['weekdays', 'advance']), 'cartes restantes : Jours où tu travailles vraiment, Avancement (' + keys.join(', ') + ')');
 ['Répartition', 'Durée estimée contre durée réelle', 'Charge restante par pôle', 'Tâches reportées plusieurs fois', 'Urgence et échéances', 'Temps cible contre temps fait', 'Où ça glisse'].forEach((t) => assert(!sa.includes("title: '" + t + "'"), 'retirée de l’écran : « ' + t + ' »'));
 assert(!/title: 'Capacité',/.test(sa) && !sa.includes('capacityAlert') && !sa.includes('openObjSheet') && !sa.includes('openSheet') && !sa.includes('splitBody') && !sa.includes('openGlisse') && !sa.includes('Charge restante par secteur') && !sa.includes('Temps cible contre temps fait par secteur'), 'jauge « Capacité », alerte, anneau Répartition, feuilles « Charge restante » / « Temps cible » et « Où ça glisse » : code retiré (données serveur gardées)');
 assert(!grp.includes("'Qui fait quoi'") || !grp.includes("cardHead(chartCard, 'Qui fait quoi'"), '« Qui fait quoi » retiré du groupe') ;

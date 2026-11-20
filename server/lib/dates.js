@@ -148,6 +148,9 @@ function userToday(now) {
   return isoDateOf(now instanceof Date ? now : new Date(), tz);
 }
 
+// Jour LOCAL d'un instant donné (ex. doneAt, horodatage UTC) dans le fuseau de la requête en cours (celui du téléphone) ; sans requête : fuseau du processus.
+function userDayOf(d) { return isoDateOf(d, tzStore.getStore()); }
+
 function formatElapsed(ms) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -176,5 +179,5 @@ const DATE_INVALIDE = 'Date invalide.';
 module.exports = {
   isRealDay, DATE_INVALIDE,
   DAY_NAMES, MONTH_NAMES_FR, isoDateOf, dayNameOf, mondayOf, formatElapsed, formatHM, pad2,
-  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow, runWithTimezone, userToday,
+  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow, runWithTimezone, userToday, userDayOf,
 };

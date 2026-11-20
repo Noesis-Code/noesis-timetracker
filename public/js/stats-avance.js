@@ -17,7 +17,9 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  var GREEN = '#4CAF50', YELLOW = '#F0AD4E', RED = '#E74C3C', ORANGE = '#C2694A';
+  // R12 : vert / jaune / rouge sémantiques lus dans les jetons (--good, --partial, --danger), jamais en dur.
+  function tok(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  var GREEN = tok('--good'), YELLOW = tok('--partial'), RED = tok('--danger'), ORANGE = '#C2694A';
 
   // ---------- Glissement continu (une technique pour les pages Temps | Tâches | Objectifs, propre page ET profil visité) ----------
   // Même technique que la Page 2 de la feuille de route (bindPage2ModeSwipe) : la page voisine est posée en absolu à côté de la courante
@@ -363,14 +365,11 @@
           var col = el('div', 'saDayCol'), d = dn[i], pv = pl[i] || 0;
           if (pv) { var pb = el('span', 'saDayPlan'); pb.style.height = (pv * 100 / top) + '%'; col.appendChild(pb); }
           if (d == null) { col.classList.add('future'); }
-          else { var b = el('i'); b.style.height = d ? (d * 100 / top) + '%' : '3px'; b.style.background = !d ? '#2b2e35' : (pv && d < pv ? RED : GREEN); col.appendChild(b); }
+          else { var b = el('i'); b.style.height = d ? (d * 100 / top) + '%' : '3px'; b.style.background = !d ? 'var(--track-bg)' : (pv && d < pv ? RED : GREEN); col.appendChild(b); }
           days.appendChild(col);
           lab.appendChild(el('span', null, a.minutes.length > 7 ? String(Number((a.dates[i] || '').slice(8, 10))) : tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
         });
-        w.appendChild(days); w.appendChild(lab); return w; } },
-      { key: 'capacity', def: true, title: 'Capacité par jour', body: function (d) {
-        var c = d.tasks && d.tasks.capacity; if (!c || !has(c.avgFreeMinutes)) return null;
-        return bigRow(fmtMin(c.avgFreeMinutes), tr('libres en moyenne')); } }
+        w.appendChild(days); w.appendChild(lab); return w; } }
     ],
     o: [
       { key: 'advance', def: true, title: 'Avancement', body: function (d) { return timelineBody(d); } }
@@ -385,7 +384,7 @@
   function saveAdded(k, arr) { try { localStorage.setItem(infoStore(k), JSON.stringify(arr)); } catch (e) { /* stockage indisponible */ } }
 
   // Cartes à peu d'informations : deux par ligne (une seule restante = pleine largeur).
-  var HALF = { capacity: 1 };
+  var HALF = {};
   function fillHalfRuns() {
     var run = [];
     var flush = function () { if (run.length % 2 === 1) run[run.length - 1].classList.add('saFull'); run = []; };
@@ -522,8 +521,8 @@
     activities().forEach(function (a) {
       var b = el('button', 'saChip' + (String(a.id) === String(activityId) ? ' on' : ''));
       b.type = 'button';
-      b.style.setProperty('--chipEdge', a.color || '#674EA7');
-      var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
+      b.style.setProperty('--chipEdge', a.color || tok('--purple'));
+      var d = el('span', 'saChipDot'); d.style.background = a.color || tok('--purple');
       b.appendChild(d); b.appendChild(el('span', null, a.name));
       b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; datas = { t: null, o: null }; renderYear(null); renderChips(); load(); } });
       els.chips.appendChild(b);

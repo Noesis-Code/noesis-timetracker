@@ -10,7 +10,7 @@ const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; co
 const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'stats-avance.js'), 'utf8');
 const block = (key) => { const i = js.indexOf("{ key: '" + key + "'"); return i < 0 ? '' : js.slice(i, i + 60); };
 // Cartes par défaut (le reste reste disponible dans « Ajouter une information »)
-['weekdays', 'capacity'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
+['weekdays'].forEach((k) => assert(/def: true/.test(block(k)), 'Tâches : « ' + k + ' » affichée par défaut'));
 ['onTime', 'estimate', 'remaining', 'workload', 'postponed', 'urgent', 'target', 'weeks'].forEach((k) => assert(block(k) === '', 'Carte « ' + k + ' » RETIRÉE de l’interface (tri du Bilan, 14 nov. 2026 : doublon avec l’arbre, ou non demandée)'));
 ['rhythm', 'streak', 'busy', 'assignees', 'achieved', 'carried', 'linked', 'pressure'].forEach((k) => assert(!new RegExp("key: '" + k + "'").test(js), 'Carte « ' + k + ' » supprimée définitivement du code et du rendu'));
 assert(!/els\.selBtn|saSel/.test(js) && /iconBtn saModeBtn/.test(js) && !/statsPeriodMenuItem[^\n]*dataset\.tab/.test(js) && /key: 'advance', def: true/.test(js), 'plus de sélecteur en haut : bouton Tâches / Objectifs (comme Aujourd hui de la Répartition) dans la carte du graphique, distinct du menu ⋮ ; Objectifs affiche le graphique + Avancement');

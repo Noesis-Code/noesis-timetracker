@@ -59,10 +59,13 @@ function openSeries(activityId) {
 }
 
 // Tableau « Tâches récurrentes » : lignes = tâches récurrentes, colonnes = membres, valeur = occurrences faites dans la portée.
-function recurringTable(activityId, scope, cat) {
+function recurringTable(activityId, scope, cat, viewerId) {
   const range = insights.scopeRange(scope);
-  const ms = members(activityId);
+  // Confidentialité (20 nov. 2026) : activité partagée = soi seul (simple membre) ou la portée gérée (responsable de pôle/secteur) ; portee.js.
+  const pt = require('./portee'), vus = viewerId ? pt.membresVisibles(viewerId, activityId) : null, mg = vus ? pt.managed(viewerId, activityId) : null;
+  const ms = members(activityId).filter((m) => !vus || vus.has(m.userId));
   let series = openSeries(activityId);
+  if (mg) { const cats = {}; db.prepare('SELECT id, goalCategory AS k FROM sub_projects WHERE activityId = ?').all(activityId).forEach((r) => { cats[r.id] = r.k; }); series = series.filter((s) => mg.has(cats[s.subProjectId]) || s.userId === viewerId); }
   if (cat) { // Bilan : un pôle (avec ses secteurs) ou un secteur seulement
     const keys = require('./portee').expand(activityId, String(cat));
     const ids = new Set(db.prepare(`SELECT id FROM sub_projects WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')})`).all(activityId, ...keys).map((r) => r.id));

@@ -157,7 +157,7 @@
 .bbNavLabel { font-size: 14px; color: var(--text); }
 .bbTable { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; font-variant-numeric: tabular-nums; }
 .bbTable th, .bbTable td { border: 1px solid var(--sep); padding: 8px 6px; text-align: center; overflow-wrap: anywhere; }
-.bbTable th { font-weight: 500; font-size: 11px; color: var(--text-light); }
+.bbTable th { font-weight: 500; font-size: 13px; color: var(--text-light); }
 .bbTable .bbN { width: 76px; text-align: left; color: var(--text); }
 .bbTable td.bbC { color: var(--text); }
 .bbTable td.bbMax { color: var(--good); font-weight: 600; }

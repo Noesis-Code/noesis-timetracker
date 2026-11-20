@@ -139,7 +139,7 @@ const TABLES = ['users', 'activities', 'activity_members', 'time_entries', 'runn
       ['PUT', `/api/profile/${A.id}/ai-mode`, { mode: 'absence' }], ['GET', `/api/profile/${A.id}/ai-mode`],
       // Statistiques
       ['GET', '/api/stats/activity-progress?activityId=' + A1], ['GET', '/api/stats/activity-insights?activityId=' + A1],
-      ['GET', `/api/stats/activity-insights/glisse?activityId=${A1}&periodStart=2026-10-19`], ['GET', '/api/stats/activity-members?activityId=' + A1],
+      ['GET', '/api/stats/activity-members?activityId=' + A1],
       ['GET', '/api/category-stats?activityId=' + A1 + '&period=week'], ['GET', '/api/category-timesheet?activityId=' + A1],
       ['GET', '/api/category-chart?activityId=' + A1], ['GET', `/api/category-stats?activityId=${SH}&memberId=${A.id}&period=week`],
       // Stratégie, propositions, documents

@@ -3,9 +3,10 @@
  * Visibles d'office et NON retirables : les 3 tableaux Chrono (Feuille de temps, Répartition, Graphique) — vue Toutes : la page de statistiques du Chrono ; une activité : le contenu de la fenêtre
  * Chrono de l'activité (par pôle et par secteur), déplacé ici sans fenêtre (TMT.bilanCategoryStats).
  * TOUT LE RESTE n'apparaît que via « + Ajouter une information » (même mécanique que les statistiques : cmpAdd, aperçus à cocher, Appliquer / Annuler) et se retire par la croix rouge ;
- * le choix est mémorisé par vue (Toutes) et par activité (localStorage, sans donnée serveur).
+ * le choix est mémorisé par niveau (Toutes / une activité / un pôle ou secteur : clé tmt.bilanInfo4.<niveau>, localStorage, sans donnée serveur).
  *   Toutes : Avancement, Jours où tu travailles vraiment, Tâches urgentes (Capacité par jour retirée le 20 nov. 2026 : doublon).
- *   Une activité : Moyenne des tâches réalisées, Proportion réelle contre demandée, Tâches récurrentes ; le Graphique des tâches et objectifs y est visible par défaut (retirable), jamais en Toutes.
+ *   Une activité : Jours où tu travailles vraiment, Moyenne des tâches réalisées, Proportion réelle contre demandée, Tâches récurrentes ; le Graphique des tâches et objectifs y est visible par défaut (retirable), jamais en Toutes.
+ *   Un pôle ou un secteur : Graphique du temps par membre (par défaut), Répartition entre membres, Moyenne, Proportion, Tâches récurrentes, Graphique des tâches et objectifs (voir DEFS : levels / def).
  * Données : /api/bilan/* (server/lib/bilan.js) et les cartes de js/stats-avance.js (TMT.bilanCardInstance). Lecture seule. */
 (function () {
   'use strict';
@@ -56,7 +57,7 @@
     api('GET', '/api/bilan/urgentes?offset=' + offset).then(function (r) {
       if (my !== gen) return; slot.textContent = '';
       var nav = el('div', 'bbNav'), prev = el('button', 'cmpNavArrow', '‹'), next = el('button', 'cmpNavArrow', '›'); prev.type = 'button'; next.type = 'button';
-      prev.disabled = offset <= 0; prev.setAttribute('aria-label', tr('Période précédente')); next.setAttribute('aria-label', tr('Période suivante'));
+      prev.disabled = offset <= 0; next.disabled = offset >= 26; /* le serveur plafonne à 26 périodes (bilan.js urgentes) */ prev.setAttribute('aria-label', tr('Période précédente')); next.setAttribute('aria-label', tr('Période suivante'));
       var again = function () { mount.textContent = ''; rUrgent(mount, remover); };
       prev.addEventListener('click', function () { offset = Math.max(0, offset - 1); again(); }); next.addEventListener('click', function () { offset += 1; again(); });
       nav.appendChild(prev); nav.appendChild(el('span', 'bbNavLabel', 'P' + r.period + ' · ' + r.year)); nav.appendChild(next); slot.appendChild(nav);
@@ -146,10 +147,10 @@
       for (var i = 0; i < 13; i += 2) { var tt = add('text', { x: x(i), y: H - 5, 'text-anchor': 'middle', class: 'saTick' }); tt.textContent = 'P' + (i + 1); }
       r.members.forEach(function (m) {
         var pts = []; m.hours.forEach(function (v, k) { if (r.todayIndex < 0 || k <= r.todayIndex) pts.push(x(k).toFixed(1) + ',' + y(v).toFixed(1)); });
-        add('polyline', { points: pts.join(' '), fill: 'none', stroke: m.color || '#9C8CC8', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+        add('polyline', { points: pts.join(' '), fill: 'none', stroke: m.color || getComputedStyle(document.documentElement).getPropertyValue('--purple').trim(), 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
       });
       slot.appendChild(svg);
-      var lg = el('div', 'saLegend'); r.members.forEach(function (m) { var s1 = el('span'), d = el('i', 'saSw'); d.style.background = m.color || '#9C8CC8'; s1.appendChild(d); s1.appendChild(document.createTextNode(m.name)); lg.appendChild(s1); }); slot.appendChild(lg);
+      var lg = el('div', 'saLegend'); r.members.forEach(function (m) { var s1 = el('span'), d = el('i', 'saSw'); d.style.background = m.color || getComputedStyle(document.documentElement).getPropertyValue('--purple').trim(); s1.appendChild(d); s1.appendChild(document.createTextNode(m.name)); lg.appendChild(s1); }); slot.appendChild(lg);
     });
   }
   function rTRepart(mount, remover) {
@@ -251,7 +252,7 @@
     bar.appendChild(cancel); bar.appendChild(apply); infoBody.appendChild(bar);
   }
 
-  // ---------- Tableaux de temps : vue Toutes = la page de statistiques du Chrono ; une activité = le contenu de la fenêtre Chrono de l'activité ; un pôle ou secteur : rien (pas encore) ----------
+  // ---------- Tableaux de temps : vue Toutes = la page de statistiques du Chrono ; une activité = le contenu de la fenêtre Chrono de l'activité ; un pôle ou secteur : pas de tableaux Chrono ici, son temps par membre vient des blocs « Graphique du temps par membre » et « Répartition entre membres » ----------
   function showChrono() {
     chronoHost.textContent = '';
     if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.close();
