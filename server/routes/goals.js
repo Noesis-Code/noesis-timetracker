@@ -535,6 +535,7 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
   }
 
   // Décision d'Émilien (20 nov. 2026) : même refus qu'à la modification (aujourd'hui = ok).
+  if (req.body.dueDate != null && req.body.dueDate !== '' && !require('../lib/dates').isRealDay(req.body.dueDate)) return res.status(400).json({ error: require('../lib/dates').DATE_INVALIDE });
   if (typeof req.body.dueDate === 'string' && req.body.dueDate && req.body.dueDate < require('../lib/dates').userToday()) {
     return res.status(400).json({ error: 'Pas de date dans le passé.' });
   }
@@ -609,7 +610,7 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
 
   // Date et exécutant facultatifs (file hors ligne de la barre « Nouvelle tâche… », 20 nov. 2026) : refus AVANT toute création, jamais de changement silencieux.
   const dueDate = typeof req.body.dueDate === 'string' ? req.body.dueDate : '';
-  if (dueDate && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dueDate)) return res.status(400).json({ error: 'Date invalide.' });
+  if (dueDate && !require('../lib/dates').isRealDay(dueDate)) return res.status(400).json({ error: require('../lib/dates').DATE_INVALIDE });
   if (dueDate && dueDate < require('../lib/dates').userToday()) return res.status(400).json({ error: 'Pas de date dans le passé.' });
   const plannedUserId = req.body.plannedUserId ? String(req.body.plannedUserId) : '';
   if (plannedUserId && !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, plannedUserId)) {

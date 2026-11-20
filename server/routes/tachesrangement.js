@@ -17,7 +17,7 @@ router.post('/taches/choix', async (req, res) => {
     const b = req.body || {}, activityId = Number(b.activityId), label = String(b.label || '').trim().slice(0, 300);
     if (!label) return res.status(400).json({ error: 'Titre requis.' });
     if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, req.userId)) return res.status(404).json({ error: 'Activité introuvable.' });
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || '')) ? b.date : null;
+    const date = require('../lib/dates').isRealDay(b.date) ? b.date : null;
     res.json({ proposition: await choix().choisir(req.userId, activityId, label, { date, itemId: Number(b.itemId) || null }) });
   } catch (err) { fail(res, 'POST /taches/choix', err); }
 });

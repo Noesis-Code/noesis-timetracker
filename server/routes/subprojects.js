@@ -67,6 +67,7 @@ router.put('/sub-project-items/:id', (req, res) => {
   }
 
   // Décision d'Émilien (20 nov. 2026) : aucun déplacement vers un jour passé ; une tâche déjà en retard garde sa date.
+  if (req.body.dueDate != null && req.body.dueDate !== '' && req.body.dueDate !== item.dueDate && !require('../lib/dates').isRealDay(req.body.dueDate)) return res.status(400).json({ error: require('../lib/dates').DATE_INVALIDE });
   if (typeof req.body.dueDate === 'string' && req.body.dueDate && req.body.dueDate !== item.dueDate && req.body.dueDate < require('../lib/dates').userToday()) {
     return res.status(400).json({ error: 'Pas de date dans le passé.' });
   }

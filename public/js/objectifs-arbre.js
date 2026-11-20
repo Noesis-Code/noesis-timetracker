@@ -506,7 +506,7 @@
   function openFiche(ci) { // 18 nov. 2026 : la fiche n'est ouverte que pour un responsable de la catégorie (ou d'un niveau supérieur) ou le propriétaire ; un simple membre : rien ne se passe, aucun message
     var spec = ficheOf(ci), key = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey;
     if (!key || !(TMT.objectifsView && TMT.objectifsView.openFiche) || !(TMT.responsables && TMT.responsables.canOpenCategory)) return;
-    TMT.responsables.canOpenCategory(spec.activity.id, key).then(function (ok) { if (ok) TMT.objectifsView.openFiche(spec); });
+    TMT.ui.attente(TMT.responsables.canOpenCategory(spec.activity.id, key)).then(function (ok) { if (ok) TMT.objectifsView.openFiche(spec); });
   }
   document.addEventListener('click', function (e) { lastTap = [e.clientX, e.clientY]; }, true); // où l'on a touché : origine du zoom de descente
   function descend(ci, block, year, macro, members) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
@@ -744,7 +744,7 @@
   }
   function refresh() {
     if (!tree) return Promise.resolve();
-    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
+    return TMT.ui.attente(Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })])).then(function (rs) {
       struct = rs[1]; var hid = (struct && struct.hidden) || []; if (struct && struct.activities) struct = Object.assign({}, struct, { activities: struct.activities.filter(function (a) { return hid.indexOf(a.id) < 0 && (!TMT.portee || TMT.portee.canManage(a.id)); }) }); /* simple membre d'une activité partagée : pas de volet Objectifs pour elle */ /* les colonnes viennent de la structure : l'activité masquée en disparaît aussi */ items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }

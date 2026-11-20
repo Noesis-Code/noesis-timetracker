@@ -54,7 +54,7 @@
       try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
-  // Chargement (R49, refait le 20 nov. 2026) : UN SEUL composant. Après 1 s d'attente, un voile de verre presque opaque recouvre TOUTE l'application (barre des volets comprise) avec le N animé au centre, rien d'autre ; retiré dès que c'est prêt.
+  // Chargement (R49, refait le 20 nov. 2026) : UN SEUL composant. Après 0,5 s d'attente (--voile-delai, css/composants.css), un voile de verre presque opaque recouvre TOUTE l'application (barre des volets comprise) avec le N animé au centre, rien d'autre ; retiré dès que c'est prêt.
   // TMT.chargement.show()/hide() (compteur : plusieurs attentes partagent un seul voile) ; TMT.ui.attente(promesse) = show + hide autour d'une promesse. Jamais de N dans une carte, de spinner, de squelette ni de « Chargement… ».
   var colorCache = null; // structure des couleurs de catégories (R53), rafraîchie toutes les 30 s
   var LOADER_PHRASE = 'Noèsis s’en occupe…';
