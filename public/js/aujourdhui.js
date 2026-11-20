@@ -960,7 +960,7 @@
     if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
     var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id) && (viewDay !== 'all' || t.dueNow !== false); }).length; // vue « toutes » : le compteur reste celui d'AUJOURD'HUI (à faire aujourd'hui, en retard ou sans date), identique à la vue du jour
     var planned = (d0.tasks || []).filter(function (t) { return !t.done || t.dueDate === dayIso(); }).length; // jour passé : prévues ce jour-là (faites ou non)
-    counter.textContent = kind === 'past' ? (nDone + planned ? nDone + ' ' + tr('sur') + ' ' + planned : '') : (nDone + nTodo ? nDone + ' / ' + (nDone + nTodo) : ''); // rien d'affiché quand il n'y a aucune tâche // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
+    counter.textContent = kind === 'past' ? (nDone + planned ? nDone + ' / ' + planned : '') : (nDone + nTodo ? nDone + ' / ' + (nDone + nTodo) : ''); // rien d'affiché quand il n'y a aucune tâche // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
     if (dayPopCount) dayPopCount.textContent = counter.textContent; // le compteur vit dans l'en-tête du pop-up du jour
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
