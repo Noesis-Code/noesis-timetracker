@@ -58,7 +58,7 @@ function inCat(list, activityId, cat) {
 function visibles(list, vs, userId) { return vs ? list.filter((x) => vs.has(x.k) || respOf(x) === userId) : list; }
 function membresVus(list, vs, userId) { return vs && !vs.roots.length ? list.filter((m) => m.id === userId) : list; }
 function membersOf(activityId) {
-  return db.prepare('SELECT u.id AS id, u.name AS name FROM activity_members m JOIN users u ON u.id = m.userId WHERE m.activityId = ? ORDER BY m.joinedAt, u.id').all(Number(activityId));
+  return db.prepare('SELECT u.id AS id, u.name AS name, u.color AS color FROM activity_members m JOIN users u ON u.id = m.userId WHERE m.activityId = ? ORDER BY m.joinedAt, u.id').all(Number(activityId));
 }
 // Une ligne : { jour: [7 moyennes], semaine: [4 moyennes] } à partir des tâches faites (liste) sur les 4 périodes.
 function rowOf(list, periods) {
@@ -129,4 +129,26 @@ function setProportion(userId, activityId, parts) {
   return proportion(userId, act.id);
 }
 
-module.exports = { lastPeriods, moyenneTaches, urgentes, proportion, setProportion };
+// TEMPS PAR MEMBRE d'un pôle ou d'un secteur (20 nov. 2026) : « Graphique du temps par membre » et « Répartition entre membres » du Bilan. Les 13 périodes (28 jours) de l'année en cours :
+// heures de chaque membre dans la catégorie (un pôle compte aussi ses secteurs). Confidentialité : un simple membre ne voit que SON temps ; un responsable, celui de la portée qu'il gère (403 hors portée).
+function tempsMembres(userId, activityId, cat, today) {
+  const act = member(userId, activityId), t = today || require('./dates').userToday(), vs = regard(userId, act.id);
+  if (cat && vs && vs.roots.length && !vs.has(cat)) throw err('Cette catégorie est hors de ta portée.', 403);
+  const keys = cat ? require('./portee').expand(act.id, String(cat)) : null;
+  const cur = O().periodStartOf(t), p = O().gridOf(cur).period, periods = [];
+  for (let i = 1; i <= 13; i += 1) { const s = addDays(cur, 28 * (i - p)); periods.push({ n: i, start: s, end: addDays(s, 27) }); }
+  const rows = db.prepare(`SELECT userId, isoDate, durationSeconds FROM time_entries WHERE activityId = ? AND isoDate BETWEEN ? AND ?${keys ? ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')' : ''}`).all(act.id, periods[0].start, periods[12].end, ...(keys || []));
+  const mem = membresVus(membersOf(act.id), vs, userId);
+  const members = mem.map((m) => {
+    const hours = periods.map(() => 0);
+    rows.filter((r) => r.userId === m.id).forEach((r) => { const i = periods.findIndex((x) => r.isoDate >= x.start && r.isoDate <= x.end); if (i >= 0) hours[i] += r.durationSeconds / 3600; });
+    const h = hours.map(r1), total = r1(h.reduce((a, v) => a + v, 0));
+    return { userId: m.id, name: m.name, color: m.color || null, hours: h, total };
+  });
+  const grand = members.reduce((a, m) => a + m.total, 0);
+  members.forEach((m) => { m.pct = grand ? Math.round(m.total / grand * 100) : null; });
+  const todayIdx = periods.findIndex((x) => t >= x.start && t <= x.end);
+  return { activityId: act.id, cat: cat || null, periods, todayIndex: todayIdx, year: O().gridOf(cur).year, members };
+}
+
+module.exports = { tempsMembres, lastPeriods, moyenneTaches, urgentes, proportion, setProportion };

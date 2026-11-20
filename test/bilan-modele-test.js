@@ -5,7 +5,7 @@ const rd = (f) => fs.readFileSync(f, 'utf8').split('\r\n').join('\n');
 const bb = rd('public/js/bilan-blocs.js'), sa = rd('public/js/stats-avance.js'), app = rd('public/app.js');
 const keysOf = (txt) => (txt.match(/key: '[a-z]+'/g) || []).map((x) => x.slice(6, -1));
 const defsTxt = bb.slice(bb.indexOf('  var DEFS = ['), bb.indexOf('  function defs()'));
-assert(keysOf(defsTxt).join() === 'timesheet,repart,chart,weekdays,capacity,urgent,avg,prop,rec,graph,advance', 'ordre de la page par sujet : temps, puis travail, puis objectifs');
+assert(keysOf(defsTxt).join() === 'timesheet,repart,chart,tchart,trepart,weekdays,capacity,urgent,avg,prop,rec,graph,advance', 'ordre de la page par sujet : temps, puis travail, puis objectifs');
 assert(!/key: 'capacity'[^\n]*levels: \[[^\]]*'all'/.test(defsTxt), 'Capacité par jour : jamais en vue Toutes');
 assert(bb.includes("'cmpAdd'") && bb.includes('cmpRemove cmpRemove--corner') && bb.includes('tmt.bilanInfo4.'), '+ Ajouter une information, croix rouge officielle, choix mémorisé par niveau');
 assert(bb.includes('TMT.bilanCategoryStats.open(chronoHost') && bb.includes('TMT.bilanPage1(any)'), 'Chrono : page de statistiques (Toutes) ; contenu de la fenêtre Chrono (une activité)');

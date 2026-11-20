@@ -8,6 +8,7 @@ const fail = (res, tag, err) => {
   return res.status(500).json({ error: 'Impossible pour le moment : réessaie dans un instant.' });
 };
 router.get('/bilan/moyenne-taches', (req, res) => { if (!req.userId) return res.status(400).json({ error: 'userId requis.' }); try { res.json(bilan().moyenneTaches(req.userId, req.query.activityId, undefined, req.query.cat)); } catch (e) { fail(res, 'moyenne-taches', e); } });
+router.get('/bilan/temps-membres', (req, res) => { if (!req.userId) return res.status(400).json({ error: 'userId requis.' }); try { res.json(bilan().tempsMembres(req.userId, req.query.activityId, req.query.cat ? String(req.query.cat) : null)); } catch (e) { fail(res, 'temps-membres', e); } });
 router.get('/bilan/urgentes', (req, res) => { if (!req.userId) return res.status(400).json({ error: 'userId requis.' }); try { res.json(bilan().urgentes(req.userId, req.query.offset)); } catch (e) { fail(res, 'urgentes', e); } });
 router.get('/bilan/proportion', (req, res) => { if (!req.userId) return res.status(400).json({ error: 'userId requis.' }); try { res.json(bilan().proportion(req.userId, req.query.activityId, undefined, req.query.cat)); } catch (e) { fail(res, 'proportion', e); } });
 router.put('/bilan/proportion', (req, res) => { if (!req.userId) return res.status(400).json({ error: 'userId requis.' }); try { res.json(bilan().setProportion(req.userId, (req.body || {}).activityId, (req.body || {}).parts)); } catch (e) { fail(res, 'proportion PUT', e); } });

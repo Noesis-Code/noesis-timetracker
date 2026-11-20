@@ -133,6 +133,37 @@
     var inst = TMT.bilanCardInstance(function (d) { mount.textContent = ''; var n = inst.cardFor('graph', d, remover); if (n) mount.appendChild(n); }, cat());
     inst.paintFor(Number(scope));
   }
+  // Pôle ou secteur : temps de chaque membre dans cette catégorie, par période de l'année (GET /api/bilan/temps-membres, lecture seule).
+  function hoursTxt(v) { return num(v) + ' h'; }
+  function tempsMembres(mount, remover, title, draw) {
+    var c = shell(title, remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c);
+    api('GET', '/api/bilan/temps-membres?activityId=' + scope + catQs()).then(function (r) {
+      if (my !== gen) return; slot.textContent = '';
+      if (!r.members || !r.members.some(function (m) { return m.total > 0; })) { slot.appendChild(el('p', 'hint', '—')); return; }
+      draw(slot, r);
+    }).catch(function (e) { if (my === gen) failed(slot, e); });
+  }
+  function rTChart(mount, remover) {
+    tempsMembres(mount, remover, 'Graphique du temps par membre', function (slot, r) {
+      var W = 320, H = 150, L = 26, B = 20, T = 8, R = 8, top = Math.max(5, Math.ceil(Math.max.apply(null, r.members.map(function (m) { return Math.max.apply(null, m.hours); })) / 5) * 5), NS = 'http://www.w3.org/2000/svg';
+      var svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+      var x = function (i) { return L + (W - L - R) * i / 12; }, y = function (v) { return T + (H - T - B) * (1 - v / top); };
+      function add(tag, attrs, parent) { var n = document.createElementNS(NS, tag); Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); }); (parent || svg).appendChild(n); return n; }
+      [0, top / 2, top].forEach(function (v) { add('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'saGrid' }); var t = add('text', { x: L - 4, y: y(v) + 3, 'text-anchor': 'end', class: 'saTick' }); t.textContent = num(v); });
+      for (var i = 0; i < 13; i += 2) { var tt = add('text', { x: x(i), y: H - 5, 'text-anchor': 'middle', class: 'saTick' }); tt.textContent = 'P' + (i + 1); }
+      r.members.forEach(function (m) {
+        var pts = []; m.hours.forEach(function (v, k) { if (r.todayIndex < 0 || k <= r.todayIndex) pts.push(x(k).toFixed(1) + ',' + y(v).toFixed(1)); });
+        add('polyline', { points: pts.join(' '), fill: 'none', stroke: m.color || '#9C8CC8', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+      });
+      slot.appendChild(svg);
+      var lg = el('div', 'saLegend'); r.members.forEach(function (m) { var s1 = el('span'), d = el('i', 'saSw'); d.style.background = m.color || '#9C8CC8'; s1.appendChild(d); s1.appendChild(document.createTextNode(m.name)); lg.appendChild(s1); }); slot.appendChild(lg);
+    });
+  }
+  function rTRepart(mount, remover) {
+    tempsMembres(mount, remover, 'Répartition entre membres', function (slot, r) {
+      slot.appendChild(table(['', tr('Heures'), tr('Part')], r.members.map(function (m) { return { label: m.name, cells: [hoursTxt(m.total), m.pct == null ? null : m.pct + ' %'] }; }), false));
+    });
+  }
   function rRec(mount, remover) { if (TMT.groupStatsRecurring) TMT.groupStatsRecurring(Number(scope), mount, remover, cat()); }
 
   // Volet retiré de la barre = ses informations disparaissent du Bilan ; remis dans la barre, elles reviennent (décidé par Émilien, 20 nov. 2026).
@@ -145,6 +176,8 @@
     { key: 'timesheet', title: 'Feuille de temps', volet: ['chrono'], levels: ['all', 'act'], def: [], chrono: ['statsTimesheetBlock', 'csTimesheetBlock'] },
     { key: 'repart', title: 'Répartition du temps', volet: ['chrono'], levels: ['all', 'act'], def: ['all', 'act'], chrono: ['statsPieBlock', 'csPieBlock'] },
     { key: 'chart', title: 'Graphique du temps', volet: ['chrono'], levels: ['all', 'act'], def: ['all'], chrono: ['statsChartBlock', 'csChartBlock'] },
+    { key: 'tchart', title: 'Graphique du temps par membre', volet: ['chrono'], levels: ['cat'], def: ['cat'], render: rTChart },
+    { key: 'trepart', title: 'Répartition entre membres', volet: ['chrono'], levels: ['cat'], def: [], render: rTRepart },
     { key: 'weekdays', title: 'Jours où tu travailles vraiment', volet: ['tasks'], levels: ['all', 'act'], def: [], render: rWeekdays },
     { key: 'capacity', title: 'Capacité par jour', volet: ['tasks'], levels: ['act', 'cat'], def: [], render: rCapacity },
     { key: 'urgent', title: 'Tâches urgentes', volet: ['tasks'], levels: ['all'], def: [], render: rUrgent },
