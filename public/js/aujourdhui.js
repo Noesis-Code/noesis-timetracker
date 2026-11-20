@@ -318,7 +318,7 @@
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
-    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : Enregistrer valide ce rangement.'));
+    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ valide ce rangement.'));
     ui.pages = el('div', 'tasksPages'); ui.track = el('div', 'tasksTrack');
     var pageA = el('div', 'tasksPage tasksPageA'); pageA.appendChild(ui.fields); pageA.appendChild(ui.hint);
     ui.tasksBox = el('div', 'tasksPage tasksPageB off');
@@ -341,7 +341,7 @@
     ui.send.addEventListener('mousedown', function (e) { e.preventDefault(); }); // garde le focus : le clavier reste ouvert
     ui.send.addEventListener('click', function () { if (state.longFired) { state.longFired = false; return; } send(); });
     bindLongPress(ui.send);
-    ui.send.title = tr('Appui long : demande Expansion'); ui.send.dataset.label = tr('Enregistrer');
+    ui.send.title = tr('Appui long : demande Expansion');
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
     ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg'); // jamais de texte sous la barre (20 nov. 2026, Émilien) : ce que le code y écrit s'affiche dans la bulle AU-DESSUS (showToast) et la ligne reste vide
@@ -354,6 +354,31 @@
   }
 
   function target() { return state.choice || state.proposal; }
+  // Choix toujours pré-sélectionné (comme les activités du Chrono) : l'activité / le pôle / le secteur du filtre du volet, sinon le PLUS SOUVENT UTILISÉ sur les tâches de l'utilisateur (égalité : le plus récent).
+  function usage(match) {
+    var n = 0, last = 0, all = ((lastData && lastData.tasks) || []).concat(state.added || []);
+    all.forEach(function (t) { if (match(t)) { n++; if ((t.id || 0) > last) last = t.id || 0; } });
+    return { n: n, last: last };
+  }
+  function bestOf(list, match) {
+    var best = null, bu = null;
+    list.forEach(function (o) { var u = usage(function (t) { return match(t, o); }); if (!best || u.n > bu.n || (u.n === bu.n && u.last > bu.last)) { best = o; bu = u; } });
+    return best;
+  }
+  function poleKeyOfOption(o) { var ps = (struct && struct[String(o.activityId)]) || [], key = String(o.categoryKey); for (var i = 0; i < ps.length; i++) { if (String(ps[i].key) === key || (ps[i].secteurs || []).some(function (x) { return String(x.key) === key; })) return String(ps[i].key); } return null; }
+  function catUsed(t, o) { return String(t.activityId) === String(o.activityId) && String(t.sectorKey || t.pole) === String(o.categoryKey); }
+  function defaultChoice(opts, actId) { // actId : activité déjà fixée (sinon filtre du volet, sinon la plus utilisée)
+    if (!opts.length) return null;
+    var act = actId != null ? actId : (filt.act != null && opts.some(function (o) { return String(o.activityId) === filt.act; }) ? filt.act : null);
+    var inAct = act != null ? opts.filter(function (o) { return String(o.activityId) === String(act); }) : opts;
+    if (act == null) { var seen = {}, firsts = []; opts.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; firsts.push(o); } }); var a0 = bestOf(firsts, function (t, o) { return String(t.activityId) === String(o.activityId); }); inAct = opts.filter(function (o) { return o.activityId === a0.activityId; }); }
+    if (filt.act != null && String(inAct[0].activityId) === filt.act && filt.pole != null) { var inPole = inAct.filter(function (o) { return poleKeyOfOption(o) === String(filt.pole); }); if (inPole.length) inAct = inPole; }
+    var poles = {}, pf = []; inAct.forEach(function (o) { var k = poleOf(o); if (!poles[k]) { poles[k] = true; pf.push(o); } });
+    var p0 = bestOf(pf, function (t, o) { return String(t.activityId) === String(o.activityId) && (t.poleName ? t.poleName === poleOf(o) : false); });
+    var inP = inAct.filter(function (o) { return poleOf(o) === poleOf(p0); });
+    if (filt.act != null && filt.sector != null && filt.sectorKey) { var fs0 = inP.filter(function (o) { return String(o.categoryKey) === String(filt.sectorKey); })[0]; if (fs0) return fs0; }
+    return bestOf(inP, catUsed);
+  }
   // « Produit → Interface » : pôle « Produit », secteur « Interface » ; « Privé » : un pôle sans secteur.
   function poleOf(o) { return String(o.categoryLabel || '').split(' → ')[0]; }
   function sectorOf(o) { var p = String(o.categoryLabel || '').split(' → '); return p.length > 1 ? p[1] : ''; }
@@ -397,7 +422,6 @@
     var t = target(), poleId = t ? t.activityId : state.poleId;
     var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
     ui.proposal.classList.toggle('hidden', !(state.review || state.expStep || readOnly) || (!t && !state.options.length && !readOnly)); // jamais visible pendant l'écriture : seulement après ↑
-    dock.classList.toggle('reviewSave', !!(state.review && !readOnly && !state.expStep)); // pendant la revue, la barre reste (le clavier aussi) et SEUL le bouton ↑ devient « Enregistrer »
     ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : state.expStep ? tr('Expansion') + ' · ' + tr('Où ranger les tâches') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
     ui.close.classList.toggle('hidden', !!readOnly);
     if (readOnly) state.open = '';
@@ -409,7 +433,7 @@
     if (!state.expStep && !readOnly) ui.fields.appendChild(advBlock()); // « Avancé » : replié, un seul choix « Nature »
     if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Exécutant', state.who ? state.who.name : '—', readOnly));
     if (state.expStep) { ui.hint.textContent = tr('Balaie vers la gauche pour voir les tâches générées.'); ui.hint.classList.remove('hidden'); }
-    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : Enregistrer valide ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
+    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ valide ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
   }
   // « Avancé » de la création manuelle d'une tâche : replié par défaut ; « Nature » (Maintenir / Développer) VIDE par défaut = l'IA décide en silence d'après le titre ; aucun choix de phase. Retoucher le choix l'annule.
@@ -438,7 +462,8 @@
   }
   function closeChooser() { state.open = ''; }
   // couleur standard (TMT.ui.couleur) : point = activité ; texte = pôle ou secteur (nuance de son pôle)
-  function choice(box, label, fn, look) { var b = el('button', 'tasksChoice', label); b.type = 'button'; if (look) { var paint = function (c) { if (!c) return; if (look.dot) b.insertBefore(dotEl(c), b.firstChild); else b.style.color = c; }, c0 = TMT.ui.couleurSync(look.a, look.p, look.label); if (c0) paint(c0); else TMT.ui.couleur(look.a, look.p, look.label).then(paint); } b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
+  function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; } // pastille de couleur (couleur d'activité ; un pôle prend sa nuance, un secteur celle de son pôle)
+  function choice(box, label, fn, look) { var b = el('button', 'tasksChoice', label); b.type = 'button'; if (look) { var dot = dotEl(''); b.insertBefore(dot, b.firstChild); var paint = function (c) { if (c) dot.style.background = c; }, c0 = TMT.ui.couleurSync(look.a, look.p, look.label); if (c0) paint(c0); else TMT.ui.couleur(look.a, look.p, look.label).then(paint); } b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
   function toggleChooser(key) { state.open = state.open === key ? '' : key; paintProposal(); }
   // Les choix du champ ouvert (construits sous lui par fieldRow).
   function chooserFor(key) {
@@ -452,7 +477,7 @@
           var mine = state.options.filter(function (x) { return x.activityId === o.activityId; });
           var same = t && mine.filter(function (x) { return x.categoryKey === t.categoryKey; })[0];
           state.poleId = o.activityId; state.who = null;
-          state.choice = same || (mine.length === 1 ? mine[0] : null);
+          state.choice = same || (mine.length === 1 ? mine[0] : defaultChoice(mine, o.activityId));
           if (!state.choice && state.proposal && state.proposal.activityId !== o.activityId) state.proposal = null;
         }, { dot: true, a: o.activityId });
       });
@@ -460,7 +485,7 @@
       var seenP = {};
       state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) {
         var pl = poleOf(o); if (seenP[pl]) return; seenP[pl] = true;
-        choice(box, pl, function () { state.choice = o; }, { a: o.activityId, label: pl });
+        choice(box, pl, function () { state.choice = defaultChoice(state.options.filter(function (x) { return x.activityId === o.activityId && poleOf(x) === pl; }), o.activityId) || o; }, { a: o.activityId, label: pl });
       });
     } else if (key === 'secteur') {
       sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }, { a: o.activityId, label: poleOf(o) }); });
@@ -757,7 +782,7 @@
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
     if (state.exp || state.expStep) { state.exp = null; state.gen = null; state.expStep = 0; ui.pages.classList.remove('locked'); goPage(1, true); setExpMode(false); ui.proposal.classList.add('hidden'); }
-    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); dock.classList.remove('reviewSave'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
+    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
@@ -768,6 +793,7 @@
     return TMT.api('POST', '/api/goals/capture/propose', { label: text, skipAi: TMT.aiMode === 'absence' }).then(function (r) {
       if (seq !== state.seq) return;
       state.proposedFor = text; state.proposal = r.proposal || null; state.options = r.options || [];
+      if (!state.proposal && !state.choice && state.options.length) state.choice = defaultChoice(state.options, state.poleId); // jamais à choisir d'abord pour valider
       if (state.date == null || state.dateAuto) { state.date = r.date || null; state.dateAuto = !!r.date; } // jour écrit dans le titre (règles locales du serveur) ; un jour choisi à la main prime
       if (state.choice && !state.options.some(function (o) { return o.activityId === state.choice.activityId && o.categoryKey === state.choice.categoryKey; })) state.choice = null; // un choix de l'utilisateur prime sur la proposition
       paintProposal();
@@ -830,7 +856,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); dock.classList.remove('reviewSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.dateAuto = false; state.who = null; state.poleId = null; state.nature = null; state.advOpen = false; state.natureOpen = false; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
@@ -892,7 +918,7 @@
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
       if (!shown) {
         state.review = true; paintProposal(); ui.proposal.classList.remove('hidden');
-        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche Enregistrer.') : tr('Choisis où ranger la tâche.');
+        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche ↑.') : tr('Choisis où ranger la tâche.');
         if (!t && state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity');
         return null;
       }
