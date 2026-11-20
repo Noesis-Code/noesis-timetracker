@@ -52,11 +52,16 @@ function todayLocal() {
 // les MOINS importantes sont décalées au prochain créneau libre. Seules les dates posées par le
 // moteur (dueDateAuto) bougent : une date saisie par l'utilisateur est épinglée, jamais déplacée.
 // Renvoie null si rien à déplacer, sinon { loadMinutes (charge du 1er jour surchargé), budgetMinutes, moves }.
-function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS, horizon = 7 }) {
+function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS, horizon = Infinity }) {
   const budget = Math.max(1, budgetMinutes);
   const eff = (t) => (t.dueDate < today ? today : t.dueDate);
+  // Jours couverts (20 nov. 2026, « 87 tâches / 20 h un même jour ») : d'aujourd'hui jusqu'à la dernière échéance, plus de quoi absorber tout le surplus ;
+  // avant, seuls les 7 premiers jours étaient équilibrés et rien au-delà de lookahead : une journée lointaine surchargée restait telle quelle.
+  let lastDue = goals.addDays(today, lookahead), totalMin = 0;
+  tasks.forEach((t) => { if (t.dueDate && t.dueDate > lastDue) lastDue = t.dueDate; totalMin += t.minutes || 0; });
+  const spanDays = Math.min(730, goals.daysBetween(today, lastDue) + Math.ceil(totalMin / budget) + 1);
   const days = [];
-  for (let i = 0; i <= lookahead; i += 1) days.push(goals.addDays(today, i));
+  for (let i = 0; i <= spanDays; i += 1) days.push(goals.addDays(today, i));
   const isLong = (t) => !!t.long;
   const movable = (t) => !isLong(t); // ordre d'Émilien (10 nov. 2026) : seule l'importance compte (plus de protection d'une date saisie, d'une réforme ni d'une urgente : elles passent en premier du classement)
   const taskkind = require('./taskkind');

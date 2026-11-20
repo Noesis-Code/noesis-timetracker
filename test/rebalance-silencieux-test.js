@@ -28,6 +28,15 @@ assert(p && p.moves.length === 1 && p.moves[0].id === 4 && p.moves[0].to <= goal
 p = overload.computeProposal({ today, budgetMinutes: 60, tasks: [mk(1, 95, { dueDate: today }), mk(2, 85, { dueDate: goals.addDays(today, -3) }), mk(3, 30), mk(4, 25)] });
 assert(p && p.moves.map((m) => m.id).sort().join() === '3,4', 'retard urgent : les autres tâches du moteur sont décalées en cascade pour lui faire de la place');
 
+// Jour lointain surchargé (20 nov. 2026, « 87 tâches / 20 h ») : équilibré aussi au-delà des 7 premiers jours et de la fenêtre de 14 jours
+for (const off of [10, 20]) {
+  const far = goals.addDays(today, off);
+  const many = []; for (let i = 1; i <= 87; i += 1) many.push(mk(i, 50, { dueDate: far }));
+  const pf = overload.computeProposal({ today, budgetMinutes: 240, tasks: many });
+  const perDay = {}; many.forEach((t) => { perDay[t.dueDate] = (perDay[t.dueDate] || 0) + 1; });
+  pf.moves.forEach((m) => { perDay[m.from] -= 1; perDay[m.to] = (perDay[m.to] || 0) + 1; });
+  assert(Math.max(...Object.values(perDay)) * 30 <= 240, '87 tâches un jour à +' + off + ' j : aucune journée ne dépasse la capacité (8 tâches de 30 min pour 240 min)');
+}
 // ---- Base : rebalance ----
 db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'u1', datetime('now'))").run();
 const actId = db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('A', 'u1', '')").run().lastInsertRowid;
