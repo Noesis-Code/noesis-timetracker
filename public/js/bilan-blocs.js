@@ -252,6 +252,7 @@
         g.classList.toggle('sel', k < 0); g.setAttribute('aria-pressed', k < 0 ? 'true' : 'false');
       });
     });
+    setEditing(false);
     var bar = el('div', 'saActs'), cancel = el('button', 'saCancel', tr('Annuler')), apply = el('button', 'saApply', tr('Appliquer')); cancel.type = 'button'; apply.type = 'button';
     cancel.addEventListener('click', function () { adding = false; draft = []; renderInfo(); });
     apply.addEventListener('click', function () { saveAdded(draft.slice()); adding = false; draft = []; renderInfo(); });
@@ -289,7 +290,7 @@
 
   // ---------- Bouton « Tous » : le composant de Tâches (js/filtre-niveau.js) : Tous › activités › pôles › secteurs ----------
   function setScope(n) { scope = n.act == null ? 'all' : String(n.act); pole = n.pole == null ? null : n.pole; poleLabel = n.poleLabel || ''; sector = n.sector || null; sectorKey = n.sectorKey || null; offset = 0; adding = false; draft = []; }
-  function changed() { showChrono(); renderInfo(); }
+  function changed() { setEditing(false); showChrono(); renderInfo(); }
   function loadStruct() {
     return api('GET', '/api/objectifs/structure').then(function (r) { var m = {}; ((r && r.activities) || []).forEach(function (a) { m[String(a.id)] = a.poles || []; }); struct = m; paintChips(); }).catch(function () {});
   }
@@ -310,8 +311,31 @@
     row.classList.toggle('open', bbv.open);
     TMT.scopeFilter.paint(box, fctx);
   }
+  // ---------- Retrait : les croix rouges n'apparaissent QUE par un appui long sur une information (toutes tremblent) ; un toucher ailleurs que sur une croix quitte le mode (20 nov. 2026) ----------
+  var CARD_SEL = '#bilanInfo .saCard, #statsPage1 .statsSection, #categoryStatsScroll .statsSection', held = 0;
+  function setEditing(on) { document.documentElement.classList.toggle('bbEditing', !!on); }
+  function isEditing() { return document.documentElement.classList.contains('bbEditing'); }
+  function bindHold() {
+    var timer = null, sx = 0, sy = 0;
+    function cancel() { clearTimeout(timer); timer = null; }
+    document.addEventListener('pointerdown', function (e) {
+      if (!host || host.classList.contains('hidden') || adding || e.target.closest('.cmpRemove') || !e.target.closest(CARD_SEL)) return;
+      sx = e.clientX; sy = e.clientY; cancel();
+      timer = setTimeout(function () { timer = null; held = Date.now(); setEditing(true); }, 500);
+    }, true);
+    document.addEventListener('pointermove', function (e) { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel(); }, true);
+    ['pointerup', 'pointercancel', 'scroll'].forEach(function (n) { document.addEventListener(n, cancel, true); });
+    document.addEventListener('contextmenu', function (e) { if (timer || isEditing()) e.preventDefault(); }, true);
+    document.addEventListener('click', function (e) {
+      if (!isEditing() || !host || host.classList.contains('hidden')) return;
+      if (Date.now() - held < 600) { e.preventDefault(); e.stopPropagation(); return; } // le relâchement de l'appui long n'est pas un toucher
+      if (e.target.closest('.cmpRemove')) return; // la croix retire l'information
+      e.preventDefault(); e.stopPropagation(); setEditing(false);
+    }, true);
+  }
   function build() {
     var pages = document.getElementById('statsPages'); if (!pages || host) return;
+    if (!host) bindHold();
     host = el('div', 'bilanBlocs'); host.id = 'bilanBlocs'; chips = el('div', 'saChips'); chronoHost = el('div', 'bbChrono'); host.appendChild(chips); host.appendChild(chronoHost);
     infoHost = el('div', 'bilanBlocs'); infoHost.id = 'bilanInfo'; infoBody = el('div', 'bbBody'); infoHost.appendChild(infoBody);
     pages.parentNode.insertBefore(host, pages); pages.parentNode.insertBefore(infoHost, pages.nextSibling); // le bouton au-dessus, les tableaux de temps, puis les informations ajoutées
@@ -325,7 +349,7 @@
     },
     close: function () {
       if (!host) return;
-      gen += 1; host.classList.add('hidden'); infoHost.classList.add('hidden');
+      gen += 1; setEditing(false); host.classList.add('hidden'); infoHost.classList.add('hidden');
       Array.prototype.forEach.call(document.querySelectorAll('.bbX'), function (x) { x.parentNode.removeChild(x); });
       if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.close();
     }

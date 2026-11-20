@@ -164,3 +164,10 @@
 .bbTable td.bbMin { color: var(--danger); font-weight: 600; }
 /* Bilan, vue d'une activité : le contenu de la fenêtre Chrono est posé dans la page (aucune fenêtre, aucun défilement propre) */
 #bilanBlocs #categoryStatsScroll { overflow: visible; padding: 0; }
+
+/* Retrait des informations : croix cachées ; appui long = toutes les informations tremblent et montrent leur croix, un toucher ailleurs quitte le mode */
+@keyframes bbJiggle { from { transform: rotate(-.5deg); } to { transform: rotate(.5deg); } }
+#bilanInfo .cmpRemove, #statsPage1 .bbX, #categoryStatsScroll .bbX { visibility: hidden; pointer-events: none; }
+.bbEditing #bilanInfo .cmpRemove, .bbEditing #statsPage1 .bbX, .bbEditing #categoryStatsScroll .bbX { visibility: visible; pointer-events: auto; }
+.bbEditing #bilanInfo .saCard, .bbEditing #statsPage1 .statsSection, .bbEditing #categoryStatsScroll .statsSection { animation: bbJiggle .26s ease-in-out infinite alternate; }
+#bilanInfo .saCard, #statsPage1 .statsSection, #categoryStatsScroll .statsSection { -webkit-touch-callout: none; }
