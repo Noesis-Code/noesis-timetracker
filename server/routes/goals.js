@@ -586,25 +586,6 @@ router.get('/activities/:id/goals/tasks/archives', (req, res) => {
   }
 });
 
-// Plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
-// avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.
-function timecapsRoute(fn) {
-  return (req, res) => {
-    const userId = req.userId;
-    if (!userId) return res.status(400).json({ error: 'userId requis.' });
-    const activityId = Number(req.params.id);
-    const check = requireMembership(userId, activityId);
-    if (check.error) return res.status(check.error.status).json(check.error.body);
-    try {
-      res.json(fn(userId, activityId, req.params.key, req.body || {}));
-    } catch (err) {
-      handleGoalsError(res, err);
-    }
-  };
-}
-router.get('/activities/:id/goals/timecaps/:key', timecapsRoute((u, a, k) => timecaps.getCaps(u, a, k)));
-router.put('/activities/:id/goals/timecaps/:key', timecapsRoute((u, a, k, b) => timecaps.setCaps(u, a, k, b)));
-
 // ---------------------------------------------------------------------------
 // 17 septembre 2026 (discussion C, cadré avec Emilien via AskUserQuestion,
 // citation directe : « La tâche, après, va s'ajouter automatiquement grâce à

@@ -160,15 +160,8 @@ function periodDerivedWeeklyMinutes(activityId, category) {
   return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.weeksInPeriod(row))) : null;
 }
 
-// Plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
+// Capacité hebdomadaire d'une personne dans une catégorie (plus de plafond de catégorie depuis le 20 nov. 2026).
 function capacityMinutesForMember(activityId, category, userId) {
-  // C'est le MAXIMUM qui compte, pas la moyenne — Noèsis vise le maximum sans
-  // le dépasser. Max hebdo posé : la capacité EST ce max (borné par le max de la période, s'il y en a un).
-  const cap = require('./timecaps').weeklyCapFor(userId, activityId, category);
-  if (cap != null) {
-    const derived = periodDerivedWeeklyMinutes(activityId, category);
-    return Math.max(1, derived != null ? Math.min(derived, cap) : cap);
-  }
   return uncappedCapacityMinutesForMember(activityId, category, userId);
 }
 

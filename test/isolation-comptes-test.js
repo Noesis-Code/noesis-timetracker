@@ -105,7 +105,6 @@ const TABLES = ['users', 'activities', 'activity_members', 'time_entries', 'runn
       ['PUT', `/api/activities/${A1}/goals/periods/1/assignees`, { category: poleA, userIds: [B.id] }],
       ['POST', `/api/activities/${A1}/goals/categories/${poleA}/tasks`, { label: 'intrus' }],
       ['GET', `/api/activities/${A1}/goals/tasks/overview`], ['GET', `/api/activities/${A1}/goals/tasks/archives`],
-      ['GET', `/api/activities/${A1}/goals/timecaps/${poleA}`], ['PUT', `/api/activities/${A1}/goals/timecaps/${poleA}`, { maxDay: 1 }],
       ['POST', `/api/activities/${A1}/goals/categories/auto-task`, { label: 'intrus' }],
       ['POST', `/api/activities/${A1}/goals/rewrite`, { text: 'x' }],
       ['PUT', `/api/activities/${A1}/goals/tasks/${taskA.id}/category`, { categoryKey: poleA }],

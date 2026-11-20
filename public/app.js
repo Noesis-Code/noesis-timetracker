@@ -7474,14 +7474,11 @@
       if (save.disabled) return;
       var value = descIn.value.trim();
       var newLabel = nameIn.value.trim() || st.label;
-      var capsRead = caps.read();
-      if (capsRead.error) { msg.textContent = capsRead.error; return; }
       var textChanged = !(value === st.description && newLabel === st.label);
-      if (!textChanged && !capsRead.changed) { close(); return; }
+      if (!textChanged) { close(); return; }
       save.disabled = true; msg.textContent = '';
       var url = '/api/activities/' + activityId + '/goals/categories/' + (st.poleKey ? st.poleKey + '/secteurs/' : '') + st.key;
-      var saveCaps = capsRead.changed ? api('PUT', '/api/activities/' + activityId + '/goals/timecaps/' + st.key, capsRead.body) : Promise.resolve();
-      saveCaps.then(function () { return textChanged ? api('PUT', url, { label: newLabel, description: value }) : null; })
+      api('PUT', url, { label: newLabel, description: value })
         .then(function () { catEditState = null; activityGoalsCategoriesRefresh(activityId); })
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { save.disabled = false; });
@@ -7921,46 +7918,11 @@
     return { close: close };
   }
   TMT.openDurationPicker = openDurationPicker;
-  // Bloc plafonds du formulaire en place : renvoie { node, read() }.
-  // Tableau Moyenne (lecture seule) / Maximum (boutons -> openDurationPicker).
-  // Maximum 0:00 = aucun plafond (null), affiché en gris.
+  // Bloc du formulaire en place : estimation du temps par membre (pôles seulement). Plus de plafonds de catégorie (20 nov. 2026).
   function buildTimeCapsBlock(activityId, key, isPole) {
-    var state = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
     var node = document.createElement('div');
     node.className = 'timeCapsBlock';
-    var table = document.createElement('div'); table.className = 'timeCapsTable';
-    function cell(cls, txt) { var d = document.createElement('div'); d.className = cls; if (txt != null) d.textContent = t(txt); return d; }
-    table.appendChild(cell('timeCapsCorner')); table.appendChild(cell('timeCapsHead', 'Moyenne')); table.appendChild(cell('timeCapsHead', 'Cible'));
-    var avgDayEl = cell('timeCapsAvg'), avgWeekEl = cell('timeCapsAvg');
-    function maxBtn(which, label) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'timeCapsMax'; b.disabled = true;
-      b.addEventListener('click', function () {
-        if (!state.loaded) return;
-        openDurationPicker({ title: 'Cible', minutes: state[which] || 0, onDone: function (v) { state[which] = v > 0 ? v : null; paint(); } });
-      });
-      return b;
-    }
-    var dayBtn = maxBtn('day'), weekBtn = maxBtn('week');
-    table.appendChild(cell('timeCapsRowLabel', 'Jour')); table.appendChild(avgDayEl); table.appendChild(dayBtn);
-    table.appendChild(cell('timeCapsRowLabel', 'Semaine')); table.appendChild(avgWeekEl); table.appendChild(weekBtn);
-    function paint() {
-      avgDayEl.textContent = TMT.ui.heures(state.avgDay || 0); avgWeekEl.textContent = TMT.ui.heures(state.avgWeek || 0);
-      [[dayBtn, state.day], [weekBtn, state.week]].forEach(function (p) {
-        p[0].textContent = TMT.ui.heures(p[1] || 0);
-        p[0].classList.toggle('isEmpty', !p[1]);
-      });
-    }
-    var use = document.createElement('button'); use.type = 'button'; use.className = 'linkBtn'; use.textContent = t('Utiliser ma moyenne');
-    use.addEventListener('click', function () {
-      if (!state.loaded) return;
-      state.day = state.avgDay > 0 ? state.avgDay : null; state.week = state.avgWeek > 0 ? state.avgWeek : null; paint();
-    });
-    var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
-    var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
-    function paintToggle() { toggle.textContent = t('Gérer mon temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
-    toggle.addEventListener('click', function () { body.classList.remove('hidden'); toggle.classList.add('hidden'); });
-    paintToggle(); paint();
-    body.appendChild(table); body.appendChild(use);
+    var body = node;
     // Estimation indicative du temps par membre et par pôle (activité partagée seulement,
     // lecture seule, sans IA) : médiane de ses entrées de temps, « pas assez de données » sous 3 entrées.
     // Estimation indicative du temps par membre POUR CE PÔLE (pôles seulement : le temps des secteurs
@@ -8014,21 +7976,9 @@
       paintMemberEst(rows); paintMemEstToggle();
       memberEst.classList.remove('hidden');
     }).catch(function () {});
-    node.appendChild(toggle); node.appendChild(body);
-    api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
-      state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;
-      state.day = c.maxDayMinutes; state.week = c.maxWeekMinutes;
-      paint(); dayBtn.disabled = weekBtn.disabled = false;
-      state.origDay = state.day; state.origWeek = state.week;
-    }).catch(function () {});
     return {
       node: node,
-      // { error } | { changed:false } | { changed:true, body }
-      read: function () {
-        var d = state.day || null, w = state.week || null;
-        var changed = state.loaded && (d !== (state.origDay || null) || w !== (state.origWeek || null));
-        return { changed: changed, body: { maxDayMinutes: d, maxWeekMinutes: w } };
-      }
+      read: function () { return { changed: false }; }
     };
   }
 

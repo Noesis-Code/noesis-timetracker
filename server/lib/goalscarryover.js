@@ -44,9 +44,7 @@ function realism(userId, activityId, category) {
   const remaining = Math.max(0, target - done);
   const weeksLeft = Math.max(1, Math.ceil((goals.daysBetween(today, p.endDate) + 1) / 7));
   // Capacité réelle de CETTE catégorie (secteur, ou pôle = ses secteurs cumulés), pas de toute l'activité.
-  let have = timecaps.averages(userId, activityId, category).avgWeekMinutes;
-  const cap = timecaps.weeklyCapFor(userId, activityId, category);
-  if (cap != null) have = cap; // le maximum posé prime sur la moyenne
+  const have = timecaps.averages(userId, activityId, category).avgWeekMinutes;
   if (have <= 0) return null; // aucun historique ni maximum : pas de jugement
   const needPerWeek = Math.round(remaining / weeksLeft);
   const unrealistic = remaining > 0 && needPerWeek > have * MARGIN;

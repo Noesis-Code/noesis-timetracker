@@ -2,13 +2,12 @@
 // COMPTE B (10 nov. 2026) — cinq activités de test, UNE par scénario de la règle de retard (docs/objectifs/scenarios-retard.md). STAGING UNIQUEMENT (appelé par seed-staging.js).
 // Les dates sont calculées par rapport au JOUR de création (aujourd'hui = jour 0) : l'objectif commence aujourd'hui, donc chaque semaine de la période compte 7 jours pleins et la
 // position du jour dans le calendrier de 4 semaines ne change rien. Capacité de chaque activité : 5 h par semaine (temps max du pôle, 300 min ; limite du moteur : 120 % = 360 min),
-// appuyée par 6 semaines de temps Chrono (3 séances de 100 min) sur le secteur. Fonctions existantes seulement : objectifs.creer, goalstasks.addCategoryTask, taskkind.write, timecaps.setCaps.
+// appuyée par 6 semaines de temps Chrono (3 séances de 100 min) sur le secteur. Fonctions existantes seulement : objectifs.creer, goalstasks.addCategoryTask, taskkind.write.
 // Aucune donnée réelle : libellés fictifs.
 const { randomUUID } = require('crypto');
 const goals = require('./goals');
 const goalstasks = require('./goalstasks');
 const taskkind = require('./taskkind');
-const timecaps = require('./timecaps');
 const { isoDateOf, dayNameOf, userToday } = require('./dates');
 
 const CAP_SEMAINE = 300; // minutes : 5 h par semaine
@@ -55,7 +54,7 @@ function creerScenarios(db, userId, color, now) {
     const pole = goals.categoriesForActivity(aid).find((p) => p.label === 'Production');
     goals.addCategory(aid, 'Opérations', pole.key);
     const secteur = goals.secteursForPole(aid, pole.key).find((x) => x.label === 'Opérations');
-    timecaps.setCaps(userId, aid, pole.key, { maxWeekMinutes: CAP_SEMAINE }); // capacité connue : 5 h par semaine
+    db.prepare("INSERT OR REPLACE INTO goal_capacity_overrides (activityId, category, userId, weeklyMinutes, updatedAt) VALUES (?, ?, ?, ?, ?)").run(aid, pole.key, userId, CAP_SEMAINE, new Date().toISOString()); // capacité connue : 5 h par semaine
     const lundi = (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getDay() + 6) % 7;
     for (let w = 0; w < 6; w++) { // w = 0 : cette semaine ; jamais de séance dans le futur
       SEANCES.forEach(([dow, minutes], i) => {

@@ -38,12 +38,11 @@ function planFor(userId, activityId, category, periodNumber) {
   const byWeek = {};
   rows.forEach((w) => { if (!byWeek[w.weekIndex]) byWeek[w.weekIndex] = w; });
 
-  const cap = timecaps.weeklyCapFor(userId, activityId, category);
   const avg = timecaps.periodAverage(userId, activityId, category);
   const nWeeks = goals.weeksInPeriod(period);
   const avgWeekly = avg != null ? Math.round(avg / nWeeks) : null;
-  const baseWeekly = cap != null ? cap : avgWeekly;
-  const baseSource = cap != null ? 'activities' : (avgWeekly != null ? 'history' : null);
+  const baseWeekly = avgWeekly;
+  const baseSource = avgWeekly != null ? 'history' : null;
   const periodManual = period.mainGoalEstimateSource === 'manual' && period.mainGoalEstimateMinutes > 0 ? period.mainGoalEstimateMinutes : null;
 
   const idx = [];

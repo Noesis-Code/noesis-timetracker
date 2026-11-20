@@ -12,7 +12,6 @@ require('../server/lib/objectifs'); // crée user_objectives
 const late = require('../server/lib/goalsperiodlate');
 const etat = require('./lib/retard-etat');
 const taskkind = require('../server/lib/taskkind');
-const timecaps = require('../server/lib/timecaps');
 const today = require('../server/lib/dates').userToday();
 
 // ---- Pur : classement unique (paliers) ----
@@ -89,7 +88,7 @@ function setup(label, endOffset, ownN, nextN, nextDate) {
   const actId = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?, ?, '')").run(label, uid).lastInsertRowid);
   db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, ?, '#fff', '', 0)").run(actId, uid);
   const g = goals.addCategory(actId, 'Production'); const key = (g && g.key) || goals.categoriesForActivity(actId)[0].key;
-  timecaps.setCaps(uid, actId, key, { maxWeekMinutes: 700 }); // 700 min par semaine : 840 à 120 %, soit 14 tâches de 60 min
+  db.prepare("INSERT OR REPLACE INTO goal_capacity_overrides (activityId, category, userId, weeklyMinutes, updatedAt) VALUES (?, ?, ?, ?, ?)").run(actId, key, uid, 700, new Date().toISOString()); // 700 min par semaine : 840 à 120 %, soit 14 tâches de 60 min
   const p1 = { n: 1, startDate: goals.addDays(today, -7), endDate: goals.addDays(today, 20), weeks: [{ n: 1, startDate: goals.addDays(today, -7), endDate: goals.addDays(today, 20), done: false }] };
   const periods = [p1];
   if (endOffset > 20) periods.push({ n: 2, startDate: goals.addDays(today, 21), endDate: goals.addDays(today, endOffset), weeks: [{ n: 1, startDate: goals.addDays(today, 21), endDate: goals.addDays(today, endOffset), done: false }] });

@@ -169,10 +169,6 @@ function seedScenarios() {
   goals.setMainGoal(aid, K.finance, 2, 'Boucler le budget annuel et la déclaration', '', 1800);
   goals.setMainGoal(aid, K.communaute, 2, 'Animer deux rencontres de la communauté', '', doneCom + 150);
 
-  // ---- Plafonds de temps (pôle Produit : jour + semaine ; secteur Juridique : jour)
-  timecaps.setCaps(u.id, aid, K.produit, { maxDayMinutes: 60, maxWeekMinutes: 150 });
-  timecaps.setCaps(u.id, aid, K.juridique, { maxDayMinutes: 30, maxWeekMinutes: null });
-
   // ---- Tâches
   const budget = overload.budgetFor(aid, u.id);
   // Les 4 tâches en retard comptent aussi dans la charge du jour : juste assez pour dépasser le budget sans tout éparpiller.

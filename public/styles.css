@@ -3097,11 +3097,9 @@ button { -webkit-user-select: none; user-select: none; }
 
 .catList .catSecteurRow:first-child, .catList.editing .catSecteurRow:first-child { border-top: 0; }
 
-/* Plafonds de temps dans le formulaire en place (7 oct. 2026). */
+/* Bloc du formulaire en place : estimation par membre (les plafonds de catégorie ont été retirés le 20 nov. 2026). */
 .catEditForm .timeCapsBlock { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 .catEditForm .timeCapsBlock .hint { margin: 0; }
-.catEditForm .timeCapsBody { display: flex; flex-direction: column; gap: 6px; }
-.catEditForm .timeCapsBody.hidden { display: none; }
 /* Estimation indicative du temps par membre (activité partagée), sous « Gérer mon temps ». */
 .catEditForm .goalMemberEst { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--sep); }
 .catEditForm .goalMemberEst.hidden { display: none; }

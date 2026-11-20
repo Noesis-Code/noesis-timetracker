@@ -11,7 +11,6 @@ require('../server/lib/objectifs');
 const late = require('../server/lib/goalsperiodlate');
 const RR = require('../server/lib/retard-rangement');
 const choix = require('../server/lib/taches-choix');
-const timecaps = require('../server/lib/timecaps');
 const today = require('../server/lib/dates').userToday();
 
 let target = null; // objectif que le « choix » renvoie (remplace l'appel IA)
@@ -23,7 +22,7 @@ function setup(label, otherStart) {
   const actId = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?, ?, '')").run(label, uid).lastInsertRowid);
   db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, ?, '#fff', '', 0)").run(actId, uid);
   const g = goals.addCategory(actId, 'Production'); const key = (g && g.key) || goals.categoriesForActivity(actId)[0].key;
-  timecaps.setCaps(uid, actId, key, { maxWeekMinutes: 700 });
+  db.prepare("INSERT OR REPLACE INTO goal_capacity_overrides (activityId, category, userId, weeklyMinutes, updatedAt) VALUES (?, ?, ?, ?, ?)").run(actId, key, uid, 700, new Date().toISOString());
   const p1 = { n: 1, startDate: goals.addDays(today, -7), endDate: goals.addDays(today, 20), weeks: [{ n: 1, startDate: goals.addDays(today, -7), endDate: goals.addDays(today, 20), done: false }] };
   const p2 = { n: 2, startDate: goals.addDays(today, 21), endDate: goals.addDays(today, 48), weeks: [{ n: 1, startDate: goals.addDays(today, 21), endDate: goals.addDays(today, 48), done: false }] };
   const ids = [];
