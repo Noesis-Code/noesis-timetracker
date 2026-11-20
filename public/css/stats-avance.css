@@ -145,6 +145,8 @@
 #bilanBlocs .tasksFilterRow { margin: 0 0 12px; }
 /* tableaux de temps du Chrono dans le Bilan : la croix rouge de retrait se pose dans leur coin */
 #statsPage1 .statsSection, #categoryStatsScroll .statsSection { position: relative; }
+/* aperçu d'un tableau de temps dans « Ajouter une information » : même largeur que les autres aperçus, sans déborder */
+.saGh > .saGin > .statsSection { flex: 1; min-width: 0; margin: 0; overflow: hidden; }
 /* Informations ajoutées : espacées les unes des autres. */
 .bbBody > div { margin-bottom: 16px; }
 .bilanBlocs.hidden { display: none; }

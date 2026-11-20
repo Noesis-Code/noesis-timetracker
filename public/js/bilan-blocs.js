@@ -139,7 +139,7 @@
     var c = shell(title, remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c);
     api('GET', '/api/bilan/temps-membres?activityId=' + scope + catQs()).then(function (r) {
       if (my !== gen) return; slot.textContent = '';
-      if (!r.members || !r.members.some(function (m) { return m.total > 0; })) { slot.appendChild(el('p', 'hint', '—')); return; }
+      if (!r.members || !r.members.some(function (m) { return m.total > 0; })) { slot.appendChild(el('p', 'hint', tr('Aucun temps enregistré ici.'))); return; }
       draw(slot, r);
     }).catch(function (e) { if (my === gen) failed(slot, e); });
   }
@@ -216,6 +216,15 @@
     });
   }
 
+  // Aperçu d'un tableau de temps (mode « Ajouter ») : une copie du tableau réel du niveau, sans identifiants ni croix ; sans tableau chargé, son titre seul.
+  function chronoPreview(d) {
+    var src = document.getElementById(chronoIds(d)[0]); if (!src) return shell(d.title);
+    var cl = src.cloneNode(true); cl.classList.remove('hidden'); cl.removeAttribute('id');
+    Array.prototype.forEach.call(cl.querySelectorAll('[id]'), function (n) { n.removeAttribute('id'); });
+    Array.prototype.forEach.call(cl.querySelectorAll('.bbX'), function (n) { n.parentNode.removeChild(n); });
+    return cl;
+  }
+
   // ---------- Page : informations ajoutées, « + Ajouter une information », aperçus à cocher ----------
   function renderInfo() {
     gen += 1; infoBody.textContent = '';
@@ -237,7 +246,7 @@
     defs().filter(function (d) { return added.indexOf(d.key) < 0; }).forEach(function (d) {
       var sel = draft.indexOf(d.key) >= 0, g = el('div', 'saGh' + (sel ? ' sel' : '')), inner = el('div', 'saGin');
       g.setAttribute('role', 'button'); g.setAttribute('aria-pressed', sel ? 'true' : 'false'); g.appendChild(inner); infoBody.appendChild(g);
-      if (d.render) d.render(inner, null); else inner.appendChild(shell(d.title)); // un tableau de temps : seul son titre en aperçu
+      if (d.render) d.render(inner, null); else inner.appendChild(chronoPreview(d)); // un tableau de temps : copie du vrai tableau
       g.addEventListener('click', function () {
         var k = draft.indexOf(d.key); if (k >= 0) draft.splice(k, 1); else draft.push(d.key);
         g.classList.toggle('sel', k < 0); g.setAttribute('aria-pressed', k < 0 ? 'true' : 'false');
