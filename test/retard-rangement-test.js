@@ -48,7 +48,7 @@ const tick = () => new Promise((r) => setTimeout(r, 50));
   assert(rangees.length === 5, 'au plus 5 tâches rangées par passage (' + rangees.length + ' sur 7 sorties)');
   assert(rangees.every((id) => lien(id).dueDate === goals.addDays(today, 21)), 'elles prennent la date du début de la période suivante');
   assert(rangees.every((id) => !liste(A.oid).includes(id) && liste(A.other).includes(id)), 'les deux listes de tâches des objectifs suivent');
-  assert(db.prepare("SELECT COUNT(*) AS c FROM retard_propositions WHERE userId = ? AND etat = 'acceptee'").get(A.uid).c === 5, 'trace : une ligne par tâche rangée');
+  assert(db.prepare("SELECT COUNT(*) AS c FROM retard_rangees WHERE userId = ?").get(A.uid).c === 5, 'trace : une ligne par tâche essayée');
   late.verifier(A.uid, A.actId, { force: true, dayCaps: {} });
   await tick();
   const apres = A.ids.filter((id) => lien(id).objectiveId === A.other);

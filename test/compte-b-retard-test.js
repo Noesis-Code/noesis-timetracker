@@ -8,6 +8,7 @@ const auth = require('../server/lib/auth');
 const goals = require('../server/lib/goals');
 require('../server/lib/objectifs');
 const late = require('../server/lib/goalsperiodlate');
+const etat = require('./lib/retard-etat');
 const overload = require('../server/lib/goalsoverload');
 const goalstoday = require('../server/lib/goalstoday');
 const taskkind = require('../server/lib/taskkind');
@@ -64,7 +65,7 @@ for (const k of Object.keys(S)) {
   const res = run(s);
   assert(due(dev) === plus(7), 'S1 : la moins importante glisse à la semaine suivante (' + due(dev) + ')');
   assert(due(urg) <= today && [m1, m2].every((id) => due(id) < plus(7)), 'S1 : l\'urgente et les 2 maintenances restent dans cette semaine');
-  assert(res.retards === 0 && late.lister(u.id).filter((r) => r.activite.startsWith('S1')).length === 0, 'S1 : aucun message');
+  assert(res.retards === 0 && etat(u.id).filter((r) => r.activite.startsWith('S1')).length === 0, 'S1 : aucun message');
 }
 // ---- S2 : la moins urgente des urgences glisse à la fin de la semaine d'après, la plus urgente reste ----
 {
@@ -79,13 +80,13 @@ for (const k of Object.keys(S)) {
   const s = S.S3, res = run(s);
   const moved = s.taskIds.filter((id) => due(id) >= plus(28));
   assert(moved.length === 3, 'S3 : 3 tâches reportées sur la période suivante (' + moved.length + ')');
-  assert(res.retards === 0 && late.lister(u.id).filter((r) => r.activite.startsWith('S3')).length === 0, 'S3 : report silencieux, aucun message');
+  assert(res.retards === 0 && etat(u.id).filter((r) => r.activite.startsWith('S3')).length === 0, 'S3 : report silencieux, aucun message');
   assert(s.taskIds.every((id) => due(id) !== null), 'S3 : aucune tâche sans date');
 }
 // ---- S4 : niveau A avec la liste des tâches retirées ----
 {
   const s = S.S4, res = run(s);
-  const l = late.lister(u.id).filter((r) => r.activite.startsWith('S4'));
+  const l = etat(u.id).filter((r) => r.activite.startsWith('S4'));
   assert(res.retards === 1 && l.length === 1 && l[0].niveau === 'A', 'S4 : niveau A enregistré');
   assert(l[0] && l[0].tachesRetirees.length >= 1 && l[0].tachesRetirees.every((t) => t.titre.startsWith('Classer le dossier') && due(t.id) === null), 'S4 : tâches moins importantes retirées (' + (l[0] ? l[0].tachesRetirees.length : 0) + '), restées ouvertes sans date');
   assert(l[0] && l[0].heuresManquantes > 0 && l[0].depassementPct > 0, 'S4 : heures manquantes et dépassement renseignés');
@@ -93,7 +94,7 @@ for (const k of Object.keys(S)) {
 // ---- S5 : niveau B ----
 {
   const s = S.S5, res = run(s);
-  const l = late.lister(u.id).filter((r) => r.activite.startsWith('S5'));
+  const l = etat(u.id).filter((r) => r.activite.startsWith('S5'));
   assert(res.retards === 1 && l.length === 1 && l[0].niveau === 'B', 'S5 : niveau B (obligatoire)');
   assert(l[0] && l[0].heuresManquantes > 0 && l[0].tempsPoleMinutesSemaine === 300 && l[0].necessaireMinutesSemaine > 300 && l[0].poleId, 'S5 : temps du pôle (5 h) et temps nécessaire supérieur, pôle à ouvrir');
 }
@@ -103,7 +104,7 @@ const s0 = snap();
 acts.forEach((a) => { late.verifier(u.id, a.id, { force: true, dayCaps: {} }); });
 assert(snap() === s0, 'idempotent : relancer le moteur ne déplace plus rien');
 goalstoday.tasksToday(u.id, today);
-assert(late.lister(u.id).length === 2 && late.lister(u.id).map((r) => r.niveau).sort().join() === 'A,B', 'liste du jour ouverte : exactement un message A (S4) et un message B (S5)');
+assert(etat(u.id).length === 2 && etat(u.id).map((r) => r.niveau).sort().join() === 'A,B', 'liste du jour ouverte : exactement un message A (S4) et un message B (S5)');
 
 // ---- Mot de passe, idempotence ----
 const row = () => db.prepare('SELECT id, pin, passwordStrong FROM users WHERE name = ? AND lastName = ?').get(B.name, B.lastName);

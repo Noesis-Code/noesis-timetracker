@@ -10,6 +10,7 @@ const goals = require('../server/lib/goals');
 const goalstasks = require('../server/lib/goalstasks');
 require('../server/lib/objectifs'); // crée user_objectives
 const late = require('../server/lib/goalsperiodlate');
+const etat = require('./lib/retard-etat');
 const taskkind = require('../server/lib/taskkind');
 const timecaps = require('../server/lib/timecaps');
 const today = require('../server/lib/dates').userToday();
@@ -110,7 +111,7 @@ const resA = run(A);
 const movedA = A.ids.filter((id) => due(id) >= goals.addDays(today, 21));
 assert(movedA.length === 3 && movedA.join() === A.ids.slice(42).join(), 'les 3 dernières du classement passent sur la période suivante (' + movedA.length + '), même avec une date saisie à la main');
 assert(due(A.ids[0]) === goals.addDays(today, 0) || due(A.ids[0]) === goals.addDays(today, 5), 'les premières restent cette semaine');
-assert(late.lister(A.uid).length === 0 && resA.retards === 0, 'report silencieux : aucun état « retard »');
+assert(etat(A.uid).length === 0 && resA.retards === 0, 'report silencieux : aucun état « retard »');
 const snap = A.ids.map(due).join();
 const resA2 = run(A);
 assert(A.ids.map(due).join() === snap && resA2.deplaces === 0, 'idempotent : relancer le rééquilibrage ne change plus rien');
@@ -119,7 +120,7 @@ assert(late.verifier(A.uid, A.actId, { dayCaps: {} }).skipped === true, 'au plus
 // B. suivante pleine : 60 tâches déjà prévues (56 au plus) : 7 retirées (sans date), état « retard » NIVEAU A
 const B = setup('B', 48, 45, 60, 25);
 const resB = run(B);
-const listB = late.lister(B.uid);
+const listB = etat(B.uid);
 assert(resB.retards === 1 && listB.length === 1 && listB[0].niveau === 'A' && listB[0].objectifId === B.oid, 'niveau A enregistré');
 assert(listB[0].tachesRetirees.length === 7 && listB[0].totalRetireMinutes === 420 && listB[0].tachesRetirees.every((t) => t.id && t.titre && t.minutes === 60), 'tâches retirées : id, titre, durée (7 × 60 min)');
 assert(listB[0].tachesRetirees.every((t) => due(t.id) === null), 'les tâches retirées restent ouvertes, SANS date');
@@ -130,10 +131,7 @@ const fiche = require('../server/lib/objectifs').get(B.uid, B.oid);
 assert(fiche.activity && fiche.activity.id === B.actId && fiche.activity.name === 'B' && fiche.activity.color === '#fff', 'GET /api/objectifs/:id : activity { id, name, color } (l’écran en a besoin pour ouvrir la fiche du pôle)');
 assert(listB[0].poleId === B.key, 'poleId = clé du pôle (poleKey)');
 run(B);
-assert(db.prepare('SELECT COUNT(*) AS n FROM objectif_retards WHERE userId = ?').get(B.uid).n === 1 && late.lister(B.uid)[0].tachesRetirees.length === 7, 'un seul état par objectif et par période (mis à jour, pas dupliqué), la liste des retirées demeure');
-assert(late.marquer(B.uid, listB[0].id, 'refuse') === true && late.lister(B.uid).length === 0, 'niveau A refusé : plus listé');
-run(B);
-assert(late.lister(B.uid).length === 0, 'un refus est mémorisé : pas de nouveau message pour la même période');
+assert(db.prepare('SELECT COUNT(*) AS n FROM objectif_retards WHERE userId = ?').get(B.uid).n === 1 && etat(B.uid)[0].tachesRetirees.length === 7, 'un seul état par objectif et par période (mis à jour, pas dupliqué), la liste des retirées demeure');
 // reprise : de la place se libère (20 tâches terminées de la suivante) : les retirées reprennent leur date, l\'état disparaît
 db.prepare('UPDATE sub_project_items SET done = 1 WHERE id IN (' + B.ids.slice(45, 65).join(',') + ')').run();
 run(B);
@@ -143,40 +141,23 @@ assert(sansDate.length === 0, 'de la place : les tâches retirées sont reprises
 // C. dernière période : niveau B directement, non refusable
 const C = setup('C', 20, 45, 0, 0);
 const resC = run(C);
-const listC = late.lister(C.uid);
+const listC = etat(C.uid);
 assert(resC.retards === 1 && listC.length === 1 && listC[0].niveau === 'B' && listC[0].heuresManquantes === 3 && listC[0].depassementPct === 29 && listC[0].tachesRetirees.length === 0, 'dernière période : niveau B (3 h manquantes, 29 % de dépassement)');
-let refus400 = false; try { late.marquer(C.uid, listC[0].id, 'refuse'); } catch (e) { refus400 = e.statusCode === 400; }
-assert(refus400 && late.lister(C.uid).length === 1, 'niveau B : non refusable, revient à chaque ouverture');
+assert(etat(C.uid).length === 1, 'niveau B : revient à chaque passage');
 db.prepare('UPDATE sub_project_items SET done = 1 WHERE id IN (' + C.ids.slice(0, 6).join(',') + ')').run();
 run(C);
-assert(late.lister(C.uid).length === 0, 'le calcul montre que tout rentre : l\'état est effacé');
+assert(etat(C.uid).length === 0, 'le calcul montre que tout rentre : l\'état est effacé');
 
 // D. rien ne dépasse : pas d'état ; état résolu : il disparaît
 const D = setup('D', 48, 20, 0, 0);
-assert(run(D).retards === 0 && late.lister(D.uid).length === 0, 'le travail rentre : aucun état');
+assert(run(D).retards === 0 && etat(D.uid).length === 0, 'le travail rentre : aucun état');
 db.prepare("INSERT INTO objectif_retards (userId, objectifId, periodN, periodStart, periodEnd, activityId, missingMinutes, reason, computedAt, niveau) VALUES (?, ?, 1, ?, ?, ?, 10, 'x', '', 'B')").run(D.uid, D.oid, today, today, D.actId);
 run(D);
-assert(late.lister(D.uid).length === 0, 'situation revenue à la normale : l\'état disparaît');
+assert(etat(D.uid).length === 0, 'situation revenue à la normale : l\'état disparaît');
 
 // E. déclenchement à l'ouverture de la liste du jour et du calendrier (au même endroit que rebalance)
 const E = setup('E', 48, 45, 0, 0);
 require('../server/lib/goalstoday').tasksToday(E.uid, today);
 assert(late.verifier(E.uid, E.actId).skipped === true, 'l\'ouverture de la liste du jour a déclenché la vérification (puis au plus une fois par 30 s)');
-
-// F. lecture, recalcul, refus (A seulement) : les routes et les pop-ups A/B ont disparu (15 nov. 2026, fenêtre « Ajuste ton temps ») ; la logique serveur de replacement des tâches reste, ici par ses fonctions.
-{
-  const G = setup('G', 48, 45, 60, 25);
-  assert(late.lister(G.uid).length === 0, 'liste vide tant que rien n’est calculé');
-  const rg = late.recalculer(G.uid)[0];
-  assert(rg && rg.niveau === 'A' && ['id', 'niveau', 'objectifId', 'titre', 'activite', 'pole', 'secteur', 'poleId', 'heuresManquantes', 'depassementPct', 'tachesRetirees', 'totalRetireMinutes', 'tempsPoleMinutesSemaine', 'necessaireMinutesSemaine'].every((k) => k in rg), 'recalculer : niveau A listé, forme du contrat');
-  assert(late.lister(G.uid).length === 1 && late.lister(G.uid)[0].id === rg.id, 'le retard non refusé est listé');
-  assert(late.marquer(G.uid, rg.id, 'refuse') === true && late.lister(G.uid).length === 0, 'refuser (niveau A) : A refusé exclu');
-  const CC = setup('H', 20, 45, 0, 0);
-  const rb = late.recalculer(CC.uid)[0];
-  assert(rb && rb.niveau === 'B', 'recalculer : niveau B listé');
-  let code = 0; try { late.marquer(CC.uid, rb.id, 'refuse'); } catch (e) { code = e.statusCode; }
-  assert(code === 400 && late.lister(CC.uid).length === 1, 'refuser un niveau B : refusé (400), B toujours inclus');
-  assert(late.marquer(G.uid, 99999, 'refuse') === false, 'refuser un retard inconnu : introuvable');
-}
 console.log(failed ? String.fromCharCode(10) + failed + ' échec(s)' : String.fromCharCode(10) + 'OK');
 process.exit(failed ? 1 : 0);

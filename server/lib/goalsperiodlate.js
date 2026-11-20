@@ -33,8 +33,6 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectif_retards (
   reason TEXT NOT NULL,
   tasksJson TEXT NOT NULL DEFAULT '[]',
   computedAt TEXT NOT NULL,
-  seenAt TEXT,
-  dismissedAt TEXT,
   UNIQUE(userId, objectifId, periodN)
 )`);
 // Migration additive (jamais de perte) : niveau A/B, dépassement, temps du pôle et temps nécessaire par semaine.
@@ -247,20 +245,19 @@ function ecrire(ev, placements, retirees) {
 }
 
 function enregistrerRetard(userId, ev, niveau, tasks) {
-  const prev = db.prepare('SELECT id, dismissedAt FROM objectif_retards WHERE userId = ? AND objectifId = ? AND periodN = ?').get(userId, ev.objectifId, ev.period.n);
+  const prev = db.prepare('SELECT id FROM objectif_retards WHERE userId = ? AND objectifId = ? AND periodN = ?').get(userId, ev.objectifId, ev.period.n);
   const now = new Date().toISOString();
   const missing = niveau === 'B' ? ev.remainingMinutes : ev.gapMinutes;
-  const dismissed = niveau === 'B' ? null : (prev ? prev.dismissedAt : null); // A refusé : mémorisé pour la période, pas de nouveau message ; B : non refusable
   if (prev) {
-    db.prepare('UPDATE objectif_retards SET niveau = ?, missingMinutes = ?, reason = ?, tasksJson = ?, computedAt = ?, depassementPct = ?, tempsPoleMinutes = ?, necessaireMinutes = ?, dismissedAt = ? WHERE id = ?')
-      .run(niveau, missing, 'niveau-' + niveau.toLowerCase(), JSON.stringify(tasks), now, ev.depassementPct, ev.tempsPoleMinutes, ev.necessaireMinutes, dismissed, prev.id);
+    db.prepare('UPDATE objectif_retards SET niveau = ?, missingMinutes = ?, reason = ?, tasksJson = ?, computedAt = ?, depassementPct = ?, tempsPoleMinutes = ?, necessaireMinutes = ? WHERE id = ?')
+      .run(niveau, missing, 'niveau-' + niveau.toLowerCase(), JSON.stringify(tasks), now, ev.depassementPct, ev.tempsPoleMinutes, ev.necessaireMinutes, prev.id);
   } else {
     db.prepare('INSERT INTO objectif_retards (userId, objectifId, periodN, periodStart, periodEnd, activityId, poleKey, categoryKey, missingMinutes, reason, tasksJson, computedAt, niveau, depassementPct, tempsPoleMinutes, necessaireMinutes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(userId, ev.objectifId, ev.period.n, ev.period.startDate, ev.period.endDate, ev.activityId, ev.poleKey, ev.categoryKey, missing, 'niveau-' + niveau.toLowerCase(), JSON.stringify(tasks), now, niveau, ev.depassementPct, ev.tempsPoleMinutes, ev.necessaireMinutes);
   }
 }
-function effacerRetard(userId, ev) { // tout rentre : l'état non refusé disparaît (un A refusé reste mémorisé pour la période)
-  db.prepare('DELETE FROM objectif_retards WHERE userId = ? AND objectifId = ? AND periodN = ? AND dismissedAt IS NULL').run(userId, ev.objectifId, ev.period.n);
+function effacerRetard(userId, ev) { // tout rentre : l'état disparaît
+  db.prepare('DELETE FROM objectif_retards WHERE userId = ? AND objectifId = ? AND periodN = ?').run(userId, ev.objectifId, ev.period.n);
 }
 
 // Applique le résultat d'une évaluation. Renvoie le nombre de tâches dont la date a changé ou été retirée.
@@ -282,7 +279,7 @@ function appliquer(userId, ev) {
   else if (ev.decision === 'A' || toutes.length) enregistrerRetard(userId, ev, 'A', toutes); // des tâches restent retirées : l'état reste (sans nouveau message s'il a été refusé)
   else effacerRetard(userId, ev);
   // Les tâches sorties de leur objectif (retirées de la suivante, ou sans place avant l'échéance) relancent la recherche d'objectif (période suivante au plus), SILENCIEUSEMENT : taches-choix, retard-rangement.js
-  if (toutes.length) { try { require('./retard-rangement').proposer(userId, ev, toutes.map((t) => t.id)).catch(() => {}); } catch (e) { /* non bloquant */ } }
+  if (toutes.length) { try { require('./retard-rangement').ranger(userId, ev, toutes.map((t) => t.id)).catch(() => {}); } catch (e) { /* non bloquant */ } }
   return placements.length + retirees.length;
 }
 
@@ -316,32 +313,4 @@ function verifier(userId, activityId, opts) {
   return out;
 }
 
-// Lecture pour le message : retards non refusés du membre (A refusé exclu ; B toujours inclus). Forme du contrat avec l'écran.
-function lister(userId) {
-  return db.prepare(`SELECT r.*, o.title AS objectifTitle, a.name AS activityName FROM objectif_retards r JOIN user_objectives o ON o.id = r.objectifId LEFT JOIN activities a ON a.id = r.activityId
-    WHERE r.userId = ? AND (r.dismissedAt IS NULL OR r.niveau = 'B') ORDER BY r.periodEnd, r.id`).all(userId).map((r) => {
-    let pole = null; try { pole = goals.resolveToPole(r.activityId, r.categoryKey || r.poleKey) || r.poleKey; } catch (e) { pole = r.poleKey; }
-    const label = (k) => { try { return k ? goals.categoryLabelFor(r.activityId, k) : null; } catch (e) { return k; } };
-    const secteurKey = r.categoryKey && pole && r.categoryKey !== pole ? r.categoryKey : null;
-    const tasks = parse(r.tasksJson, []).map((t) => ({ id: t.id, titre: t.titre || '', minutes: num(t.minutes) }));
-    return { id: r.id, niveau: r.niveau === 'B' ? 'B' : 'A', objectifId: r.objectifId, titre: r.objectifTitle, activite: r.activityName, pole: label(pole), secteur: label(secteurKey), poleId: pole,
-      heuresManquantes: Math.round((num(r.missingMinutes) / 60) * 10) / 10, depassementPct: num(r.depassementPct), tachesRetirees: tasks, totalRetireMinutes: tasks.reduce((s, t) => s + t.minutes, 0),
-      tempsPoleMinutesSemaine: num(r.tempsPoleMinutes), necessaireMinutesSemaine: num(r.necessaireMinutes) };
-  });
-}
-// « refusé » (niveau A seulement : mémorisé pour la période, pas de nouveau message) ou « vu ». Le niveau B revient tant qu'il n'est pas réglé : il n'est pas refusable.
-function marquer(userId, id, etat) {
-  const col = etat === 'refuse' ? 'dismissedAt' : etat === 'vu' ? 'seenAt' : null;
-  if (!col) throw Object.assign(new Error('État inconnu.'), { statusCode: 400 });
-  const r = db.prepare('SELECT niveau FROM objectif_retards WHERE id = ? AND userId = ?').get(Number(id), userId);
-  if (!r) return false;
-  if (etat === 'refuse' && r.niveau === 'B') throw Object.assign(new Error('Ce retard ne peut pas être refusé : il revient tant qu\'il n\'est pas réglé.'), { statusCode: 400 });
-  return db.prepare('UPDATE objectif_retards SET ' + col + ' = ? WHERE id = ? AND userId = ?').run(new Date().toISOString(), Number(id), userId).changes > 0;
-}
-// Recalcul à la demande (après suppression de tâches ou changement du temps du pôle) : toutes les activités du membre, sans attendre les 30 s.
-function recalculer(userId, opts) {
-  db.prepare('SELECT DISTINCT activityId FROM user_objectives WHERE userId = ?').all(userId).forEach((a) => { try { verifier(userId, a.activityId, { force: true, dayCaps: opts && opts.dayCaps }); } catch (e) { console.warn('[retard] recalcul : ' + (e && e.message)); } });
-  return lister(userId);
-}
-
-module.exports = { evaluerRetard, placerSemaines, reprendre, capaciteSur, evaluerObjectif, verifier, lister, marquer, recalculer, taskRows, LIMITE };
+module.exports = { evaluerRetard, placerSemaines, reprendre, capaciteSur, evaluerObjectif, verifier, taskRows, LIMITE };

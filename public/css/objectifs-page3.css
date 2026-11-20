@@ -180,23 +180,6 @@
 .goalsCalendarWeekBadge.clickable:hover { background: rgba(var(--purple-rgb), 0.22); }
 
 
-.goalsCalendarAddTaskBtn {
-  position: relative; flex-shrink: 0; width: 28px; height: 28px;
-  border: none; padding: 0; border-radius: 50%; cursor: pointer;
-  color: var(--text-light); background: var(--track-bg);
-}
-
-.goalsCalendarAddTaskBtn::before,
-.goalsCalendarAddTaskBtn::after {
-  content: ''; position: absolute; top: 50%; left: 50%;
-  background: currentColor; transform: translate(-50%, -50%);
-}
-
-.goalsCalendarAddTaskBtn::before { width: 10px; height: 2px; }
-
-.goalsCalendarAddTaskBtn::after { width: 2px; height: 10px; }
-
-.goalsCalendarAddTaskBtn:hover { color: var(--text); background: var(--border); }
 
 
 
@@ -411,12 +394,8 @@
 .goalsMonthCal { margin-bottom: 8px; }
 
 /* Page 3 — cadres : pointillés (--cmp-dash, comme .cmpAdd) quand rien n'est enregistré, ligne pleine sinon. */
-.goalsEditField { margin-bottom: 12px; }
 .goalsDayDock .tasksProposeBody input, .goalsDayDock .tasksProposeBody textarea { width: 100%; box-sizing: border-box; }
 
-.goalsEditAdv { margin-top: 8px; }
-/* « Avancé » : un seul titre dans le panneau (celui du haut) ; dates au même style que les champs du panneau. */
-.goalsEditAdv .goalWeeklyText, .goalsEditAdv .goalWeeklyTitleText, .goalsEditAdv .goalWeeklyEditBtn { display: none; }
 
 /* Page 3 — corrections : mois grisé sous l'objectif périodique ; Enregistrer jamais noir (transparent tant qu'il n'y a rien) ; champs du panneau sans fond propre (une seule opacité, R31). */
 .goalsCalNav.cmpNav--sm .cmpNavLabel { color: var(--text-light); font-weight: 600; }
