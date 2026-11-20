@@ -77,7 +77,7 @@
 .tasksSaveBtn { display: none; flex: none; width: 100%; box-sizing: border-box; height: 50px; min-height: 0; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; background: var(--purple); color: var(--on-action); font: inherit; font-size: 16px; font-weight: 600; align-items: center; justify-content: center; cursor: pointer; } /* exactement la forme et la taille de la zone d'écriture (50 px, bords arrondis) : il la remplace sur place */
 .tasksDock.expSave .tasksSaveBtn { display: flex; } /* étape 2 d'Expansion : la zone d'écriture devient le bouton Enregistrer */
 .tasksDock.expSave .tasksComposer { display: none; }
-.tasksPages { overflow: hidden; touch-action: pan-y; }
+.tasksPages { flex: none; overflow: hidden; touch-action: pan-y; } /* flex: none : sinon overflow hidden lui donne un min-height de 0, elle rétrécit à la hauteur du panneau et rogne ses lignes au lieu de laisser .tasksProposeBody défiler */
 .tasksTrack { display: flex; width: 200%; transition: transform .28s ease; }
 .tasksPage { flex: 0 0 50%; min-width: 0; box-sizing: border-box; }
 .tasksPage.off { height: 0; overflow: hidden; visibility: hidden; }
