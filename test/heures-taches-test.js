@@ -52,7 +52,7 @@ const l = RM.lire(duo, D);
 assert(l.objectifsHeures === 10 && l.heuresParMembre.toi === 6 && l.heuresParMembre.gas === 4, 'ajustement du temps : total 10 h divisé 6 h / 4 h');
 // ---- secteur : un objectif de secteur compte pour son pôle, sans double compte avec l'objectif du pôle (le plus grand des deux niveaux) ----
 obj('toi', duo, 'secteur', D, D1, 3);
-assert(cap.totalMinutes(duo, D) === 600 && cap.totalMinutes(duo, D1) === 180 && cap.totalMinutes(duo, '_') === 600, 'pôle = max(pôle, somme des secteurs) ; secteur et activité lus');
+assert(cap.totalMinutes(duo, D) === 600 && cap.totalMinutes(duo, D1) === 180 && cap.totalMinutes(duo, '_') === 600, 'pôle 10 h + secteur 3 h : le secteur garde 3 h, le reste reste sur le pôle (10 h), jamais additionné');
 db.prepare('DELETE FROM user_objectives WHERE id = ?').run(od);
 assert(cap.totalMinutes(duo, D) === 180, 'sans objectif de pôle : la somme des secteurs');
 // ---- objectif de niveau activité : heures réparties ÉGALEMENT entre les pôles, total activité = somme des pôles ----
@@ -60,5 +60,18 @@ const act2 = mk('Deux pôles', ['toi']), Q1 = lastKey(categories.addCategory(act
 const oa = obj('toi', act2, 'activite', null, null, 10);
 assert(cap.weeklyShareMinutes(act2, Q1, 'toi') === 300 && cap.weeklyShareMinutes(act2, Q2, 'toi') === 300 && cap.totalMinutes(act2, '_') === 600, 'objectif activité 10 h : 5 h par pôle, total activité 10 h');
 obj('toi', act2, 'pole', Q1, null, 2);
-assert(cap.weeklyShareMinutes(act2, Q1, 'toi') === 420 && cap.weeklyShareMinutes(act2, Q2, 'toi') === 300 && cap.totalMinutes(act2, '_') === 720 && cap.totalMinutes(act2, Q1) + cap.totalMinutes(act2, Q2) === cap.totalMinutes(act2, '_'), 'un pôle modifié : le total activité reste la somme des pôles');
+assert(cap.weeklyShareMinutes(act2, Q1, 'toi') === 120 && cap.weeklyShareMinutes(act2, Q2, 'toi') === 480 && cap.totalMinutes(act2, '_') === 600 && cap.totalMinutes(act2, Q1) + cap.totalMinutes(act2, Q2) === cap.totalMinutes(act2, '_'), 'un pôle modifié (2 h) : le reste du total va aux autres pôles, le total activité reste 10 h = somme des pôles');
+// ---- invariant de somme : activité 100 h -> 2 pôles 50/50 -> pôle 1 en 2 secteurs 25/25 -> chaque secteur partagé entre 2 membres ; 70/30 garde le total ----
+const act3 = mk('Cent', ['toi', 'gas']), R1 = lastKey(categories.addCategory(act3, 'R1')), R2 = lastKey(categories.addCategory(act3, 'R2')), S1 = lastKey(categories.addCategory(act3, 'S1', R1)), S2 = lastKey(categories.addCategory(act3, 'S2', R1));
+obj('toi', act3, 'activite', null, null, 100);
+assert(cap.totalMinutes(act3, '_') === 6000 && cap.totalMinutes(act3, R1) === 3000 && cap.totalMinutes(act3, R2) === 3000 && cap.totalMinutes(act3, S1) === 1500 && cap.totalMinutes(act3, S2) === 1500, '100 h : 2 pôles 50/50, pôle 1 en 2 secteurs 25/25');
+assert(cap.weeklyShareMinutes(act3, R1, 'toi') === 1500 && cap.weeklyShareMinutes(act3, R1, 'gas') === 1500 && cap.weeklyShareMinutes(act3, R2, 'toi') === 1500, 'chaque secteur partagé également : 12,5 h chacun par secteur, 25 h sur le pôle 1');
+assert(cap.weeklyShareMinutes(act3, R1, 'toi') + cap.weeklyShareMinutes(act3, R1, 'gas') === cap.totalMinutes(act3, R1), 'le total du pôle = la somme des parts de ses membres (aucun parent additionné à ses enfants)');
+RM.poser(act3, S1, { toi: 70, gas: 30 });
+const ls = RM.lire(act3, S1);
+assert(ls.objectifsHeures === 25 && ls.heuresParMembre.toi === 17.5 && ls.heuresParMembre.gas === 7.5 && Math.round((ls.heuresParMembre.toi + ls.heuresParMembre.gas) * 10) === 250, 'modification 70/30 sur S1 : 17,5 h / 7,5 h, le total du secteur reste 25 h');
+assert(cap.totalMinutes(act3, R1) === 3000 && cap.totalMinutes(act3, '_') === 6000 && cap.weeklyShareMinutes(act3, R1, 'toi') + cap.weeklyShareMinutes(act3, R1, 'gas') === 3000 && cap.ecarts(act3).length === 0, 'les totaux du dessus ne bougent pas ; aucun écart');
+// objectif de pôle explicite de 20 h : les 80 autres heures vont à l'autre pôle (total activité inchangé)
+obj('toi', act3, 'pole', R1, null, 20);
+assert(cap.totalMinutes(act3, R1) === 1200 && cap.totalMinutes(act3, R2) === 4800 && cap.totalMinutes(act3, '_') === 6000, 'un pôle à 20 h : le second pôle reprend le reste, activité = 100 h');
 console.log(failed ? '\n' + failed + ' échec(s)' : '\nTout passe'); process.exit(failed ? 1 : 0);
