@@ -528,6 +528,8 @@ textarea {
   padding: 16px 3px 0; text-align: left;
   box-sizing: border-box; height: auto; min-width: 0;
 }
+.stopConfirmCard { position: relative; }
+#stopCloseBtn { position: absolute; top: 4px; right: 0; }
 .stopConfirmCard > *, .stopConfirmCard .stopDateTimeRow, .stopConfirmCard .categoryPicker { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .stopFieldLabel { font-size: 13px; color: var(--text-light); margin: 10px 0 4px; }
 /* Heure de début/fin en DEUX champs natifs séparés (date + heure) plutôt qu'un seul <input type="datetime-local"> — voir le commentaire détaillé dans app.js (toDateValue/toTimeValue/combineDateTime). */

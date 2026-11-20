@@ -756,6 +756,7 @@
     'Français': 'French',
     'Anglais': 'English',
     'Langue mise à jour.': 'Language updated.',
+    'Impossible de changer la langue pour le moment.': 'Unable to change the language right now.',
 
     // ---- Partage (30 août 2026, rétabli le 1er septembre après une
     // réécriture du dictionnaire qui l'avait fait disparaître ; revu le

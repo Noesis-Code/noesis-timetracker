@@ -168,7 +168,7 @@
       TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/sub-project-items/' + task.id + '?userId=' + uid)
         .then(function () { refresh(); })
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     var cancel = document.createElement('button');
@@ -189,7 +189,7 @@
       save.disabled = true;
       api('PUT', '/api/sub-project-items/' + task.id, body)
         .then(function () { refresh(); })
-        .catch(function (err) { save.disabled = false; alert(err.message); });
+        .catch(function (err) { save.disabled = false; TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     panel.appendChild(delBtn); actions.appendChild(cancel); actions.appendChild(save);
     panel.appendChild(actions);
@@ -232,7 +232,7 @@
       cb.disabled = true;
       api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: cb.checked })
         .then(function (res) { if (res && res.objectifQuestion && TMT.ui && TMT.ui.objectifQuestion) TMT.ui.objectifQuestion(res); (onChanged || loadGoalsTasksOverview)(); })
-        .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
+        .catch(function (err) { cb.checked = !cb.checked; TMT.ui.confirm(err.message, { ok: "OK" }); })
         .then(function () { cb.disabled = false; });
     });
     row.appendChild(cb);

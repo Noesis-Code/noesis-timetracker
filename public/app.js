@@ -920,7 +920,7 @@
       if (deleteApiPath === null) { onRemoved(att.id); return; }
       api('DELETE', (deleteApiPath || '/api/attachments/') + att.id + '?userId=' + profile.id)
         .then(function () { onRemoved(att.id); })
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     row.appendChild(removeBtn);
@@ -3265,6 +3265,7 @@
   $('stopEndDateInput').addEventListener('input', updateStopDurationLabel);
   $('stopEndTimeInput').addEventListener('input', updateStopDurationLabel);
   $('stopCancelBtn').addEventListener('click', closeStopConfirm);
+  $('stopCloseBtn').addEventListener('click', closeStopConfirm);
 
   $('stopConfirmBtn').addEventListener('click', function () {
     var startDate = stopDateOf('start');
@@ -3588,7 +3589,7 @@
 
     delBtn.addEventListener('click', function () {
       TMT.ui.confirm(t('Supprimer définitivement cet enregistrement ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
-      api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { alert(err.message); });
+      api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
 
@@ -7589,7 +7590,7 @@
   var catPopupShared = false;
   function catMembersBlock(activityId, key) {
     var holder = document.createElement('div');
-    if (catPopupShared && TMT.membres) holder.appendChild(TMT.membres.categoryBlock(activityId, key, function (m) { if (m) alert(m); }));
+    if (catPopupShared && TMT.membres) holder.appendChild(TMT.membres.categoryBlock(activityId, key, function (m) { if (m) TMT.ui.confirm(m, { ok: "OK" }); }));
     return holder;
   }
 
@@ -8475,8 +8476,8 @@
       menuItems.push({ label: t('Exclure'), danger: true, onClick: function () {
         TMT.ui.confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }), { ok: t('Exclure') }).then(function (ok) { if (!ok) return;
           api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
-            .then(function (res) { alert(t(res.message)); if (opts.onExcluded) opts.onExcluded(); })
-            .catch(function (err) { alert(err.message); });
+            .then(function (res) { TMT.ui.confirm(t(res.message), { ok: "OK" }); if (opts.onExcluded) opts.onExcluded(); })
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         });
       } });
     }
@@ -8547,9 +8548,9 @@
             // de laisser à l'écran une fenêtre qui ne lui correspond plus.
             closeActivityPage();
             refreshActivities().then(renderActivityGrid);
-            alert(t(res.message));
+            TMT.ui.confirm(t(res.message), { ok: "OK" });
           })
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       });
       actionsRow.appendChild(leaveBtn);
@@ -8712,11 +8713,11 @@
         validateBtn.disabled = true;
         api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: selectedUser.name })
           .then(function (res) {
-            alert(t(res.message));
+            TMT.ui.confirm(t(res.message), { ok: "OK" });
             closeSearchPanel();
           })
           .catch(function (err) {
-            alert(err.message);
+            TMT.ui.confirm(err.message, { ok: "OK" });
             validateBtn.disabled = false;
           });
       });
@@ -8786,7 +8787,7 @@
             activityId: activityId,
             activityName: data.activityName,
             onExcluded: refreshAfterExclude,
-            extraItems: respSt ? TMT.responsables.items(activityId, respSt, m.userId, function (e) { if (e) alert(e.message); loadMembers(); }) : [], // Ajouter / Retirer comme responsable
+            extraItems: respSt ? TMT.responsables.items(activityId, respSt, m.userId, function (e) { if (e) TMT.ui.confirm(e.message, { ok: "OK" }); loadMembers(); }) : [], // Ajouter / Retirer comme responsable
           }));
         });
         $('communityMembersModal').classList.remove('hidden');
@@ -9189,7 +9190,7 @@
               u.followStatus = 'none'; u.followId = null;
               renderSearchResults(list, isDiscovery);
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         });
         actionsWrap.appendChild(cancelBtn);
       } else {
@@ -9203,7 +9204,7 @@
               u.followStatus = 'pending'; u.followId = r.id;
               renderSearchResults(list, isDiscovery);
             })
-            .catch(function (err) { alert(err.message); followBtn.disabled = false; });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); followBtn.disabled = false; });
         });
         actionsWrap.appendChild(followBtn);
       }
@@ -9278,7 +9279,7 @@
       acceptBtn.addEventListener('click', function () {
         api('POST', '/api/follows/' + r.id + '/accept', { userId: profile.id })
           .then(loadFollowRequests)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
 
       var declineBtn = document.createElement('button');
@@ -9287,7 +9288,7 @@
       declineBtn.addEventListener('click', function () {
         api('POST', '/api/follows/' + r.id + '/decline', { userId: profile.id })
           .then(loadFollowRequests)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
 
       actionsWrap.appendChild(acceptBtn);
@@ -9357,7 +9358,7 @@
           btn.disabled = false;
           btn.classList.remove('armed');
           btn.textContent = label;
-          alert(err.message);
+          TMT.ui.confirm(err.message, { ok: "OK" });
         });
     });
     return btn;
@@ -9375,7 +9376,7 @@
       TMT.ui.confirm(t('Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }), { ok: t('Bloquer') }).then(function (ok) { if (!ok) return;
       api('POST', '/api/blocks', { blockedId: userId })
         .then(onDone)
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     return btn;
@@ -9390,7 +9391,7 @@
     btn.addEventListener('click', function () {
       api('DELETE', '/api/blocks/' + blockId)
         .then(onDone)
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     return btn;
   }
@@ -9585,7 +9586,7 @@
         TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/profile/posts/' + entry.id + '?userId=' + profile.id)
           .then(function () { refreshAllProfilePostsComposers(); loadFollowingFeed(); })
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       });
       top.appendChild(del);
@@ -10889,20 +10890,12 @@
       return;
     }
 
-    // Rappel d'échéance d'un sous-projet (4 septembre 2026, "Calendrier des
-    // clôtures") : on ouvre la page de l'activité sur sa section Sous-projets
-    // et on met le sous-projet concerné en évidence. Même mécanisme que
-    // 'activity' ci-dessus — on rejoue le clic sur la ligne plutôt que de
-    // reconstruire les arguments d'openActivityPage().
+    // Rappel d'échéance (adresse ?notif=activity ; l'ancien ?notif=subproject des notifications déjà reçues va au même endroit) :
+    // les sous-projets n'ont plus d'écran, on ouvre la Page 2 de l'activité, comme 'activity' ci-dessus.
     if (target === 'subproject') {
-      var dueActivityId = params.get('activityId');
-      openActivitiesSettings();
-      if (dueActivityId) {
-        whenElementReady('#activitiesList .activityRow[data-activity-id="' + dueActivityId + '"] .activityRowHeader', function (header) {
-          header.click();
-          setActivityPageSection('sub');
-        });
-      }
+      var dueActivityId = notifIdParam(params, 'activityId');
+      switchTab('goals');
+      if (dueActivityId) openGoalsActivityFromNotification(dueActivityId, null, null);
       return;
     }
 
@@ -11176,7 +11169,7 @@
           // dans l'ancienne langue, ce qui donnait l'impression que le bouton
           // ne faisait rien.
           if (p.lang !== chosen) {
-            $('langMsg').textContent = t("Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.");
+            $('langMsg').textContent = t('Impossible de changer la langue pour le moment.');
             return;
           }
           saveProfile(p);
@@ -11849,7 +11842,7 @@
             userId: profile.id,
             orderedIds: ordered.map(function (el) { return Number(el.dataset.projectId); }),
           }).then(renderProjectsList)
-            .catch(function (err) { alert(err.message); loadProfileProjects(); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); loadProfileProjects(); });
         }
       }
 
@@ -12195,7 +12188,7 @@
         TMT.ui.confirm(t('Supprimer ce projet ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/profile/projects/' + p.id + '?userId=' + profile.id)
           .then(loadProfileProjects)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       });
 
@@ -12647,7 +12640,7 @@
             card.followId = null;
             renderViewProfileFollowButton(card);
           })
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       slot.appendChild(cancelBtn);
       return;
@@ -12665,7 +12658,7 @@
           card.followId = r.id;
           renderViewProfileFollowButton(card);
         })
-        .catch(function (err) { alert(err.message); followBtn.disabled = false; });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); followBtn.disabled = false; });
     });
     slot.appendChild(followBtn);
   }
@@ -13109,7 +13102,7 @@
           TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
           api('DELETE', cfg.deleteUrl(post))
             .then(refreshRegistry)
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         });
         });
         top.appendChild(del);
@@ -13462,7 +13455,7 @@
       TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
         .then(renderProfileFeed)
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     top.appendChild(del);
@@ -14651,7 +14644,7 @@
           if (!value || value === a.name) { nameInput.value = a.name; return; }
           api('PUT', '/api/activities/' + a.id, { userId: profile.id, name: value })
             .then(function () { a.name = value; refreshActivities().then(renderActivityGrid); })
-            .catch(function (err) { nameInput.value = a.name; alert(err.message); });
+            .catch(function (err) { nameInput.value = a.name; TMT.ui.confirm(err.message, { ok: "OK" }); });
         }
         nameInput.addEventListener('blur', commitActivityName);
         nameInput.addEventListener('keydown', function (e) {
@@ -14677,7 +14670,7 @@
               colorBtn.style.background = c;
               refreshActivities().then(renderActivityGrid);
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         }, true);
         swatches.classList.add('hidden');
         row.appendChild(swatches);
@@ -14883,7 +14876,7 @@
           nameLine.classList.remove('colorOpen');
           refreshActivities().then(renderActivityGrid);
         })
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     }, true);
     swatches.classList.add('hidden');
     colorBtn.addEventListener('click', function (e) {
@@ -15180,7 +15173,7 @@
             ids: ordered.map(function (el) { return Number(el.dataset.activityId); }),
           }).then(function () {
             refreshActivities().then(renderActivityGrid);
-          }).catch(function (err) { alert(err.message); loadSettingsActivities(); });
+          }).catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); loadSettingsActivities(); });
         }
       }
 
@@ -15553,7 +15546,7 @@
   Array.prototype.forEach.call($('communityPageDots').querySelectorAll('.goalsDotBtn'), function (b, k) {
     b.addEventListener('click', function () { if (k !== communityPage) setCommunityPage(k); });
   });
-  // Balayage entre les deux pages : technique commune (TMT.slidePager, stats-avance.js, chargé après app.js : liaison au premier besoin).
+  // Balayage entre les trois pages : technique commune (TMT.slidePager, stats-avance.js, chargé après app.js : liaison au premier besoin).
   var communityPagerBound = false;
   function bindCommunityPager() {
     if (communityPagerBound || !(window.TMT && TMT.slidePager)) return;
@@ -15742,9 +15735,9 @@
 
   $('communityGroupDeleteBtn').addEventListener('click', function () {
     var id = openCommunityGroupId; if (!id) return;
-    if (!window.confirm(t('Supprimer cette communauté et ses messages ?'))) return;
+    TMT.ui.confirm(t('Supprimer cette communauté et ses messages ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
     api('DELETE', '/api/community/groups/' + id).then(closeCommunityGroup)
-      .catch(function (e) { $('communityGroupMsg').textContent = e.message; });
+      .catch(function (e) { $('communityGroupMsg').textContent = e.message; }); });
   });
 
   function closeCommunityGroupCreate() { $('communityGroupCreateModal').classList.add('hidden'); }
@@ -16635,9 +16628,9 @@
     var params = new URLSearchParams(location.search);
     var achat = params.get('achat');
     if (achat !== 'succes' && achat !== 'annule') return;
-    alert(achat === 'succes'
+    TMT.ui.confirm(achat === 'succes'
       ? t("Abonnement à Expansion activé. Merci !")
-      : t('Paiement annulé — aucun abonnement créé.'));
+      : t('Paiement annulé — aucun abonnement créé.'), { ok: 'OK' });
     params.delete('achat');
     var qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
@@ -16780,9 +16773,9 @@
               refreshActivities().then(renderActivityGrid);
               loadSettingsActivities();
               loadPendingInvites();
-              if (mergeActivityId) alert(t(res.message));
+              if (mergeActivityId) TMT.ui.confirm(t(res.message), { ok: "OK" });
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         }
         if (!mergeActivityId) { doAccept(); return; }
         var mineName = mergeSelect.options[mergeSelect.selectedIndex].textContent;
@@ -16795,7 +16788,7 @@
       declineBtn.addEventListener('click', function () {
         api('POST', '/api/invites/' + inv.id + '/decline', { userId: profile.id })
           .then(loadPendingInvites)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
 
       actionsWrap.appendChild(acceptBtn);
@@ -16834,7 +16827,7 @@
       $('newActivityCard').classList.add('hidden');
       refreshActivities().then(renderActivityGrid);
       loadSettingsActivities();
-    }).catch(function (err) { alert(err.message); })
+    }).catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); })
       .finally(function () { $('newActivitySave').disabled = false; });
   });
 

@@ -1227,6 +1227,6 @@
   // Résiliation : ouvre le portail client Stripe (POST /api/offer/portal) ; visible seulement avec un abonnement (voir loadOffer1SubscribedSection).
   $('offer1CancelBtn').addEventListener('click', function () {
     var btn = this; btn.disabled = true;
-    api('POST', '/api/offer/portal', {}).then(function (r) { btn.disabled = false; if (r && r.url) window.location.href = r.url; }).catch(function (err) { btn.disabled = false; alert(err.message); });
+    api('POST', '/api/offer/portal', {}).then(function (r) { btn.disabled = false; if (r && r.url) window.location.href = r.url; }).catch(function (err) { btn.disabled = false; TMT.ui.confirm(err.message, { ok: "OK" }); });
   });
 })();
