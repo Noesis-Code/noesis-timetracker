@@ -912,6 +912,7 @@
     if (!selDay) { if (dayDock) dayDock.classList.add('hidden'); return; }
     buildGoalsDayDock();
     dayKicker.textContent = calendarDayLabel(selDay) || selDay; dayMsg.textContent = '';
+    dayText.parentNode.classList.toggle('hidden', !!TMT.portee && !TMT.portee.canWrite(TMT.currentGoalsActivityId, TMT.currentGoalsCategory)); // simple membre : pas de zone d'écriture
     dayDock.classList.remove('hidden');
     loadGoalsDayTasks();
   }

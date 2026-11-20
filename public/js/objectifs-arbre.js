@@ -483,7 +483,7 @@
   }
   // MODE ÉDITION (18 nov. 2026) : hors édition l'arbre reste propre (cases vides = nombre, cartes sans icône) ; en édition, grand plus sur les cases vides et crayon (trou) sur les cartes. Désactivé en quittant l'onglet ou en changeant de niveau.
   // « + » d'action de la barre des volets, posé sous la colonne des heures quand la barre est masquée (téléphone tourné ; affiché seulement par css/barre-volets.css) : même bouton, même action (barre-volets.js).
-  function addSlot() { var b = el('button', 'arAddSlot'); b.type = 'button'; b.setAttribute('aria-label', tr('Modifier l’arbre')); b.setAttribute('aria-pressed', editOn ? 'true' : 'false'); b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'; return b; }
+  function addSlot() { var b = el('button', 'arAddSlot'); if (TMT.portee && !TMT.portee.anyManage()) b.style.display = 'none'; b.type = 'button'; b.setAttribute('aria-label', tr('Modifier l’arbre')); b.setAttribute('aria-pressed', editOn ? 'true' : 'false'); b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'; return b; }
   function setEdit(on) { on = !!on; if (on === editOn) return; editOn = on; if (tree) tree.classList.toggle('arEdit', on); document.dispatchEvent(new CustomEvent('tmt:arbre-edit', { detail: { on: on } })); }
   function go(l, f) {
     setEdit(false); lvl = l; focus = f; picked = null; animate = true; needBase = true; render();
@@ -738,7 +738,7 @@
   function refresh() {
     if (!tree) return Promise.resolve();
     return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
-      struct = rs[1]; var hid = (struct && struct.hidden) || []; if (struct && struct.activities) struct = Object.assign({}, struct, { activities: struct.activities.filter(function (a) { return hid.indexOf(a.id) < 0; }) }); /* les colonnes viennent de la structure : l'activité masquée en disparaît aussi */ items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
+      struct = rs[1]; var hid = (struct && struct.hidden) || []; if (struct && struct.activities) struct = Object.assign({}, struct, { activities: struct.activities.filter(function (a) { return hid.indexOf(a.id) < 0 && (!TMT.portee || TMT.portee.canManage(a.id)); }) }); /* simple membre d'une activité partagée : pas de volet Objectifs pour elle */ /* les colonnes viennent de la structure : l'activité masquée en disparaît aussi */ items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }
   tree = document.getElementById('goalsObjArbre'); if (tree) tree.setAttribute('data-hscroll', '.arHScroll');

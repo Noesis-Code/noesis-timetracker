@@ -584,7 +584,7 @@
         return TMT.api('GET', '/api/activities/' + a.id + '/offer1').then(function (r) { return { id: a.id, name: a.name, essor: !!(r && r.essor) }; }).catch(function () { return { id: a.id, name: a.name, essor: false, err: true }; });
       }));
     }).then(function (l) {
-      var list = l.filter(function (x) { return x.essor; });
+      var list = l.filter(function (x) { return x.essor && (!TMT.portee || TMT.portee.canManage(x.id)); }); // génération de tâches : responsables seulement dans une activité partagée
       state.essor = { at: Date.now(), list: list, others: l.filter(function (x) { return !x.essor && !x.err; }), failed: l.some(function (x) { return x.err; }) };
       if (!list.length && state.essor.failed) state.essor.at = 0; // vérification incomplète : on réessaiera
       return list;
@@ -1005,7 +1005,7 @@
       txt.appendChild(meta);
       row.appendChild(cb); row.appendChild(txt);
       // Même icône et même panneau de modification que l'onglet Tâches de la page 2 (TMT.openGoalsTaskEditPanel) ; après enregistrement, la liste se recharge.
-      if (TMT.openGoalsTaskEditPanel && !t.justAdded) {
+      if (TMT.openGoalsTaskEditPanel && !t.justAdded && t.canEdit !== false) { // simple membre d'une activité partagée : il coche seulement
         var edit = el('button', 'cmpEdit goalsTaskEditBtn'); edit.type = 'button'; edit.innerHTML = TMT.goalsTaskEditIcon ? TMT.goalsTaskEditIcon() : '';
         edit.title = tr('Modifier cette tâche'); edit.setAttribute('aria-label', tr('Modifier cette tâche'));
         edit.addEventListener('click', function (e) {
