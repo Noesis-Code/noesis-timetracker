@@ -166,7 +166,9 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arBaseRow { align-items: stretch; }
 .arBaseWrap { padding-top: 16px; }
 .arBubble { height: 72px; min-height: 72px; padding: 8px; gap: 6px; }
-.arBubble span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; hyphens: auto; font-size: 13px; }
+.arBubble span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: normal; word-break: normal; hyphens: manual; font-size: 13px; }
+.arBubble { padding: 8px 1px; } /* le mot « Développement » tient sur une ligne : jamais coupé au milieu */
+.arBubble span { letter-spacing: -.04em; font-weight: 600; }
 /* TRANSITION DE ZOOM : toucher une case pour descendre = on entre dans la bulle (courte, depuis le point touché). */
 .arZoomIn { animation: arZoomIn .22s ease-out; transform-origin: var(--ar-zx, 50%) var(--ar-zy, 50%); }
 @keyframes arZoomIn { from { transform: scale(.88); opacity: 0; } to { transform: none; opacity: 1; } }

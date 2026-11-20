@@ -355,4 +355,5 @@ label.retVal { cursor: text; }
 :root .retTable .retInput { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--purple); font: inherit; text-align: right; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .retVal:has(.retInput:not(:disabled)) { color: var(--purple); } /* R54 : le « h » suit la valeur modifiable */
 :root .retTable .retInput:disabled { color: var(--text); }
+:root .retTable .retInput:not(:disabled)::placeholder { color: var(--purple); opacity: 1; } /* R54 : le « 0 » du champ vide est violet comme le « h » */
 .retTotal .retVal { font-weight: 600; }

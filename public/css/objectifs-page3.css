@@ -407,7 +407,7 @@
 .goalsCalWeek { margin-top: 4px; padding: 4px 8px; }
 .goalsCalWeek:first-child { margin-top: 0; }
 .goalsCalWeekLine { min-height: 28px; }
-.goalsCalDay { width: 40px; height: 36px; border-radius: 18px; }
+.goalsCalDay { width: min(40px, 100%); height: 36px; border-radius: 18px; }
 .goalsMonthCal { margin-bottom: 8px; }
 
 /* Page 3 — cadres : pointillés (--cmp-dash, comme .cmpAdd) quand rien n'est enregistré, ligne pleine sinon. */
