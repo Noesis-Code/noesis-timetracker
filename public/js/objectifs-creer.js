@@ -28,12 +28,13 @@
   // Colonnes : nom du niveau (en-tête blanc 11 px), « Chrono » (lecture seule, gris sable), UN titre « Objectif » centré ; chaque ligne montre « avant / après » (barre oblique grise entre les VALEURS) ; après violet et modifiable
   // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ».
   function objTable(cfg) {
-    var fmt = cfg.fmt || hh, node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
+    var fmt = cfg.fmt || hh, node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead'), tints = [];
     head.appendChild(el('span', 'objGridName', cfg.levelLabel)); if (!cfg.noChrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
     body.appendChild(head);
     cfg.rows.forEach(function (r) {
       var row = el('div', 'objGridRow'), obj = el('span', 'objGridObj');
-      row.appendChild(el('span', 'objGridName', r.label)); if (!cfg.noChrono) row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : fmt(r.chrono)));
+      var nm = el('span', 'objGridName', r.label); if (r.ref) tints.push({ el: nm, a: r.ref.a, p: r.ref.p }); /* R53 : nom de catégorie dans sa couleur */
+      row.appendChild(nm); if (!cfg.noChrono) row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : fmt(r.chrono)));
       obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : fmt(r.avant)));
       if (r.apres !== undefined) {
         obj.appendChild(el('span', 'objGridSlash', '/'));
@@ -42,7 +43,7 @@
       }
       row.appendChild(obj); body.appendChild(row);
     });
-    node.appendChild(body);
+    node.appendChild(body); if (tints.length) TMT.ui.colorer(tints);
     var tA = el('span', 'objGridApres'), tB = el('span', 'objGridApres');
     if (cfg.total) {
       var tot = el('div', 'objGridTotal'), tObj = el('span', 'objGridObj');
@@ -50,6 +51,15 @@
       tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
     }
     return { node: node, setTotal: function (avant, apres) { tA.textContent = hh(avant); tB.textContent = hh(apres); } };
+  }
+  // R53 : référence de couleur (activité, pôle) d'une ligne d'un tableau de temps
+  function refOf(e, which, key) { // which : 'up' | 'me' | 'line'
+    var lv = e.level, a = e.activityId, p = e.poleKey || null;
+    if (which === 'up') return lv === 'activite' ? null : lv === 'pole' ? { a: a } : { a: a, p: p };
+    if (which === 'me') return lv === 'activite' ? { a: a } : { a: a, p: lv === 'pole' ? (key || p) : p };
+    if (typeof key === 'string' && /^ad+$/.test(key)) return { a: Number(key.slice(1)) };
+    if (key == null || key === 'reste' || key === 'sans') return null;
+    return { a: a, p: lv === 'pole' ? key : p };
   }
   function btn(cls, text, fn) { var b = el('button', cls, text); b.type = 'button'; if (fn) b.addEventListener('click', fn); return b; }
   function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
@@ -447,8 +457,8 @@
     function tpScreen1() {
       var e = tp.e, page = el('div', 'objTPage'), rows = [];
       page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
-      rows.push({ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, chrono: e.up.passeMin, avant: e.up.prevuMin }); // niveau du dessus : lecture seule
-      rows.push({ label: e.me.label, chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin, edit: { label: tr('Prévu'), onPick: function (v) { tpCommit(v); } } }); // niveau choisi : l'après est modifiable (violet)
+      rows.push({ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, ref: refOf(e, 'up'), chrono: e.up.passeMin, avant: e.up.prevuMin }); // niveau du dessus : lecture seule
+      rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin, edit: { label: tr('Prévu'), onPick: function (v) { tpCommit(v); } } }); // niveau choisi : l'après est modifiable (violet)
       page.appendChild(objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows }).node);
       if (tp.sugg) page.appendChild(el('p', 'hint objTNote', tpSentence()));
       return page;
@@ -471,9 +481,9 @@
     function tpScreen3() {
       var e = tp.e, page = el('div', 'objTPage'), rows = [];
       // « Déplacer » : la ligne augmentée (lecture seule, blanche) puis TOUTES les autres lignes du niveau (après modifiable, jamais au-dessus de leur avant effectif) et le « Reste … » s'il est > 0 ; « Total » : après = avant.
-      rows.push({ label: e.me.label, chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin });
+      rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin });
       tpLines().forEach(function (l) {
-        rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, chrono: l.chronoMin, avant: l.objMin, apres: tpAfter(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { tp.apres[l.key] = v; paintTotal(); tpSync(); } } });
+        rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, ref: refOf(e, 'line', l.key), chrono: l.chronoMin, avant: l.objMin, apres: tpAfter(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { tp.apres[l.key] = v; paintTotal(); tpSync(); } } });
       });
       var tbl = objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows, total: true }), note = el('p', 'hint objTNote');
       function paintTotal() { // Total : Avant = Après quand c'est équilibré ; sinon une phrase (texte seul) dit pourquoi « Suivant » est grisé
@@ -874,8 +884,9 @@
     function table(rows, onTap, totalTxt, chrono, canTap) {
       var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
       head.appendChild(el('span', 'objGridName', '')); if (chrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif'))); body.appendChild(head);
+      var tints = [];
       rows.forEach(function (r, i) {
-        var rowEl = el('div', 'objGridRow'), name = el('span', 'objGridName', r.label), obj = el('span', 'objGridObj');
+        var rowEl = el('div', 'objGridRow'), name = el('span', 'objGridName', r.label), obj = el('span', 'objGridObj'); if (r.ref) tints.push({ el: name, a: r.ref.a, p: r.ref.p }); /* R53 */
         if (r.sub) { name.appendChild(document.createElement('br')); name.appendChild(el('small', 'objGridSub', r.sub)); }
         rowEl.appendChild(name); if (chrono) rowEl.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : TMT.ui.heures(r.chrono)));
         obj.appendChild(el('span', 'objGridAvant', r.avant)); rowEl.appendChild(obj);
@@ -883,7 +894,7 @@
         if (onTap && (!canTap || canTap(i))) { rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); }
         body.appendChild(rowEl);
       });
-      node.appendChild(body);
+      node.appendChild(body); if (tints.length) TMT.ui.colorer(tints);
       if (totalTxt) { var tot = el('div', 'objGridTotal'), to = el('span', 'objGridObj'); to.appendChild(el('span', 'objGridApres', totalTxt)); tot.appendChild(el('span', 'objGridName', tr('Total'))); if (chrono) tot.appendChild(el('span', 'objGridChrono', '')); tot.appendChild(to); node.appendChild(tot); }
       return node;
     }
@@ -891,7 +902,7 @@
       m.head.textContent = ''; m.head.appendChild(el('p', 'sectionTitle', tr('Heures par semaine') + ' · ' + label));
       m.body.textContent = '';
       var cats = res.categories, total = sum(cats.map(function (c) { return { v: c.heuresMin }; }), 'v');
-      m.body.appendChild(table(cats.map(function (c) { return { label: c.label, chrono: c.chronoMin, avant: TMT.ui.heures(c.heuresMin) + (total && c.heuresMin != null ? ' · ' + Math.round(c.heuresMin * 100 / total) + ' %' : '') }; }), function (i) { s2(cats[i]); }, TMT.ui.heures(total), !!res.enCours, function (i) { return (cats[i].membres || []).length > 0; }));
+      m.body.appendChild(table(cats.map(function (c) { return { label: c.label, ref: { a: c.activityId, p: c.poleKey }, chrono: c.chronoMin, avant: TMT.ui.heures(c.heuresMin) + (total && c.heuresMin != null ? ' · ' + Math.round(c.heuresMin * 100 / total) + ' %' : '') }; }), function (i) { s2(cats[i]); }, TMT.ui.heures(total), !!res.enCours, function (i) { return (cats[i].membres || []).length > 0; }));
     }
     function s2(c) { // membres : réel (Chrono) contre prévu, et nombre de tâches attribuées, seulement pour un objectif en cours
       m.head.textContent = ''; var crumbs = el('nav', 'arCrumbs'), back = el('button', 'arCrumb', label); back.type = 'button'; back.addEventListener('click', s1);
@@ -1125,7 +1136,7 @@
       hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'), hTab = el('div'); hBody.appendChild(hTab); hTab.appendChild(hRow);
       api('GET', '/api/objectifs/temps?activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate)).then(function (e) {
         if (!e || !e.up || !e.me) return;
-        var rows = [{ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, chrono: e.up.passeMin, avant: e.up.prevuMin }, { label: e.me.label, chrono: e.me.passeMin, avant: o.hoursPerWeek != null ? Math.round(o.hoursPerWeek * 60) : 0, apres: hoursMin(), edit: { label: tr('Prévu'), onPick: function (v) { form.hours = v > 0 ? Math.round(v / 6) / 10 : null; hIn.value = form.hours != null ? String(form.hours) : ''; byRefresh(true); sync(); } } }];
+        var rows = [{ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, ref: refOf(e, 'up'), chrono: e.up.passeMin, avant: e.up.prevuMin }, { label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: o.hoursPerWeek != null ? Math.round(o.hoursPerWeek * 60) : 0, apres: hoursMin(), edit: { label: tr('Prévu'), onPick: function (v) { form.hours = v > 0 ? Math.round(v / 6) / 10 : null; hIn.value = form.hours != null ? String(form.hours) : ''; byRefresh(true); sync(); } } }];
         hTab.textContent = ''; hTab.appendChild(objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows }).node);
       }).catch(function () {});
       panelBody.appendChild(accRow(tr('Temps'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
