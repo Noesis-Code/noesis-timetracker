@@ -163,7 +163,7 @@ function corriger(userId, body) {
     tk.setPhase(it.id, to);
     A.recordCorrection(userId, it.activityId, it.label, 'phase', was, to);
   } else if (field === 'responsable') {
-    if (to != null && !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(it.activityId, String(to))) throw fail('Seul un membre de l\u2019activité peut être responsable.');
+    if (to != null && !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(it.activityId, String(to))) throw fail('Seul un membre de l\u2019activité peut être exécutant.');
     const was = db.prepare('SELECT plannedUserId FROM sub_project_items WHERE id = ?').get(it.id).plannedUserId;
     db.prepare('UPDATE sub_project_items SET plannedUserId = ? WHERE id = ?').run(to == null ? null : String(to), it.id);
     A.recordCorrection(userId, it.activityId, it.label, 'responsable', was, to == null ? null : String(to));

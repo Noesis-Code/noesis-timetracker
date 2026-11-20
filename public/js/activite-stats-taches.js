@@ -123,11 +123,11 @@
       data.members.forEach(function (m, k) { colorOf[m.userId] = colors[k]; });
       if (!data.tasks.length) body.appendChild(el('p', 'hint cmpEmpty', tr('Aucune tâche récurrente.')));
       else {
-        var hd = el('div', 'shrRow shrHeadRow'); hd.appendChild(el('span', 'shrLabel', tr('Tâche récurrente'))); hd.appendChild(el('span', 'shrResp', tr('Responsable'))); hd.appendChild(el('span', 'shrHours', tr('h / sem.'))); body.appendChild(hd);
+        var hd = el('div', 'shrRow shrHeadRow'); hd.appendChild(el('span', 'shrLabel', tr('Tâche récurrente'))); hd.appendChild(el('span', 'shrResp', tr('Exécutant'))); hd.appendChild(el('span', 'shrHours', tr('h / sem.'))); body.appendChild(hd);
         data.tasks.forEach(function (t) {
           var row = el('div', 'shrRow'); row.appendChild(el('span', 'shrLabel', t.label));
           var resp = el('label', 'shrResp shrPick'), dot = el('i', 'shrDot'), sel = el('select');
-          sel.setAttribute('aria-label', tr('Responsable') + ' : ' + t.label);
+          sel.setAttribute('aria-label', tr('Exécutant') + ' : ' + t.label);
           data.members.forEach(function (m) { var o = el('option', null, m.name + ' ▾'); o.value = m.userId; sel.appendChild(o); });
           sel.value = pick[t.id] || '';
           dot.style.background = colorOf[sel.value] || 'transparent';

@@ -88,6 +88,7 @@ Accent « orange brique » des boutons d'action/suppression : `#C2694A` (bordure
 - **Champs** : `input[type=text|password|tel|email|date|time]`, `select`, `textarea` (fond `--card`, texte `--text`, focus violet + halo). Variante capsule des fenêtres Objectifs : `border-radius: 999px`, fond `--vc-bg`, `min-height: 38px`, padding 8×14. Dans une carte : `.entryCard input` (bordure `--border`, `--radius-sm`, padding 10).
 - **Badges / pastilles** : `.liveBadge` (11 px bold, rouge, contour, 999px) ; `.dot` (14 px rond de couleur de pôle) ; point non lu `.goalsCaptureUnreadDot` (8 px, `#f59a3c`).
 - **Messages / vide / chargement** : `.msg` (centré, 13 px, `--text-light`, min-height 18), `.hint` (13 px, `--text-light`), `.msgLink` (violet souligné) ; état vide = texte `--text-light` (pas de composant dédié) ; chargement : écran de chargement de la coquille (`#app`), pas de spinner générique.
+- Vocabulaire (R55) : « Responsable » = catégorie (activité, pôle, secteur) ; « Exécutant » = tâche. Jamais l'inverse.
 
 ## 4. À faire / à ne pas faire
 

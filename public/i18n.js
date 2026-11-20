@@ -675,6 +675,9 @@
     'Aucun autre secteur disponible.': 'No other sector available.',
     'Déplacer': 'Move',
     'Responsable': 'Assignee',
+    'Exécutant': 'Assignee',
+    'Changer l’exécutant': 'Change the assignee',
+    'Date ou exécutant non enregistré.': 'Date or assignee not saved.',
     'Apparence': 'Appearance',
     // Option Contact (7 septembre 2026, demande d'Emilien : autoriser ses
     // abonnés à contacter par email/téléphone) : gap de traduction trouvé et

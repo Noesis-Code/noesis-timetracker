@@ -451,7 +451,7 @@
     if (!t || sectorsOfPole(t).length) ui.fields.appendChild(fieldRow('secteur', 'Secteur', t && sectorOf(t) ? sectorOf(t) : tr('Choisir'), readOnly || !t));
     if (!state.expStep) ui.fields.appendChild(dateRow(readOnly)); // étape 1 d'Expansion : seulement le pôle et le secteur
     if (!state.expStep && !readOnly) ui.fields.appendChild(advBlock()); // « Avancé » : replié, un seul choix « Nature »
-    if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
+    if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Exécutant', state.who ? state.who.name : '—', readOnly));
     if (state.expStep) { ui.hint.textContent = tr('Balaie vers la gauche pour voir les tâches générées.'); ui.hint.classList.remove('hidden'); }
     else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
@@ -897,7 +897,7 @@
       var extra = { userId: TMT.getProfile().id, dueDate: c.date };
       if (c.nature) extra.nature = c.nature; // choisie dans « Avancé » ; vide = l'IA décide en silence
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
-      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }).then(function () { refresh(); calReload(); });
+      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }).then(function () { refresh(); calReload(); });
     }).catch(function (err) { fail(err && err.message); });
   }
   function send() {
@@ -943,7 +943,7 @@
           state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
           var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date }; if (natureValue()) extra.nature = natureValue();
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
-          var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
+          var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
             reset(); refresh(); calReload(); showToast(tr('Tâche enregistrée'));
           });
@@ -1027,7 +1027,7 @@
   }
   // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Responsable » ----------
   var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'assignee'];
-  var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', assignee: 'Responsable' };
+  var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', assignee: 'Exécutant' };
   var sortMode = 'today', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
   // Tri : toujours « Aujourd'hui » à l'arrivée dans la Feuille de route (ouverture, autre module, notification) ; gardé seulement le temps de la session (retour depuis Statistiques).
   function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }

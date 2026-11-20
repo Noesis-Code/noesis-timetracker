@@ -147,7 +147,7 @@
     var assignSel = null;
     if (task.activityId != null ? task.shared : TMT.currentGoalsActivityIsShared) { // vue Aujourd'hui : la tâche porte son activité
       assignSel = document.createElement('select');
-      var none = document.createElement('option'); none.value = ''; none.textContent = t('Responsable') + ' : —';
+      var none = document.createElement('option'); none.value = ''; none.textContent = t('Exécutant') + ' : —';
       assignSel.appendChild(none);
       panel.appendChild(assignSel);
       api('GET', '/api/activities/' + (task.activityId != null ? task.activityId : TMT.currentGoalsActivityId) + '/goals/members').then(function (d) {

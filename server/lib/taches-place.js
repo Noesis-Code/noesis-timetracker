@@ -210,7 +210,7 @@ function appliquer(userId, body) {
   });
   if (objectiveId) R.setLink(it.id, { objectiveId });
   if (body.responsableId != null && body.responsableId !== '') {
-    if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(it.activityId, String(body.responsableId))) throw fail('Seul un membre de l’activité peut être responsable.');
+    if (!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(it.activityId, String(body.responsableId))) throw fail('Seul un membre de l’activité peut être exécutant.');
     db.prepare('UPDATE sub_project_items SET plannedUserId = ? WHERE id = ?').run(String(body.responsableId), it.id);
   }
   return { appliquees: n };

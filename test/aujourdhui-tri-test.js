@@ -76,7 +76,7 @@ db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u2', 'Zoé', dateti
 db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt, position) VALUES (?, 'u2', '#000', '', 0)").run(eps.id);
 const f1 = addDue(eps, 'Tâche de Zoé', today); db.prepare("UPDATE sub_project_items SET plannedUserId = 'u2' WHERE id = ?").run(f1);
 const rf = goalstoday.tasksToday('u1', today), fx = rf.tasks.find((t) => t.id === f1);
-assert(fx && fx.plannedUserId === 'u2' && fx.plannedUserName === 'Zoé' && fx.shared === true, 'tâche d\'un autre membre : exposée avec son nom (tri Responsable)');
+assert(fx && fx.plannedUserId === 'u2' && fx.plannedUserName === 'Zoé' && fx.shared === true, 'tâche d\'un autre membre : exposée avec son nom (tri Exécutant)');
 assert(rf.todoCount === rf.tasks.filter((t) => !t.done && !t.upcoming && (!t.plannedUserId || t.plannedUserId === 'u1')).length, 'la tâche d\'un autre membre ne compte pas dans « à faire »');
 assert(goalstoday.tasksToday('u2', today).tasks.some((t) => t.id === f1 && !t.upcoming), 'et elle reste dans la liste de son responsable');
 

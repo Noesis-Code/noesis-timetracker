@@ -218,7 +218,7 @@
           f.dIn = document.createElement('input'); f.dIn.type = 'date'; f.dIn.value = todayISO;
           f.wSel = document.createElement('select');
           var wn = document.createElement('option'); wn.value = ''; wn.textContent = '—'; f.wSel.appendChild(wn);
-          var wFieldMulti = fld(t('Responsable'), f.wSel);
+          var wFieldMulti = fld(t('Exécutant'), f.wSel);
           api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
             var ms = (d && d.members) || [];
             ms.forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name; f.wSel.appendChild(o); });
@@ -395,7 +395,7 @@
           var dn = new Date(); dIn.value = dn.getFullYear() + '-' + String(dn.getMonth() + 1).padStart(2, '0') + '-' + String(dn.getDate()).padStart(2, '0');
           var wSel = document.createElement('select');
           var wNone = document.createElement('option'); wNone.value = ''; wNone.textContent = '—'; wSel.appendChild(wNone);
-          var wFieldOne = fld(t('Responsable'), wSel);
+          var wFieldOne = fld(t('Exécutant'), wSel);
           api('GET', '/api/activities/' + r.activityId + '/goals/members').then(function (d) {
             var ms = (d && d.members) || [];
             ms.forEach(function (m) {
@@ -609,7 +609,7 @@
         whoSel = document.createElement('select');
         var none = document.createElement('option'); none.value = ''; none.textContent = '—';
         whoSel.appendChild(none);
-        whoField = labeled(t('Responsable'), whoSel);
+        whoField = labeled(t('Exécutant'), whoSel);
         box.appendChild(whoField);
       }
       body.appendChild(box);
@@ -770,11 +770,11 @@
   // ---------- Rangement proposé (18 nov. 2026, lot 2 du rangement des tâches, schéma « Rangement d'une tâche » v11) ----------
   // Après la création d'une tâche : Noèsis PROPOSE son objectif (POST /api/taches/choix) puis sa place (POST /api/taches/place), jamais deux choix. Panneau à trois sections (où la tâche est rangée,
   // ces tâches se décalent avec la chaîne entière, dépassements), seulement les sections utiles ; MÊME composant que « Modifications proposées » (TMT.ui.confirm, R29). Oui écrit (POST /api/taches/place/appliquer),
-  // Non n'écrit rien. Le responsable est proposé selon les parts de l'activité ; « Changer le responsable » ouvre le même composant avec les membres. Chaque correction est apprise côté serveur.
+  // Non n'écrit rien. Le responsable est proposé selon les parts de l'activité ; « Changer l’exécutant » ouvre le même composant avec les membres. Chaque correction est apprise côté serveur.
   function rangWeek(iso) { try { return new Date(iso + 'T00:00:00').toLocaleDateString(dateLocale || undefined, { day: 'numeric', month: 'short' }); } catch (e) { return iso; } }
   function rangTexte(label, p, resp) {
     var L = [t('Rangement proposé'), '', t('Où la tâche est rangée'), label + ' → ' + p.objectifTitre + ', ' + t('semaine du') + ' ' + rangWeek(p.rangement.semaine)];
-    if (p.membres && p.membres.length > 1 && resp) L.push(t('Responsable') + ' : ' + resp.name);
+    if (p.membres && p.membres.length > 1 && resp) L.push(t('Exécutant') + ' : ' + resp.name);
     var moved = {}; (p.decales || []).forEach(function (d) { moved[d.id] = d; });
     var lignes = [];
     if (p.chaine && p.chaine.length > 1) {
@@ -790,12 +790,12 @@
   function rangResponsable(p, cur) {
     var ch = p.membres.map(function (m) { return { value: m.id, label: m.name + (cur && cur.id === m.id ? ' ✓' : ''), quiet: !(cur && cur.id === m.id) }; });
     ch.push({ value: false, label: t('Annuler'), quiet: true });
-    return TMT.ui.confirm(t('Responsable'), { choices: ch }).then(function (id) { return id ? p.membres.filter(function (m) { return m.id === id; })[0] || null : null; });
+    return TMT.ui.confirm(t('Exécutant'), { choices: ch }).then(function (id) { return id ? p.membres.filter(function (m) { return m.id === id; })[0] || null : null; });
   }
   function rangDemande(r, label, p, who) {
     var resp = who || p.responsable, uid = TMT.getProfile().id;
     var choices = [{ value: 'oui', label: t('Oui') }];
-    if (p.membres && p.membres.length > 1) choices.push({ value: 'resp', label: t('Changer le responsable'), quiet: true });
+    if (p.membres && p.membres.length > 1) choices.push({ value: 'resp', label: t('Changer l’exécutant'), quiet: true });
     choices.push({ value: false, label: t('Non'), quiet: true });
     return TMT.ui.confirm(rangTexte(label, p, resp), { choices: choices }).then(function (v) {
       if (v === 'resp') return rangResponsable(p, resp).then(function (m) { return rangDemande(r, label, p, m || resp); });
