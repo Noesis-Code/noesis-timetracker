@@ -60,18 +60,33 @@
       slot.appendChild(table(['', tr('Période'), tr('Année'), tr('Nombre')], r.weeks.map(function (w) { return { label: w.label, cells: ['P' + w.period, String(w.year), w.count] }; }), false));
     }).catch(function () { if (my === gen) failed(slot); });
   }
-  // Une carte des statistiques, une section par activité (nom + contenu seul) : Jours où tu travailles vraiment.
-  function perActivity(title, key) {
-    return function (mount, remover) {
-      var c = shell(title, remover); mount.appendChild(c);
-      acts().forEach(function (a) {
-        var sec = el('div'), lab = el('p', 'meta'), slot = el('div'), dot = el('span', 'saChipDot');
-        dot.style.background = a.color || ''; lab.appendChild(dot); lab.appendChild(document.createTextNode(' ' + a.name));
-        sec.appendChild(lab); sec.appendChild(slot); c.appendChild(sec);
-        var inst = TMT.bilanCardInstance(function (d) { slot.textContent = ''; var n = inst.bodyFor(key, d); if (n) slot.appendChild(n); else sec.classList.add('hidden'); });
-        inst.paintFor(a.id);
+  // Jours où tu travailles vraiment, vue Toutes : UN seul graphique = les tâches de toutes les activités additionnées ; les flèches décalent la période de toutes les activités ensemble.
+  function rWeekdays(mount, remover) {
+    var c = shell('Jours où tu travailles vraiment', remover), slot = el('div'), list = acts(), insts = [], got = {}; c.appendChild(slot); mount.appendChild(c); loader(slot);
+    if (!list.length) { slot.textContent = ''; slot.appendChild(el('p', 'hint', '—')); return; }
+    function add(x, y) { return x == null ? y : y == null ? x : x + y; }
+    function sum(arrs) { return arrs[0].map(function (_, i) { return arrs.reduce(function (t, a) { return add(t, a[i] == null ? null : a[i]); }, null); }); }
+    function paint() {
+      var ws = Object.keys(got).map(function (k) { return got[k]; }).filter(function (w) { return w && w.minutes && w.minutes.length; });
+      slot.textContent = '';
+      if (!ws.length) { slot.appendChild(el('p', 'hint', '—')); return; }
+      var f = ws[0], tot = { offset: f.offset, label: f.label, canNext: f.canNext, dates: f.dates, minutes: sum(ws.map(function (w) { return w.minutes; })), doneDays: sum(ws.map(function (w) { return w.doneDays || w.minutes; })), plannedDays: sum(ws.map(function (w) { return w.plannedDays || w.minutes.map(function () { return 0; }); })) };
+      var n = insts[0].bodyFor('weekdays', { tasks: { weekdays: tot } }); if (!n) { slot.appendChild(el('p', 'hint', '—')); return; }
+      var arrows = n.querySelectorAll('.cmpNavArrow');
+      Array.prototype.forEach.call(arrows, function (b, i) {
+        var nb = b.cloneNode(true); b.parentNode.replaceChild(nb, b);
+        nb.addEventListener('click', function () {
+          if (i && !tot.canNext) return;
+          var off = i ? Math.min(0, (tot.offset || 0) + 1) : (tot.offset || 0) - 1; got = {}; loader(slot);
+          insts.forEach(function (x) { x.moveDays(off); });
+        });
       });
-    };
+      slot.appendChild(n);
+    }
+    list.forEach(function (a) {
+      var inst = TMT.bilanCardInstance(function (d) { got[a.id] = d && d.tasks && d.tasks.weekdays || null; if (Object.keys(got).length === list.length) paint(); });
+      insts.push(inst); inst.paintFor(a.id);
+    });
   }
   // Avancement : le serveur renvoie déjà TOUS les objectifs en cours (chaque ligne porte sa propre activité, donc sa couleur) : une seule carte, lue par la première activité.
   function rAdvance(mount, remover) {
@@ -124,7 +139,7 @@
     all: [
       { key: 'advance', title: 'Avancement', render: rAdvance },
       { key: 'capacity', title: 'Capacité par jour', render: rCapacity },
-      { key: 'weekdays', title: 'Jours où tu travailles vraiment', render: perActivity('Jours où tu travailles vraiment', 'weekdays') },
+      { key: 'weekdays', title: 'Jours où tu travailles vraiment', render: rWeekdays },
       { key: 'urgent', title: 'Tâches urgentes', render: rUrgent }
     ],
     act: [

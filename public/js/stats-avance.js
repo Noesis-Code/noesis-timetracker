@@ -327,23 +327,18 @@
     return card;
   }
 
-  // ---------- Avancement : une ligne par activité, axe de temps commun, curseur « aujourd'hui » ----------
-  function dayNum(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 : null; }
+  // ---------- Avancement : une ligne par objectif en cours = nom, pourcentage, barre fine à la couleur de son activité ----------
   function timelineBody(d) {
     var a = d.objectives && d.objectives.timeline;
     if (!a || !a.list || !a.list.length) return el('p', 'hint cmpEmpty', tr('Aucun objectif en cours.'));
     var cache = (TMT.getActivitiesCache && TMT.getActivitiesCache()) || [], colorOf = function (id) { var x = cache.filter(function (c) { return String(c.id) === String(id); })[0]; return (x && x.color) || '#674EA7'; };
-    var o0 = Math.min.apply(null, a.list.map(function (r) { return dayNum(r.start); })), e0 = Math.max.apply(null, a.list.map(function (r) { return dayNum(r.end); })), span = Math.max(1, e0 - o0);
-    var pos = function (n) { return Math.max(0, Math.min(1, (n - o0) / span)) * 100; };
     var w = el('div', 'saTl');
     a.list.forEach(function (r) {
-      var c = colorOf(r.activityId), line = el('div', 'saTlRow'), axis = el('div', 'saTlAxis');
-      line.appendChild(el('div', 'saTlName', r.name)); line.appendChild(axis);
-      var tr0 = el('div', 'saTlTrack'); tr0.style.width = pos(dayNum(r.end)) + '%'; tr0.style.borderColor = c;
-      var fill = el('i', 'saTlFill'); fill.style.width = (r.total ? Math.round(r.done * 100 / r.total) : 0) + '%'; fill.style.background = c; tr0.appendChild(fill);
-      axis.appendChild(tr0); w.appendChild(line);
+      var pct = r.total ? Math.round(r.done * 100 / r.total) : 0, row = el('div', 'saTlRow'), top = el('div', 'saTlTop'), bar = el('div', 'saTlBar'), fill = el('i', 'saTlFill');
+      top.appendChild(el('span', 'saTlName', r.name)); top.appendChild(el('span', 'saTlPct', pct + ' %'));
+      fill.style.width = pct + '%'; fill.style.background = colorOf(r.activityId); bar.appendChild(fill);
+      row.appendChild(top); row.appendChild(bar); w.appendChild(row);
     });
-    var box = el('div', 'saTlCursorBox'), cur = el('i', 'saTlCursor'); cur.style.left = pos(dayNum(a.today)) + '%'; cur.setAttribute('aria-label', tr("Aujourd'hui")); box.appendChild(cur); w.appendChild(box); // le curseur ne vit que sur l'axe des lignes, jamais sur les noms
     return w;
   }
 
@@ -597,6 +592,7 @@
     },
     // BILAN : une carte d'information d'UNE activité (mode cfg.paint). key : 'graph' (courbe tâches et objectifs), 'advance', 'weekdays', 'capacity'. remover : croix rouge (retirer).
     paintFor: function (aid) { activityId = aid; load(); },
+    moveDays: function (n) { dayOff = n; load(); }, // BILAN : décale la période des « Jours où tu travailles vraiment » (utilisé pour additionner toutes les activités)
     bodyFor: function (key, d) { var c = d && CARDS.t.concat(CARDS.o).filter(function (k) { return k.key === key; })[0]; return c ? c.body(d) : null; }, // contenu seul d'une carte (sans cadre)
     cardFor: function (key, d, remover) {
       if (!d) return null;

@@ -119,15 +119,15 @@
 .saHeadLeft .sectionTitle { margin: 0; }
 
 
-/* Avancement : une ligne par activité sur un axe commun ; le curseur vertical marque « aujourd'hui » (couleurs = celles des activités, R16). */
-.saTl { position: relative; padding: 0 0 2px; }
-.saTlRow { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
-.saTlAxis { position: relative; flex: 1; min-width: 0; }
-.saTlCursorBox { position: absolute; top: 0; bottom: 0; left: calc(var(--tl-name, 36%) + 8px); right: 0; pointer-events: none; }
-.saTlName { flex: 0 0 var(--tl-name, 36%); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-light); }
-.saTlTrack { position: relative; height: 12px; box-sizing: border-box; border: 1px solid; border-radius: 6px; overflow: hidden; background: transparent; }
-.saTlFill { position: absolute; left: 0; top: 0; bottom: 0; }
-.saTlCursor { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; }
+/* Avancement : une ligne par objectif (nom, pourcentage), barre fine à la couleur de l'activité liée. */
+.saTl { padding: 0 0 2px; }
+.saTlRow { margin: 0 0 14px; }
+.saTlRow:last-child { margin-bottom: 0; }
+.saTlTop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.saTlName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }
+.saTlPct { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-light); }
+.saTlBar { height: 4px; border-radius: 2px; background: var(--track-bg); overflow: hidden; }
+.saTlFill { display: block; height: 100%; border-radius: 2px; }
 /* Capacité : jauge graduée, repère central = temps estimé (cible) ; aiguille = temps passé ÷ temps estimé. */
 .saGauge { position: relative; height: 14px; margin: 8px 0 12px; border-radius: 7px; background: var(--card); overflow: visible; }
 .saGaugeZone { position: absolute; top: 0; bottom: 0; }
@@ -139,6 +139,12 @@
 #statsPages.bilanStack > div { position: static; transform: none; margin-bottom: 24px; }
 /* Bilan : nouveaux blocs (sélecteur, tableaux de traits) : jetons existants seulement */
 .bilanBlocs { margin-bottom: 24px; }
+/* Sélecteur « Tous » : même position que sur la page Tâches (haut du bouton à 72 px), contenu juste dessous. */
+#bilanBlocs { margin: -10px 0 0; }
+#bilanBlocs .saChips { padding: 0; }
+#bilanBlocs .caSubProjectFilter { margin: 0 0 12px; }
+/* Informations ajoutées : espacées les unes des autres. */
+.bbBody > div { margin-bottom: 16px; }
 .bilanBlocs.hidden { display: none; }
 .bbCard { margin: 8px 0 20px; }
 .bbHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
