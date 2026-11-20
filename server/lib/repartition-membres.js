@@ -108,7 +108,10 @@ function lire(activityId, key, userId) {
   if (!ownHours && me && me.parent === '' && userId) { // niveau pôle : le temps prévu par semaine déjà saisi (Temps prévu, retiré de la fiche) initialise les heures
     try { const t = require('./tempsmembres').tableFor(activityId, userId), lv = ((t && t.levels) || []).find((l) => l.key === k), o = {}; ((lv && lv.rows) || []).forEach((r) => { if (r.plannedMin > 0) o[r.userId] = Math.round(r.plannedMin / 6) / 10; }); if (Object.keys(o).length) planned = o; } catch (e) { planned = null; }
   }
-  return { multi: ms.length > 1, membres: ms, hours: ownHours, effectiveHours: effHours, plannedHours: planned, own: me && me.own ? me.own : null, effective: eff ? eff.shares : null, origine: eff ? (eff.origin === k ? 'propre' : (eff.origin === '' ? 'activité' : 'pôle')) : null, calculee: round(cal) };
+  // 20 nov. 2026 : l'ajustement du temps reprend le TOTAL des objectifs en cours de la catégorie et le DIVISE entre ses membres (parts en vigueur, sinon égales) ; lecture seule, jamais écrit ici.
+  let objectifsHeures = null, heuresParMembre = null;
+  try { const tm = require('./objectifs-capacite').totalMinutes(activityId, k); if (tm != null) { objectifsHeures = Math.round(tm / 6) / 10; const sh = eff ? eff.shares : null; heuresParMembre = {}; ms.forEach((m) => { heuresParMembre[m.userId] = Math.round(objectifsHeures * (sh ? (Number(sh[m.userId]) || 0) / 100 : 1 / ms.length) * 10) / 10; }); } } catch (e) { objectifsHeures = null; heuresParMembre = null; }
+  return { multi: ms.length > 1, membres: ms, objectifsHeures, heuresParMembre, hours: ownHours, effectiveHours: effHours, plannedHours: planned, own: me && me.own ? me.own : null, effective: eff ? eff.shares : null, origine: eff ? (eff.origin === k ? 'propre' : (eff.origin === '' ? 'activité' : 'pôle')) : null, calculee: round(cal) };
 }
 
 // Pose (ou efface, shares null) les parts d'une catégorie, puis calcule l'équilibrage : { lecture, proposition: { statut, lignes, suggestion } } ; les lignes déjà refusées ne reviennent pas.

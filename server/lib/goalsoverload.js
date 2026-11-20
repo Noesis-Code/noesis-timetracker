@@ -132,6 +132,7 @@ function minutesOfRow(activityId) { return (r) => { try { return taskminutes.tas
 function referenceFor(activityId, userId, poleKey, nowMs) {
   const budget = budgetFor(activityId, userId, poleKey);
   let obs = null; try { obs = require('./efficiencyprofile').observedDailyMinutes(activityId, userId, minutesOfRow(activityId), nowMs); } catch (e) { obs = null; }
+  if (require('./objectifs-capacite').aDesHeures(activityId, userId, poleKey)) return budget; // 20 nov. 2026 : la part d'heures des objectifs en cours est LA limite ; la médiane observée ne sert qu'en repli
   return obs && obs.days >= MIN_OBSERVED_DAYS && obs.median > 0 ? Math.max(MIN_BUDGET_MINUTES, Math.round(obs.median)) : budget;
 }
 function isOverloaded(load, reference, tolerance) { return load > reference * (1 + (tolerance != null ? tolerance : TOLERANCE)); }

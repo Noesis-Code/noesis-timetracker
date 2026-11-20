@@ -166,6 +166,9 @@ function capacityMinutesForMember(activityId, category, userId) {
 }
 
 function uncappedCapacityMinutesForMember(activityId, category, userId) {
+  // 20 nov. 2026 : la capacité de la personne = SA PART des heures des objectifs en cours de la catégorie (objectifs-capacite.js) ; sans heure d'objectif, l'ancienne chaîne ci-dessous reste le repli.
+  const share = require('./objectifs-capacite').weeklyShareMinutes(activityId, category, userId);
+  if (share != null) return share;
   const derived = periodDerivedWeeklyMinutes(activityId, category);
   if (derived != null) return derived;
   const row = getCapacityOverrideRow(activityId, category, userId);
