@@ -147,7 +147,7 @@ function membresDe(userId, activityId, key) {
     } else {
       // Candidat : membre de l'activité d'un niveau égal ou inférieur (ses racines sont des pôles/secteurs de niveau <= celui visé).
       const bas = sc.roots.some((r) => RANG_NIVEAU[levelOf(a.id, r)] <= propre);
-      if (bas || !sc.roots.length) candidates.push({ id: uid, name: nomDe(uid) });
+      if (bas || !sc.roots.length) { const u = db.prepare('SELECT u.avatar, u.color AS userColor, m.color FROM users u LEFT JOIN activity_members m ON m.userId = u.id AND m.activityId = ? WHERE u.id = ?').get(a.id, uid) || {}; candidates.push({ id: uid, name: nomDe(uid), avatar: u.avatar || null, color: u.color || u.userColor || null }); }
     }
   });
   const canAdd = moi > 0;

@@ -34,3 +34,21 @@ Code : `server/lib/portee.js` (source unique), `server/routes/membres.js`. Modè
 
 ## Pour le client (à faire par les autres agents)
 Endroits qui créent des tâches, à masquer pour un simple membre d'une activité partagée (sur `canManage`/`inScope`) : bouton « + » des tâches par pôle/secteur (`POST /activities/:id/goals/categories/:key/tasks`), barre d'ajout / capture (`POST /goals/capture`, `/goals/capture/propose`, `POST .../categories/auto-task`), ajout de tâches par document ou Drive (`documenttasks`, `drivesync`), propositions de tâches de la semaine (`weeklytaskproposals`), « Modifications proposées » (`changeproposals`), déplacement d'une tâche (`PUT .../tasks/:itemId/category`, `PUT /goals/tasks/:itemId/reassign`), édition/suppression (`PUT|DELETE /sub-project-items/:id`), création d'objectif (qui crée des tâches), connecteur IA (MCP `ajouter_tache`). Le Chrono doit lire `inScope`/`scope` de `GET .../goals/categories`.
+
+## Comportements par rôle (intégration du 20 nov. 2026)
+Valable pour une activité PARTAGÉE (2 membres ou plus) ; une activité à un seul membre n'a aucune restriction.
+
+| | Propriétaire | Responsable d'activité | Responsable de pôle / de secteur | Simple membre |
+|---|---|---|---|---|
+| Portée de travail (Chrono, arbre, tâches) | toute l'activité | toute l'activité | sa catégorie et dessous (un pôle hors portée n'est proposé que comme conteneur de ses secteurs) | sa catégorie et dessous |
+| Données des autres (temps, Bilan, Statistiques, `/member-times`, `/category-*` avec `memberId`) | tout | tout | membres et temps de sa portée gérée seulement | lui seul ; 403 `DONNEES_RESERVEES_RESPONSABLES` sur les données d'un autre |
+| Objectifs | tous | tous | ceux de sa portée gérée | rien (403 `OBJECTIF_RESERVE_RESPONSABLES`) ; onglet Objectifs masqué |
+| Tâches | crée, modifie, déplace, supprime partout | idem | idem dans sa portée gérée seulement | voit et coche ses tâches attribuées ; aucun bouton de création (403 `TACHE_RESERVEE_RESPONSABLES` / `TACHE_NON_ATTRIBUEE` sinon) |
+| Membres d'une catégorie (Réglages > Activités > Catégories > Membres) | ajoute et retire | idem | ajoute et retire dans sa catégorie ; ne retire un responsable que d'un rang inférieur | bloc absent |
+| Inviter par pseudo | oui, avec ou sans portée | oui | seulement vers une catégorie qu'il gère (`scopeKey`) | non (403 `INVITATION_RESERVEE_RESPONSABLES`) |
+| Quitter / supprimer l'activité | refusé tant qu'aucun successeur : 409 `PROPRIETAIRE_SANS_SUCCESSEUR` (« nomme d'abord un responsable d'activité »), message affiché tel quel par le client | peut quitter | peut quitter | peut quitter |
+
+- Erreurs : le client affiche le message du serveur (`error`), jamais le code ; `code` sert aux tests et à masquer proprement (le Bilan affiche « — » sur un 403).
+- Candidats du pop-up « Ajouter un membre » : `{ id, name, avatar, color }` (bulles rondes comme Communauté).
+- `/api/member-times` est restreint côté serveur (`tempsmembres.tableFor` + `portee.membresVisibles`) : un simple membre ne reçoit que ses propres lignes, ses propres historiques et pas les temps des autres ; test `test/membres-portee-endpoints-test.js`.
+- Non joué de bout en bout : invitation par pseudo avec portée sur deux vrais comptes.
