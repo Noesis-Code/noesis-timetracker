@@ -56,7 +56,7 @@ function weeklyShareMinutes(activityId, poleKey, userId, day) {
     let rows = objectifsEnCours(activityId, poleKey, d);
     if (!shared) rows = rows.filter((o) => o.userId === userId); // activité personnelle : ses objectifs seulement
     let pole = 0, sect = 0, act = 0, zero = false;
-    const note = (part, cat) => { if (part === 0 && shared && require('./repartition-membres').partsEnVigueur(Number(activityId), cat, poleKey)) zero = true; return part; }; // part explicitement à 0 % dans la Répartition (≠ aucune part posée)
+    const note = (part, cat) => { if (part === 0 && shared && require('./repartition-membres').membres(Number(activityId)).some((m) => m.userId === userId) && require('./repartition-membres').partsEnVigueur(Number(activityId), cat, poleKey)) zero = true; return part; }; // part explicitement à 0 % dans la Répartition (≠ aucune part posée)
     (shared ? objectifsActivite(activityId, d) : objectifsActivite(activityId, d).filter((o) => o.userId === userId)).forEach((o) => { act += o.minutes * note(partDe(Number(activityId), poleKey, null, userId, o.userId), null); });
     rows.forEach((o) => {
       const cat = o.level === 'secteur' ? o.categoryKey : null, part = note(partDe(Number(activityId), poleKey, cat, userId, o.userId), cat);
