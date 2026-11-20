@@ -874,6 +874,35 @@
     return TMT.ui.confirm(tr('Modifications proposées') + (lines.length ? '\n' + lines.join('\n') : ''), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] })
       .then(function (yes) { return yes ? { applied: true, rows: d.rows } : { refused: true, rows: d.rows }; });
   }
+  // HAUSSE DES HEURES À LA MODIFICATION (20 nov. 2026, Émilien : la modification a les mêmes fonctionnalités que la création) : mêmes règles que l'étape Temps de la création,
+  // « D'où vient ce temps ? » (Ajouter / Déplacer) puis tableau Avant / Après équilibré (POST /api/objectifs/temps/plan, apply au moment d'Enregistrer). Résout { mode, apres } ou null (abandon).
+  function openTempsAjuster(spec, query, oldMin, newMin) {
+    return new Promise(function (resolve) {
+      var m = openModal(tr('Ajuster le temps')), done = false;
+      function finish(v) { if (done) return; done = true; m.close(); resolve(v); }
+      var closeOrig = m.close; m.close = function () { closeOrig(); if (!done) { done = true; resolve(null); } };
+      TMT.ui.loader(m.body);
+      api('GET', '/api/objectifs/temps?' + query).then(function (e) {
+        var modes = (e && e.modes) || []; if (!modes.length) modes = ['ajouter'];
+        function table() {
+          var apres = {}, lines = (e.takeLines && e.takeLines.deplacer) || [], rows = [], tbl, note = el('p', 'hint objTNote'), ok = btn('objFootBtn', tr('Valider'), function () { finish({ mode: 'deplacer', apres: apres }); });
+          function after(l) { return apres[l.key] === undefined ? l.avantMin : apres[l.key]; }
+          function taken() { return lines.reduce(function (n, l) { return n + (l.avantMin - after(l)); }, 0); }
+          function paint() { var bal = lines.length > 0 && taken() === newMin - oldMin; ok.disabled = !bal; var avant = oldMin + lines.reduce(function (n, l) { return n + l.avantMin; }, 0), ap = newMin + lines.reduce(function (n, l) { return n + after(l); }, 0); if (tbl) tbl.setTotal(avant, ap); note.textContent = ap === avant ? '' : tr(ap > avant ? 'Le total doit rester à {t} : reprends encore {d} sur les lignes du dessus.' : 'Le total doit rester à {t} : remets {d} sur une ligne.', { t: hh(avant), d: hh(Math.abs(ap - avant)) }); note.classList.toggle('hidden', ap === avant); }
+          rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: newMin });
+          lines.forEach(function (l) { rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, ref: refOf(e, 'line', l.key), chrono: l.chronoMin, avant: l.objMin, apres: after(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { apres[l.key] = v; paint(); } } }); });
+          tbl = objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows, total: true });
+          m.body.textContent = ''; m.body.appendChild(tbl.node); m.body.appendChild(note); m.foot.textContent = ''; m.foot.appendChild(ok); paint();
+        }
+        function choose() {
+          m.body.textContent = ''; m.body.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?'))); var box = el('div', 'aiModeChoices objCenterChoices');
+          modes.forEach(function (k) { box.appendChild(choice(tr(k === 'ajouter' ? 'Ajouter' : 'Déplacer'), '', false, null, function () { if (k === 'ajouter') finish({ mode: 'ajouter', apres: {} }); else table(); })); });
+          m.body.appendChild(box);
+        }
+        if (modes.length === 1) { if (modes[0] === 'ajouter') finish({ mode: 'ajouter', apres: {} }); else table(); } else choose();
+      }).catch(function () { finish({ mode: 'ajouter', apres: {} }); });
+    });
+  }
   // POP-UP DES HEURES d'une ligne (maquette v4, 14 nov. 2026) : lecture seule, l'arbre ne change jamais ; le tableau `objTable` du dépassement (colonnes « Chrono » puis « Objectif », seulement des traits).
   // S1 : une ligne par catégorie de la ligne touchée + Total ; toucher une catégorie = S2 dans le même pop-up : les membres qui ont du Chrono dans cette catégorie (fil « 2027 › TiMeTracker », ✕ ferme).
   // Données : POST /api/objectifs/allocation/repartition. Les responsables existent par activité mais aucun lien « membre sous son responsable » : liste simple de membres (marqués resp.).
@@ -1132,7 +1161,7 @@
       panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
-      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 80 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
+      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 168 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
       hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'), hTab = el('div'); hBody.appendChild(hTab); hTab.appendChild(hRow);
       api('GET', '/api/objectifs/temps?activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate)).then(function (e) {
         if (!e || !e.up || !e.me) return;
@@ -1254,9 +1283,15 @@
         if (String(form.resume || '').trim() !== orig.resume) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/resume', { resume: String(form.resume || '').trim() }); });
         if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
         calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim(), dateFixe: form.dateFixe }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
+        var fin = Promise.resolve(false), oldH = Math.round((orig.hours || 0) * 60), newH = form.hours > 0 ? Math.round(form.hours * 60) : 0;
+        if (newH > oldH && o.activity) { var tq = 'activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate); fin = openTempsAjuster({ activityId: o.activity.id, level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, endDate: o.endDate }, tq, oldH, newH); } // une hausse se finance, comme à la création
         stepBtn.disabled = true; msg.textContent = '';
-        var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
-        TMT.ui.attente(chain).then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+        fin.then(function (r) {
+          if (r === null) { stepBtn.disabled = false; sync(); return null; }
+          if (r) calls.unshift(function () { return api('POST', '/api/objectifs/temps/plan', { activityId: o.activity.id, level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, endDate: o.endDate, newMin: newH, mode: r.mode, apres: r.apres, apply: true }); });
+          var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
+          return TMT.ui.attente(chain).then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); });
+        }).catch(function (e) { stepBtn.disabled = false; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
       }
       dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
     }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
