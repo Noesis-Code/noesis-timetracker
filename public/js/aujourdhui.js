@@ -263,19 +263,9 @@
     poles.sort(function (a, b) { return a.idx - b.idx; });
     return { acts: acts, poles: poles, secs: secs };
   }
-<<<<<<< Updated upstream
   function applyFilt(next) { filt = next; fv.open = false; fv.browse = null; fv.pole = null; fv.page = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
   function poleColorOf(actId, key) { return TMT.scopeFilter.poleColor(struct, actId, key); } // nuance standard du pôle (composant commun)
   var fctx = { view: null, filt: function () { return filt; }, data: filtData, poleColor: poleColorOf, apply: applyFilt, set: function (n) { filt = n; }, refresh: function () { if (lastData) render(lastData); syncCalendar(); }, repaint: function () { paintFilter(); }, onOpen: function () { loadStruct(); } }; // le dessin du filtre est le composant commun js/filtre-niveau.js (partagé avec le Bilan)
-=======
-  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
-  function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; }
-  function poleColorOf(actId, key) { return TMT.ui.couleurSync(actId, key) || ''; } // nuance standard du pôle : source centrale (TMT.ui.couleur), la même partout
-  function filtRow(parent, text, level, on, fn, color) {
-    var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; if (color) b.insertBefore(dotEl(color), b.firstChild); b.addEventListener('click', fn); parent.appendChild(b); return b;
-  }
-  document.addEventListener('click', function (e) { /* une ligne retirée du DOM par le redessin du panneau n'est pas un toucher dehors */ if (filtOpen && filterBox && e.target.isConnected && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); } });
->>>>>>> Stashed changes
   function paintFilter() {
     if (!filterBox) return; fctx.view = fv; if (filterRow) filterRow.classList.toggle('open', fv.open);
     TMT.scopeFilter.paint(filterBox, fctx);
@@ -351,14 +341,14 @@
     ui.send.addEventListener('mousedown', function (e) { e.preventDefault(); }); // garde le focus : le clavier reste ouvert
     ui.send.addEventListener('click', function () { if (state.longFired) { state.longFired = false; return; } send(); });
     bindLongPress(ui.send);
-    ui.send.title = tr('Appui long : demande Expansion');
+    ui.send.title = tr('Appui long : demande Expansion'); ui.send.dataset.label = tr('Enregistrer');
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
     ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
     ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg'); // jamais de texte sous la barre (20 nov. 2026, Émilien) : ce que le code y écrit s'affiche dans la bulle AU-DESSUS (showToast) et la ligne reste vide
     if (typeof MutationObserver === 'function') new MutationObserver(function () { var m = ui.msg.textContent; if (m) { ui.msg.textContent = ''; showToast(m); } }).observe(ui.msg, { childList: true });
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
     ui.save = el('button', 'tasksSaveBtn', tr('Enregistrer')); ui.save.type = 'button'; // remplace la zone d'écriture à l'étape 2 d'Expansion (liste des tâches à valider)
-    ui.save.addEventListener('click', function () { if (state.review && !state.exp && !state.expStep) send(); else expSave(); });
+    ui.save.addEventListener('click', function () { expSave(); });
     box.appendChild(ui.toast); box.appendChild(ui.proposal); box.appendChild(ui.save); box.appendChild(bar); box.appendChild(ui.chips); box.appendChild(ui.msg); box.appendChild(ui.exHint);
     return box;
   }
@@ -407,7 +397,7 @@
     var t = target(), poleId = t ? t.activityId : state.poleId;
     var poleName = t ? t.activityName : ((state.options.filter(function (o) { return o.activityId === poleId; })[0] || {}).activityName || '');
     ui.proposal.classList.toggle('hidden', !(state.review || state.expStep || readOnly) || (!t && !state.options.length && !readOnly)); // jamais visible pendant l'écriture : seulement après ↑
-    if (state.review && !readOnly && !state.expStep) dock.classList.add('expSave'); // pendant la revue, ↑ devient « Enregistrer »
+    dock.classList.toggle('reviewSave', !!(state.review && !readOnly && !state.expStep)); // pendant la revue, la barre reste (le clavier aussi) et SEUL le bouton ↑ devient « Enregistrer »
     ui.kicker.textContent = readOnly ? '✓ ' + tr('Ajoutée') : state.expStep ? tr('Expansion') + ' · ' + tr('Où ranger les tâches') : tr(TMT.aiMode === 'absence' || !t ? 'À ranger' : 'Noèsis propose');
     ui.close.classList.toggle('hidden', !!readOnly);
     if (readOnly) state.open = '';
@@ -767,7 +757,7 @@
     clearTimeout(state.debounce);
     clearTimeout(state.flash);
     if (state.exp || state.expStep) { state.exp = null; state.gen = null; state.expStep = 0; ui.pages.classList.remove('locked'); goPage(1, true); setExpMode(false); ui.proposal.classList.add('hidden'); }
-    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); dock.classList.remove('expSave'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
+    if (state.review) { state.review = false; ui.proposal.classList.add('hidden'); dock.classList.remove('reviewSave'); closeChooser(); } // le texte a changé : on recommence la revue au prochain ↑
     clearTimeout(state.hintT); state.hintT = setTimeout(updateExHint, 250);
     if (text.length < 3) { state.proposal = null; state.choice = null; state.proposedFor = ''; ui.proposal.classList.add('hidden'); return; }
     state.debounce = setTimeout(function () { propose(text); }, PROPOSE_MS);
@@ -840,7 +830,7 @@
     window.requestAnimationFrame(function () { if (!c) return; c.style.display = 'none'; void c.offsetHeight; c.style.display = ''; });
   }
   function reset() {
-    clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
+    clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); dock.classList.remove('reviewSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
     state.date = null; state.dateAuto = false; state.who = null; state.poleId = null; state.nature = null; state.advOpen = false; state.natureOpen = false; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi

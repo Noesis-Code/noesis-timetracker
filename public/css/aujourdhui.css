@@ -65,6 +65,8 @@
 .tasksComposer .tasksText { min-width: 120px; white-space: nowrap; text-overflow: ellipsis; }
 .tasksComposer .tasksClip, .tasksComposer .cmpSend { flex: none; }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
+.tasksDock.reviewSave .cmpSend { width: auto; min-width: 52px; padding: 0 16px; border-radius: 999px; gap: 0; font-size: 15px; font-weight: 600; }
+.tasksDock.reviewSave .cmpSend::before { content: attr(data-label); width: auto; height: auto; background: none; -webkit-mask: none; mask: none; } /* revue du rangement : le bouton d'envoi devient « Enregistrer » */
 .tasksExHint, .tasksMsg { display: none !important; } /* aucun texte sous la barre d'ajout, jamais (consigne d'Émilien) */
 .tasksDock .cmpSend { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .tasksDock .cmpSend { transition: transform .15s ease-out; }
@@ -166,7 +168,7 @@
 .tasksDayPop .tasksPopList { margin: 0; }
 .tasksDayPop .tasksProposeBody { overflow-y: auto; min-height: 0; }
 .tasksPropose, .tasksProposeBody, .tasksDayPop .tasksPopList { overscroll-behavior: contain; touch-action: pan-y; } /* le défilement reste dans le pop-up (jour touché, création de tâches) */
-html.composerOn, html.composerOn body, html:has(.tasksPropose:not(.hidden)), html:has(.tasksPropose:not(.hidden)) body { overflow: hidden; overscroll-behavior: none; } /* barre d'écriture ou pop-up ouvert : la page derrière ne bouge pas (le clavier ne la fait plus remonter) ; calendrier et tâches restent visibles */
+html.composerOn, html.composerOn body { overflow: hidden; overscroll-behavior: none; } /* barre d'écriture ou pop-up ouvert : la page derrière ne bouge pas (le clavier ne la fait plus remonter) ; calendrier et tâches restent visibles */
 .tasksDayPop .tasksPopRow:last-child, .tasksDayPop .tasksPopList > :last-child .tasksPopRow:last-child { border-bottom: 0; } /* pas de trait sous la dernière tâche */
 .tasksToday.calUnfolded > .tasksPopList, .tasksToday.calUnfolded > .tasksTopRow { display: none; } /* calendrier déplié : la liste et le compteur n'existent que dans le pop-up du jour touché (jamais dessous) ; replié : liste normale */
 .tasksDayPop .tasksProposeHead .tasksDayCount { margin-left: auto; margin-right: 8px; align-self: center; }
