@@ -986,8 +986,9 @@
         cb.textContent = ''; if (nowDone) cb.appendChild(svg('M6.5 12.5l3.5 3.5 7.5-8', 2));
         cb.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
         TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: nowDone })
-          .catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); })
-          .then(function () {
+          .catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); return null; })
+          .then(function (res) {
+            if (res && res.objectifQuestion) TMT.ui.objectifQuestion(res);
             // Une seconde pour voir la coche et le texte barré, puis la ligne s'efface (fondu + repli) avant de passer dans l'autre section.
             leaving++;
             setTimeout(function () {

@@ -71,6 +71,7 @@ router.get('/objectifs/:id/reorganisation', run((req) => objectifs.reorganisatio
 router.post('/objectifs/:id/reorganisation', run((req) => objectifs.appliquerReorganisationDe(req.userId, req.params.id, Array.isArray((req.body || {}).moves) ? req.body.moves : [])));
 router.get('/objectifs/:id', run((req) => objectifs.get(req.userId, req.params.id)));
 router.put('/objectifs/:id/periodes/:n/semaines/:i', run((req) => objectifs.semaine(req.userId, req.params.id, req.params.n, req.params.i, req.body && req.body.done === true)));
+router.post('/objectifs/:id/atteint', run((req) => require('../lib/objectifs-atteint').repondre(req.userId, req.params.id, String((req.body || {}).action || ''))));
 router.post('/objectifs/:id/bilan', run((req) => objectifs.bilan(req.userId, req.params.id, String((req.body || {}).action || ''), (req.body || {}).period)));
 router.put('/objectifs/:id/colonnes-vides', run((req) => objectifs.setEmptyColumns(req.userId, req.params.id, (req.body || {}).emptyColumns)));
 router.put('/objectifs/:id/titre', run((req) => objectifs.renommer(req.userId, req.params.id, (req.body || {}).title)));

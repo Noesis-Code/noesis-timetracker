@@ -916,7 +916,7 @@ function shape(r, full) {
     amount: r.amount, unit: r.unit, durationLabel: durationLabel(r), startDate: r.startDate, endDate: r.endDate,
     level: r.level || 'activite', poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, category: meta.category || null,
     periodWeeks: r.periodWeeks, weekly: !!r.weekly, parent, parentId: r.parentId || null, parentRel: r.parentRel || null, abandoned: !!meta.abandoned, bridgeFailed: !!meta.bridgeFailed, position: r.position == null ? null : r.position, description: meta.description || '', resume: meta.resume || '',
-    status: allWeeks.length && doneWeeks === allWeeks.length ? 'atteint' : 'en_cours',
+    status: meta.atteintConfirme || (allWeeks.length && doneWeeks === allWeeks.length) ? 'atteint' : 'en_cours', atteintConfirme: meta.atteintConfirme || null,
     progress: allWeeks.length ? doneWeeks / allWeeks.length : 0,
     taskProgress: tasks.length ? tasks.filter((t) => t.done).length / tasks.length : 0, taskCount: tasks.length, // JAUGE de l'arbre (18 nov. 2026, Émilien) : tâches attribuées FAITES / tâches attribuées ; aucune = 0 ; `progress` (semaines) reste celui du Bilan
     periodCount: periods.length, currentPeriod: { n: cur.n, title: cur.title, startDate: cur.startDate, endDate: cur.endDate },

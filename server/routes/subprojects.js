@@ -96,7 +96,9 @@ router.put('/sub-project-items/:id', (req, res) => {
     require('../lib/taskassignnotif').notifyAssigned(item.id, userId);
   }
 
-  res.json(updated);
+  let out = updated; // « Objectif atteint ? » : proposé au seul responsable concerné quand il coche la dernière tâche (jamais décidé ici)
+  if (req.body && typeof req.body.done === 'boolean' && updated && typeof updated === 'object') { try { const q = require('../lib/objectifs-atteint').apresCoche(userId, item.id, req.body.done); if (q) out = Object.assign({}, updated, { objectifQuestion: q }); } catch (e) { /* jamais bloquant */ } }
+  res.json(out);
 });
 
 router.delete('/sub-project-items/:id', (req, res) => {

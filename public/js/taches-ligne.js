@@ -231,7 +231,7 @@
     cb.addEventListener('change', function () {
       cb.disabled = true;
       api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: cb.checked })
-        .then(function () { (onChanged || loadGoalsTasksOverview)(); })
+        .then(function (res) { if (res && res.objectifQuestion && TMT.ui && TMT.ui.objectifQuestion) TMT.ui.objectifQuestion(res); (onChanged || loadGoalsTasksOverview)(); })
         .catch(function (err) { cb.checked = !cb.checked; alert(err.message); })
         .then(function () { cb.disabled = false; });
     });

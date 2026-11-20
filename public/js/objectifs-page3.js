@@ -929,7 +929,7 @@
         var row = document.createElement('div'); row.className = 'tasksPopRow' + (task.done ? ' done' : '');
         var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'tasksPopCheck'; cb.setAttribute('aria-pressed', task.done ? 'true' : 'false'); cb.setAttribute('aria-label', t(task.done ? 'Remettre à faire' : 'Marquer comme faite'));
         if (task.done) cb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
-        cb.addEventListener('click', function () { cb.disabled = true; api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: !task.done }).catch(function () {}).then(function () { loadGoalsDayTasks(); }); });
+        cb.addEventListener('click', function () { cb.disabled = true; api('PUT', '/api/sub-project-items/' + task.id, { userId: TMT.getProfile().id, done: !task.done }).catch(function () { return null; }).then(function (res) { if (res && res.objectifQuestion) TMT.ui.objectifQuestion(res); loadGoalsDayTasks(); }); });
         var txt = document.createElement('div'); txt.className = 'tasksPopText'; var bEl = document.createElement('b'); bEl.textContent = task.label; txt.appendChild(bEl);
         row.appendChild(cb); row.appendChild(txt); dayBody.appendChild(row);
       });

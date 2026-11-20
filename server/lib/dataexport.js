@@ -326,6 +326,7 @@ function buildUserExport(userId) {
       o.categoryName = o.categoryKey ? (sectLabel[o.activityId][o.poleKey + '/' + o.categoryKey] || null) : null;
       const weeks = (Array.isArray(o.periodes) ? o.periodes : []).reduce((a, p) => a.concat((p && p.weeks) || []), []);
       const reached = d.status ? d.status === 'atteint' : (weeks.length > 0 && weeks.every((w) => w.done)); // repli si la ligne n'a pas pu être lue par liste()
+      o.atteintLe = (o.meta && (o.meta.atteintConfirme || o.meta.atteintLe)) || null; // date d'atteinte (confirmée par la personne, sinon première lecture « atteint »)
       o.etat = (o.meta && o.meta.abandoned) ? 'abandonne' : (reached ? 'realise' : 'en_cours');
       o.isMacro = !!o.isMacro;
       o.enfants = kids[o.id] || [];

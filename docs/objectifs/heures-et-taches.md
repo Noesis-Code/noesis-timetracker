@@ -35,3 +35,11 @@ Du haut vers le bas : (1) total de l'objectif d'ACTIVITÉ en cours = somme des h
 Rien ne bouge silencieusement : la nouvelle capacité alimente le report et le rééquilibrage selon les règles actuelles (`retard.md`).
 
 Test : `test/heures-taches-test.js`.
+
+## Objectif atteint (Émilien, 20 nov. 2026)
+Un objectif n'est ATTEINT que si la personne le confirme : faire toutes ses tâches ne suffit pas (on peut en découvrir d'autres). Code : `server/lib/objectifs-atteint.js`.
+- Quand la personne coche la DERNIÈRE tâche ouverte rangée dans un objectif, la réponse du PUT de la tâche porte `objectifQuestion` ; le client pose UNE fois « Objectif atteint ? » dans la fenêtre standard `TMT.ui.confirm` (`TMT.ui.objectifQuestion`, aucun nouveau composant).
+- OUI : `metaJson.atteintConfirme` = date ; l'objectif sort des objectifs « en cours » de `objectifs-capacite.js` (ses heures sont libérées) ; il s'affiche comme les autres (statut « atteint ») ; il reste dans l'export (`etat: realise`, `atteintLe`) ; rien n'est supprimé.
+- PAS ENCORE (ou ✕) : il reste en cours ; `metaJson.atteintDemande` retient le nombre de tâches : la question ne revient que si une tâche a été AJOUTÉE puis terminée.
+- Décocher une tâche d'un objectif atteint propose « Rouvrir l'objectif ? » (même fenêtre, `POST /api/objectifs/:id/atteint` action `rouvrir`) ; jamais de réouverture silencieuse. Une NOUVELLE tâche rangée dans un objectif atteint ne pose pas encore de question (à coder si Émilien le veut).
+- Responsable seulement : la question n'est posée qu'au propriétaire de l'objectif dont la portée couvre la catégorie ; un simple membre coche sans la voir, et le serveur refuse sa réponse (403). Les anciens `meta.abandoned` restent lisibles.

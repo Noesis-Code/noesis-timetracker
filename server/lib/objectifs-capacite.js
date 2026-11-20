@@ -21,7 +21,7 @@ function lireObjectifs(activityId, day) {
   db.prepare("SELECT id, userId, COALESCE(level,'activite') AS level, poleKey, categoryKey, parentId, metaJson FROM user_objectives WHERE activityId = ? AND isMacro = 0 AND startDate <= ? AND endDate >= ?").all(Number(activityId), day, day).forEach((r) => {
     let m = {}; try { m = JSON.parse(r.metaJson || '{}'); } catch (e) { m = {}; }
     const h = Number(m.hoursPerWeek);
-    if (m.abandoned || !(h > 0)) return;
+    if (m.abandoned || m.atteintConfirme || !(h > 0)) return; // atteint (confirmé par la personne, 20 nov. 2026) : ses heures sont libérées
     out.push({ id: r.id, userId: r.userId, level: r.level, poleKey: r.poleKey || null, categoryKey: r.categoryKey || null, parentId: r.parentId || null, minutes: Math.round(h * 60) });
   });
   return out;

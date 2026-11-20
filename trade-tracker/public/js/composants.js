@@ -139,6 +139,15 @@
     toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
     setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
     confirm: confirmBox,
+    // « Objectif atteint ? » / « Rouvrir l'objectif ? » (20 nov. 2026) : la réponse d'une tâche cochée porte objectifQuestion quand le serveur propose la question (responsable seulement) ; la fenêtre standard la pose, la réponse est enregistrée.
+    objectifQuestion: function (res) {
+      var q = res && res.objectifQuestion; if (!q) return Promise.resolve(null);
+      var rouvrir = q.type === 'rouvrir';
+      return confirmBox(tr(rouvrir ? 'Rouvrir l’objectif ?' : 'Objectif atteint ?') + '\n' + q.title, { choices: [{ value: 'oui', label: tr(rouvrir ? 'Rouvrir' : 'Oui') }, { value: 'non', label: tr(rouvrir ? 'Non' : 'Pas encore'), quiet: true }] }).then(function (v) {
+        var action = v === 'oui' ? (rouvrir ? 'rouvrir' : 'oui') : (rouvrir ? null : 'pas_encore'); // ✕ sur « Objectif atteint ? » vaut « Pas encore » : la question ne se repose pas
+        return action ? window.TMT.api('POST', '/api/objectifs/' + q.id + '/atteint', { action: action }).catch(function () { return null; }) : null;
+      });
+    },
     // « Quitter sans enregistrer ? » (20 nov. 2026) : UN utilitaire pour tout ✕ de fenêtre qui a un bouton Enregistrer / Terminer. aChange() vrai => confirmation (TMT.ui.confirm), sinon fermeture directe.
     fermerAvecConfirmation: function (fermer, aChange) {
       var dirty = false; try { dirty = !!(aChange && aChange()); } catch (e) { dirty = false; }
