@@ -6283,6 +6283,8 @@
   // prévient par message AUTOTASK_SYNCED), sinon la page elle-même, à
   // l'événement 'online' et au chargement.
   var categoryAutoTaskOffline = [];
+  // 20 nov. 2026 : objectifs créés sans réseau, dans la même file (kind 'objectif') ; affichés dans l'arbre (objectifs-arbre.js), jamais dans la bulle des tâches.
+  var offlineObjectifs = [];
   var autoTaskQueue = window.NoesisAutoTaskQueue || null;
 
   function rerenderAutoTaskBubbleFromCache() {
@@ -6293,8 +6295,11 @@
   function reloadOfflineAutoTasks() {
     if (!autoTaskQueue) return Promise.resolve();
     return autoTaskQueue.list().then(function (items) {
-      categoryAutoTaskOffline = items.sort(function (a, b) { return a.id - b.id; });
+      items.sort(function (a, b) { return a.id - b.id; });
+      categoryAutoTaskOffline = items.filter(function (it) { return it.kind !== 'objectif'; });
+      offlineObjectifs = items.filter(function (it) { return it.kind === 'objectif'; });
       rerenderAutoTaskBubbleFromCache();
+      if (window.TMT.objectifsArbre && window.TMT.objectifsArbre.render) window.TMT.objectifsArbre.render();
     }).catch(function () { /* IndexedDB indisponible : rien à afficher */ });
   }
 
@@ -6307,13 +6312,18 @@
 
   function applyAutoTaskSyncResult(result) {
     if (!result) return reloadOfflineAutoTasks();
+    var objSynced = false;
     (result.synced || []).forEach(function (s) {
+      if (s.kind === 'objectif') { objSynced = true; return; }
       categoryAutoTaskPending.push({ activityId: String(s.activityId), label: s.label, categoryLabel: s.categoryLabel || '' });
     });
     (result.failed || []).forEach(function (f) {
+      if (f.kind === 'objectif') return; // reste dans la file (marqué en échec) et s'affiche dans l'arbre
       categoryAutoTaskPending.push({ activityId: String(f.activityId), label: f.label, failed: true, error: f.error || '' });
     });
-    return reloadOfflineAutoTasks();
+    return reloadOfflineAutoTasks().then(function () {
+      if (objSynced && window.TMT.objectifsArbre && window.TMT.objectifsArbre.refresh) window.TMT.objectifsArbre.refresh();
+    });
   }
 
   function syncOfflineAutoTasks() {
@@ -6338,6 +6348,15 @@
       syncOfflineAutoTasks();
     });
   }
+
+  // Création d'un objectif sans réseau (objectifs-creer.js) : même file, même voie d'envoi.
+  window.TMT.offlineObjectifs = {
+    add: function (activityId, label, body) {
+      if (!autoTaskQueue) return Promise.reject(new Error(t('Hors ligne — connecte-toi à internet pour continuer.')));
+      return autoTaskQueue.addObjectif({ activityId: activityId, label: label, body: body, tz: clientTimezone }).then(function () { return reloadOfflineAutoTasks(); }).then(function () { syncOfflineAutoTasks(); });
+    },
+    list: function () { return offlineObjectifs.slice(); },
+  };
 
   if (autoTaskQueue) {
     window.addEventListener('online', syncOfflineAutoTasks);

@@ -540,6 +540,12 @@
     });
     return nav;
   }
+  function offlineZone() {
+    var q = TMT.offlineObjectifs ? TMT.offlineObjectifs.list() : []; if (!q.length) return;
+    var z = el('div', 'activityGoalsCategoryAutoTaskOffline'); z.appendChild(el('p', 'activityGoalsCategoryAutoTaskOfflineTitle', tr('À classer') + ' (' + q.length + ')'));
+    q.forEach(function (o) { z.appendChild(el('p', 'meta activityGoalsCategoryAutoTaskOfflineRow' + (o.failed ? ' isFailed' : ''), o.failed ? '✗ ' + o.label + ' — ' + tr('non ajoutée') + (o.error ? ' : ' + o.error : '') : '⏳ ' + o.label + ' — ' + tr('la synchronisation se fera au retour du réseau'))); });
+    tree.appendChild(z);
+  }
   function render() {
     if (!tree) return;
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
@@ -550,6 +556,7 @@
     var mw = isLand() ? 46 : 20; RAIL = mw + 10; /* colonne des dates : largeur du plus large repère court (2 caractères) ; les repères de plus de 2 caractères sont tournés (lus de bas en haut) */ tree.style.setProperty('--ar-mw', mw + 'px'); tree.style.setProperty('--ar-pl', (mw + 6) + 'px'); // colonne de repères : ovale d'un bloc / d'une année, rond d'une période (+ année en ovale)
     var today = dayIso(), keep = visibleSet(today), shown = items.filter(function (o) { return keep[o.id]; });
     tree.classList.toggle('arExtending', !!ext);
+    offlineZone(); // objectifs créés sans réseau : en attente (⏳) ou refusés par le serveur (✗ + message), mêmes classes que la zone « À classer » des tâches
     if (items.length && lvl !== 'activite') { var zb = el('div', 'arZoomRow'); zb.appendChild(backNav()); tree.appendChild(zb); } // plus de crayon : deux gestes seulement (toucher = naviguer, appui long = menu)
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     curCols = foldMerged(shown, sortByOrdre(columnsFor(shown)));
