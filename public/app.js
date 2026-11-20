@@ -7255,7 +7255,7 @@
       return fold(fam + '.' + f, label, valueSpan(cur == null ? null : cur + (unit ? ' ' + unit : ''), m && cur != null), function (panel) {
         var r = el('div', 'objTimeRow'), l = el('span', null, t(label));
         var i = el('input'); i.type = 'text'; i.autocomplete = 'off'; i.disabled = !data.canEdit; i.setAttribute('aria-label', t(label));
-        if (kind === 'text') i.maxLength = 300; else { i.inputMode = 'decimal'; i.maxLength = 6; }
+        if (kind === 'text') i.maxLength = 300; else { i.inputMode = 'decimal'; i.maxLength = 6; i.className = 'objNumIn'; }
         i.value = mine(fam, f) && cur != null ? String(cur) : '';
         i.addEventListener('change', function () {
           var raw = i.value.trim(), v = raw === '' ? null : kind === 'text' ? raw : parseFloat(raw.replace(',', '.'));

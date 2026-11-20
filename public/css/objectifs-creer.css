@@ -157,6 +157,8 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 
 
 .objHoursVal { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; color: var(--purple); } /* R54 : heure ou pourcentage modifiable = violet, « h » inclus */
+:root .objTimeRow input.objNumIn:not(:disabled), :root .objHoursVal input:not(:disabled) { color: var(--purple); } /* R54 : toute heure, tout pourcentage ou nombre modifiable de la Stratégie est violet */
+:root .objTimeRow input.objNumIn:not(:disabled)::placeholder, :root .objHoursVal input:not(:disabled)::placeholder { color: var(--purple); opacity: .6; }
 .objHoursVal input { width: 64px; min-height: 44px; padding: 0 12px; box-sizing: border-box; text-align: right; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: inherit; font: inherit; }
 .objDock .tasksProposeHead .tasksProposeKicker { flex: 1; min-width: 0; }
 .objBack { margin-left: -12px; }
@@ -260,10 +262,10 @@ button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavie
 .objRdBar.off { opacity: .3; }
 .objRdRow { gap: 8px; padding: 8px 0; align-items: center; }
 .objSemRow.past { opacity: .4; pointer-events: none; }
-.objSemRow.weekOpen > .objSemHead { background: var(--poleColor, transparent); color: var(--poleText, var(--text)); }
-.objSemRow.weekOpen > .objSemHead .objSemNo { background: rgba(0, 0, 0, .18); color: var(--poleText, var(--text)); }
-:root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn { color: var(--poleText, var(--text)); }
-.objSemRow.weekOpen > .objSemHead input.objSemTitleIn::placeholder { color: var(--poleText, var(--text)); opacity: .65; }
+.objSemRow.weekOpen > .objSemHead { background: var(--glass-bg); color: var(--text); } /* ligne ouverte : verre standard (R14), plus de fond plein de la couleur du pôle */
+.objSemRow.weekOpen > .objSemHead .objSemNo { color: var(--text); }
+:root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn { color: var(--text); }
+.objSemRow.weekOpen > .objSemHead input.objSemTitleIn::placeholder { color: var(--text-light); opacity: 1; }
 .objFxWrap { border: 1px solid transparent; border-radius: 22px; padding: 8px 12px; margin: 0 -12px; } /* à « Fixe » : cadre (trait fin, coins arrondis) autour de Souple / Fixe et de l'échéance (19 nov. 2026) */
 .objFxWrap.fixed { border-color: var(--sep); }
 .objResumeField { margin-top: 16px; }

@@ -846,7 +846,7 @@
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       if (form.endDate <= todayLocal()) { msg.textContent = MSG_ECH; return; }
       stepBtn.disabled = true; msg.textContent = '';
-      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); };
+      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); }; // le voile n'enveloppe QUE les appels réseau, jamais la fenêtre de confirmation qui attend l'utilisateur
       // Sans réseau (20 nov. 2026) : l'objectif entre dans la file hors ligne (même voie que les tâches, une clé d'idempotence) ; le panneau se ferme comme après une création, l'objectif s'affiche en attente dans l'arbre, et le serveur applique ses règles au retour du réseau (refus = visible avec son message).
       function queueOffline() {
         if (!TMT.offlineObjectifs) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
@@ -869,12 +869,12 @@
         .catch(function (err) { if (err && err.offline && !first) return queueOffline().catch(function (e2) { stepBtn.disabled = false; msg.textContent = (e2 && e2.message) || tr('Impossible pour le moment.'); }); stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
       // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
-      fin(api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, cadence: cadenceNow(), inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
+      fin(api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, cadence: cadenceNow(), inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; }))
         .then(function (occ) {
-          if (!occ) return navigator.onLine === false ? queueOffline().catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); }) : go(null);
+          if (!occ) return navigator.onLine === false ? queueOffline().catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); }) : fin(go(null));
           return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.'), { choices: [{ value: true, label: tr('Remplacer'), danger: true }, { value: false, label: tr('Annuler') }] })
-            .then(function (yes) { if (!yes) { stepBtn.disabled = false; return null; } return go(occ.id); });
-        }));
+            .then(function (yes) { if (!yes) { stepBtn.disabled = false; return null; } return fin(go(occ.id)); });
+        });
     }
 
     form._show = show; show(cur);
