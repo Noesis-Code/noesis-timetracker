@@ -4,7 +4,7 @@
  * Chrono de l'activité (par pôle et par secteur), déplacé ici sans fenêtre (TMT.bilanCategoryStats).
  * TOUT LE RESTE n'apparaît que via « + Ajouter une information » (même mécanique que les statistiques : cmpAdd, aperçus à cocher, Appliquer / Annuler) et se retire par la croix rouge ;
  * le choix est mémorisé par vue (Toutes) et par activité (localStorage, sans donnée serveur).
- *   Toutes : Avancement, Capacité par jour, Jours où tu travailles vraiment, Tâches urgentes.
+ *   Toutes : Avancement, Jours où tu travailles vraiment, Tâches urgentes (Capacité par jour retirée le 20 nov. 2026 : doublon).
  *   Une activité : Moyenne des tâches réalisées, Proportion réelle contre demandée, Tâches récurrentes ; le Graphique des tâches et objectifs y est visible par défaut (retirable), jamais en Toutes.
  * Données : /api/bilan/* (server/lib/bilan.js) et les cartes de js/stats-avance.js (TMT.bilanCardInstance). Lecture seule. */
 (function () {
@@ -104,13 +104,6 @@
     var inst = TMT.bilanCardInstance(function (d) { slot.textContent = ''; var n = inst.bodyFor('advance', d); slot.appendChild(n || el('p', 'hint', '—')); });
     inst.paintFor(first.id);
   }
-  // Capacité par jour : activité, pôle ou secteur (plus en vue Tous, décidé le 20 nov. 2026).
-  function rCapacity(mount, remover) {
-    var c = shell('Capacité par jour', remover), slot = el('div'); c.appendChild(slot); mount.appendChild(c);
-    var inst = TMT.bilanCardInstance(function (d) { var cp = d && d.tasks && d.tasks.capacity; slot.textContent = ''; var n = cp && cp.avgFreeMinutes != null ? inst.bodyFor('capacity', d) : null; slot.appendChild(n || el('p', 'hint', '—')); }, cat());
-    inst.paintFor(Number(scope));
-  }
-
   // ---------- Informations d'une activité ----------
   function rAvg(mount, remover) {
     var sc = scope, c = shell('Moyenne des tâches réalisées', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c);
@@ -179,7 +172,6 @@
     { key: 'tchart', title: 'Graphique du temps par membre', volet: ['chrono'], levels: ['cat'], def: ['cat'], render: rTChart },
     { key: 'trepart', title: 'Répartition entre membres', volet: ['chrono'], levels: ['cat'], def: [], render: rTRepart },
     { key: 'weekdays', title: 'Jours où tu travailles vraiment', volet: ['tasks'], levels: ['all', 'act'], def: [], render: rWeekdays },
-    { key: 'capacity', title: 'Capacité par jour', volet: ['tasks'], levels: ['act', 'cat'], def: [], render: rCapacity },
     { key: 'urgent', title: 'Tâches urgentes', volet: ['tasks'], levels: ['all'], def: [], render: rUrgent },
     { key: 'avg', title: 'Moyenne des tâches réalisées', volet: ['tasks'], levels: ['act', 'cat'], def: [], render: rAvg },
     { key: 'prop', title: 'Proportion réelle contre demandée', volet: ['tasks'], levels: ['act', 'cat'], def: ['cat'], render: rProp },
