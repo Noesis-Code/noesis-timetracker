@@ -7041,7 +7041,7 @@
     var box = $('catComposer');
     if (!box) return;
     var addPoleBtn = $('catAddPoleBtn');
-    if (addPoleBtn) addPoleBtn.classList.toggle('hidden', activityGoalsCategoriesEditMode);
+    if (addPoleBtn) addPoleBtn.classList.toggle('hidden', activityGoalsCategoriesEditMode || !catCanAll());
     if (addPoleBtn) {
       var poleFull = currentActivityGoalsCategories.length >= currentActivityGoalsMax;
       addPoleBtn.disabled = poleFull;
@@ -7056,7 +7056,7 @@
     }
     // La zone d'écriture ne sert plus qu'à ajouter un SECTEUR (cible = un pôle) ;
     // l'ajout d'un pôle passe par la ligne de saisie inline (« + » de l'en-tête).
-    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole && !catNewPoleRow));
+    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole && catCan(pole.key) && !catNewPoleRow));
     $('catComposerTarget').classList.toggle('hidden', !pole);
     if (pole) $('catComposerTargetLabel').textContent = t('Secteur dans « {name} »', { name: pole.label });
     $('activityGoalsCategoryAddInput').placeholder = t(pole ? 'Nouveau secteur…' : 'Nouveau pôle…');
@@ -7122,6 +7122,10 @@
   }
 
 
+  // Structure (créer, modifier, retirer, réordonner) : responsables seulement (20 nov. 2026) ; un simple membre ne voit aucun de ces contrôles. Le serveur refuse de toute façon (403).
+  function catManagedInfo() { return lastActivityGoalsCategoriesData && lastActivityGoalsCategoriesData.managed; }
+  function catCanAll() { var m = catManagedInfo(); return !m || !!m.all; }
+  function catCan(key) { var m = catManagedInfo(); return !m || !!m.all || (key != null && (m.keys || []).indexOf(String(key)) >= 0); }
   function catSmallButton(glyph, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button';
@@ -7469,8 +7473,7 @@
     var save = document.createElement('button');
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(cancel); actions.appendChild(save);
-    var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
-    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     box.appendChild(del);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
@@ -7535,9 +7538,10 @@
           reorderPoles(activityId, ordered.map(function (el) { return el.dataset.categoryKey; }));
         },
       });
-      header.appendChild(handle);
+      if (catCanAll()) header.appendChild(handle); // réordonner les pôles = propriétaire / responsable d'activité
       header.appendChild(dot);
-      header.appendChild(catNameInput(activityId, pole, null));
+      if (catCan(pole.key)) header.appendChild(catNameInput(activityId, pole, null));
+      else { var plain = document.createElement('span'); plain.className = 'activityRowName'; plain.textContent = pole.label; header.appendChild(plain); }
       // 6 oct. 2026 (Emilien) : en mode déplacement (appui long), plus de croix à droite des pôles.
       row.appendChild(header);
       group.appendChild(row);
@@ -7558,7 +7562,7 @@
     var chevron = TMT.ui.chev(isOpen);
     header.appendChild(dot);
     header.appendChild(name);
-    header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+    if (catCan(pole.key)) header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
       catOpenEdit(activityId, { key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
     }));
     header.appendChild(chevron);
@@ -7567,7 +7571,7 @@
       activityGoalsCategoriesOpen[pole.key] = !activityGoalsCategoriesOpen[pole.key];
       catRerender();
     });
-    bindCatLongPress(row);
+    if (catCan(pole.key)) bindCatLongPress(row);
     row.appendChild(header);
     if (pole.description) {
       var cap = document.createElement('p');
@@ -7619,8 +7623,9 @@
               .catch(function (err) { catFailRefresh(activityId, err); });
           },
         });
-        header.appendChild(handle);
-        header.appendChild(catNameInput(activityId, s, pole.key));
+        if (catCan(pole.key)) header.appendChild(handle);
+        if (catCan(s.key)) header.appendChild(catNameInput(activityId, s, pole.key));
+        else { var plainS = document.createElement('span'); plainS.className = 'activityRowName'; plainS.textContent = s.label; header.appendChild(plainS); }
         // 6 oct. 2026 (Emilien) : en mode déplacement, plus d'icône modifier à droite des secteurs.
         row.appendChild(header);
       } else {
@@ -7628,7 +7633,7 @@
         name.className = 'activityRowName';
         name.textContent = s.label;
         header.appendChild(name);
-        header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+        if (catCan(s.key)) header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
           catOpenEdit(activityId, { key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
         }));
         row.appendChild(header);
@@ -7638,13 +7643,13 @@
           cap.textContent = s.description;
           row.appendChild(cap);
         }
-        bindCatLongPress(row);
+        if (catCan(pole.key) || catCan(s.key)) bindCatLongPress(row);
       }
       wrap.appendChild(row);
       if (!edit) wrap.appendChild(catMembersBlock(activityId, s.key));
     });
 
-    if (!edit) {
+    if (!edit && catCan(pole.key)) {
       var add = TMT.ui.addBtn(t('Nouveau secteur'), null);
       if ((pole.secteurs || []).length >= currentActivityGoalsMaxSecteurs) {
         add.disabled = true;
@@ -7924,70 +7929,6 @@
     return { close: close };
   }
   TMT.openDurationPicker = openDurationPicker;
-  // Bloc du formulaire en place : estimation du temps par membre (pôles seulement). Plus de plafonds de catégorie (20 nov. 2026).
-  function buildTimeCapsBlock(activityId, key, isPole) {
-    var node = document.createElement('div');
-    node.className = 'timeCapsBlock';
-    var body = node;
-    // Estimation indicative du temps par membre et par pôle (activité partagée seulement,
-    // lecture seule, sans IA) : médiane de ses entrées de temps, « pas assez de données » sous 3 entrées.
-    // Estimation indicative du temps par membre POUR CE PÔLE (pôles seulement : le temps des secteurs
-    // remonte au pôle). Liste repliée par défaut ; lecture seule + valeur saisie facultative.
-    var memberEst = document.createElement('div'); memberEst.className = 'goalMemberEst hidden';
-    var memEstToggle = document.createElement('button'); memEstToggle.type = 'button'; memEstToggle.className = 'linkBtn goalMemberEstToggle';
-    var memEstBody = document.createElement('div'); memEstBody.className = 'goalMemberEstBody hidden';
-    var memEstOpen = false;
-    function paintMemEstToggle() {
-      TMT.ui.toggleLabel(memEstToggle, t('Estimation du temps par membre'), memEstOpen);
-      memEstToggle.setAttribute('aria-expanded', memEstOpen ? 'true' : 'false');
-      memEstBody.classList.toggle('hidden', !memEstOpen);
-    }
-    memEstToggle.addEventListener('click', function () { memEstOpen = !memEstOpen; paintMemEstToggle(); });
-    memberEst.appendChild(memEstToggle); memberEst.appendChild(memEstBody);
-    if (isPole) body.appendChild(memberEst);
-    function paintMemberEst(rows) {
-      memEstBody.textContent = '';
-      var table = document.createElement('div'); table.className = 'timeCapsTable goalMemberEstTable';
-      rows.forEach(function (m) {
-        var p = m.pole;
-        var lbl = document.createElement('div'); lbl.className = 'timeCapsRowLabel'; lbl.textContent = m.name;
-        var calc = document.createElement('div'); calc.className = 'timeCapsAvg';
-        calc.textContent = p.estimate ? '~' + TMT.ui.heures(p.estimate.minutes) : t('pas assez de données');
-        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'timeCapsMax';
-        var shown = p.custom || (p.estimate && p.estimate.minutes) || 0;
-        btn.textContent = TMT.ui.heures(shown || 0);
-        btn.classList.toggle('isEmpty', !p.custom);
-        function save(v) {
-          api('PUT', '/api/activities/' + activityId + '/goals/member-estimates', { memberId: m.id, category: key, minutes: v > 0 ? v : null })
-            .then(function () { p.custom = v > 0 ? v : null; paintMemberEst(rows); }).catch(function () {});
-        }
-        btn.addEventListener('click', function () { openDurationPicker({ title: 'Cible', minutes: shown, onDone: save }); });
-        table.appendChild(lbl); table.appendChild(calc); table.appendChild(btn);
-        if (p.custom) {
-          var back = document.createElement('button'); back.type = 'button'; back.className = 'linkBtn goalMemberEstBack';
-          back.textContent = t('Revenir à l’estimation calculée');
-          back.addEventListener('click', function () { save(0); });
-          table.appendChild(back);
-        }
-      });
-      memEstBody.appendChild(table);
-    }
-    if (isPole) api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
-      if (!r || !r.members || r.members.length < 2) return;
-      var rows = r.members.map(function (m) {
-        var p = m.poles.filter(function (x) { return x.key === key; })[0];
-        return p ? { id: m.id, name: m.name, pole: p } : null;
-      }).filter(Boolean);
-      if (!rows.length) return;
-      paintMemberEst(rows); paintMemEstToggle();
-      memberEst.classList.remove('hidden');
-    }).catch(function () {});
-    return {
-      node: node,
-      read: function () { return { changed: false }; }
-    };
-  }
-
   // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui
   // garde la clé du secteur, donc son historique et ses tâches). Ajouté en fin de
   // liste du pôle cible.
@@ -8589,7 +8530,7 @@
     var actionsRow = document.createElement('div');
     actionsRow.className = 'rowActions';
 
-    var canAdd = a.isOwner || !isShared;
+    var canAdd = a.isOwner || a.isActivityManager === true || !isShared;
 
     if (isShared) {
       var leaveBtn = document.createElement('button');
@@ -10469,7 +10410,14 @@
   // mécanisme qu'Activité »). Elle a pris la place du « ← » flottant, dans le
   // bandeau plutôt qu'en surimpression — voir index.html et styles.css.
   // L'écouteur, lui, est rigoureusement le même qu'avant.
-  $('settingsCloseBtn').addEventListener('click', function () { TMT.ui.fermerAvecConfirmation(closeSettingsPanel, function () { return !$('settingsSaveBtn').disabled; }); }); // « Quitter sans enregistrer ? » si l'identité a changé
+  // « Quitter sans enregistrer ? » si l'identité, une activité en cours de modification, une catégorie en cours de modification ou un mot de passe saisi n'est pas enregistré ; sinon fermeture directe.
+  function settingsHasUnsaved() {
+    if (!$('settingsSaveBtn').disabled) return true;
+    if (document.querySelector('.activityEditBubble .activityEditActions .cmpBtn:not(:disabled)')) return true;
+    if (catEditState && catEditState.activityId != null && (catEditState.name !== catEditState.label || catEditState.desc !== catEditState.description) && document.querySelector('.catEditForm:not(.activityEditBubble)')) return true;
+    return ['settingsCurrentPin', 'settingsNewPin', 'settingsNewPinConfirm'].some(function (id) { var el = $(id); return !!(el && el.value); });
+  }
+  $('settingsCloseBtn').addEventListener('click', function () { TMT.ui.fermerAvecConfirmation(closeSettingsPanel, settingsHasUnsaved); });
 
   // Clic sur la zone « en dehors » qui entoure la carte : referme, comme
   // #activityPage (voir son propre écouteur, même forme exacte). Le test
@@ -14456,7 +14404,7 @@
   $('deleteAccountBtn').addEventListener('click', function () {
     var pin = $('deleteAccountPin').value.trim();
     $('deleteAccountMsg').textContent = '';
-    if (!pin) { $('deleteAccountMsg').textContent = t('Saisis ton code pour confirmer la suppression.'); return; }
+    if (!pin) { $('deleteAccountMsg').textContent = t('Saisis ton mot de passe pour confirmer la suppression.'); return; }
     TMT.ui.confirm(t('Supprimer définitivement ton compte ? Cette action est irréversible.'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
     TMT.ui.confirm(t('Dernière confirmation : tout ton historique et tes notes seront perdus. Continuer ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
     $('deleteAccountBtn').disabled = true;

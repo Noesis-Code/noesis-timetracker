@@ -17,7 +17,8 @@ const PERSONAL_NO_FK = [
   ['drive_connections', 'userId'], ['drive_folders', 'userId'], ['drive_infra_fails', 'userId'], ['drive_progress', 'userId'],
   ['drive_seen_chunks', 'userId'], ['drive_seen_files', 'userId'], ['drive_seen_tasks', 'userId'], ['drive_seg_done', 'userId'],
   ['drive_skipped', 'userId'], ['drive_sync', 'userId'],
-  ['objectifs_refus', 'userId'], ['objectifs_supprimes', 'userId'], ['fusion_absorption', 'userId'], ['user_objectives', 'userId'], ['objectifs_resume_annuel', 'userId'], ['objectifs_ordre', 'userId'], ['objectif_retards', 'userId'], // objectifs de l'arbre (liens parent/enfant, descriptions, refus de fusion)
+  ['category_managers', 'userId'], ['hour_allocations', 'userId'], ['objectif_ajuste_refus', 'userId'], ['objectif_ajuste_info', 'userId'], ['objectif_ecart_refus', 'userId'], ['objectif_famille_inconnue', 'userId'], ['objectif_temps_reel', 'userId'], ['retard_rangees', 'userId'], ['task_day_plan', 'userId'], // responsables de catégorie, heures allouées, ajustements/écarts d'objectifs, jour planifié (Loi 25, 20 nov. 2026)
+  ['objectifs_refus', 'userId'],['objectifs_supprimes', 'userId'], ['fusion_absorption', 'userId'], ['user_objectives', 'userId'], ['objectifs_resume_annuel', 'userId'], ['objectifs_ordre', 'userId'], ['objectif_retards', 'userId'], // objectifs de l'arbre (liens parent/enfant, descriptions, refus de fusion)
 ];
 const tableExists = (t) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
 

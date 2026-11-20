@@ -154,7 +154,7 @@
     var f = visibleOrder().filter(function (t) { return t !== 'trade'; })[0];
     return f || 'chrono';
   }
-  TMT.navBar = { action: act, firstTab: firstTab, refresh: refresh, order: visibleOrder, setOrder: setOrder, addable: addable, add: addTab, remove: removeTab };
+  TMT.navBar = { action: act, firstTab: firstTab, refresh: refresh, order: visibleOrder, setOrder: setOrder, addable: addable, add: addTab, remove: removeTab, mayRemove: mayRemove };
 
   document.addEventListener('tmt:modules', refresh);
   refresh();

@@ -29,6 +29,7 @@ function serializeActivity(a, userId) {
     requiresNote: !!a.requiresNote,
     active: !!a.active,
     isOwner: a.ownerId === userId,
+    isActivityManager: require('../lib/portee').isActivityManager(userId, a.id), // propriétaire ou responsable d'activité : peut inviter dans toute l'activité
     ownerName: owner ? owner.name : null,
     membersCount: membershipCount(a.id),
     canManage: (() => { const P = require('../lib/portee'); if (!P.estPartagee(a.id)) return true; const m = P.managed(userId, a.id); return m.all || m.roots.length > 0; })(), // responsable (propriétaire inclus) ou activité à un seul membre ; un simple membre : false

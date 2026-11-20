@@ -66,6 +66,16 @@ const P = {
   rangement_consentement: { cols: ['userId'], erase: 'explicit', exp: 'NON: preuve du consentement à l\'amélioration anonyme du modèle (effacée avec le compte)' },
   paliers_delais: { cols: ['userId'], erase: 'explicit', exp: 'NON: délais réels entre paliers pour personnaliser les durées (remise à zéro par l\'API, effacé avec le compte)' },
   member_scopes: { cols: ['userId'], erase: 'explicit', exp: 'NON: pôle ou secteur auquel appartient un membre (effacée avec le compte)' },
+  category_managers: { cols: ['userId'], erase: 'explicit', exp: 'NON: responsables d\'une catégorie (effacée avec le compte)' },
+  hour_allocations: { cols: ['userId'], erase: 'explicit', exp: 'NON: heures allouées par la personne à ses activités (effacées avec le compte)' },
+  objectif_ajuste_refus: { cols: ['userId'], erase: 'explicit', exp: 'NON: refus mémorisé d\'un ajustement d\'objectif' },
+  objectif_ajuste_info: { cols: ['userId'], erase: 'explicit', exp: 'NON: information d\'ajustement d\'objectif' },
+  objectif_ecart_refus: { cols: ['userId'], erase: 'explicit', exp: 'NON: refus mémorisé d\'une alerte d\'écart' },
+  objectif_famille_inconnue: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique de l\'estimation' },
+  objectif_temps_reel: { cols: ['userId'], erase: 'explicit', exp: 'NON: temps réel vs prévu (apprentissage technique de l\'estimation)' },
+  retard_rangees: { cols: ['userId'], erase: 'explicit', exp: 'NON: marqueur technique du rangement des tâches en retard' },
+  task_day_plan: { cols: ['userId'], erase: 'explicit', exp: 'NON: jour planifié d\'une tâche (technique)' },
+  task_share_pct: { cols: ['userId'], erase: 'cascade', exp: 'NON: ancien bloc « Part des tâches » (migré vers les parts par catégorie)' },
   activity_managers: { cols: ['userId'], erase: 'explicit', exp: 'NON: liste des responsables d\'une activité (effacée avec le compte)' },
   member_time_changes: { cols: ['memberId'], erase: 'cascade', exp: 'NON: historique des temps prévus d\'un membre (effacé avec le compte)' },
   goal_overload_dismissals: { cols: ['userId'], erase: 'explicit', exp: 'NON: alerte de surcharge écartée' },
@@ -114,7 +124,7 @@ for (const t of ['horaire_employees', 'horaire_positions', 'horaire_qualificatio
 for (const t of ['horaire_availabilities', 'horaire_rotation', 'horaire_schedules', 'horaire_assignments', 'horaire_covers', 'horaire_timeoff']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'NON: horaire éphémère, table toujours vide (mémoire seule, jamais stockée)' };
 P.horaire_refused_threads = { cols: ['userId'], erase: 'cascade', exp: 'NON: empreinte SHA-256 d\'un fil de courriel refusé (90 jours), aucun contenu lisible' };
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
-const NON_PERSONAL = new Set(['task_share_minutes', 'activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
+const NON_PERSONAL = new Set(['task_share_pct_migre', 'hour_allocations_migration', 'task_share_minutes','activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',
   'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations', 'objectifs_signaux', 'ai_free_cost', 'rangement_motifs', 'paliers_delais_globaux', 'rangement_exemples_connecteur']);
 

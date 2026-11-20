@@ -121,6 +121,7 @@
       var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = true; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr(r.label));
       var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
       inp.addEventListener('change', function () {
+        if (nb.mayRemove && !nb.mayRemove(tab)) { setMsg(tr('Garde au moins un volet.')); paint(); return; } // au moins un des volets Chrono, Tâches, Objectifs (ou Horaire) reste dans la barre
         if (r.ids) { var patch = {}; r.ids.forEach(function (id) { patch[id] = false; }); put(patch); }
         else { nb.remove(tab); paint(); }
       });

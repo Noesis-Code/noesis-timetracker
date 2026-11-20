@@ -22,8 +22,17 @@ function requireMembership(userId, activityId) {
   return { activity };
 }
 
+// Structure (créer, renommer, retirer, déplacer, réordonner) : réservée aux RESPONSABLES (décision d'Émilien, 20 nov. 2026).
+// Sans clé : créer ou réordonner les pôles = propriétaire / responsable d'activité. Avec clés : responsable d'AU MOINS UNE d'elles (ou d'un niveau au-dessus) ; `tous` = il faut gérer chacune.
+function exigerResponsable(userId, activityId, keys, tous) {
+  const m = require('../lib/portee').managed(userId, activityId);
+  const liste = (keys || []).filter((k) => k != null && k !== '');
+  const ok = m.all || (liste.length > 0 && (tous ? liste.every((k) => m.has(k)) : liste.some((k) => m.has(k))));
+  if (!ok) throw Object.assign(new Error('Seuls les responsables peuvent modifier les pôles et secteurs.'), { statusCode: 403, errCode: 'CATEGORIE_RESERVEE_RESPONSABLES' });
+}
+
 function handleGoalsError(res, err) {
-  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message });
+  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : err.errCode ? { error: err.message, code: err.errCode } : { error: err.message });
   console.error('[goals]', err);
   return res.status(500).json({ error: 'Erreur serveur' });
 }
@@ -105,6 +114,7 @@ router.post('/activities/:id/goals/categories', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    exigerResponsable(userId, activityId, []);
     const categories = goals.addCategory(activityId, req.body.label, undefined, req.body.atTop === true);
     res.json({ ok: true, categories });
   } catch (err) {
@@ -124,6 +134,7 @@ router.put('/activities/:id/goals/categories/:key', (req, res) => {
     // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
     // description optionnelle transmise telle quelle — undefined si absente
     // du corps, voir le commentaire de renameCategory (server/lib/goals.js).
+    exigerResponsable(userId, activityId, [req.params.key]);
     const categories = goals.renameCategory(activityId, req.params.key, req.body.label, req.body.description);
     res.json({ ok: true, categories });
   } catch (err) {
@@ -139,6 +150,7 @@ router.get('/activities/:id/goals/categories/:key/removal-preview', (req, res) =
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
+    exigerResponsable(userId, activityId, [req.params.key]);
     res.json(goals.previewCategoryRemoval(activityId, req.params.key));
   } catch (err) {
     handleGoalsError(res, err);
@@ -154,6 +166,7 @@ router.delete('/activities/:id/goals/categories/:key', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    exigerResponsable(userId, activityId, [req.params.key]);
     const categories = goals.removeCategory(activityId, req.params.key, { tasks: (req.body && req.body.tasks) || req.query.tasks });
     res.json({ ok: true, categories });
   } catch (err) {
@@ -171,6 +184,7 @@ router.put('/activities/:id/goals/categories-reorder', (req, res) => {
 
   const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
   try {
+    exigerResponsable(userId, activityId, []);
     const categories = goals.reorderCategories(activityId, keys);
     res.json({ ok: true, categories });
   } catch (err) {
@@ -223,6 +237,7 @@ router.post('/activities/:id/goals/categories/:key/secteurs', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
+    exigerResponsable(userId, activityId, [req.params.key]);
     const secteurs = goals.addCategory(activityId, req.body.label, req.params.key);
     res.json({ ok: true, secteurs });
   } catch (err) {
@@ -240,6 +255,7 @@ router.put('/activities/:id/goals/categories/:key/secteurs-reorder', (req, res) 
 
   const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
   try {
+    exigerResponsable(userId, activityId, [req.params.key]);
     const secteurs = goals.reorderSecteurs(activityId, req.params.key, keys);
     res.json({ ok: true, secteurs });
   } catch (err) {
@@ -263,6 +279,7 @@ router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey/move', (r
 
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    exigerResponsable(userId, activityId, [req.params.key, req.body.targetPoleKey], true);
     const categories = goals.moveSecteurToPole(
       activityId, req.params.key, req.params.secteurKey,
       req.body.targetPoleKey, req.body.targetIndex,
@@ -285,6 +302,7 @@ router.put('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req, r
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
     // 25 septembre 2026 (Brief 2 « Coordination inter-secteurs de l'IA ») :
     // même ajout que la route pôle ci-dessus.
+    exigerResponsable(userId, activityId, [req.params.key, req.params.secteurKey]);
     const secteurs = goals.renameCategory(activityId, req.params.secteurKey, req.body.label, req.body.description);
     res.json({ ok: true, secteurs });
   } catch (err) {
@@ -303,6 +321,7 @@ router.get('/activities/:id/goals/categories/:key/secteurs/:secteurKey/redistrib
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    exigerResponsable(userId, activityId, [req.params.key, req.params.secteurKey]);
     const info = goals.secteurRemovalInfo(activityId, req.params.secteurKey);
     const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
     const mode = (modeRow && modeRow.aiMode) || 'absence';
@@ -333,6 +352,7 @@ router.delete('/activities/:id/goals/categories/:key/secteurs/:secteurKey', (req
 
   try {
     assertSecteurBelongsToPole(activityId, req.params.key, req.params.secteurKey);
+    exigerResponsable(userId, activityId, [req.params.key, req.params.secteurKey]);
     const secteurs = goals.removeCategory(activityId, req.params.secteurKey, { tasks: (req.body && req.body.tasks) || req.query.tasks, assignments: req.body && req.body.assignments, mode: req.body && req.body.mode, target: req.body && req.body.target });
     res.json({ ok: true, secteurs });
   } catch (err) {

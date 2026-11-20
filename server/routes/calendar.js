@@ -166,7 +166,8 @@ router.post('/calendar/external', (req, res) => {
   let host = '';
   try { host = new URL(icsUrl.replace(/^webcal:/i, 'https:')).hostname; } catch (e) { /* URL invalide */ }
   // Le serveur ira chercher cette adresse : https seulement, jamais une adresse locale/privée.
-  if (!/^(https?|webcal):\/\//i.test(icsUrl) || !host || host === 'localhost' || !host.includes('.')
+  if (/^http:\/\//i.test(icsUrl)) return res.status(400).json({ error: 'Seules les adresses https sont acceptées.' });
+  if (!/^(https|webcal):\/\//i.test(icsUrl) || !host || host === 'localhost' || !host.includes('.')
     || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[)/.test(host)) {
     return res.status(400).json({ error: 'URL invalide.' });
   }

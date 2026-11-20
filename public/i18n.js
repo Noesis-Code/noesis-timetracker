@@ -796,6 +796,10 @@
     'Dernière confirmation : tout ton historique et tes notes seront perdus. Continuer ?': 'Last confirmation: all your history and notes will be lost. Continue?',
     'Compte supprimé.': 'Account deleted.',
     'Saisis ton code pour confirmer la suppression.': 'Enter your PIN to confirm the deletion.',
+    'Saisis ton mot de passe pour confirmer la suppression.': 'Enter your password to confirm the deletion.',
+    'Garde au moins un volet.': 'Keep at least one tab.',
+    'Seuls les responsables peuvent modifier les pôles et secteurs.': 'Only managers can change sectors and sub-sectors.',
+    'Seules les adresses https sont acceptées.': 'Only https addresses are accepted.',
     // Étiquette d'auteur affichée à la place d'un nom absent (9 septembre
     // 2026, sur-effacement corrigé) : un message de sous-projet ou un
     // sondage 'profile' dont l'auteur a supprimé son compte. Distincte de
