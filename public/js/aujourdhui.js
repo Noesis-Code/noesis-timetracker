@@ -321,15 +321,15 @@
   function archiveOpen() { var p = document.getElementById('goalsTodayArchivePanel'); return !!p && !p.classList.contains('hidden'); }
   function loadArchive() {
     TMT.api('GET', '/api/goals/archive').then(function (d) {
-      var box = ui.archList, tasks = (d && d.tasks) || [];
+      var box = ui.archList, today = localIso(), tasks = ((d && d.tasks) || []).filter(function (x) { var dd = new Date(x.doneAt); return !isNaN(dd) && isoOf(dd) === today; }); // l'archive, c'est le jour : seulement les tâches cochées aujourd'hui
       box.textContent = '';
       if (rowBuilder) tasks.forEach(function (task) { rowBuilder(task, box); }); // même ligne que dans la liste du jour (cocher/décocher : la tâche repart dans la liste)
       ui.archEmpty.classList.toggle('hidden', tasks.length > 0);
     }).catch(function (e) { if (window.console) console.error('Archive : ' + ((e && e.message) || e)); });
   }
   function buildArchive() {
-    var sec = el('div'); sec.id = 'goalsTodayArchiveSection';
-    var head = el('div', 'sectionTitleRow historyHeaderClickable'); head.id = 'goalsTodayArchiveHeader'; head.appendChild(el('p', 'sectionTitle', tr('Archive')));
+    var sec = el('div'); sec.id = 'goalsTodayArchiveSection'; sec.classList.add('hidden'); ui.archSec = sec; // visible seulement quand une tâche est cochée (jamais sur un jour passé)
+    var head = el('div', 'sectionTitleRow historyHeaderClickable'); head.id = 'goalsTodayArchiveHeader'; ui.archTitle = el('p', 'sectionTitle', tr('Faites aujourd’hui')); head.appendChild(ui.archTitle);
     var panel = el('div', 'hidden'); panel.id = 'goalsTodayArchivePanel';
     ui.archList = el('div'); ui.archEmpty = el('p', 'hint hidden', tr('Aucune tâche terminée ces 7 derniers jours.'));
     panel.appendChild(ui.archList); panel.appendChild(ui.archEmpty);
@@ -955,17 +955,19 @@
     lastData = d;
     if (filterBox && !TMT.ui.menuOpenIn(filterBox)) paintFilter();
     d = Object.assign({}, d, { tasks: (d.tasks || []).filter(filtMatch) });
-    var kind = dayKind();
+    var kind = dayKind(), d0 = d;
     root.classList.toggle('dayPast', kind === 'past'); root.classList.toggle('dayFuture', kind === 'future');
     if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
     var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id) && (viewDay !== 'all' || t.dueNow !== false); }).length; // vue « toutes » : le compteur reste celui d'AUJOURD'HUI (à faire aujourd'hui, en retard ou sans date), identique à la vue du jour
-    counter.textContent = kind === 'past' ? String(nDone) : nDone + ' / ' + (nDone + nTodo); // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
+    var planned = (d0.tasks || []).filter(function (t) { return !t.done || t.dueDate === dayIso(); }).length; // jour passé : prévues ce jour-là (faites ou non)
+    counter.textContent = kind === 'past' ? (nDone + planned ? nDone + ' ' + tr('sur') + ' ' + planned : '') : (nDone + nTodo ? nDone + ' / ' + (nDone + nTodo) : ''); // rien d'affiché quand il n'y a aucune tâche // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
     if (dayPopCount) dayPopCount.textContent = counter.textContent; // le compteur vit dans l'en-tête du pop-up du jour
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
     var inDay = viewDay !== 'all'; // jour touché : la liste montre aussi les tâches FAITES du jour (le compteur « faites / total » les compte) ; vue « toutes » : les faites sont dans Archive
-    if (!d.tasks.some(function (t) { return inDay || !t.done; })) listBox.appendChild(el('p', 'tasksPopEmpty', tr(viewDay === 'all' ? 'Aucune tâche.' : kind === 'today' ? 'Rien pour aujourd’hui.' : 'Aucune tâche ce jour-là.')));
+    if (ui.archSec) { var showArc = kind !== 'past' && nDone > 0; ui.archSec.classList.toggle('hidden', !showArc); if (showArc) ui.archTitle.textContent = tr('Faites aujourd’hui') + ' · ' + nDone; else { var ap0 = document.getElementById('goalsTodayArchivePanel'); if (ap0) ap0.classList.add('hidden'); } } // l'archive n'existe que s'il y a une tâche cochée
+    if (!d.tasks.some(function (t) { return inDay || !t.done; })) { var em = el('div', 'tasksPopEmpty'); em.appendChild(svg('M19.91 10.88A8.5 8.5 0 1 1 16.34 6.69M7.5 12.8l3.5 3.4 9.6-9.9', 2)); em.appendChild(el('b', null, tr(kind === 'past' ? 'Aucune tâche ce jour-là' : 'Journée libre'))); if (kind !== 'past') em.appendChild(el('small', null, tr('Touche + pour ajouter une tâche'))); listBox.appendChild(em); } // journée vide : icône, une ligne, une invitation
     function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
