@@ -47,6 +47,7 @@ function partDe(activityId, poleKey, catKey, userId, objectifUserId) {
   return couvre.includes(userId) ? 1 / couvre.length : 0;
 }
 
+// 0 = la Répartition donne explicitement 0 % à la personne (aucune tâche planifiable, PAS de repli) ; null = pas d'heure d'objectif ou aucune part posée (repli).
 // Minutes par semaine de la personne sur ce pôle (somme sur les objectifs en cours de sa part ; un pôle = le plus grand des deux niveaux, pour ne pas compter deux fois les heures d'un secteur déjà dans celles de son pôle), ou null sans heures.
 function weeklyShareMinutes(activityId, poleKey, userId, day) {
   try {
@@ -54,14 +55,15 @@ function weeklyShareMinutes(activityId, poleKey, userId, day) {
     const shared = db.prepare('SELECT COUNT(*) AS n FROM activity_members WHERE activityId = ?').get(Number(activityId)).n >= 2;
     let rows = objectifsEnCours(activityId, poleKey, d);
     if (!shared) rows = rows.filter((o) => o.userId === userId); // activité personnelle : ses objectifs seulement
-    let pole = 0, sect = 0, act = 0;
-    (shared ? objectifsActivite(activityId, d) : objectifsActivite(activityId, d).filter((o) => o.userId === userId)).forEach((o) => { act += o.minutes * partDe(Number(activityId), poleKey, null, userId, o.userId); });
+    let pole = 0, sect = 0, act = 0, zero = false;
+    const note = (part, cat) => { if (part === 0 && shared && require('./repartition-membres').partsEnVigueur(Number(activityId), cat, poleKey)) zero = true; return part; }; // part explicitement à 0 % dans la Répartition (≠ aucune part posée)
+    (shared ? objectifsActivite(activityId, d) : objectifsActivite(activityId, d).filter((o) => o.userId === userId)).forEach((o) => { act += o.minutes * note(partDe(Number(activityId), poleKey, null, userId, o.userId), null); });
     rows.forEach((o) => {
-      const part = partDe(Number(activityId), poleKey, o.level === 'secteur' ? o.categoryKey : null, userId, o.userId);
+      const cat = o.level === 'secteur' ? o.categoryKey : null, part = note(partDe(Number(activityId), poleKey, cat, userId, o.userId), cat);
       if (o.level === 'secteur') sect += o.minutes * part; else pole += o.minutes * part;
     });
     const total = Math.round(Math.max(pole, sect) + act);
-    return total > 0 ? total : null;
+    return total > 0 ? total : (zero ? 0 : null); // 0 = part explicitement à 0 % : aucune tâche planifiable, pas de repli ; null = aucune heure / aucune part : repli
   } catch (e) { return null; } // jamais d'échec du planning pour une lecture d'heures : repli sur l'ancienne chaîne
 }
 

@@ -164,10 +164,12 @@ function committedMinutesByDay(userId, days, excludeId) {
 // capacityMinutesForMember (ajustement manuel prioritaire, sinon calcul auto —
 // mécanisme inchangé) ; plancher 60 min/jour comme goalsoverload.budgetFor.
 function activityWeeklyCapacityMinutes(userId, activityId) {
-  let total = 0;
+  let total = 0, nb = 0, zeros = 0;
   goals.categoriesForActivity(activityId).forEach((pole) => {
-    total += goalsauto.capacityMinutesForMember(activityId, pole.key, userId);
+    const c = goalsauto.capacityMinutesForMember(activityId, pole.key, userId);
+    nb += 1; if (c === 0) zeros += 1; total += c;
   });
+  if (nb > 0 && zeros === nb) return 0; // part explicitement à 0 % : aucune tâche planifiable (pas de plancher)
   return Math.max(60 * 7, Math.round(total));
 }
 

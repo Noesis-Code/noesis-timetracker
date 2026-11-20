@@ -115,11 +115,15 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
 
 // poleKey (optionnel) : capacité de CE pôle seulement (le temps se calcule par pôle).
 function budgetFor(activityId, userId, poleKey) {
-  let total = 0;
+  let total = 0, nb = 0, zeros = 0;
   goals.categoriesForActivity(activityId).forEach((pole) => {
     if (poleKey && pole.key !== poleKey) return;
-    total += goalsauto.capacityMinutesForMember(activityId, pole.key, userId) / 7;
+    const c = goalsauto.capacityMinutesForMember(activityId, pole.key, userId);
+    nb += 1; if (c === 0) zeros += 1;
+    total += c / 7;
   });
+  const zeroExplicite = nb > 0 && zeros === nb;
+  if (zeroExplicite) return 0; // part explicitement à 0 % dans la Répartition : aucune tâche planifiable (pas de plancher)
   // Plancher 60 min : sans historique chronométré la capacité calculée est quasi nulle (fausses alertes).
   return Math.max(MIN_BUDGET_MINUTES, Math.round(total));
 }

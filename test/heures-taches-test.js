@@ -42,8 +42,10 @@ RM.poser(duo, '_', { toi: 70, gas: 30 });
 assert(goalsauto.capacityMinutesForMember(duo, D, 'toi') === 420 && goalsauto.capacityMinutesForMember(duo, D, 'gas') === 180, 'répartition posée 70/30 : 7 h et 3 h');
 RM.poser(duo, D, { toi: 100, gas: 0 });
 assert(goalsauto.capacityMinutesForMember(duo, D, 'toi') === 600, 'part de pôle (héritage vers le haut du plus précis) : toute la part');
-// ---- membre sans part : repli, jamais 0 ----
-assert(cap.weeklyShareMinutes(duo, D, 'gas') === null && goalsauto.capacityMinutesForMember(duo, D, 'gas') >= 1, 'membre à 0 % : pas de part, repli sur l\'ancienne chaîne');
+// ---- part EXPLICITEMENT à 0 % : aucune tâche planifiable, pas de repli ; aucune part posée = repli ----
+assert(cap.weeklyShareMinutes(duo, D, 'gas') === 0 && goalsauto.capacityMinutesForMember(duo, D, 'gas') === 0, 'membre à 0 % dans la Répartition : capacité nulle (pas de 30 h)');
+assert(overload.budgetFor(duo, 'gas', D) === 0 && overload.referenceFor(duo, 'gas', D) === 0, 'budget du jour nul pour un membre à 0 %');
+assert(cap.weeklyShareMinutes(duo, D, 'zoe') === null, 'personne hors de l'activité (aucune part) : repli, pas zéro');
 // ---- le total d'une catégorie est divisé entre ses membres (ajustement du temps) ----
 RM.poser(duo, D, { toi: 60, gas: 40 });
 const l = RM.lire(duo, D);
