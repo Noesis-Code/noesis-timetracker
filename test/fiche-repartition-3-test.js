@@ -41,7 +41,17 @@ assert(w.u1 === 20 && w.u2 === 80, 'répartition posée : le Bilan la lit (affic
 const app = read('public/app.js'), cr = read('public/js/objectifs-creer.js'), css = read('public/css/objectifs-creer.css');
 const a = app.indexOf('function buildRepartitionBlock('), rep = app.slice(a, app.indexOf('TMT.buildStrategieBlock = ', a));
 assert(!/Part des tâches \(%\)/.test(cr) && !/\/api\/bilan\/proportion/.test(cr), 'fiche : plus de « Part des tâches (%) » (interface et appel)');
-assert(/objTimeRow/.test(rep) && /t\('Total'\)/.test(rep) && /TMT\.ui\.chev/.test(rep) && /repPct/.test(rep) && /hours: h/.test(rep), 'Répartition : tableau nom | heures | pourcentage calculé, ligne Total, menu déroulant standard');
+assert(/t\('Total'\)/.test(rep) && /TMT\.ui\.chev/.test(rep) && /repPct/.test(rep) && /hours: h/.test(rep), 'Répartition : ligne Total, pourcentage calculé, menu déroulant standard');
+// Tableau standard : les MÊMES classes que « Ajuste ton temps » (composant partagé de composants.css, R29), sans cases encadrées ni ancien .objTimeRow
+const comp = read('public/css/composants.css'), retardCss = read('public/css/objectifs-retard.css'), retardJs = read('public/js/objectifs-retard.js');
+assert(/'retTable retTable--3'/.test(rep) && /'retTRow'/.test(rep) && /retTotal/.test(rep) && /cell\('span'/.test(rep) && /'retVal'/.test(rep) && !/objTimeRow|objHoursVal/.test(rep), 'Répartition : tableau .retTable / .retTRow / .retVal (trois colonnes nom | heures | pourcentage), Total en pied');
+assert(/'retTable'/.test(retardJs) && /'retTRow'/.test(retardJs), '« Ajuste ton temps » utilise les mêmes classes');
+assert(/\.retTable \{/.test(comp) && /\.retTRow \{/.test(comp) && !/\.retTable \{|\.retTRow \{/.test(retardCss), 'le tableau standard est défini UNE fois, dans composants.css (plus dans objectifs-retard.css)');
+assert(/retInput/.test(rep) && /retInput \{[^}]*border: 0/.test(comp), 'heures : champ discret dans la cellule (sans bordure ni fond), pas de case encadrée');
+assert(/\.catStrategieBody \.msg:empty/.test(css) && /objPanelFoot:has\(> \.objMsg:empty\)/.test(css) && /\.catStrategieBody \{ padding-bottom: 0; \}/.test(css), 'espace du bas = celui du haut (12 px du panneau) : message vide, pied vide et padding-bas retirés');
+// Comportement du pourcentage (même algorithme que pcts() de app.js : heures / total, somme 100, plus grand reste) : 30 / 20 / 10 h -> 50 / 33 / 17 %
+(function () { const hrs = { a: 30, b: 20, c: 10 }, T = 60, base = {}, rest = []; Object.keys(hrs).forEach((u) => { const v = hrs[u] * 100 / T; base[u] = Math.floor(v); rest.push([u, v - base[u]]); }); let miss = 100 - Object.values(base).reduce((x, y) => x + y, 0); rest.sort((x, y) => y[1] - x[1]).forEach((r) => { if (miss > 0) { base[r[0]]++; miss--; } }); assert(base.a === 50 && base.b === 33 && base.c === 17 && base.a + base.b + base.c === 100, 'pourcentages dérivés des heures : 50 / 33 / 17 = 100'); })();
+assert(/function pcts\(\)[\s\S]*hrs\(u\) \* 100 \/ T/.test(rep) && /i\.addEventListener\('input'[\s\S]*refresh\(\)/.test(rep), 'le pourcentage est recalculé à chaque frappe');
 const ficheSrc = cr.slice(cr.indexOf('function openFiche('), cr.indexOf('function proposeReorg('));
 assert(!/Temps prévu/.test(ficheSrc) && !/member-times/.test(ficheSrc), 'fiche : plus de bloc « Temps prévu » (absorbé par la Répartition)');
 assert(!/suggestion/.test(rep), 'plus de proposition de changer le niveau du dessus');

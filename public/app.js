@@ -7473,21 +7473,26 @@
     function paint() {
       body.textContent = '';
       if (!data.own && data.effective) { var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = t('Hérité'); body.appendChild(hint); }
+      // Tableau standard (composant partagé .retTable de css/composants.css, le même que « Ajuste ton temps ») : membre | heures par semaine (on touche la valeur : le champ est discret, dans la cellule) | pourcentage calculé (lecture seule) ; Total en pied.
       var tH = document.createElement('b'), tP = document.createElement('b'), pc = {};
       function refresh() { var p = pcts(), s = 0, any = false; data.membres.forEach(function (m) { var n = pc[m.userId]; if (n) n.textContent = p[m.userId] == null ? '' : p[m.userId] + ' %'; if (p[m.userId] != null) { s += p[m.userId]; any = true; } }); var T = totalH(); tH.textContent = T > 0 ? (Math.round(T * 10) / 10) + ' h' : ''; tP.textContent = any ? s + ' %' : ''; }
+      function cell(tag, quiet, end, last) { var c = document.createElement(tag); c.className = 'retVal' + (end ? ' retVal--end' : '') + (quiet ? ' retValQuiet' : ''); return c; }
+      var tb = document.createElement('div'); tb.className = 'retTable retTable--3';
+      var hd = document.createElement('div'); hd.className = 'retTRow';
+      [[t('Membre'), false], [t('h / sem.'), true], ['%', true]].forEach(function (x) { var c = cell('span', true, x[1]); c.textContent = x[0]; hd.appendChild(c); }); tb.appendChild(hd);
       data.membres.forEach(function (m) {
-        var r = document.createElement('div'); r.className = 'objTimeRow';
-        var v = document.createElement('span'); v.className = 'objHoursVal';
-        var i = document.createElement('input'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 5; i.autocomplete = 'off'; i.value = edit[m.userId]; i.disabled = !data.canEdit; i.setAttribute('aria-label', m.name + ' (h)'); i.setAttribute('data-u', m.userId);
+        var r = document.createElement('div'); r.className = 'retTRow';
+        var nm = cell('span', false, false); nm.textContent = m.name;
+        var v = cell('label', false, true);
+        var i = document.createElement('input'); i.type = 'text'; i.className = 'retInput'; i.inputMode = 'decimal'; i.maxLength = 5; i.autocomplete = 'off'; i.value = edit[m.userId]; i.placeholder = '0'; i.disabled = !data.canEdit; i.setAttribute('aria-label', m.name + ' (h)'); i.setAttribute('data-u', m.userId);
         i.addEventListener('input', function () { edit[m.userId] = i.value; refresh(); if (onChange) onChange(); });
-        var hu = document.createElement('span'); hu.textContent = 'h'; v.appendChild(i); v.appendChild(hu);
-        var nm = document.createElement('span'); nm.textContent = m.name;
-        var pp = document.createElement('span'); pp.className = 'repPct'; pc[m.userId] = pp;
-        r.appendChild(nm); r.appendChild(v); r.appendChild(pp); body.appendChild(r);
+        var hu = document.createElement('span'); hu.textContent = ' h'; v.appendChild(i); v.appendChild(hu);
+        var pp = cell('span', false, true); pp.classList.add('repPct'); pc[m.userId] = pp;
+        r.appendChild(nm); r.appendChild(v); r.appendChild(pp); tb.appendChild(r);
       });
-      var tr0 = document.createElement('div'); tr0.className = 'objTimeRow'; var tl = document.createElement('b'); tl.textContent = t('Total');
-      var tv = document.createElement('span'); tv.className = 'objHoursVal'; tv.appendChild(tH); var tpw = document.createElement('span'); tpw.className = 'repPct'; tpw.appendChild(tP);
-      tr0.appendChild(tl); tr0.appendChild(tv); tr0.appendChild(tpw); body.appendChild(tr0); refresh();
+      var tr0 = document.createElement('div'); tr0.className = 'retTRow retTotal'; var tl = cell('b', false, false); tl.textContent = t('Total');
+      var tv = cell('span', false, true); tv.appendChild(tH); var tpw = cell('span', false, true); tpw.classList.add('repPct'); tpw.appendChild(tP);
+      tr0.appendChild(tl); tr0.appendChild(tv); tr0.appendChild(tpw); tb.appendChild(tr0); body.appendChild(tb); refresh();
       var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
       if (data.canEdit && data.own) { var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'activityEditRow'; rs.textContent = t('Reprendre celle du dessus'); rs.addEventListener('click', function () { save({ shares: null }); }); body.appendChild(rs); }
       if (prop && prop.lignes && prop.lignes.length) {

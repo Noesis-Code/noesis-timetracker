@@ -520,6 +520,7 @@
     'Aucun utilisateur bloqué.': 'No blocked users.',
     'Refuser': 'Decline',
     'Membre': 'Member',
+    'h / sem.': 'h / wk',
     'Abonnement': 'Following',
 
     // ---- Abonnés & Abonnements (Réglages, 30 août 2026) ----

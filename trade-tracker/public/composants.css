@@ -311,10 +311,12 @@
 :root:root:root :is(#settingsParamsCard .notifRow, #settingsParamsCard .consentItem, #activitiesList .activityEditBar, .catList .activityEditBar):last-child { border-bottom: 0; }
 
 /* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
+.tasksFilterBtn[aria-expanded="true"]::after, .statsPeriodMenuWrap:has(> .statsPeriodMenu:not(.hidden)) > .caSubProjectBtn::after { content: '\25B4'; } /* bouton « Tous ▾ » des filtres d'activité (Bilan, Tâches, statistiques) : la flèche change de sens à l'ouverture */
 .calWeekRow { position: relative; margin-left: 14px; }
 .calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
 .calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px; border: 0; background: var(--bg, #0B0A0A); color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
 .calWeekNum > i { font-style: normal; color: var(--purple); } /* numéro de période sous le S, dans la même pastille sur le trait */ /* numéro de la semaine centré sur le trait gauche du cadre */
+.calWeekRow .goalsCalWeekTitle { text-align: center; padding: 0 22px; } /* titre de l'objectif hebdomadaire : centré, à l'écart du numéro S/P (gauche) et de la pastille (droite), jamais collé aux côtés */
 .goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 14px; }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
@@ -349,3 +351,17 @@
 .cmpDockSave .tasksSaveBtn { display: flex; height: 52px; }
 .cmpDockHost:has(> .cmpDockSave:not(.hidden)) > :not(.cmpDockSave):not(.cmpDockSlot) { margin-bottom: 84px; } /* le contenu de la fenêtre s'arrête au-dessus du bouton */
 :root.dockSaveOn .tabbar { visibility: hidden; } /* le bouton REMPLACE la barre des volets ; elle revient à la fermeture */
+
+/* Tableau standard (R29) : libellé | valeur(s), trait vertical et traits fins ; un seul composant, utilisé par « Ajuste ton temps » et par la Répartition des tâches de la fiche d'une catégorie. .retTable--3 = trois colonnes (nom | heures | pourcentage) ; .retVal--end aligne à droite ; .retInput = champ discret dans la cellule (on touche la valeur pour la modifier, aucune case encadrée). */
+.retTable { margin: 0 -16px; border-top: 1px solid var(--sep); }
+.retTRow { display: grid; grid-template-columns: 1fr 1fr; min-height: 44px; border-bottom: 1px solid var(--sep); }
+.retLabel, .retVal { display: flex; align-items: center; padding: 8px 16px; font-size: 14px; color: var(--text); }
+.retLabel { border-right: 1px solid var(--sep); }
+.retValQuiet { color: var(--text-light); }
+.retTable--3 .retTRow { grid-template-columns: minmax(0, 1fr) 88px 72px; }
+.retTable--3 .retVal:not(:last-child) { border-right: 1px solid var(--sep); }
+.retVal--end { justify-content: flex-end; }
+label.retVal { cursor: text; }
+.retVal:focus-within { background: rgba(var(--purple-rgb), .08); }
+:root .retTable .retInput { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; text-align: right; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.retTotal .retVal { font-weight: 600; }

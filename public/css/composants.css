@@ -351,3 +351,17 @@
 .cmpDockSave .tasksSaveBtn { display: flex; height: 52px; }
 .cmpDockHost:has(> .cmpDockSave:not(.hidden)) > :not(.cmpDockSave):not(.cmpDockSlot) { margin-bottom: 84px; } /* le contenu de la fenêtre s'arrête au-dessus du bouton */
 :root.dockSaveOn .tabbar { visibility: hidden; } /* le bouton REMPLACE la barre des volets ; elle revient à la fermeture */
+
+/* Tableau standard (R29) : libellé | valeur(s), trait vertical et traits fins ; un seul composant, utilisé par « Ajuste ton temps » et par la Répartition des tâches de la fiche d'une catégorie. .retTable--3 = trois colonnes (nom | heures | pourcentage) ; .retVal--end aligne à droite ; .retInput = champ discret dans la cellule (on touche la valeur pour la modifier, aucune case encadrée). */
+.retTable { margin: 0 -16px; border-top: 1px solid var(--sep); }
+.retTRow { display: grid; grid-template-columns: 1fr 1fr; min-height: 44px; border-bottom: 1px solid var(--sep); }
+.retLabel, .retVal { display: flex; align-items: center; padding: 8px 16px; font-size: 14px; color: var(--text); }
+.retLabel { border-right: 1px solid var(--sep); }
+.retValQuiet { color: var(--text-light); }
+.retTable--3 .retTRow { grid-template-columns: minmax(0, 1fr) 88px 72px; }
+.retTable--3 .retVal:not(:last-child) { border-right: 1px solid var(--sep); }
+.retVal--end { justify-content: flex-end; }
+label.retVal { cursor: text; }
+.retVal:focus-within { background: rgba(var(--purple-rgb), .08); }
+:root .retTable .retInput { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; text-align: right; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.retTotal .retVal { font-weight: 600; }
