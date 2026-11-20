@@ -281,7 +281,7 @@ function appliquer(userId, ev) {
   if (ev.decision === 'B') enregistrerRetard(userId, ev, 'B', toutes);
   else if (ev.decision === 'A' || toutes.length) enregistrerRetard(userId, ev, 'A', toutes); // des tâches restent retirées : l'état reste (sans nouveau message s'il a été refusé)
   else effacerRetard(userId, ev);
-  // Les tâches sorties de leur objectif (retirées de la suivante, ou sans place avant l'échéance) relancent la recherche d'objectif (période suivante au plus), en proposition à valider : taches-choix, retard-rangement.js
+  // Les tâches sorties de leur objectif (retirées de la suivante, ou sans place avant l'échéance) relancent la recherche d'objectif (période suivante au plus), SILENCIEUSEMENT : taches-choix, retard-rangement.js
   if (toutes.length) { try { require('./retard-rangement').proposer(userId, ev, toutes.map((t) => t.id)).catch(() => {}); } catch (e) { /* non bloquant */ } }
   return placements.length + retirees.length;
 }

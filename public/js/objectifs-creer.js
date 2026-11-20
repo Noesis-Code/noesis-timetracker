@@ -842,6 +842,14 @@
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       stepBtn.disabled = true; msg.textContent = '';
       var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); };
+      // Sans réseau (20 nov. 2026) : l'objectif entre dans la file hors ligne (même voie que les tâches, une clé d'idempotence) ; le panneau se ferme comme après une création, l'objectif s'affiche en attente dans l'arbre, et le serveur applique ses règles au retour du réseau (refus = visible avec son message).
+      function queueOffline() {
+        if (!TMT.offlineObjectifs) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
+        return Promise.resolve(t.id).then(function (aid) {
+          var body = { term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, description: form.description, resume: String(form.resume || '').trim() || undefined, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, dateFixe: form.dateFixe === true, title: form.title, activityId: aid, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', parentId: form.parentId };
+          return TMT.offlineObjectifs.add(aid, form.title, body);
+        }).then(function () { endFlow(); });
+      }
       function go(replaceId) { return tpApply().then(function () { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', cadence: cadenceNow(), inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName }); })
         .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
           return Promise.resolve(t.id)
@@ -853,12 +861,12 @@
         .then(function () { return infApply(first); })
         .then(function () { return rdApply(); })
         .then(function () { var created = first; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
-        .catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+        .catch(function (err) { if (err && err.offline && !first) return queueOffline().catch(function (e2) { stepBtn.disabled = false; msg.textContent = (e2 && e2.message) || tr('Impossible pour le moment.'); }); stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
       }
       // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
       fin(api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, cadence: cadenceNow(), inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; })
         .then(function (occ) {
-          if (!occ) return go(null);
+          if (!occ) return navigator.onLine === false ? queueOffline().catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); }) : go(null);
           return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.'), { choices: [{ value: true, label: tr('Remplacer'), danger: true }, { value: false, label: tr('Annuler') }] })
             .then(function (yes) { if (!yes) { stepBtn.disabled = false; return null; } return go(occ.id); });
         }));

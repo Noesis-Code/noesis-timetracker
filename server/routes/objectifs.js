@@ -3,7 +3,10 @@
 const express = require('express');
 const objectifs = require('../lib/objectifs');
 
+const db = require('../db');
+
 const router = express.Router();
+const idemInFlight = new Map();
 
 function run(fn) {
   return async (req, res) => {
@@ -49,7 +52,21 @@ router.put('/objectifs/allocation', run((req) => { const b = req.body || {}; ret
 router.post('/objectifs/inferieurs/appliquer', run((req) => require('../lib/objectifs-inferieurs').appliquer(req.userId, req.body || {})));
 router.post('/objectifs/rattachement', run((req) => objectifs.rattachement(req.userId, req.body || {})));
 router.post('/objectifs/proposition', run((req) => objectifs.proposer(req.userId, req.body || {})));
-router.post('/objectifs', run(async (req) => { objectifs.checkEcheance(req.body || {}, null, true); return objectifs.creer(req.userId, req.body || {}); })); // échéance obligatoire, jamais passée
+// Clé d'idempotence (création d'un objectif mis en file hors ligne, 20 nov. 2026) : même clé rejouée => objectif déjà créé, sans doublon ; les règles (échéance, case, parent) s'appliquent à la 1re réception.
+router.post('/objectifs', run(async (req) => {
+  const rawKey = req.get('Idempotency-Key'), idemKey = rawKey ? 'obj:' + String(rawKey).slice(0, 96) : null;
+  if (idemKey) {
+    const prev = db.prepare('SELECT response FROM idempotency_keys WHERE userId = ? AND key = ?').get(req.userId, idemKey);
+    if (prev) { try { return JSON.parse(prev.response); } catch (_) { /* illisible : on recrée */ } }
+    if (idemInFlight.has(req.userId + '|' + idemKey)) return idemInFlight.get(req.userId + '|' + idemKey);
+  }
+  const work = (async () => { objectifs.checkEcheance(req.body || {}, null, true); return objectifs.creer(req.userId, req.body || {}); })(); // échéance obligatoire, jamais passée
+  if (!idemKey) return work;
+  const fl = req.userId + '|' + idemKey; idemInFlight.set(fl, work); const clear = () => idemInFlight.delete(fl); work.then(clear, clear);
+  const out = await work;
+  db.prepare('INSERT OR REPLACE INTO idempotency_keys (userId, key, response, createdAt) VALUES (?, ?, ?, ?)').run(req.userId, idemKey, JSON.stringify(out), new Date().toISOString());
+  return out;
+}));
 router.post('/objectifs/macro', run((req) => objectifs.fusionnerEnMacro(req.userId, req.body || {})));
 router.post('/objectifs/:id/inferieurs/generer', run((req) => require('../lib/objectifs-inferieurs').genererPour(req.userId, req.params.id, require('../lib/dates').userToday())));
 router.get('/objectifs/:id/reorganisation', run((req) => objectifs.reorganisationDe(req.userId, req.params.id)));

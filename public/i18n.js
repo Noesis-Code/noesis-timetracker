@@ -1868,7 +1868,7 @@
     "20 $/mois par activité · résiliable à tout moment": "$20/month per activity · cancel anytime",
     "Découvrir Expansion": "Discover Expansion",
     "Archives": "Archive",
-    "Aucune tâche terminée ces 7 derniers jours.": "No task completed in the last 7 days.",
+    "Aucune tâche terminée aujourd’hui.": "No task completed today.",
     "Discussion": "Discussion",
     "Mensuel": "Monthly",
     "Annuel": "Yearly",

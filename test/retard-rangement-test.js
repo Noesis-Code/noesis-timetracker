@@ -1,4 +1,4 @@
-// Retard et objectif d'une tâche (20 nov. 2026) : une tâche sortie de son objectif relance la recherche d'objectif (taches-choix), période suivante au plus, en proposition à valider ; refus mémorisé.
+// Retard et objectif d'une tâche (20 nov. 2026) : une tâche sortie de son objectif relance la recherche d'objectif (taches-choix), période suivante au plus, SILENCIEUSEMENT (aucun panneau).
 process.env.TZ = 'America/Montreal';
 process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-retard-rang-');
 process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
@@ -38,39 +38,33 @@ function setup(label, otherStart) {
 const tick = () => new Promise((r) => setTimeout(r, 50));
 
 (async () => {
+  const lien = (id) => db.prepare('SELECT objectiveId, dueDate FROM sub_project_items WHERE id = ?').get(id);
+  const liste = (id) => JSON.parse(db.prepare('SELECT taskIdsJson FROM user_objectives WHERE id = ?').get(id).taskIdsJson);
   const A = setup('A', goals.addDays(today, 21)); // un autre objectif couvre la période suivante
   target = A.other;
   late.verifier(A.uid, A.actId, { force: true, dayCaps: {} });
   await tick();
-  let list = RR.lister(A.uid);
-  assert(list.length === 5, 'au plus 5 propositions par passage (' + list.length + ' sur 7 tâches sorties)');
-  assert(list.every((x) => x.avant.objectifId === A.oid && x.apres.objectifId === A.other && x.apres.date === goals.addDays(today, 21)), 'avant / après : objectif de départ, nouvel objectif, début de la période suivante');
-  const first = list[0], second = list[1];
-  RR.refuser(A.uid, second.id);
-  RR.accepter(A.uid, first.id);
-  const link = db.prepare('SELECT objectiveId, dueDate FROM sub_project_items WHERE id = ?').get(first.itemId);
-  assert(link.objectiveId === A.other && link.dueDate === goals.addDays(today, 21), 'accepter : lien changé et date de la période suivante');
-  const ids = (id) => JSON.parse(db.prepare('SELECT taskIdsJson FROM user_objectives WHERE id = ?').get(id).taskIdsJson);
-  assert(!ids(A.oid).includes(first.itemId) && ids(A.other).includes(first.itemId), 'accepter : les deux listes de tâches des objectifs suivent');
-  const before = db.prepare('SELECT objectiveId FROM sub_project_items WHERE id = ?').get(second.itemId).objectiveId;
-  assert(before !== A.other, 'refuser : la tâche ne change pas');
+  const rangees = A.ids.filter((id) => lien(id).objectiveId === A.other);
+  assert(rangees.length === 5, 'au plus 5 tâches rangées par passage (' + rangees.length + ' sur 7 sorties)');
+  assert(rangees.every((id) => lien(id).dueDate === goals.addDays(today, 21)), 'elles prennent la date du début de la période suivante');
+  assert(rangees.every((id) => !liste(A.oid).includes(id) && liste(A.other).includes(id)), 'les deux listes de tâches des objectifs suivent');
+  assert(db.prepare("SELECT COUNT(*) AS c FROM retard_propositions WHERE userId = ? AND etat = 'acceptee'").get(A.uid).c === 5, 'trace : une ligne par tâche rangée');
   late.verifier(A.uid, A.actId, { force: true, dayCaps: {} });
   await tick();
-  assert(!RR.lister(A.uid).some((x) => x.itemId === second.itemId || x.itemId === first.itemId), 'refus et acceptation mémorisés : jamais reproposées');
-  let err = null; try { RR.accepter(A.uid, second.id); } catch (e) { err = e; }
-  assert(err && err.statusCode === 404, 'une proposition déjà décidée est introuvable');
+  const apres = A.ids.filter((id) => lien(id).objectiveId === A.other);
+  assert(apres.length >= 5 && rangees.every((id) => apres.includes(id)), 'relancer ne défait rien et ne recommence pas pour les mêmes tâches');
 
   const B = setup('B', goals.addDays(today, 90)); // trop loin : commence après la période suivante
   target = B.other;
   late.verifier(B.uid, B.actId, { force: true, dayCaps: {} });
   await tick();
-  assert(RR.lister(B.uid).length === 0, 'jamais plus loin que la période suivante : aucun objectif lointain proposé');
+  assert(B.ids.every((id) => lien(id).objectiveId !== B.other), 'jamais plus loin que la période suivante : aucun objectif lointain');
 
   const C = setup('C', goals.addDays(today, 21));
-  target = C.oid; // le choix renvoie l'objectif actuel : rien à proposer
+  target = C.oid; // le choix renvoie l'objectif actuel : la tâche reste (dépassement)
   late.verifier(C.uid, C.actId, { force: true, dayCaps: {} });
   await tick();
-  assert(RR.lister(C.uid).length === 0, 'même objectif : aucune proposition, la tâche reste (dépassement)');
-  console.log(failed ? '\nretard-rangement-test : ' + failed + ' ÉCHEC(S)' : '\nretard-rangement-test : OK');
+  assert(C.ids.every((id) => lien(id).objectiveId !== C.other), 'même objectif : rien ne change');
+  console.log(failed ? 'retard-rangement-test : ' + failed + ' ÉCHEC(S)' : 'retard-rangement-test : OK');
   process.exit(failed ? 1 : 0);
 })();

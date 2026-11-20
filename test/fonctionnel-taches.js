@@ -49,6 +49,23 @@ const T = makeCounter(); const assert = T.assert;
     assert((await c.del(`/api/sub-project-items/${t1.body.id}`)).status === 404, 'seconde suppression = 404');
     ov = (await c.get(`/api/activities/${A}/goals/tasks/overview`)).body;
     assert(ov.total === 1, 'aperçu : 1 tâche restante');
+
+    // Date passée refusée à la création comme à la modification (20 nov. 2026) ; aujourd'hui accepté
+    const dd = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const pastC = await c.post(`${base}/${p1}/tasks`, { label: 'Passée', dueDate: dd(-3) });
+    assert(pastC.status === 400 && pastC.body.error === 'Pas de date dans le passé.', 'création : date passée refusée');
+    assert((await c.post(`${base}/${p1}/tasks`, { label: "Aujourd'hui", dueDate: dd(0) })).status === 201, "création : aujourd'hui accepté");
+    const tf = await c.post(`${base}/${p1}/tasks`, { label: 'Future', dueDate: dd(3) });
+    assert(tf.status === 201, 'création : date future acceptée');
+    const pastU = await c.put(`/api/sub-project-items/${tf.body.id}`, { dueDate: dd(-2) });
+    assert(pastU.status === 400 && pastU.body.error === 'Pas de date dans le passé.', 'modification : date passée refusée (serveur)');
+    assert((await c.put(`/api/sub-project-items/${tf.body.id}`, { dueDate: dd(0) })).status === 200, "modification : aujourd'hui accepté");
+    // Tâche terminée conservée et retrouvable dans l'export personnel avec sa date de fin
+    await c.put(`/api/sub-project-items/${tf.body.id}`, { done: true });
+    await c.post('/api/session/reauth', { password: 'Xk9#Longue-2026!' });
+    const ex = await c.get('/api/profile/export');
+    const exTask = ex.status === 200 && (ex.body.tasks || []).find((t) => t.id === tf.body.id);
+    assert(exTask && exTask.done === true && !!exTask.doneAt, 'export : tâche terminée avec sa date de fin');
   } finally { s.stop(); }
   console.log(`\n${T.passed} ok, ${T.failed} échec(s)`);
   process.exit(T.failed ? 1 : 0);

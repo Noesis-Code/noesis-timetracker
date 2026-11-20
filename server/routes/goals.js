@@ -534,6 +534,11 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
     return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
   }
 
+  // Décision d'Émilien (20 nov. 2026) : même refus qu'à la modification (aujourd'hui = ok).
+  if (typeof req.body.dueDate === 'string' && req.body.dueDate && req.body.dueDate < require('../lib/dates').userToday()) {
+    return res.status(400).json({ error: 'Pas de date dans le passé.' });
+  }
+
   try {
     const item = goalstasks.addCategoryTask(activityId, userId, req.params.key, req.body.label, { dueDate: req.body.dueDate });
     res.status(201).json(item);

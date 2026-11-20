@@ -63,6 +63,7 @@ const SUITE_FILES = [
   'langue-bascule-test.js',
   'chrono-deux-appareils-test.js',
   'offline-queue-test.js',
+  'objectif-hors-ligne-test.js',
   'offline-idempotence-test.js',
   'offline-rejeu-test.js',
   'stats-equivalence-test.js',
@@ -475,6 +476,8 @@ async function main() {
 
   try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }
+  try { await runChild('objectif-hors-ligne-test.js'); assert(true, 'objectif créé hors ligne : clé unique et refus du serveur (test/objectif-hors-ligne-test.js) passe'); }
+  catch (e) { assert(false, 'objectif créé hors ligne : clé unique et refus du serveur (test/objectif-hors-ligne-test.js) échoue'); }
 
   try { await runChild('offline-idempotence-test.js'); assert(true, 'file hors ligne : idempotence (test/offline-idempotence-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : idempotence (test/offline-idempotence-test.js) échoue'); }
