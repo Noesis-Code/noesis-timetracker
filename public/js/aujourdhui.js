@@ -335,7 +335,7 @@
     var sec = el('div'); sec.id = 'goalsTodayArchiveSection'; sec.classList.add('hidden'); ui.archSec = sec; // visible seulement quand une tâche est cochée (jamais sur un jour passé)
     var head = el('div', 'sectionTitleRow historyHeaderClickable'); head.id = 'goalsTodayArchiveHeader'; ui.archTitle = el('p', 'sectionTitle', tr('Faites aujourd’hui')); head.appendChild(ui.archTitle);
     var panel = el('div', 'hidden'); panel.id = 'goalsTodayArchivePanel';
-    ui.archList = el('div'); ui.archEmpty = el('p', 'hint hidden', tr('Aucune tâche terminée ces 7 derniers jours.'));
+    ui.archList = el('div'); ui.archEmpty = el('p', 'hint hidden', tr('Aucune tâche terminée aujourd’hui.'));
     panel.appendChild(ui.archList); panel.appendChild(ui.archEmpty);
     head.addEventListener('click', function () {
       var opening = !archiveOpen();
@@ -902,7 +902,8 @@
   }
   function send() {
     if (state.busy) return;
-    if (dayIso() < localIso() || (state.date && state.date < localIso())) { ui.msg.textContent = tr('Pas d’ajout dans un jour passé.'); return; } // jour passé : lecture seule
+    if (state.date && state.date < localIso()) { ui.msg.textContent = tr('Pas de date dans le passé.'); return; } // même message qu'à la modification (20 nov. 2026)
+    if (dayIso() < localIso()) { ui.msg.textContent = tr('Pas d’ajout dans un jour passé.'); return; } // jour passé : lecture seule
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
     if (state.expStep === 1) { expNext(); return; }

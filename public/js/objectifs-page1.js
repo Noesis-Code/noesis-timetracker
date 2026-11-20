@@ -240,6 +240,7 @@
       ok.type = 'button'; ok.className = 'iconBtn btnBrique'; ok.textContent = t('Enregistrer');
       ok.addEventListener('click', function () {
         if (forms.some(function (f) { return !f.sel.value; })) { err.textContent = t('Choisis un pôle ou un secteur pour chaque activité.'); return; }
+        if (forms.some(function (f) { return f.dIn && f.dIn.value && f.dIn.value < todayISO; })) { err.textContent = t('Pas de date dans le passé.'); return; }
         finish(forms.map(function (f) {
           return { forcedCategory: f.sel.value, dueDate: f.dIn ? (f.dIn.value || null) : null, plannedUserId: f.wSel ? (f.wSel.value || null) : null, recurrence: f.rec ? f.rec.get() : null };
         }));
@@ -380,7 +381,7 @@
         card.appendChild(actions);
       } else {
         title.textContent = TMT.aiMode === 'absence' ? t('Sélection du pôle & secteur') : t('Pôle et secteur non trouvés — où placer cette tâche ?');
-        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null, fwrap = null, pendingSave = null;
+        var getDate = function () { return null; }, getWho = function () { return null; }, recFld = null, fwrap = null, pendingSave = null, pastP = null;
         if (TMT.aiMode === 'absence') {
           // Mode Absence : l'utilisateur choisit aussi la date et le responsable (modèle de modification de la page 2).
           fwrap = document.createElement('div');
@@ -406,6 +407,7 @@
           fwrap.appendChild(fld(t('Quand'), dIn));
           fwrap.appendChild(wFieldOne);
           if (TMT.buildRecurrenceField) { recFld = TMT.buildRecurrenceField(null); fwrap.appendChild(fld(t('Répéter'), recFld.el)); }
+          pastP = document.createElement('p'); pastP.className = 'msg'; fwrap.appendChild(pastP);
           card.appendChild(fwrap);
           getDate = function () { return dIn.value || null; };
           getWho = function () { return wSel.value || null; };
@@ -413,7 +415,10 @@
         var selectMode = !(r.suggested && r.suggested.length);
         var chosenKey = null, whereBtn = null;
         function setChosen(key, text) { chosenKey = key; whereBtn.textContent = text; }
-        function pick(key) { finish({ forcedCategory: key, dueDate: getDate(), plannedUserId: getWho(), recurrence: recFld ? recFld.get() : null }); }
+        function pick(key) {
+          var dn2 = new Date(), today2 = dn2.getFullYear() + '-' + String(dn2.getMonth() + 1).padStart(2, '0') + '-' + String(dn2.getDate()).padStart(2, '0');
+          if (pastP && getDate() && getDate() < today2) { pastP.textContent = t('Pas de date dans le passé.'); return; } // même refus qu'à la modification
+          finish({ forcedCategory: key, dueDate: getDate(), plannedUserId: getWho(), recurrence: recFld ? recFld.get() : null }); }
         var list = document.createElement('div');
         list.className = 'goalsCaptureConfirmList';
         function render(choices, showOther) {

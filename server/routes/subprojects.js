@@ -62,6 +62,11 @@ router.put('/sub-project-items/:id', (req, res) => {
     req.body.label = chk.text; // contrôle et sauts de ligne normalisés ; vide = inchangé (comme avant)
   }
 
+  // Décision d'Émilien (20 nov. 2026) : aucun déplacement vers un jour passé ; une tâche déjà en retard garde sa date.
+  if (typeof req.body.dueDate === 'string' && req.body.dueDate && req.body.dueDate !== item.dueDate && req.body.dueDate < require('../lib/dates').userToday()) {
+    return res.status(400).json({ error: 'Pas de date dans le passé.' });
+  }
+
   let updated;
   try {
     updated = sp.updateItem(item.id, req.body, userId);
