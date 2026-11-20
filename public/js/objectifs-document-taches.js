@@ -185,7 +185,7 @@
       .catch(function (e) { driveSt = /Module désactivé/i.test((e && e.message) || '') ? { moduleOff: true } : { configured: false }; renderDrive(); });
   }
   function loadFiles() {
-    dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
+    TMT.ui.attente(dApi('GET', '/api/drive/files')).then(function (r) { driveList = r.files || []; renderDrive(); })
       .catch(function (e) { filesErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
   }
   var folderList = [], folderQuery = '', folderSel = null, folderTimer = null, folderSeq = 0, folderLoading = false;
@@ -203,13 +203,13 @@
     if (!q) { box.innerHTML = '<p class="hint">Écris les premières lettres du nom.</p>'; return; }
     var m = folderList.filter(function (f) { return norm(f.name).indexOf(q) === 0; }).slice(0, 8);
     box.innerHTML = m.length ? m.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">' + FOLDER_ICON + esc(f.name) + '</button>'; }).join('')
-      : '<p class="hint">' + (folderLoading ? TMT.ui.loaderHtml({ seul: true }) : 'Aucun dossier ne commence par ces lettres.') + '</p>';
+      : '<p class="hint">' + (folderLoading ? '' : 'Aucun dossier ne commence par ces lettres.') + '</p>';
   }
   function searchFolders() {
     var q = folderQuery.trim(), seq = ++folderSeq;
     if (!q) { folderList = []; folderLoading = false; renderFolderSug(); return; }
     folderLoading = true; renderFolderSug();
-    dApi('GET', '/api/drive/folders', 'q=' + encodeURIComponent(q).slice(0, 300)).then(function (r) {
+    TMT.ui.attente(dApi('GET', '/api/drive/folders', 'q=' + encodeURIComponent(q).slice(0, 300))).then(function (r) {
       if (seq !== folderSeq || driveView !== 'folders') return;
       folderList = r.folders || []; folderLoading = false; renderFolderSug();
     }).catch(function (err) {
@@ -235,7 +235,7 @@
   var folderExpanded = {};
   function folderFilesHtml(f) {
     var fs = driveList.filter(function (x) { return x.folderId === f.id; });
-    if (!fs.length) return '<div class="docTasksFolderFiles"><p class="docTasksMeta">' + (driveList.length ? 'Aucun fichier lisible.' : TMT.ui.loaderHtml({ seul: true })) + '</p></div>';
+    if (!fs.length) return '<div class="docTasksFolderFiles"><p class="docTasksMeta">' + (driveList.length ? 'Aucun fichier lisible.' : '') + '</p></div>';
     return '<div class="docTasksFolderFiles">' + fs.slice(0, 60).map(function (x) { return (driveSt && driveSt.isOwner === false ? '<div class="docTasksFileRow">' + esc(x.path || x.name) + '</div>' : '<button type="button" class="docTasksFileRow" data-d="file" data-id="' + esc(x.id) + '">' + esc(x.path || x.name) + '</button>'); }).join('') + '</div>';
   }
   function renderFoldersPop() {

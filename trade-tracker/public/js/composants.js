@@ -54,33 +54,28 @@
       try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
-  // Indicateur de chargement (R48) : le N en vague ; avec phrase = page ou zone, sans (opts.seul) = à la place d'un texte. La phrase est définie ICI, une seule fois.
+  // Chargement (R49, refait le 20 nov. 2026) : UN SEUL composant. Après 1 s d'attente, un voile de verre presque opaque recouvre TOUTE l'application (barre des volets comprise) avec le N animé au centre, rien d'autre ; retiré dès que c'est prêt.
+  // TMT.chargement.show()/hide() (compteur : plusieurs attentes partagent un seul voile) ; TMT.ui.attente(promesse) = show + hide autour d'une promesse. Jamais de N dans une carte, de spinner, de squelette ni de « Chargement… ».
   var colorCache = null; // structure des couleurs de catégories (R53), rafraîchie toutes les 30 s
   var LOADER_PHRASE = 'Noèsis s’en occupe…';
   var LOADER_POLYS = ['183,293 287,461 287,616 183,675', '287,628 287,863 184,863 184,687', '192,262 293,262 468,557 367,555', '374,565 475,568 536,670 536,835', '556,262 616,262 659,286 661,616 556,673', '661,629 662,863 557,863 556,686', '729,151 612,186 635,253 708,287'];
-  function loaderHtml(opts) {
-    var seul = !!(opts && opts.seul), label = typeof window.t === 'function' ? window.t(LOADER_PHRASE) : LOADER_PHRASE;
-    return '<span class="cmpLoader' + (seul ? ' cmpLoaderSeul' : '') + '" role="status" aria-label="' + label + '">'
-      + '<svg viewBox="163 131 586 752" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
-      + LOADER_POLYS.map(function (p) { return '<polygon points="' + p + '"/>'; }).join('') + '</svg>'
-      + (seul ? '' : '<span class="cmpLoaderPhrase">' + label + '</span>') + '</span>';
-  }
-  function loader(container, opts) {
-    var w = document.createElement('span'); w.innerHTML = loaderHtml(opts);
-    var el = w.firstChild;
-    if (container) container.appendChild(el);
-    return { el: el, remove: function () { if (el.parentNode) el.parentNode.removeChild(el); } };
-  }
-  // Attente (R49) : dès qu'une opération dure plus d'1 s, TOUTE la page est recouverte d'un voile de verre (contenu illisible) avec le N au milieu de l'écran ; l'écran en dessous reste tel quel.
-  // attente(promesse) rend la même promesse ; un seul voile global pour toute l'app, partagé si plusieurs attentes se chevauchent.
   var voile = null, voileN = 0, voileT = 0;
   function voileOff() { clearTimeout(voileT); voileN = 0; if (voile && voile.parentNode) voile.parentNode.removeChild(voile); voile = null; }
-  function attente(p) {
-    if (!voileN++) { voile = document.createElement('div'); voile.className = 'cmpVoile'; loader(voile, { seul: true }); document.body.appendChild(voile); voileT = setTimeout(voileOff, 30000); } // filet : jamais plus de 30 s même si la promesse ne se règle pas
-    var mine = voile;
-    function fin() { if (voile === mine && !--voileN) voileOff(); }
-    return Promise.resolve(p).then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
+  function chargementShow() {
+    if (voileN++) return;
+    var label = typeof window.t === 'function' ? window.t(LOADER_PHRASE) : LOADER_PHRASE;
+    voile = document.createElement('div'); voile.className = 'cmpVoile'; voile.setAttribute('role', 'status'); voile.setAttribute('aria-label', label);
+    var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '163 131 586 752'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+    LOADER_POLYS.forEach(function (pts) { var g = document.createElementNS(NS, 'polygon'); g.setAttribute('points', pts); svg.appendChild(g); });
+    voile.appendChild(svg);
+    document.body.appendChild(voile); voileT = setTimeout(voileOff, 30000); // filet : jamais plus de 30 s
   }
+  function chargementHide() { if (voileN > 0 && !--voileN) voileOff(); }
+  function attente(p) {
+    chargementShow();
+    return Promise.resolve(p).then(function (v) { chargementHide(); return v; }, function (e) { chargementHide(); throw e; });
+  }
+  window.TMT = window.TMT || {}; window.TMT.chargement = { show: chargementShow, hide: chargementHide };
   function btn(cls, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;
@@ -112,7 +107,7 @@
       var now = Date.now(); if (!colorCache || now - colorCache.t > 30000) colorCache = { t: now, p: window.TMT.api('GET', '/api/objectifs/structure').then(function (st) { var by = {}; ((st && st.activities) || []).forEach(function (a) { by[a.id] = a; }); return function (aid, pk) { var a = by[aid]; if (!a) return ''; var po = pk && (a.poles || []).filter(function (x) { return x.key === pk; })[0]; return window.TMT.ui.etiquette({ activityName: a.name, activityColor: a.color, poleLabel: po && po.label, poleIndex: po && po.shadeRank }).color; }; }).catch(function () { colorCache = null; return function () { return ''; }; }) };
       return colorCache.p.then(function (f) { pairs.forEach(function (x) { var c = x.a != null ? f(Number(x.a), x.p || null) : ''; if (c && x.el) x.el.style.color = c; }); });
     },
-    loader: loader, loaderHtml: loaderHtml, attente: attente,
+    attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
     heures: function (min) { if (min == null) return '—'; var t = Math.max(0, Math.round(min)), h = Math.floor(t / 60), r = t % 60; return h ? h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '') : r + ' min'; }, // UN SEUL format d'heures NORMALES (« 6 h », « 2 h 30 », « 45 min »), jamais de décimales : colonne de droite de l'arbre ET détail par catégorie (R29)
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },

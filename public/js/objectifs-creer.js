@@ -441,7 +441,7 @@
       if (!force && tp.key === tpKey() && tp.e) { tp.page = 0; tp.shown = 0; tpPaint(); tpSync(); return Promise.resolve(); } // ré-entrée dans Temps : on revient à la PREMIÈRE sous-page (valeurs saisies conservées)
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
       var key = tp.key, nb = nivBody(), sg = form.endDate && niv.qs ? api('POST', '/api/objectifs/temps/suggestion', { title: form.title, endDate: form.endDate, startDate: form.startDate, activityName: (targets()[0] || {}).name || '', niveau: nb }).then(function (r) { return r && r.suggestion && r.suggestion.perWeekMin && r.suggestion.perWeekMin.mid > 0 ? r.suggestion : null; }, function () { return null; }) : Promise.resolve(null);
-      return Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg]).then(function (res) {
+      return TMT.ui.attente(Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg])).then(function (res) {
         var e = res[0], g = res[1]; if (tp.key !== key) return;
         tp.sugg = g; if (g) g.startMin = g.perWeekMin.mid;
         tp.e = e; tp.loading = false; tp.valueMin = g ? g.perWeekMin.mid : (e.valueMin == null ? null : e.valueMin); tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tpPaint(); tpSync();
@@ -498,7 +498,7 @@
     }
     function tpPaint() {
       tpBox.textContent = '';
-      if (tp.loading || !tp.e) { if (tp.loading) TMT.ui.loader(tpBox); return; } // écran qui charge : le N standard (R48)
+      if (tp.loading || !tp.e) return; // écran qui charge : le voile unique (R49)
       var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
       track.style.width = (n * 100) + '%';
       pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
@@ -551,7 +551,7 @@
     function nivSync() { stepBtn.disabled = !nivDone(); }
     function nivPaint() {
       boxes.niveau.textContent = ''; boxes.niveau.classList.add('objAdvBody');
-      if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); else TMT.ui.loader(boxes.niveau); return; } // zone qui charge : le N standard (R48)
+      if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); return; } // zone qui charge : le voile unique (R49)
       function grid(q, qi, after, getPick, setPick) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
         var g = el('div', 'cmpGrid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(q.q));
         [0, 2].forEach(function (from) {
@@ -881,8 +881,7 @@
       var m = openModal(tr('Ajuster le temps')), done = false;
       function finish(v) { if (done) return; done = true; m.close(); resolve(v); }
       var closeOrig = m.close; m.close = function () { closeOrig(); if (!done) { done = true; resolve(null); } };
-      TMT.ui.loader(m.body);
-      api('GET', '/api/objectifs/temps?' + query).then(function (e) {
+      TMT.ui.attente(api('GET', '/api/objectifs/temps?' + query)).then(function (e) {
         var modes = (e && e.modes) || []; if (!modes.length) modes = ['ajouter'];
         function table() {
           var apres = {}, lines = (e.takeLines && e.takeLines.deplacer) || [], rows = [], tbl, note = el('p', 'hint objTNote'), ok = btn('objFootBtn', tr('Valider'), function () { finish({ mode: 'deplacer', apres: apres }); });

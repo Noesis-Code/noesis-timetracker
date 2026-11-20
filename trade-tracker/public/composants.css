@@ -310,28 +310,21 @@
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
 
-/* Indicateur de chargement (R48, 10 nov. 2026, décision d'Émilien) : UN seul composant, le N de Noèsis dont les sections s'allument une à une
-   le long du tracé (opacité seulement, comme l'écran d'ouverture). Page ou zone : le N + la phrase ; place d'un texte : .cmpLoaderSeul (le N seul).
-   Créé par TMT.ui.loader (composants.js) ; n’apparaît qu’après 1 s (R49). Jamais de texte « Chargement… », jamais de spinner. */
-.cmpLoader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 0; width: 100%; opacity: 0; animation: cmpLoaderIn .01s linear 1s forwards; }
-.cmpLoader.cmpLoaderSeul { display: inline-flex; width: auto; padding: 4px 0; }
-.cmpLoader svg { display: block; width: 19px; height: 24px; fill: var(--text); flex: none; }
-.cmpLoader polygon { opacity: .22; animation: cmpLoaderVague 1.4s linear infinite; }
-.cmpLoader polygon:nth-child(2) { animation-delay: 0s; }
-.cmpLoader polygon:nth-child(1) { animation-delay: .2s; }
-.cmpLoader polygon:nth-child(3) { animation-delay: .4s; }
-.cmpLoader polygon:nth-child(4) { animation-delay: .6s; }
-.cmpLoader polygon:nth-child(6) { animation-delay: .8s; }
-.cmpLoader polygon:nth-child(5) { animation-delay: 1s; }
-.cmpLoader polygon:nth-child(7) { animation-delay: 1.2s; }
-.cmpLoaderPhrase { display: block; margin: 0; font-size: 13px; line-height: 1.3; color: var(--text-light); text-align: center; }
-.cmpVoile { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; animation: cmpVoileOn .01s linear 1s forwards; background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* voile de verre de chargement (R49) : au-dessus de tout, même verre que les pop-ups (R31, jetons --glass-*), le N au milieu de l'écran */
-.cmpVoile > .cmpLoader { width: auto; padding: 0; }
-.cmpVoile .cmpLoader svg { width: 38px; height: 48px; } /* le N un peu plus gros que celui d'une ligne (19 × 24) */
-@keyframes cmpVoileOn { to { opacity: 1; pointer-events: auto; } } /* le voile ne capte aucun clic tant qu'il est invisible (1re seconde) */
-@keyframes cmpLoaderIn { to { opacity: 1; } }
+/* Chargement (R49) : UN voile de verre presque opaque sur toute l'application (barre des volets comprise), le N animé au centre, rien d'autre.
+   Créé par TMT.chargement.show() / TMT.ui.attente() (composants.js) ; n'apparaît qu'après 1 s ; ne capte aucun clic tant qu'il est invisible. */
+.cmpVoile { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; animation: cmpVoileOn .01s linear 1s forwards; background: var(--glass-calm-bg-strong); -webkit-backdrop-filter: var(--glass-calm-blur-strong); backdrop-filter: var(--glass-calm-blur-strong); }
+.cmpVoile svg { display: block; width: 38px; height: 48px; fill: var(--text); flex: none; }
+.cmpVoile polygon { opacity: .22; animation: cmpLoaderVague 1.4s linear infinite; }
+.cmpVoile polygon:nth-child(2) { animation-delay: 0s; }
+.cmpVoile polygon:nth-child(1) { animation-delay: .2s; }
+.cmpVoile polygon:nth-child(3) { animation-delay: .4s; }
+.cmpVoile polygon:nth-child(4) { animation-delay: .6s; }
+.cmpVoile polygon:nth-child(6) { animation-delay: .8s; }
+.cmpVoile polygon:nth-child(5) { animation-delay: 1s; }
+.cmpVoile polygon:nth-child(7) { animation-delay: 1.2s; }
+@keyframes cmpVoileOn { to { opacity: 1; pointer-events: auto; } }
 @keyframes cmpLoaderVague { 0% { opacity: .22; } 7% { opacity: 1; } 43% { opacity: 1; } 57% { opacity: .22; } 100% { opacity: .22; } }
-@media (prefers-reduced-motion: reduce) { .cmpLoader polygon { animation: none; opacity: .7; } }
+@media (prefers-reduced-motion: reduce) { .cmpVoile polygon { animation: none; opacity: .7; } }
 
 /* R50 : bouton « Enregistrer » d'un pop-up, DÉCOLLÉ du corps et à la place de la barre des volets (TMT.ui.dockEnregistrer, js/composants.js). Même bouton que celui du bas d'Objectifs/Tâches (.tasksSaveBtn, R35 : gris tant que rien n'a changé, violet au changement), mêmes 16 px de marge et 52 px de haut que la barre des volets. */
 .cmpDockSlot { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -355,4 +348,5 @@ label.retVal { cursor: text; }
 :root .retTable .retInput { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--purple); font: inherit; text-align: right; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .retVal:has(.retInput:not(:disabled)) { color: var(--purple); } /* R54 : le « h » suit la valeur modifiable */
 :root .retTable .retInput:disabled { color: var(--text); }
+:root .retTable .retInput:not(:disabled)::placeholder { color: var(--purple); opacity: 1; } /* R54 : le « 0 » du champ vide est violet comme le « h » */
 .retTotal .retVal { font-weight: 600; }

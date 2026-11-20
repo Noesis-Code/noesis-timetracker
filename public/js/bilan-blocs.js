@@ -11,7 +11,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
-  var api = function (m, u, b) { return TMT.api(m, u, b); };
+  var api = function (m, u, b) { return TMT.ui.attente(TMT.api(m, u, b)); }; // chaque chargement passe par le voile unique (R49)
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var host = null, chips = null, chronoHost = null, infoHost = null, infoBody = null;
   var scope = 'all', jourMode = true, offset = 0, gen = 0, chronoGen = 0, adding = false, draft = [];
@@ -19,7 +19,6 @@
 
   function acts() { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; }
   function num(v) { return v == null ? '—' : String(v).replace('.', ','); }
-  function loader(c) { if (TMT.ui && TMT.ui.loader) TMT.ui.loader(c, { seul: true }); }
   function failed(c) { c.textContent = ''; c.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); }
 
   // Tableau de traits : head = colonnes (premier = vide), rows = [{ label, cells }] ; extremes : vert = le plus, rouge = le moins, par ligne.
@@ -49,7 +48,7 @@
 
   // ---------- Informations de la vue « Toutes » ----------
   function rUrgent(mount, remover) {
-    var c = shell('Tâches urgentes', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c); loader(slot);
+    var c = shell('Tâches urgentes', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c);
     api('GET', '/api/bilan/urgentes?offset=' + offset).then(function (r) {
       if (my !== gen) return; slot.textContent = '';
       var nav = el('div', 'bbNav'), prev = el('button', 'cmpNavArrow', '‹'), next = el('button', 'cmpNavArrow', '›'); prev.type = 'button'; next.type = 'button';
@@ -62,7 +61,7 @@
   }
   // Jours où tu travailles vraiment, vue Toutes : UN seul graphique = les tâches de toutes les activités additionnées ; les flèches décalent la période de toutes les activités ensemble.
   function rWeekdays(mount, remover) {
-    var c = shell('Jours où tu travailles vraiment', remover), slot = el('div'), list = acts(), insts = [], got = {}; c.appendChild(slot); mount.appendChild(c); loader(slot);
+    var c = shell('Jours où tu travailles vraiment', remover), slot = el('div'), list = acts(), insts = [], got = {}; c.appendChild(slot); mount.appendChild(c);
     if (!list.length) { slot.textContent = ''; slot.appendChild(el('p', 'hint', '—')); return; }
     function add(x, y) { return x == null ? y : y == null ? x : x + y; }
     function sum(arrs) { return arrs[0].map(function (_, i) { return arrs.reduce(function (t, a) { return add(t, a[i] == null ? null : a[i]); }, null); }); }
@@ -77,7 +76,7 @@
         var nb = b.cloneNode(true); b.parentNode.replaceChild(nb, b);
         nb.addEventListener('click', function () {
           if (i && !tot.canNext) return;
-          var off = i ? Math.min(0, (tot.offset || 0) + 1) : (tot.offset || 0) - 1; got = {}; loader(slot);
+          var off = i ? Math.min(0, (tot.offset || 0) + 1) : (tot.offset || 0) - 1; got = {};
           insts.forEach(function (x) { x.moveDays(off); });
         });
       });
@@ -92,12 +91,12 @@
   function rAdvance(mount, remover) {
     var c = shell('Avancement', remover), slot = el('div'), first = acts()[0]; c.appendChild(slot); mount.appendChild(c);
     if (!first) { slot.appendChild(el('p', 'hint', '—')); return; }
-    loader(slot);
+   
     var inst = TMT.bilanCardInstance(function (d) { slot.textContent = ''; var n = inst.bodyFor('advance', d); slot.appendChild(n || el('p', 'hint', '—')); });
     inst.paintFor(first.id);
   }
   function rCapacity(mount, remover) {
-    var c = shell('Capacité par jour', remover), slot = el('div'), list = acts(), vals = {}, got = 0; c.appendChild(slot); mount.appendChild(c); loader(slot);
+    var c = shell('Capacité par jour', remover), slot = el('div'), list = acts(), vals = {}, got = 0; c.appendChild(slot); mount.appendChild(c);
     list.forEach(function (a) {
       var inst = TMT.bilanCardInstance(function (d) {
         var cap = d && d.tasks && d.tasks.capacity; if (!(a.id in vals)) got += 1; vals[a.id] = cap && cap.avgFreeMinutes != null ? cap.avgFreeMinutes : 0;
@@ -113,7 +112,7 @@
 
   // ---------- Informations d'une activité ----------
   function rAvg(mount, remover) {
-    var sc = scope, c = shell('Moyenne des tâches réalisées', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c); loader(slot);
+    var sc = scope, c = shell('Moyenne des tâches réalisées', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c);
     api('GET', '/api/bilan/moyenne-taches?activityId=' + sc).then(function (r) {
       if (my !== gen) return; slot.textContent = '';
       var head = el('div', 'bbHead'), b = el('button', 'iconBtn', tr(jourMode ? 'Jour' : 'Semaine')); b.type = 'button'; b.setAttribute('aria-label', tr('Jour ou semaine'));
@@ -122,7 +121,7 @@
     }).catch(function () { if (my === gen) failed(slot); });
   }
   function rProp(mount, remover) {
-    var sc = scope, c = shell('Proportion réelle contre demandée', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c); loader(slot);
+    var sc = scope, c = shell('Proportion réelle contre demandée', remover), slot = el('div'), my = gen; c.appendChild(slot); mount.appendChild(c);
     api('GET', '/api/bilan/proportion?activityId=' + sc).then(function (r) {
       if (my !== gen) return; slot.textContent = '';
       if (!r.rows || !r.rows.length) { slot.appendChild(el('p', 'hint', '—')); return; }

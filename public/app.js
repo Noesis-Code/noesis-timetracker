@@ -4415,7 +4415,7 @@
   function loadCategoryStats() {
     if (!profile || !csCtx) return;
     var token = ++categoryStatsToken;
-    $('categoryStatsMsg').textContent = ''; TMT.ui.loader($('categoryStatsMsg'));
+    $('categoryStatsMsg').textContent = '';
 
     var url = '/api/category-timesheet?userId=' + profile.id
       + '&activityId=' + csCtx.activityId
@@ -4423,7 +4423,7 @@
       + (csPeriod === 'month' ? '&monthOffset=' + csMonthOffset : '&weekOffset=' + csWeekOffset)
       + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
 
-    api('GET', url).then(function (data) {
+    TMT.ui.attente(api('GET', url)).then(function (data) {
       if (token !== categoryStatsToken) return;
       $('categoryStatsMsg').textContent = '';
       csLastData = data;
@@ -14830,16 +14830,12 @@
   // même : on perd le détail des membres, pas la gestion des activités.
   function loadSettingsActivities() {
     if (!profile) return;
-    // Affichage immédiat : dernière liste connue (puis rafraîchie), sinon « Chargement… ».
+    // Affichage immédiat : dernière liste connue (puis rafraîchie).
     var listBox = $('activitiesList');
     if (listBox && !listBox.children.length) {
       if (activitiesCache && activitiesCache.length) {
         renderActivitiesSettings(activitiesCache, (lastActivitiesData && lastActivitiesData.sharedList) || []);
       } else {
-        var ld = document.createElement('p');
-        ld.className = 'hint';
-        TMT.ui.loader(ld, { seul: true });
-        listBox.appendChild(ld);
       }
     }
     Promise.all([
@@ -16927,11 +16923,11 @@
     if (!profile) return;
     resetOffer1CheckoutModal();
     $('offer1CheckoutModal').classList.remove('hidden');
-    $('offer1CheckoutMsg').textContent = ''; TMT.ui.loader($('offer1CheckoutMsg'));
-    Promise.all([
+    $('offer1CheckoutMsg').textContent = '';
+    TMT.ui.attente(Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/offer/subscriptions?userId=' + profile.id),
-    ]).then(function (res) {
+    ])).then(function (res) {
       var activities = res[0] || [];
       var subscribedIds = (res[1] || []).map(function (s) { return s.activityId; });
       populateOffer1ActivitySelect(activities, subscribedIds);
