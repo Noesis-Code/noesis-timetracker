@@ -6375,6 +6375,8 @@
     },
     list: function () { return offlineObjectifs.slice(); },
   };
+  // Barre « Nouvelle tâche… » de la vue Tâches (aujourdhui.js) sans réseau : même file que la capture hors ligne (rangée par l'IA au retour du réseau, jamais de doublon).
+  window.TMT.offlineTask = { add: function (activityId, label) { return enqueueOfflineAutoTask(activityId, label); } };
 
   if (autoTaskQueue) {
     window.addEventListener('online', syncOfflineAutoTasks);

@@ -77,7 +77,7 @@
     if ((!onTasks && !onObj) || document.documentElement.classList.contains('goalsActOpen')) return null;
     if (shown(byId('goalsDetailPage'))) return null; // une page ouverte par-dessus le volet
     if (TMT.portee && !TMT.portee.anyManage()) return null; // simple membre partout : rien à créer ni à modifier, le « + » disparaît
-    if (onTasks) return shown(byId('goalsTodayView')) && TMT.todayView && TMT.todayView.toggleComposer ? 'tasks' : null;
+    if (onTasks) return shown(byId('goalsTodayView')) && TMT.todayView && TMT.todayView.toggleComposer && (!TMT.todayView.canAdd || TMT.todayView.canAdd()) ? 'tasks' : null;
     return shown(byId('goalsActivitiesView')) ? 'tree' : null;
   }
   function pressed(kind) {

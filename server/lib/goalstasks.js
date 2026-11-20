@@ -262,6 +262,7 @@ function moveCategoryTask(activityId, userId, itemId, newCategoryKey) {
   if (!currentSubProject || Number(currentSubProject.activityId) !== Number(activityId)) {
     throw Object.assign(new Error("Cette tâche n'appartient pas à cette activité."), { statusCode: 400 });
   }
+  require('./portee').exigerEcritureTache(userId, activityId, currentSubProject.goalCategory); // aussi sur la catégorie de départ : un simple membre ne sort pas une tâche de là où il n'est que membre
 
   const { subProject: targetSubProject, section: targetSection } = ensureCategoryTaskSection(activityId, userId, newCategoryKey);
 
@@ -327,6 +328,7 @@ function reassignHistoryTask(userId, itemId, newActivityId, newCategoryKey, newD
   const isOldMember = !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?')
     .get(oldActivityId, userId);
   if (!isOldMember) throw Object.assign(new Error('Tâche introuvable.'), { statusCode: 404 });
+  require('./portee').exigerEcritureTache(userId, oldActivityId, oldCategoryKey); // aussi sur la catégorie de départ
   subprojects.assertItemEditable(item);
   const isMember = !!db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?')
     .get(newActivityId, userId);

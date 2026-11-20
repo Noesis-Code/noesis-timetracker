@@ -287,7 +287,9 @@ function ownTask(userId, taskId) {
   if (access.error) throw toolError('Tâche introuvable.');
   if (item.plannedUserId && item.plannedUserId !== userId) throw toolError('Cette tâche est confiée à un autre membre.');
   try { sp.assertItemEditable(item); } catch (e) { throw toolError(e.message); }
-  return { item, activityId: sp.getSubProject(item.subProjectId).activityId };
+  const parent = sp.getSubProject(item.subProjectId);
+  try { require('../lib/portee').exigerEcritureTache(userId, parent.activityId, parent.goalCategory); } catch (e) { throw toolError(e.message); } // activité partagée : un simple membre ne modifie, ne déplace ni ne retire rien (il coche seulement)
+  return { item, activityId: parent.activityId };
 }
 // Pôle ou secteur d'une activité, par nom ou clé.
 function resolveTarget(activityId, wanted) {

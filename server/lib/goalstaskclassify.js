@@ -639,8 +639,15 @@ async function captureTaskForActivities(activityIds, userId, label, opts) {
 
 // Proposition de rangement d'une tâche libre, TOUTES activités confondues (pop-up du bouton flottant, 27 oct. 2026) : « Activité › Pôle ».
 // Informe sans décider : rien n'est créé ici ; le client montre la proposition, l'utilisateur l'accepte ou la change (options = tous les choix).
+// Proposition de rangement + jour écrit dans le titre (« vendredi », « demain »…) lu par des règles locales gratuites (capturedatehint) : `date` = ce jour, sinon null. Le client le met dans le champ Date, modifiable.
 async function proposePlacement(userId, label, opts) {
-  const acts = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.name').all(userId);
+  const out = await proposePlacementBase(userId, label, opts);
+  let hint = null; try { hint = require('./capturedatehint').parseDateHint(String(label || ''), require('./dates').userToday()); } catch (e) { /* jamais bloquant */ }
+  out.date = hint && hint.kind === 'day' ? hint.date : null;
+  return out;
+}
+async function proposePlacementBase(userId, label, opts) {
+  const acts =db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.name').all(userId);
   const options = [];
   acts.forEach((a) => buildClassificationCandidates(a.id).filter((c) => require('./portee').peutEcrireTache(userId, a.id, c.key)).forEach((c) => options.push({ // activité partagée : seulement les catégories où je suis responsable
     key: 'a' + a.id + ':' + c.key, activityId: a.id, activityName: a.name, categoryKey: c.key, categoryLabel: c.label,

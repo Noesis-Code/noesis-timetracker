@@ -60,8 +60,15 @@
   } // la barre d'ajout REMPLACE la barre des volets et le « + » (19 nov. 2026, Émilien)
   // Plus de « + » pour refermer : un toucher en dehors de la barre la referme (le texte écrit reste là), sauf pendant une proposition ou l'étape Enregistrer.
   document.addEventListener('pointerdown', function (e) { if (composerOpen && !calExpanded && dock && !flowOn() && !dock.contains(e.target) && !(e.target.closest && e.target.closest('.cmpGlass, [role="dialog"]'))) setComposer(false); });
+  // Simple membre (ni propriétaire ni responsable) : aucune barre d'ajout là où il n'a pas le droit d'écrire ; le serveur refuse de toute façon (TACHE_RESERVEE_RESPONSABLES).
+  function canAddHere() {
+    if (!TMT.portee) return true;
+    if (!TMT.portee.anyManage()) return false; // simple membre partout
+    return filt.act == null || TMT.portee.canManage(filt.act); // filtre sur une activité où il n'est que membre
+  }
   function setComposer(v) {
-    v = !!v; if (v === composerOpen) return;
+    v = !!v; if (v && !canAddHere()) v = false;
+    if (v === composerOpen) return;
     composerOpen = v; syncDock();
     if (v && dock) { dock.classList.remove('tasksDockIn'); void dock.offsetWidth; dock.classList.add('tasksDockIn'); if (ui.text) ui.text.focus(); } // apparition de droite à gauche (css/aujourdhui.css)
     try { document.dispatchEvent(new CustomEvent('tmt:composer')); } catch (e) { /* vieux navigateur */ }
@@ -256,7 +263,7 @@
     poles.sort(function (a, b) { return a.idx - b.idx; });
     return { acts: acts, poles: poles, secs: secs };
   }
-  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (lastData) render(lastData); syncCalendar(); }
+  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
   function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; }
   function poleColorOf(actId, key) { var a = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (x) { return String(x.id) === String(actId); })[0], st = struct && struct[String(actId)], p = st && st.filter(function (q) { return q.key === key; })[0]; return a && a.color && p && p.shadeRank != null && TMT.poleColor ? (TMT.poleColor(a.color, p.shadeRank) || a.color) : (a && a.color) || ''; } // nuance standard du pôle (même règle que Chrono et les statistiques)
   function filtRow(parent, text, level, on, fn, color) {
@@ -428,7 +435,7 @@
     if (readOnly) { var v = el('button', 'tasksFieldValue'); v.type = 'button'; v.disabled = true; v.appendChild(el('span', 'tasksFieldText', dateText(state.date))); row.appendChild(v); }
     else {
       var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || dayIso(); inp.setAttribute('aria-label', tr('Date'));
-      inp.addEventListener('change', function () { state.date = inp.value || null; });
+      inp.addEventListener('change', function () { state.date = inp.value || null; state.dateAuto = false; });
       row.appendChild(inp);
     }
     wrap.appendChild(row); return wrap;
@@ -811,6 +818,7 @@
     return TMT.api('POST', '/api/goals/capture/propose', { label: text, skipAi: TMT.aiMode === 'absence' }).then(function (r) {
       if (seq !== state.seq) return;
       state.proposedFor = text; state.proposal = r.proposal || null; state.options = r.options || [];
+      if (state.date == null || state.dateAuto) { state.date = r.date || null; state.dateAuto = !!r.date; } // jour écrit dans le titre (règles locales du serveur) ; un jour choisi à la main prime
       if (state.choice && !state.options.some(function (o) { return o.activityId === state.choice.activityId && o.categoryKey === state.choice.categoryKey; })) state.choice = null; // un choix de l'utilisateur prime sur la proposition
       paintProposal();
     }).catch(function () { /* pas de proposition : « Changer » reste possible */ });
@@ -873,7 +881,7 @@
   }
   function reset() {
     clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
-    state.date = null; state.who = null; state.poleId = null; state.nature = null; state.advOpen = false; state.natureOpen = false; closeChooser();
+    state.date = null; state.dateAuto = false; state.who = null; state.poleId = null; state.nature = null; state.advOpen = false; state.natureOpen = false; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
   }
@@ -885,6 +893,17 @@
   function showToast(text) {
     clearTimeout(state.toastT); ui.toast.textContent = text; ui.toast.classList.remove('hidden');
     state.toastT = setTimeout(function () { ui.toast.classList.add('hidden'); }, 2500);
+  }
+  // Sans réseau : la tâche entre dans la file d'attente hors ligne existante (rangée par l'IA au retour du réseau, jamais de doublon), dans l'activité choisie, sinon celle du filtre, sinon la première où l'on peut écrire.
+  function offlineActivity() {
+    var t = target(); if (t) return t.activityId;
+    if (filt.act != null) return filt.act;
+    var l = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.canManage !== false; });
+    return l.length ? l[0].id : null;
+  }
+  function queueOffline(label, actId) {
+    if (!TMT.offlineTask || actId == null) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
+    return TMT.offlineTask.add(actId, label);
   }
   function fastCommit(c) {
     var t = c.t;
@@ -898,7 +917,10 @@
       if (c.nature) extra.nature = c.nature; // choisie dans « Avancé » ; vide = l'IA décide en silence
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
       return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }).then(function () { refresh(); calReload(); });
-    }).catch(function (err) { fail(err && err.message); });
+    }).catch(function (err) {
+      if (err && err.offline) { queueOffline(c.label, t.activityId).catch(function (e2) { fail(e2 && e2.message); }); return; } // coupure découverte à l'envoi : même file
+      fail(err && err.message);
+    });
   }
   function send() {
     if (state.busy) return;
@@ -908,6 +930,10 @@
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
     if (state.expStep === 1) { expNext(); return; }
     if (state.exp) { runExpansion(); return; }
+    if (navigator.onLine === false && !state.files.length) { // hors ligne connu d'avance : directement dans la file, sans proposition ni attente
+      queueOffline(label, offlineActivity()).then(function () { reset(); showToast(tr('Tâche enregistrée')); }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Erreur.'); });
+      return;
+    }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = state.review; // le panneau de revue était déjà affiché AVANT cet appui : ↑ (ou ✕) valide
     var go = shown ? Promise.resolve() : TMT.ui.attente(propose(label)); // rien d'affiché encore : on demande d'abord la proposition
@@ -1127,6 +1153,7 @@
     syncDock: syncDock,
     toggleComposer: function () { setComposer(!composerOpen); },
     composerOpen: function () { return composerOpen; },
+    canAdd: function () { return canAddHere(); },
     // Arrivée depuis l'arbre des objectifs (TMT.ouvrirCalendrierTaches) : filtre posé sur ce pôle / secteur, calendrier au bon mois, puis la vue Tâches s'affiche. -> Promise<boolean> ; échec : le filtre d'avant est remis.
     openCalendar: function (o) {
       o = o || {}; if (o.activityId == null || !o.poleKey) return Promise.resolve(false);
@@ -1141,6 +1168,7 @@
         filtOpen = false; filtBrowse = null;
         if (o.date) { calAnchor = o.date; calExpanded = false; }
         viewDay = 'all'; paintCal(); syncDayPop(); paintFilter(); if (lastData) render(lastData);
+        if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer'));
         if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
         return true;
       });
