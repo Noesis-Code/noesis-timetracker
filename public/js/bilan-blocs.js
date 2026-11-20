@@ -134,6 +134,11 @@
   }
   function rRec(mount, remover) { if (TMT.groupStatsRecurring) TMT.groupStatsRecurring(Number(scope), mount, remover); }
 
+  // Volet retiré de la barre = ses informations disparaissent du Bilan ; remis dans la barre, elles reviennent (décidé par Émilien, 20 nov. 2026).
+  function voletOn(v) { var o = TMT.navBar && TMT.navBar.order ? TMT.navBar.order() : null; return !o || o.indexOf(v) >= 0; }
+  var VOLET = { advance: ['objectives'], capacity: ['tasks'], weekdays: ['tasks'], urgent: ['tasks'], avg: ['tasks'], prop: ['tasks'], rec: ['tasks'], graph: ['tasks', 'objectives'] };
+  function shown(d) { return (VOLET[d.key] || []).some(voletOn); }
+
   var DEFS = {
     all: [
       { key: 'advance', title: 'Avancement', render: rAdvance },
@@ -148,7 +153,7 @@
       { key: 'rec', title: 'Tâches récurrentes', render: rRec }
     ]
   };
-  function defs() { return scope === 'all' ? DEFS.all : DEFS.act; }
+  function defs() { return (scope === 'all' ? DEFS.all : DEFS.act).filter(shown); }
   // Le graphique est visible par défaut quand une activité est sélectionnée (18 nov. 2026, jamais en « Toutes ») : tant que le choix n'est pas enregistré, la liste commence par lui ; la croix le retire (choix mémorisé), « + Ajouter une information » le remet.
   function storeKey() { return 'tmt.bilanInfo2.' + scope; }
   function loadAdded() {
@@ -196,6 +201,7 @@
   function showChrono() {
     chronoHost.textContent = '';
     if (TMT.bilanCategoryStats) TMT.bilanCategoryStats.close();
+    if (!voletOn('chrono')) { if (TMT.bilanPage1) TMT.bilanPage1(false); return; }
     if (scope === 'all') { if (TMT.bilanPage1) TMT.bilanPage1(true); return; }
     if (TMT.bilanPage1) TMT.bilanPage1(false);
     var a = acts().filter(function (x) { return String(x.id) === scope; })[0], name = a ? a.name : '', my = ++chronoGen;
