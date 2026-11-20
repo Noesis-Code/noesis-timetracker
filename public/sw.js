@@ -67,6 +67,7 @@ const SHELL = [
   '/js/objectifs-liaison.js',
   '/js/objectifs-creer.js',
   '/js/responsables-ui.js',
+  '/js/membres-ui.js',
   '/js/objectifs-arbre.js',
   '/js/objectifs-retard.js',
   '/js/objectifs-page2-taches.js',
