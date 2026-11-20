@@ -9,7 +9,7 @@ const i = js.indexOf('    function stepOff()'), fn = js.slice(i, js.indexOf('\n'
 const off = (cur, form) => new Function('cur', 'form', fn + '\nreturn stepOff();')(cur, form);
 assert(off('desc', { title: 'x', dateOk: false, endDate: null }) === false && off('desc', { title: '' }) === true, 'Description : Suivant gris sans titre, actif avec titre, sans exiger la date');
 assert(off('echeance', { dateOk: true, endDate: null }) === true && off('echeance', { dateOk: true, endDate: '2027-03-01' }) === false, 'Échéance : Suivant gris tant que la date est vide (R35)');
-assert(js.includes("if (cur === 'echeance') {") && js.includes('refreshHints(); TMT.ui.attente(loadRatt())'), 'à « Suivant » de l’Échéance : parent (rattachement) et propositions recalculés');
+assert(js.includes("if (cur === 'echeance') {") && js.includes('refreshHints(); loadRatt()'), 'à « Suivant » de l’Échéance : parent (rattachement) et propositions recalculés');
 assert(js.includes('function rattKey2()') && js.includes("form.ratt.key !== rattKey2()"), 'le rattachement dépend aussi de l’échéance (clé)');
 assert(js.includes("if (form.endFixed) loadRatt().then(nivFetch); else nivFetch();") && js.includes('(form.endFixed ? loadRatt().then(nivFetch) : nivFetch())'), 'Activité → suite : seules les questions du Niveau avant l’échéance (rattachement après)');
 assert(!/if \(!form\.dateOk \|\| !form\.endDate\) \{ msg\.textContent = tr\('Indique la date de l’échéance\.'\); return false; \}/.test(js), 'validDesc n’exige plus la date');

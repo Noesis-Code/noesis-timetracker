@@ -61,7 +61,7 @@ assert(R.place(base, 1, 3, 13, 1).find((x) => x.id === 1).p === 3 && R.place(bas
   // 11. fenêtre et branchement (source) : après Temps, avant les sous-objectifs ; Appliquer écrit à Terminer ; refus mémorisé ; poignée = appui long 500 ms
   const js = require('fs').readFileSync(require('path').join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
   const win = js.slice(js.indexOf('function openRedessin'), js.indexOf('function offerBtn'));
-  assert(js.includes("if (cur === 'temps' && form.parentId && form._rdKey !== rdKey())") && js.includes('TMT.ui.attente(redessinStep())'), 'fenêtre : ouverte à la sortie de Temps (avant les sous-objectifs), seulement s\'il y a un redessin');
+  assert(js.includes("if (cur === 'temps' && form.parentId && form._rdKey !== rdKey())") && js.includes('redessinStep()'), 'fenêtre : ouverte à la sortie de Temps (avant les sous-objectifs), seulement s\'il y a un redessin');
   assert(js.includes('.then(function () { return rdApply(); })') && js.includes("action: 'appliquer'") && js.includes("action: 'refus'"), 'Appliquer écrit à Terminer ; Annuler / ✕ = refus mémorisé');
   assert(win.includes("label: tr('Oui')") && win.includes("label: tr('Non')") && win.includes('TMT.ui.confirm('), 'fenetre Modifications proposees : un simple Oui / Non (confirmation commune)');
   assert(win.includes('applied: true') && win.includes('refused: true'), 'Oui applique le calcul propose, Non le refuse (refus memorise)');

@@ -1,4 +1,4 @@
-// Date impossible (20 nov. 2026) : un seul validateur serveur (dates.isRealDay), réutilisé par les routes ; voile à 0,5 s.
+// Date impossible (20 nov. 2026) : un seul validateur serveur (dates.isRealDay), réutilisé par les routes .
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -11,5 +11,4 @@ assert(/isRealDay\(dueDate\)/.test(read('server/routes/goals.js')), 'auto-task :
 assert(/isRealDay\(req\.body\.dueDate\)/.test(read('server/routes/goals.js')), 'création de tâche : date réelle');
 assert(/isRealDay\(req\.body\.dueDate\)/.test(read('server/routes/subprojects.js')), 'modification de tâche : date réelle');
 assert(read('server/lib/objectifs.js').includes("require('./dates').isRealDay(s)"), 'objectifs : isDay = date réelle');
-assert(/--voile-delai: \.5s/.test(read('public/css/composants.css')) && /animation: cmpVoileOn \.01s linear var\(--voile-delai\)/.test(read('public/css/composants.css')), 'voile : délai 0,5 s, constante unique');
 console.log('date-reelle-test OK');

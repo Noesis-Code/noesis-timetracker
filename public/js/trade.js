@@ -29,7 +29,7 @@
     page.classList.remove('hidden');
     if (loading) return; loading = true;
     showLoading();
-    TMT.ui.attente(fetchLink()).then(function (d) {
+    fetchLink().then(function (d) {
       if (!d.configured || !d.url) showState(tr('Trade Tracker n’est pas configuré sur ce serveur.'));
       else showLink(d.url);
     }).catch(function (e) {

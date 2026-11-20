@@ -556,7 +556,7 @@
   }
   function startExpansion(kind, label) {
     state.busy = true; ui.send.disabled = true; say(tr('Je regarde où Expansion est actif…'));
-    TMT.ui.attente(essorActivities()).then(function (list) {
+    essorActivities().then(function (list) {
       say('');
       if (!list.length) {
         setExpMode(false); ui.exHint.classList.add('hidden');
@@ -601,7 +601,7 @@
     var g = state.gen; if (g && g.actId === actId && (g.loading || g.tasks)) { paintGenPage(); return; }
     var mine = state.gen = { actId: actId, tasks: null, checked: [], loading: true };
     paintGenPage();
-    TMT.ui.attente(TMT.api('POST', '/api/activities/' + actId + '/document-tasks/propose', { instruction: genInstruction(state.expLabel || '') })).then(function (r) {
+    TMT.api('POST', '/api/activities/' + actId + '/document-tasks/propose', { instruction: genInstruction(state.expLabel || '') }).then(function (r) {
       var list = (r && r.tasks) || [];
       if (!explicitCount(state.expLabel || '')) list = list.slice(0, MAX_GENERATED);
       mine.tasks = list; mine.checked = list.map(function () { return true; });
@@ -641,7 +641,7 @@
     var picked = g.tasks.filter(function (x, i) { return g.checked[i] !== false; });
     if (!picked.length) { reset(); return; }
     ui.save.disabled = true;
-    TMT.ui.attente(TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes, minMinutes: x.minMinutes, maxMinutes: x.maxMinutes }; }), refused: g.tasks.filter(function (x, i) { return g.checked[i] === false; }).map(function (x) { return x.title; }) })).then(function (r) {
+    TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes, minMinutes: x.minMinutes, maxMinutes: x.maxMinutes }; }), refused: g.tasks.filter(function (x, i) { return g.checked[i] === false; }).map(function (x) { return x.title; }) }).then(function (r) {
       var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { say((err && err.message) || tr('Erreur.')); }).then(function () { ui.save.disabled = false; });
@@ -734,7 +734,7 @@
     if (e.kind !== 'tasks') { var id = e.actId; reset(); if (TMT.openDocTasksForActivity) TMT.openDocTasksForActivity(id); return Promise.resolve(); }
     if (!e.tasks) {
       e.loading = true; paintExpansion();
-      return TMT.ui.attente(TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/propose', { instruction: e.label.slice(0, 1500) })).then(function (r) {
+      return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/propose', { instruction: e.label.slice(0, 1500) }).then(function (r) {
         e.tasks = (r && r.tasks) || []; e.checked = e.tasks.map(function () { return true; });
       }).catch(function (err) {
         var m = (err && err.message) || tr('Erreur.');
@@ -745,7 +745,7 @@
     var picked = e.tasks.filter(function (t, i) { return e.checked[i] !== false; });
     if (!picked.length) { reset(); return Promise.resolve(); }
     e.loading = true; paintExpansion();
-    return TMT.ui.attente(TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: e.categoryKey || t.key, day: t.day, week: t.week, minutes: t.minutes, minMinutes: t.minMinutes, maxMinutes: t.maxMinutes }; }) })).then(function (r) {
+    return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: e.categoryKey || t.key, day: t.day, week: t.week, minutes: t.minutes, minMinutes: t.minMinutes, maxMinutes: t.maxMinutes }; }) }).then(function (r) {
       var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { e.loading = false; say((err && err.message) || tr('Erreur.')); paintExpansion(); });
@@ -886,7 +886,7 @@
     }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = state.review; // le panneau de revue était déjà affiché AVANT cet appui : ↑ (ou ✕) valide
-    var go = shown ? Promise.resolve() : TMT.ui.attente(propose(label)); // rien d'affiché encore : on demande d'abord la proposition
+    var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition
     go.then(function () {
       var t = target();
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).

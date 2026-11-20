@@ -309,23 +309,6 @@
 .goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 30px; }
 .goalsCalDays { position: relative; }
 .goalsCalDay { position: relative; z-index: 1; }
-
-/* Chargement (R49) : UN voile de verre presque opaque sur toute l'application (barre des volets comprise), le N animé au centre, rien d'autre.
-   Créé par TMT.chargement.show() / TMT.ui.attente() (composants.js) ; n'apparaît qu'après 0,5 s (--voile-delai, constante unique, ci-dessous) ; ne capte aucun clic tant qu'il est invisible. */
-.cmpVoile { --voile-delai: .5s; position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; animation: cmpVoileOn .01s linear var(--voile-delai) forwards; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* verre commun = jetons de .cmpGlass (R31), jamais de fond plein */
-.cmpVoile svg { display: block; width: 38px; height: 48px; fill: var(--text); flex: none; }
-.cmpVoile polygon { opacity: .22; animation: cmpLoaderVague 1.4s linear infinite; }
-.cmpVoile polygon:nth-child(2) { animation-delay: 0s; }
-.cmpVoile polygon:nth-child(1) { animation-delay: .2s; }
-.cmpVoile polygon:nth-child(3) { animation-delay: .4s; }
-.cmpVoile polygon:nth-child(4) { animation-delay: .6s; }
-.cmpVoile polygon:nth-child(6) { animation-delay: .8s; }
-.cmpVoile polygon:nth-child(5) { animation-delay: 1s; }
-.cmpVoile polygon:nth-child(7) { animation-delay: 1.2s; }
-@keyframes cmpVoileOn { to { opacity: 1; pointer-events: auto; } }
-@keyframes cmpLoaderVague { 0% { opacity: .22; } 7% { opacity: 1; } 43% { opacity: 1; } 57% { opacity: .22; } 100% { opacity: .22; } }
-@media (prefers-reduced-motion: reduce) { .cmpVoile polygon { animation: none; opacity: .7; } }
-
 /* R50 : bouton « Enregistrer » d'un pop-up, DÉCOLLÉ du corps et à la place de la barre des volets (TMT.ui.dockEnregistrer, js/composants.js). Même bouton que celui du bas d'Objectifs/Tâches (.tasksSaveBtn, R35 : gris tant que rien n'a changé, violet au changement), mêmes 16 px de marge et 52 px de haut que la barre des volets. */
 .cmpDockSlot { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .cmpDockSave { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1; }

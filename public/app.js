@@ -1761,7 +1761,7 @@
     var name = $('onbNewActivityName').value.trim();
     if (!name) return;
     $('onbNewActivitySave').disabled = true;
-    TMT.ui.attente(api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id }))
+    api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id })
       .then(function () { showApp(); })
       .catch(function (err) { $('onbMsg').textContent = err.message; $('onbNewActivitySave').disabled = false; });
   });
@@ -1894,7 +1894,7 @@
     if (pin !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
     if (onbModules && !onbModules.valid()) { $('onbMsg').textContent = t('Choisis au moins un module.'); return; }
     $('onbCreateBtn').disabled = true;
-    TMT.ui.attente(api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked }))
+    api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
       .then(function (p) {
         saveProfile(p);
         // Modules choisis enregistrés avant la suite ; un échec garde les modules par défaut (réglables dans Réglages).
@@ -2234,7 +2234,7 @@
         .finally(function () { $('onbPinSubmit').disabled = false; });
     } else {
       $('onbPinSubmit').disabled = true;
-      TMT.ui.attente(api('POST', '/api/profile/' + pendingPinUser.id + '/verify-pin', { pin: pin }))
+      api('POST', '/api/profile/' + pendingPinUser.id + '/verify-pin', { pin: pin })
         .then(function (p) {
           saveProfile(p);
           pendingPinUser = null;
@@ -4447,7 +4447,7 @@
       + (csPeriod === 'month' ? '&monthOffset=' + csMonthOffset : '&weekOffset=' + csWeekOffset)
       + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
 
-    TMT.ui.attente(api('GET', url)).then(function (data) {
+    api('GET', url).then(function (data) {
       if (token !== categoryStatsToken) return;
       $('categoryStatsMsg').textContent = '';
       csLastData = data;
@@ -16587,10 +16587,10 @@
     resetOffer1CheckoutModal();
     $('offer1CheckoutModal').classList.remove('hidden');
     $('offer1CheckoutMsg').textContent = '';
-    TMT.ui.attente(Promise.all([
+    Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/offer/subscriptions?userId=' + profile.id),
-    ])).then(function (res) {
+    ]).then(function (res) {
       var activities = res[0] || [];
       var subscribedIds = (res[1] || []).map(function (s) { return s.activityId; });
       populateOffer1ActivitySelect(activities, subscribedIds);

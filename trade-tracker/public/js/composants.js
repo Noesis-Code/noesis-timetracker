@@ -54,33 +54,13 @@
       try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
-  // Chargement (R49, refait le 20 nov. 2026) : UN SEUL composant. Après 0,5 s d'attente (--voile-delai, css/composants.css), un voile de verre presque opaque recouvre TOUTE l'application (barre des volets comprise) avec le N animé au centre, rien d'autre ; retiré dès que c'est prêt.
-  // TMT.chargement.show()/hide() (compteur : plusieurs attentes partagent un seul voile) ; TMT.ui.attente(promesse) = show + hide autour d'une promesse. Jamais de N dans une carte, de spinner, de squelette ni de « Chargement… ».
   var colorMap = null; // fonction (activité, pôle, nom du pôle) → couleur, une fois la structure chargée
   function charger() {
     var now = Date.now(); if (!colorCache || now - colorCache.t > 30000) colorCache = { t: now, p: window.TMT.api('GET', '/api/objectifs/structure').then(function (st) { var by = {}; ((st && st.activities) || []).forEach(function (a) { by[a.id] = a; }); colorMap = function (aid, pk, label) { var a = by[aid]; if (!a) return ''; var po = (pk || label) && (a.poles || []).filter(function (x) { return pk ? x.key === pk : x.label === label; })[0]; return window.TMT.ui.etiquette({ activityName: a.name, activityColor: a.color, poleLabel: po && po.label, poleIndex: po && po.shadeRank }).color; }; return colorMap; }).catch(function () { colorCache = null; colorMap = null; return function () { return ''; }; }) };
     return colorCache.p;
   }
   var colorCache = null; // structure des couleurs de catégories (R53), rafraîchie toutes les 30 s
-  var LOADER_PHRASE = 'Noèsis s’en occupe…';
-  var LOADER_POLYS = ['183,293 287,461 287,616 183,675', '287,628 287,863 184,863 184,687', '192,262 293,262 468,557 367,555', '374,565 475,568 536,670 536,835', '556,262 616,262 659,286 661,616 556,673', '661,629 662,863 557,863 556,686', '729,151 612,186 635,253 708,287'];
-  var voile = null, voileN = 0, voileT = 0;
-  function voileOff() { clearTimeout(voileT); voileN = 0; if (voile && voile.parentNode) voile.parentNode.removeChild(voile); voile = null; }
-  function chargementShow() {
-    if (voileN++) return;
-    var label = typeof window.t === 'function' ? window.t(LOADER_PHRASE) : LOADER_PHRASE;
-    voile = document.createElement('div'); voile.className = 'cmpVoile'; voile.setAttribute('role', 'status'); voile.setAttribute('aria-label', label);
-    var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '163 131 586 752'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
-    LOADER_POLYS.forEach(function (pts) { var g = document.createElementNS(NS, 'polygon'); g.setAttribute('points', pts); svg.appendChild(g); });
-    voile.appendChild(svg);
-    document.body.appendChild(voile); voileT = setTimeout(voileOff, 30000); // filet : jamais plus de 30 s
-  }
-  function chargementHide() { if (voileN > 0 && !--voileN) voileOff(); }
-  function attente(p) {
-    chargementShow();
-    return Promise.resolve(p).then(function (v) { chargementHide(); return v; }, function (e) { chargementHide(); throw e; });
-  }
-  window.TMT = window.TMT || {}; window.TMT.chargement = { show: chargementShow, hide: chargementHide };
+  window.TMT = window.TMT || {};
   function btn(cls, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;

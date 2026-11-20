@@ -11,7 +11,7 @@
   'use strict';
   var TMT = window.TMT = window.TMT || {};
   var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
-  var api = function (m, u, b) { return TMT.ui.attente(TMT.api(m, u, b)); }; // chaque chargement passe par le voile unique (R49)
+  var api = function (m, u, b) { return TMT.api(m, u, b); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var host = null, chips = null, chronoHost = null, infoHost = null, infoBody = null;
   var scope = 'all', pole = null, poleLabel = '', sector = null, sectorKey = null, struct = null, bbv = { open: false, browse: null, pole: null, page: 0 }, jourMode = true, offset = 0, gen = 0, chronoGen = 0, adding = false, draft = [];

@@ -150,7 +150,7 @@
     var req = driveFile
       ? TMT.api('POST', '/api/drive/propose', { activityId: Number(actId()), fileId: driveFile.id, instruction: instruction })
       : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
-    TMT.ui.attente(req)
+    req
       .then(function (r) {
         busy = false; proposals = r.tasks || []; categories = r.categories || [];
         var notes = (r.notes || []).slice(); if (r.truncated) notes.push('Document long : seule la première partie a été lue.');
@@ -185,7 +185,7 @@
       .catch(function (e) { driveSt = /Module désactivé/i.test((e && e.message) || '') ? { moduleOff: true } : { configured: false }; renderDrive(); });
   }
   function loadFiles() {
-    TMT.ui.attente(dApi('GET', '/api/drive/files')).then(function (r) { driveList = r.files || []; renderDrive(); })
+    dApi('GET', '/api/drive/files').then(function (r) { driveList = r.files || []; renderDrive(); })
       .catch(function (e) { filesErr = (e && e.message) || 'Erreur Drive.'; renderDrive(); });
   }
   var folderList = [], folderQuery = '', folderSel = null, folderTimer = null, folderSeq = 0, folderLoading = false;
@@ -209,7 +209,7 @@
     var q = folderQuery.trim(), seq = ++folderSeq;
     if (!q) { folderList = []; folderLoading = false; renderFolderSug(); return; }
     folderLoading = true; renderFolderSug();
-    TMT.ui.attente(dApi('GET', '/api/drive/folders', 'q=' + encodeURIComponent(q).slice(0, 300))).then(function (r) {
+    dApi('GET', '/api/drive/folders', 'q=' + encodeURIComponent(q).slice(0, 300)).then(function (r) {
       if (seq !== folderSeq || driveView !== 'folders') return;
       folderList = r.folders || []; folderLoading = false; renderFolderSug();
     }).catch(function (err) {
@@ -960,7 +960,7 @@
   });
   $('docTasksChangesFind').addEventListener('click', function () {
     if (busy) return; busy = true; cToast('');
-    TMT.ui.attente(cApi('POST', '/generate', {})).then(function (r) {
+    cApi('POST', '/generate', {}).then(function (r) {
       busy = false; changes = normCh(r.proposals || []); renderChanges();
       cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
     }).catch(function (err) { busy = false; cToast((err && err.message) || 'Erreur.'); });

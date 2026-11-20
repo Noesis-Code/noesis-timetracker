@@ -445,7 +445,7 @@
       if (!force && tp.key === tpKey() && tp.e) { tp.page = 0; tp.shown = 0; tpPaint(); tpSync(); return Promise.resolve(); } // ré-entrée dans Temps : on revient à la PREMIÈRE sous-page (valeurs saisies conservées)
       tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
       var key = tp.key, nb = nivBody(), sg = form.endDate && niv.qs ? api('POST', '/api/objectifs/temps/suggestion', { title: form.title, endDate: form.endDate, startDate: form.startDate, activityName: (targets()[0] || {}).name || '', niveau: nb }).then(function (r) { return r && r.suggestion && r.suggestion.perWeekMin && r.suggestion.perWeekMin.mid > 0 ? r.suggestion : null; }, function () { return null; }) : Promise.resolve(null);
-      return TMT.ui.attente(Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg])).then(function (res) {
+      return Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg]).then(function (res) {
         var e = res[0], g = res[1]; if (tp.key !== key) return;
         tp.sugg = g; if (g) g.startMin = g.perWeekMin.mid;
         tp.e = e; tp.loading = false; tp.valueMin = g ? g.perWeekMin.mid : (e.valueMin == null ? null : e.valueMin); tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tpPaint(); tpSync();
@@ -502,7 +502,7 @@
     }
     function tpPaint() {
       tpBox.textContent = '';
-      if (tp.loading || !tp.e) return; // écran qui charge : le voile unique (R49)
+      if (tp.loading || !tp.e) return;
       var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
       track.style.width = (n * 100) + '%';
       pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
@@ -827,9 +827,9 @@
     function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
     function stepNext() {
       var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
-      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; stepNext(); }); return; } // les modifications proposées sont calculées ici, affichées dans la dernière étape
-      if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; TMT.ui.attente(infFetch()).then(function () { stepBtn.disabled = false; if ((inf.plan && !inf.plan.skip) || form.rdNeeded) show('inf'); else finishAll(); }); return; }
-      if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; TMT.ui.attente(loadRatt().then(nivFetch)).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } // créé depuis une case : activité et échéance imposées
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; redessinStep().then(function () { stepBtn.disabled = false; stepNext(); }); return; } // les modifications proposées sont calculées ici, affichées dans la dernière étape
+      if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; infFetch().then(function () { stepBtn.disabled = false; if ((inf.plan && !inf.plan.skip) || form.rdNeeded) show('inf'); else finishAll(); }); return; }
+      if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } // créé depuis une case : activité et échéance imposées
       show(l[i + 1]);
     }
     function validDesc(final) {
@@ -841,12 +841,12 @@
     function innerOf() { if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'; return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
     function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
       if (!validDesc(true)) return;
-      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; TMT.ui.attente(redessinStep()).then(function () { stepBtn.disabled = false; if (form.rdNeeded) { show('inf'); } else finishAll(); }); return; } // dernier écran (hebdomadaire) : les modifications proposées passent avant la création
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; redessinStep().then(function () { stepBtn.disabled = false; if (form.rdNeeded) { show('inf'); } else finishAll(); }); return; } // dernier écran (hebdomadaire) : les modifications proposées passent avant la création
       if (form.ratt && form.ratt.key !== rattKey2()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
       if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
       if (form.endDate <= todayLocal()) { msg.textContent = MSG_ECH; return; }
       stepBtn.disabled = true; msg.textContent = '';
-      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return TMT.ui.attente(p); }; // le voile n'enveloppe QUE les appels réseau, jamais la fenêtre de confirmation qui attend l'utilisateur
+      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return p; }; // (voile retiré le 20 nov. 2026) de confirmation qui attend l'utilisateur
       // Sans réseau (20 nov. 2026) : l'objectif entre dans la file hors ligne (même voie que les tâches, une clé d'idempotence) ; le panneau se ferme comme après une création, l'objectif s'affiche en attente dans l'arbre, et le serveur applique ses règles au retour du réseau (refus = visible avec son message).
       function queueOffline() {
         if (!TMT.offlineObjectifs) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
@@ -894,7 +894,7 @@
       var tApres = null, done = false, m = openModal(tr('Ajuster le temps'), { dirty: function () { return !!tApres && Object.keys(tApres).length > 0; }, onClose: function () { if (!done) { done = true; resolve(null); } } });
       function finish(v) { if (done) return; done = true; m.close(); resolve(v); }
       var closeOrig = m.close; m.close = function () { closeOrig(); if (!done) { done = true; resolve(null); } };
-      TMT.ui.attente(api('GET', '/api/objectifs/temps?' + query)).then(function (e) {
+      api('GET', '/api/objectifs/temps?' + query).then(function (e) {
         var modes = (e && e.modes) || []; if (!modes.length) modes = ['ajouter'];
         function table() {
           var apres = tApres = {}, lines = (e.takeLines && e.takeLines.deplacer) || [], rows = [], tbl, note = el('p', 'hint objTNote'), ok = btn('objFootBtn', tr('Valider'), function () { finish({ mode: 'deplacer', apres: apres }); });
@@ -952,7 +952,7 @@
       var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), sub: res.enCours && x.tasks ? x.tasks + ' ' + tr(x.tasks > 1 ? 'tâches' : 'tâche') : '', chrono: x.chronoMin, avant: TMT.ui.heures(x.plannedMin) }; });
       m.body.appendChild(table(rows, null, null, !!res.enCours));
     }
-    return TMT.ui.attente(api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } })).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return false; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); return true; }).catch(function () { if (m) m.close(); return false; });
+    return api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } }).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return false; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); return true; }).catch(function () { if (m) m.close(); return false; });
   }
   // POP-UP DES 4 SEMAINES d'une période (19 nov. 2026, Émilien) : le dernier niveau de l'arbre, la semaine la plus ancienne EN BAS. Une ligne = un TITRE (touchée, elle se déplie : le titre s'écrit sur place) ;
   // dessous, trois questions à puces (Que faire ? Avec quoi ? Quel résultat ?) qui composent le descriptif « Libellé : réponse · … » lu par l'IA (même format que la création, GUIDE_GROUPS). « + » = ajouter, ✕ = supprimer
@@ -987,12 +987,12 @@
     function genWeeks() { return rows.filter(function (x) { return !x.w.obj && !past(x) && (!spec.parentEnd || x.w.start <= spec.parentEnd) && (!spec.parentStart || x.w.end >= spec.parentStart); }); } // semaines vides, à venir, dans la durée de l'objectif périodique
     function generate() {
       msg.textContent = ''; genBtn.disabled = true;
-      TMT.ui.attente(api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
+      api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
         var src = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return r.kind === 'nouveau'; }) : [], free = genWeeks();
         if (!src.length || !free.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return null; }
         var body = free.slice(0, src.length).map(function (x, i) { var r = src[i], end = spec.parentEnd && x.w.end > spec.parentEnd ? spec.parentEnd : x.w.end; return { kind: 'nouveau', title: String(r.title || '').replace(/^Sd+ · /, 'S' + x.w.i + ' · '), description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, start: x.w.start, endDate: end, weeks: 1, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
         return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: true, rows: body }).then(fresh);
-      })).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }).then(function () { paint(); });
+      }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }).then(function () { paint(); });
     }
     function paint() {
       genBox.textContent = '';
@@ -1055,7 +1055,7 @@
             .then(function (o) { return r.d.trim() ? api('PUT', '/api/objectifs/' + o.id + '/description', { description: r.d.trim() }) : null; });
         });
       }, Promise.resolve());
-      TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); load(); sync(); });
+      chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); load(); sync(); });
     }
     dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null; closeGuard = function () { return !stepBtn.disabled; };
     paint();
@@ -1109,7 +1109,7 @@
       if (stepBtn.disabled) return;
       stepBtn.disabled = true; msg.textContent = '';
       var proposal = false, chain = repBlock.rep.save().then(function (p) { proposal = p; });
-      TMT.ui.attente(chain).then(function () { load(); if (!proposal) { endFlow(); return; } sync(); /* l'app propose d'ajuster des niveaux inférieurs : la fiche reste ouverte pour les valider ou les refuser */ }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+      chain.then(function () { load(); if (!proposal) { endFlow(); return; } sync(); /* l'app propose d'ajuster des niveaux inférieurs : la fiche reste ouverte pour les valider ou les refuser */ }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
     dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null; closeGuard = repOn;
   }
@@ -1274,7 +1274,7 @@
       }
       var gen = btn('cmpBtn', tr('Générer'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
         msg.textContent = '';
-        TMT.ui.attente(api('POST', '/api/objectifs/' + id + '/inferieurs/generer')).then(function (pl) {
+        api('POST', '/api/objectifs/' + id + '/inferieurs/generer').then(function (pl) {
           if (!pl || pl.skip || !pl.rows || !pl.rows.length) { msg.textContent = tr((pl && pl.reason) || 'Rien à proposer pour le moment.'); return; }
           var lines = pl.rows.map(function (r) { return r.title + ' : ' + r.endDate + ' · ' + hh(r.hoursMin); });
           return TMT.ui.confirm(tr('Objectifs proposés') + '\n' + lines.join('\n'), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] }).then(function (yes) {
@@ -1302,7 +1302,7 @@
           if (r === null) { stepBtn.disabled = false; sync(); return null; }
           if (r) calls.unshift(function () { return api('POST', '/api/objectifs/temps/plan', { activityId: o.activity.id, level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, endDate: o.endDate, newMin: newH, mode: r.mode, apres: r.apres, apply: true }); });
           var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
-          return TMT.ui.attente(chain).then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); });
+          return chain.then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); });
         }).catch(function (e) { stepBtn.disabled = false; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
       }
       dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; closeGuard = dirty;

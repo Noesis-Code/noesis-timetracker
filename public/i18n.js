@@ -1516,7 +1516,6 @@
     "Paiement annulé — aucun abonnement créé.": "Payment cancelled — no subscription created.",
     "— Nouvelle activité —": "— New activity —",
     "Chargement…": "Loading…",
-    "Noèsis s’en occupe…": "Noèsis is on it…",
     "Ton profil doit avoir un email et un téléphone renseignés avant de t'abonner.": "Your profile must have an email and a phone number before you subscribe.",
     "Paiement indisponible pour le moment.": "Payment unavailable at the moment.",
     "Nom du représentant légal requis.": "Legal guardian's name required.",
