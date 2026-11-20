@@ -100,11 +100,11 @@
 .tasksDock { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); padding: 0; background: transparent; }
 .tasksDock.hidden { display: none; }
 .tasksDock.noBar .tasksComposer { display: none; } /* seul le pop-up du jour touché est affiché : pas de barre d'écriture */
-@keyframes tasksDockIn { from { clip-path: inset(-100vh 0 0 calc(100% - 52px)); } to { clip-path: inset(-100vh 0 0 0); } } /* part du « + » (à droite) et s'élargit jusqu'à toute la largeur */
+@keyframes tasksDockIn { from { clip-path: inset(0 0 0 calc(100% - 52px)); } to { clip-path: inset(0 0 0 0); } } /* part du « + » (à droite) et s'élargit jusqu'à toute la largeur */
 :root.composerOn .tabbar { opacity: 0; pointer-events: none; transition: opacity .15s ease; } /* la barre d'ajout REMPLACE la barre des volets et le « + » */
 :root.composerOn .tasksDock:not(.goalsDayDock) { bottom: max(16px, env(safe-area-inset-bottom)); } /* fixe, exactement à la place de la barre des volets */
-.tasksDock.tasksDockIn { animation: tasksDockIn .4s cubic-bezier(.4, 0, .2, 1); } /* même mouvement que la barre des volets : part du « + » et s'élargit vers la gauche */ /* la barre d'ajout s'élargit depuis le « + » */
-@media (prefers-reduced-motion: reduce) { .tasksDock.tasksDockIn { animation: none; } }
+.tasksDock.tasksDockIn .tasksComposer { animation: tasksDockIn .4s cubic-bezier(.4, 0, .2, 1); } /* même mouvement que la barre des volets : part du « + » et s'élargit vers la gauche */ /* la barre d'ajout s'élargit depuis le « + » */
+@media (prefers-reduced-motion: reduce) { .tasksDock.tasksDockIn .tasksComposer { animation: none; } }
 .tasksToday { padding-bottom: calc(var(--tabbar-h, 76px) + 120px); } /* la dernière tâche reste lisible au-dessus de la barre fixe */
 .tasksDock .tasksComposer { background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); } /* R40 */
 /* La bulle d'écriture libre de l'ancienne page 1 est remplacée par la barre « Ajouter une tâche » de la vue Aujourd'hui. */

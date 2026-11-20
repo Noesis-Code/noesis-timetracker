@@ -64,7 +64,7 @@
     document.documentElement.classList.toggle('composerOn', vis && barOn);
   } // la barre d'ajout REMPLACE la barre des volets et le « + » (19 nov. 2026, Émilien)
   // Plus de « + » pour refermer : un toucher en dehors de la barre la referme (le texte écrit reste là), sauf pendant une proposition ou l'étape Enregistrer.
-  document.addEventListener('pointerdown', function (e) { if (composerOpen && dock && !flowOn() && !dock.contains(e.target) && !(e.target.closest && e.target.closest('.cmpGlass, [role="dialog"]'))) setComposer(false); });
+  document.addEventListener('pointerdown', function (e) { if (composerOpen && !calExpanded && dock && !flowOn() && !dock.contains(e.target) && !(e.target.closest && e.target.closest('.cmpGlass, [role="dialog"]'))) setComposer(false); });
   function setComposer(v) {
     v = !!v; if (v === composerOpen) return;
     composerOpen = v; syncDock();
@@ -154,6 +154,7 @@
   function toggleExpand(resetAnchor) {
     if (calExpanded && resetAnchor) calAnchor = viewDay === 'all' ? localIso() : dayIso();
     calExpanded = !calExpanded; paintCal(); syncDayPop(); calNavChanged();
+    setComposer(calExpanded); // calendrier déplié : la barre d'ajout remplace la barre des volets et le « + » ; elle disparaît au repli
   }
   function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
@@ -163,7 +164,7 @@
     dayPop = el('div', 'tasksPropose cmpGlass tasksDayPop hidden');
     var head = el('div', 'tasksProposeHead'); dayPopKick = el('span', 'tasksProposeKicker'); head.appendChild(dayPopKick);
     dayPopCount = el('span', 'tasksCounter tasksDayCount'); head.appendChild(dayPopCount);
-    head.appendChild(TMT.ui.closeBtn(function () { if (viewDay !== 'all') pickDay(dayIso()); }, tr('Fermer')));
+    head.appendChild(TMT.ui.closeBtn(function () { if (viewDay !== 'all') pickDay(dayIso()); setComposer(false); }, tr('Fermer'))); // ✕ du pop-up : il se ferme et la barre d'ajout aussi
     dayPopBody = el('div', 'tasksProposeBody'); dayPop.appendChild(head); dayPop.appendChild(dayPopBody);
     dock.insertBefore(dayPop, dock.firstChild);
   }
@@ -176,6 +177,7 @@
     if (root) { root.classList.toggle('dayPopOn', on); root.classList.toggle('calUnfolded', !!calExpanded); }
   }
   function pickDay(d) {
+    if (calExpanded && !composerOpen) setComposer(true); // un jour touché dans le calendrier déplié : la barre d'ajout est là
     var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; if (!calExpanded) calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches ; mois déployé : il le reste (8 nov. 2026, Émilien), même mois
     state.date = null;
     paintCal(); syncDayPop();
