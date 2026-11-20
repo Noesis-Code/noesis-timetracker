@@ -1220,7 +1220,7 @@
         partsBox.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif. Changer une part change le temps des autres, le total reste le même.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
       }
       var ab = btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () { api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); });
-      var gen = btn('cmpBtn cmpBtnIdle', tr('Générer'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
+      var gen = btn('cmpBtn', tr('Générer'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
         msg.textContent = '';
         TMT.ui.attente(api('POST', '/api/objectifs/' + id + '/inferieurs/generer')).then(function (pl) {
           if (!pl || pl.skip || !pl.rows || !pl.rows.length) { msg.textContent = tr((pl && pl.reason) || 'Rien à proposer pour le moment.'); return; }
