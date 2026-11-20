@@ -45,7 +45,7 @@ assert(goalsauto.capacityMinutesForMember(duo, D, 'toi') === 600, 'part de pôle
 // ---- part EXPLICITEMENT à 0 % : aucune tâche planifiable, pas de repli ; aucune part posée = repli ----
 assert(cap.weeklyShareMinutes(duo, D, 'gas') === 0 && goalsauto.capacityMinutesForMember(duo, D, 'gas') === 0, 'membre à 0 % dans la Répartition : capacité nulle (pas de 30 h)');
 assert(overload.budgetFor(duo, 'gas', D) === 0 && overload.referenceFor(duo, 'gas', D) === 0, 'budget du jour nul pour un membre à 0 %');
-assert(cap.weeklyShareMinutes(duo, D, 'zoe') === null, 'personne hors de l'activité (aucune part) : repli, pas zéro');
+assert(cap.weeklyShareMinutes(duo, D, 'zoe') === null, 'personne hors de la catégorie (aucune part) : repli, pas zéro');
 // ---- le total d'une catégorie est divisé entre ses membres (ajustement du temps) ----
 RM.poser(duo, D, { toi: 60, gas: 40 });
 const l = RM.lire(duo, D);
