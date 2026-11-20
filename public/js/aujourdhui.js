@@ -258,7 +258,7 @@
   }
   function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (lastData) render(lastData); syncCalendar(); }
   function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; }
-  function poleColorOf(actId, key) { var a = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (x) { return String(x.id) === String(actId); })[0], st = struct && struct[String(actId)], p = st && st.filter(function (q) { return q.key === key; })[0]; return a && a.color && p && p.shadeRank != null && TMT.subProjectShade ? TMT.subProjectShade(a.color, p.shadeRank, p.shadeCount) : (a && a.color) || ''; } // nuance standard du pôle (même règle que Chrono et les statistiques)
+  function poleColorOf(actId, key) { var a = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (x) { return String(x.id) === String(actId); })[0], st = struct && struct[String(actId)], p = st && st.filter(function (q) { return q.key === key; })[0]; return a && a.color && p && p.shadeRank != null && TMT.poleColor ? (TMT.poleColor(a.color, p.shadeRank) || a.color) : (a && a.color) || ''; } // nuance standard du pôle (même règle que Chrono et les statistiques)
   function filtRow(parent, text, level, on, fn, color) {
     var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; if (color) b.insertBefore(dotEl(color), b.firstChild); b.addEventListener('click', fn); parent.appendChild(b); return b;
   }
@@ -269,7 +269,7 @@
     var label = cur ? cur.name + (filt.pole != null && (pole || filt.poleLabel) ? ' › ' + (filt.sector || (pole ? pole.label : filt.poleLabel)) : '') : tr('Toutes les activités');
     var head = el('button', 'caSubProjectBtn tasksFilterBtn' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
     head.title = label; head.setAttribute('aria-label', label); var hl = el('span', null, cur ? (filt.pole != null && (pole || filt.poleLabel) ? (filt.sector || (pole ? pole.label : filt.poleLabel)) : cur.name) : tr('Tous')); var hc = filt.sector && cur ? poleColorOf(filt.act, filt.pole) : null; if (hc) hl.style.color = hc; head.appendChild(hl); // un secteur choisi : ses lettres prennent la couleur de son pôle (sans pastille) // le bouton porte le nom du secteur, sinon du pôle, sinon de l'activité // même bouton que le filtre des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; il désigne seulement l'activité
-    head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (filtOpen && !struct) loadStruct(); });
+    head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (filtOpen) loadStruct(); }); // la structure (ordre et couleurs des pôles) est relue à chaque ouverture : elle suit l'arbre et les réglages de l'activité
     filterBox.appendChild(head);
     if (!filtOpen) return;
     var panel = el('div', 'tasksFilterPanel cmpGlass'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage'), p3 = el('div', 'tasksFilterPage'), pages = [p1, p2, p3];
