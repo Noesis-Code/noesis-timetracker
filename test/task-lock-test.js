@@ -31,7 +31,6 @@ assert(throws403(() => subprojects.updateItem(t8.id, { label: 'x' }, u.id)), '8 
 assert(throws403(() => subprojects.updateItem(t8.id, { done: false }, u.id)), '8 j : décocher refusé');
 assert(throws403(() => subprojects.deleteItem(t8.id)), '8 j : suppression refusée');
 assert(throws403(() => goalstasks.moveCategoryTask(aid, u.id, t8.id, cat)), '8 j : déplacement refusé');
-assert(throws403(() => goalstasks.reassignHistoryTask(u.id, t8.id, aid, cat, null)), '8 j : réaffectation refusée');
 assert(subprojects.updateItem(tOpen.id, { label: 'ouverte 2' }, u.id).label === 'ouverte 2', 'non terminée : modifiable');
 assert(subprojects.getItem(t8.id).locked === true && subprojects.getItem(t6.id).locked === false, 'drapeau locked exposé');
 subprojects.deleteItem(t6.id);

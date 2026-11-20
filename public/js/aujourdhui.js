@@ -901,9 +901,9 @@
     var l = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.canManage !== false; });
     return l.length ? l[0].id : null;
   }
-  function queueOffline(label, actId) {
+  function queueOffline(label, actId, extra) {
     if (!TMT.offlineTask || actId == null) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
-    return TMT.offlineTask.add(actId, label);
+    return TMT.offlineTask.add(actId, label, extra); // date et exécutant gardés dans la file, rejoués au retour du réseau
   }
   function fastCommit(c) {
     var t = c.t;
@@ -918,7 +918,7 @@
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
       return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }).then(function () { refresh(); calReload(); });
     }).catch(function (err) {
-      if (err && err.offline) { queueOffline(c.label, t.activityId).catch(function (e2) { fail(e2 && e2.message); }); return; } // coupure découverte à l'envoi : même file
+      if (err && err.offline) { queueOffline(c.label, t.activityId, { dueDate: c.date, plannedUserId: c.who && c.who.id }).catch(function (e2) { fail(e2 && e2.message); }); return; } // coupure découverte à l'envoi : même file
       fail(err && err.message);
     });
   }
@@ -931,7 +931,7 @@
     if (state.expStep === 1) { expNext(); return; }
     if (state.exp) { runExpansion(); return; }
     if (navigator.onLine === false && !state.files.length) { // hors ligne connu d'avance : directement dans la file, sans proposition ni attente
-      queueOffline(label, offlineActivity()).then(function () { reset(); showToast(tr('Tâche enregistrée')); }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Erreur.'); });
+      queueOffline(label, offlineActivity(), { dueDate: state.date || dayIso(), plannedUserId: state.who && state.who.id }).then(function () { reset(); showToast(tr('Tâche enregistrée')); }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Erreur.'); });
       return;
     }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';

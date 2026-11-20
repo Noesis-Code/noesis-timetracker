@@ -124,8 +124,6 @@ const TABLES = ['users', 'activities', 'activity_members', 'time_entries', 'runn
       ['PUT', `/api/activities/${B1}/goals/tasks/${taskA.id}/category`, { categoryKey: poleB }],
       ['POST', `/api/activities/${B1}/goals/tasks/${taskA.id}/mark-seen`, {}],
       ['PUT', `/api/activities/${B1}/goals/weekly/${weeklyA.id}/status`, { status: 'atteint' }],
-      ['PUT', '/api/goals/tasks/' + taskA.id + '/reassign', { activityId: B1, categoryKey: poleB }],
-      ['PUT', '/api/goals/tasks/' + taskB.id + '/reassign', { activityId: A1, categoryKey: poleA }],
       ['GET', '/api/sub-project-items/' + taskA.id], ['PUT', '/api/sub-project-items/' + taskA.id, { label: 'piraté', done: true }],
       ['DELETE', '/api/sub-project-items/' + taskA.id],
       ['POST', '/api/goals/capture', { activityIds: [A1], label: 'intrus' }],

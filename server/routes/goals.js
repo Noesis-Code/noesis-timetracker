@@ -626,6 +626,15 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
+  // Date et exécutant facultatifs (file hors ligne de la barre « Nouvelle tâche… », 20 nov. 2026) : refus AVANT toute création, jamais de changement silencieux.
+  const dueDate = typeof req.body.dueDate === 'string' ? req.body.dueDate : '';
+  if (dueDate && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dueDate)) return res.status(400).json({ error: 'Date invalide.' });
+  if (dueDate && dueDate < require('../lib/dates').userToday()) return res.status(400).json({ error: 'Pas de date dans le passé.' });
+  const plannedUserId = req.body.plannedUserId ? String(req.body.plannedUserId) : '';
+  if (plannedUserId && !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, plannedUserId)) {
+    return res.status(400).json({ error: "Ce membre n'appartient pas à cette activité." });
+  }
+
   // Clé d'idempotence (capture hors ligne) : même clé rejouée => tâche déjà créée, sans doublon.
   const rawKey = req.get('Idempotency-Key');
   const idemKey = rawKey ? String(rawKey).slice(0, 100) : null;
@@ -640,7 +649,7 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
     if (flightId && idemInFlight.has(flightId)) {
       return res.status(200).json(await idemInFlight.get(flightId));
     }
-    const work = goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label);
+    const work = goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label, { dueDate: dueDate || undefined, plannedUserId: plannedUserId || undefined });
     if (flightId) { idemInFlight.set(flightId, work); const clear = () => idemInFlight.delete(flightId); work.then(clear, clear); }
     const item = await work;
     if (idemKey) {
@@ -687,40 +696,6 @@ router.put('/activities/:id/goals/tasks/:itemId/category', (req, res) => {
 
   try {
     const item = goalstasks.moveCategoryTask(activityId, userId, Number(req.params.itemId), req.body.categoryKey);
-    res.json(item);
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// 28 septembre 2026 (C. Objectifs — Page 1, panneau Historique, 3e demande
-// d'Emilien le même jour) — réaffectation complète (activité/pôle/secteur/
-// jour) d'une tâche depuis l'Historique. Jamais scopée à une seule activité
-// dans son URL, à la différence de la route ci-dessus (Objectifs — Tâches,
-// fenêtre Activité, toujours la même activité) : ici, changer d'activité est
-// justement le but. Toute la logique (garde de la nouvelle activité +
-// déplacement + jour) vit dans goalstasks.js#reassignHistoryTask, fonction
-// dédiée, jamais moveCategoryTask elle-même — cette route ne fait que
-// vérifier la session et relayer. Corps attendu : { activityId, categoryKey,
-// dueDate? } — dueDate absent => on n'y touche pas (voir le commentaire de
-// reassignHistoryTask).
-router.put('/goals/tasks/:itemId/reassign', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const newActivityId = Number(req.body.activityId);
-  if (!newActivityId) return res.status(400).json({ error: 'activityId requis.' });
-  if (typeof req.body.categoryKey !== 'string' || !req.body.categoryKey) {
-    return res.status(400).json({ error: 'categoryKey requis.' });
-  }
-
-  try {
-    const item = goalstasks.reassignHistoryTask(
-      userId,
-      Number(req.params.itemId),
-      newActivityId,
-      req.body.categoryKey,
-      'dueDate' in req.body ? req.body.dueDate : undefined,
-    );
     res.json(item);
   } catch (err) {
     handleGoalsError(res, err);

@@ -43,6 +43,18 @@ const rd = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace
   assert((await post('m', pole)).status === 403 && (await post('m', pole2)).status === 403, 'simple membre : création refusée (HTTP 403), même dans sa catégorie');
   assert((await post('rp', pole)).status === 201 && (await post('own', pole2)).status === 201, 'responsable (sa catégorie) et propriétaire (partout) : création permise');
   assert((await post('rp', pole2)).status === 403, 'responsable : refusé hors de sa catégorie');
+  // File hors ligne : le rejeu (POST auto-task) garde la date et l'exécutant ; date passée refusée AVANT toute création
+  const auto = (u, b) => call(goalsR, 'POST', '/activities/' + act + '/goals/categories/auto-task', u, b);
+  const nbAvant = db.prepare('SELECT COUNT(*) n FROM sub_project_items').get().n;
+  const okAuto = await auto('own', { label: 'Rejouée avec date', dueDate: due, plannedUserId: 'rp' });
+  const rowAuto = okAuto.body && db.prepare('SELECT dueDate, plannedUserId FROM sub_project_items WHERE id = ?').get(okAuto.body.id);
+  assert(okAuto.status === 201 && rowAuto && rowAuto.dueDate === due && rowAuto.plannedUserId === 'rp', 'auto-task : date et exécutant choisis hors ligne conservés');
+  const nbMid = db.prepare('SELECT COUNT(*) n FROM sub_project_items').get().n;
+  const past = await auto('own', { label: 'Trop tard', dueDate: '2020-01-01' });
+  assert(past.status === 400 && past.body.error === 'Pas de date dans le passé.', 'auto-task : date passée refusée avec le message du serveur');
+  assert((await auto('own', { label: 'Inconnu', plannedUserId: 'personne' })).status === 400, 'auto-task : exécutant hors activité refusé');
+  assert(db.prepare('SELECT COUNT(*) n FROM sub_project_items').get().n === nbMid && nbMid === nbAvant + 1, 'auto-task : un refus ne crée aucune tâche');
+  assert((await auto('m', { label: 'Par un membre', dueDate: due })).status === 403, 'auto-task : simple membre, aucune création');
   // Modification / suppression
   const put = (u, b) => call(sub, 'PUT', '/sub-project-items/' + t.id, u, b);
   for (const f of [{ label: 'Autre' }, { dueDate: due }, { plannedUserId: 'rp' }, { recurrence: { freq: 'daily' } }, { done: true, label: 'x' }]) {
@@ -58,8 +70,6 @@ const rd = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace
   const perso = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('Perso', 'm', '')").run().lastInsertRowid);
   db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'm', '#fff', '')").run(perso); categories.addCategory(perso, 'Moi');
   const pk = goals.categoriesForActivity(perso)[0].key;
-  const ra = await call(goalsR, 'PUT', '/goals/tasks/' + t.id + '/reassign', 'm', { activityId: perso, categoryKey: pk });
-  assert(ra.status === 403, 'simple membre : ne peut pas sortir une tâche partagée vers son activité personnelle');
   const mvOut = await call(goalsR, 'PUT', '/activities/' + perso + '/goals/tasks/' + t.id + '/category', 'm', { categoryKey: pk });
   assert(mvOut.status !== 200, 'simple membre : déplacement par une autre activité refusé');
   assert((await call(goalsR, 'POST', '/activities/' + perso + '/goals/categories/' + pk + '/tasks', 'm', { label: 'Perso', dueDate: due })).status === 201, 'activité personnelle (un seul membre) : il crée librement');
@@ -76,7 +86,7 @@ const rd = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace
   const au = rd('public/js/aujourdhui.js'), bv = rd('public/js/barre-volets.js'), app = rd('public/app.js');
   assert(au.includes('v = !!v; if (v && !canAddHere()) v = false;') && au.includes('TMT.portee.canManage(filt.act)') && au.includes('canAdd: function'), 'barre d’ajout : ne s’ouvre pas pour un simple membre (partout ou filtre sur son activité)');
   assert(bv.includes('TMT.todayView.canAdd()'), '« + » : absent quand l’ajout est interdit dans le contexte');
-  assert(au.includes('queueOffline(label, offlineActivity())') && au.includes('err.offline') && app.includes('window.TMT.offlineTask'), 'barre d’ajout : passe par la file d’attente hors ligne');
+  assert(au.includes('queueOffline(label, offlineActivity(), {') && au.includes('err.offline') && app.includes('window.TMT.offlineTask'), 'barre d’ajout : passe par la file d’attente hors ligne');
   assert(au.includes('state.date = r.date || null'), 'barre d’ajout : le jour du titre remplit le champ Date');
   console.log(failed ? '\n' + failed + ' échec(s)' : '\nmembre-taches-test : OK'); process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

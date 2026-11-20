@@ -21,9 +21,9 @@ const idb = { open() {
   setTimeout(() => { r.result = db; r.onsuccess(); }, 0); return r; } };
 
 let responses = [];
-const calls = [], urls = [], keys = [];
+const calls = [], urls = [], keys = [], bodies = [];
 const ctx = { indexedDB: idb, JSON, Promise, Date, setTimeout, encodeURIComponent, String, Array,
-  fetch: (url, o) => { const b = JSON.parse(o.body); calls.push(b.label || b.title); urls.push(url); keys.push(o.headers['Idempotency-Key']); const x = responses.shift();
+  fetch: (url, o) => { const b = JSON.parse(o.body); bodies.push(b); calls.push(b.label || b.title); urls.push(url); keys.push(o.headers['Idempotency-Key']); const x = responses.shift();
     if (x === 'net') return Promise.reject(new Error('net'));
     return Promise.resolve({ ok: x < 300, status: x, json: () => Promise.resolve(x < 300 ? { categoryLabel: 'C' } : { error: x === 400 && /objectifs$/.test(url) ? 'Indique l’échéance de l’objectif (une date précise).' : 'e' }) }); } };
 ctx.self = ctx;
@@ -76,5 +76,24 @@ const Q = ctx.NoesisAutoTaskQueue;
   ok(rest.length === 1 && rest[0].failed === true && /échéance/.test(rest[0].error), 'refus serveur : l’objectif reste dans la file, marqué en échec');
   calls.length = 0; responses = []; r = await Q.flush();
   ok(calls.length === 0 && r.synced.length === 0, 'objectif en échec : jamais renvoyé');
+  // ----- Date et exécutant de la barre « Nouvelle tâche… » (20 nov. 2026) -----
+  for (const x of await Q.list()) await Q.remove(x.id); // purge l’objectif refusé du test précédent
+  await Q.add({ activityId: 'a', label: 'Datée', dueDate: '2099-01-05', plannedUserId: 'u2' });
+  await Q.add({ activityId: 'a', label: 'Datée', dueDate: '2099-01-06', plannedUserId: 'u2' }); // autre date : pas un doublon
+  await Q.add({ activityId: 'a', label: 'Sans date' });
+  const st = await Q.list();
+  ok(st.length === 3 && st[0].dueDate === '2099-01-05' && st[0].plannedUserId === 'u2', 'la file garde la date et l’exécutant choisis');
+  responses = ['net']; bodies.length = 0; r = await Q.flush();
+  ok(r.stopped && (await Q.list()).length === 3, 'réseau coupé : date et exécutant restent en file');
+  responses = [200, 200, 200]; bodies.length = 0; r = await Q.flush();
+  ok(bodies[0].dueDate === '2099-01-05' && bodies[0].plannedUserId === 'u2' && bodies[1].dueDate === '2099-01-06', 'rejeu : date et exécutant envoyés au serveur');
+  ok(bodies[2].dueDate === undefined && bodies[2].plannedUserId === undefined && (await Q.list()).length === 0, 'tâche sans date : corps inchangé ; file vidée');
+  // date devenue passée : refus du serveur, la tâche reste visible en échec avec le message, jamais renvoyée ni perdue
+  await Q.add({ activityId: 'a', label: 'Périmée', dueDate: '2020-01-01' });
+  responses = [400]; r = await Q.flush();
+  const rest2 = await Q.list();
+  ok(r.failed.length === 1 && r.failed[0].kept === true && rest2.length === 1 && rest2[0].failed === true && rest2[0].dueDate === '2020-01-01', 'date passée : reste en file, marquée en échec, date inchangée');
+  calls.length = 0; responses = []; r = await Q.flush();
+  ok(calls.length === 0, 'tâche en échec : jamais renvoyée');
   if (bad) process.exit(1); console.log('offline-queue ok');
 })();

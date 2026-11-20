@@ -6336,7 +6336,7 @@
       categoryAutoTaskPending.push({ activityId: String(s.activityId), label: s.label, categoryLabel: s.categoryLabel || '' });
     });
     (result.failed || []).forEach(function (f) {
-      if (f.kind === 'objectif') return; // reste dans la file (marqué en échec) et s'affiche dans l'arbre
+      if (f.kind === 'objectif' || f.kept) return; // reste dans la file (marqué en échec) et s'affiche dans l'arbre
       categoryAutoTaskPending.push({ activityId: String(f.activityId), label: f.label, failed: true, error: f.error || '' });
     });
     return reloadOfflineAutoTasks().then(function () {
@@ -6358,9 +6358,9 @@
     }).catch(function () { /* nouvel essai au prochain 'online' ou chargement */ });
   }
 
-  function enqueueOfflineAutoTask(activityId, label) {
+  function enqueueOfflineAutoTask(activityId, label, extra) {
     if (!autoTaskQueue) return Promise.reject(new Error(t('Hors ligne — connecte-toi à internet pour continuer.')));
-    return autoTaskQueue.add({ activityId: activityId, label: label, tz: clientTimezone }).then(function () {
+    return autoTaskQueue.add({ activityId: activityId, label: label, tz: clientTimezone, dueDate: extra && extra.dueDate, plannedUserId: extra && extra.plannedUserId }).then(function () {
       return reloadOfflineAutoTasks();
     }).then(function () {
       syncOfflineAutoTasks();
@@ -6376,7 +6376,7 @@
     list: function () { return offlineObjectifs.slice(); },
   };
   // Barre « Nouvelle tâche… » de la vue Tâches (aujourdhui.js) sans réseau : même file que la capture hors ligne (rangée par l'IA au retour du réseau, jamais de doublon).
-  window.TMT.offlineTask = { add: function (activityId, label) { return enqueueOfflineAutoTask(activityId, label); } };
+  window.TMT.offlineTask = { add: function (activityId, label, extra) { return enqueueOfflineAutoTask(activityId, label, extra); } };
 
   if (autoTaskQueue) {
     window.addEventListener('online', syncOfflineAutoTasks);
@@ -6596,7 +6596,8 @@
       offlineHere.forEach(function (o) {
         var row = document.createElement('p');
         row.className = 'meta activityGoalsCategoryAutoTaskOfflineRow';
-        row.textContent = '⏳ ' + o.label + ' — ' + t('la synchronisation se fera au retour du réseau');
+        if (o.failed) { row.classList.add('isFailed'); row.textContent = '✗ ' + o.label + ' — ' + t('non ajoutée') + (o.error ? ' : ' + t(o.error) : ''); } // refusée à la synchronisation : reste visible avec le message du serveur
+        else row.textContent = '⏳ ' + o.label + ' — ' + t('la synchronisation se fera au retour du réseau');
         offlineZone.appendChild(row);
       });
       wrap.appendChild(offlineZone);

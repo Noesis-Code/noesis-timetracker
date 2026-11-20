@@ -89,9 +89,12 @@
       createdAt: Date.now(),
       key: newKey(),
     };
+    // Date (AAAA-MM-JJ) et exécutant choisis dans la barre « Nouvelle tâche… » : gardés tels quels, rejoués à la synchronisation (20 nov. 2026).
+    if (entry.dueDate) record.dueDate = String(entry.dueDate);
+    if (entry.plannedUserId) record.plannedUserId = String(entry.plannedUserId);
     return list().then(function (items) {
       var twin = items.filter(function (it) {
-        return it.activityId === record.activityId && it.label === record.label && record.createdAt - it.createdAt < DEDUPE_MS;
+        return it.kind !== 'objectif' && it.activityId === record.activityId && it.label === record.label && (it.dueDate || '') === (record.dueDate || '') && (it.plannedUserId || '') === (record.plannedUserId || '') && record.createdAt - it.createdAt < DEDUPE_MS;
       })[0];
       if (twin) return twin;
       return withStore('readwrite', function (store) {
@@ -159,6 +162,13 @@
   //   - autre 4xx (activité quittée ou supprimée, libellé refusé…) → retirée
   //     de la file et signalée, sinon elle bloquerait toutes les suivantes
   //     indéfiniment.
+  // Corps d'une tâche : libellé + date et exécutant choisis hors ligne, s'il y en a.
+  function taskBody(it) {
+    var b = { label: it.label };
+    if (it.dueDate) b.dueDate = it.dueDate;
+    if (it.plannedUserId) b.plannedUserId = it.plannedUserId;
+    return b;
+  }
   var FLUSH_TIMEOUT_MS = 60000; // classement par IA : plus long qu'une requête ordinaire
   var flushing = null;
   function flush() {
@@ -183,7 +193,7 @@
           method: 'POST',
           headers: headers,
           credentials: 'same-origin',
-          body: JSON.stringify(isObj ? it.body : { label: it.label }),
+          body: JSON.stringify(isObj ? it.body : taskBody(it)),
           signal: ctrl ? ctrl.signal : undefined,
         }).then(function (r) {
           if (timer) clearTimeout(timer);
@@ -203,9 +213,10 @@
               return out;
             }
             var msg = (data && data.error) || ('HTTP ' + r.status);
-            out.failed.push({ kind: it.kind || 'tache', activityId: it.activityId, label: it.label, error: msg });
-            // Un objectif refusé n'est jamais effacé : il reste dans la file, marqué en échec.
-            return (isObj ? markFailed(it, msg) : remove(it.id)).then(next);
+            // Un objectif, ou une tâche qui porte une date / un exécutant (ex. date devenue passée : « Pas de date dans le passé. »), refusé n'est jamais effacé : il reste dans la file, marqué en échec avec le message du serveur.
+            var keep = isObj || !!(it.dueDate || it.plannedUserId);
+            out.failed.push({ kind: it.kind || 'tache', activityId: it.activityId, label: it.label, error: msg, kept: keep });
+            return (keep ? markFailed(it, msg) : remove(it.id)).then(next);
           });
         }, function () {
           if (timer) clearTimeout(timer);

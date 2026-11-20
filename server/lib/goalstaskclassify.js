@@ -412,7 +412,7 @@ async function addTaskWithAutoCategory(activityId, userId, label, opts) {
   // en 3 pages) : toute tâche créée par CE chemin (classification IA, jamais
   // le formulaire de catégorie classique) est marquée autoCaptured — voir
   // server/lib/subprojects.js#createItem et goalstasks.js#unseenCountsForActivity.
-  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true, recurrence: opts && opts.recurrence ? opts.recurrence : null, estimate: estimate || null, durSource: estimate ? estimate.source : null });
+  const item = goalstasks.addCategoryTask(activityId, userId, key, clean, { autoCaptured: true, recurrence: opts && opts.recurrence ? opts.recurrence : null, dueDate: opts && opts.dueDate ? opts.dueDate : undefined, plannedUserId: opts && opts.plannedUserId ? opts.plannedUserId : undefined, estimate: estimate || null, durSource: estimate ? estimate.source : null });
   let suggestedObjective = null;
   try {
     suggestedObjective = suggestWeeklyObjective(activityId, key, clean);
