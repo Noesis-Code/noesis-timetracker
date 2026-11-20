@@ -99,6 +99,7 @@
 /* La barre « Ajouter une tâche » est au premier plan, fixée au-dessus de la barre des volets (même verre) ; les tâches défilent en dessous ; au glissement latéral elle suit la page. */
 .tasksDock { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; z-index: 49; bottom: calc(var(--tabbar-h, 76px) + 32px); padding: 0; background: transparent; }
 .tasksDock.hidden { display: none; }
+.tasksDock.noBar .tasksComposer { display: none; } /* seul le pop-up du jour touché est affiché : pas de barre d'écriture */
 @keyframes tasksDockIn { from { clip-path: inset(-100vh 0 0 calc(100% - 52px)); } to { clip-path: inset(-100vh 0 0 0); } } /* part du « + » (à droite) et s'élargit jusqu'à toute la largeur */
 :root.composerOn .tabbar { opacity: 0; pointer-events: none; transition: opacity .15s ease; } /* la barre d'ajout REMPLACE la barre des volets et le « + » */
 :root.composerOn .tasksDock:not(.goalsDayDock) { bottom: max(16px, env(safe-area-inset-bottom)); } /* fixe, exactement à la place de la barre des volets */

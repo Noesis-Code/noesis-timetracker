@@ -56,7 +56,13 @@
   // La zone d'écriture n'apparaît que par le bouton « + » de la barre des volets (18 nov. 2026, Émilien) ; une proposition ou l'étape Enregistrer d'Expansion la garde affichée.
   var composerOpen = false;
   function flowOn() { return !!dock && (dock.classList.contains('expSave') || (ui.proposal && !ui.proposal.classList.contains('hidden'))); }
-  function syncDock() { if (!dock) return; dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length && (composerOpen || flowOn()))); document.documentElement.classList.toggle('composerOn', !dock.classList.contains('hidden')); } // la barre d'ajout REMPLACE la barre des volets et le « + » (19 nov. 2026, Émilien)
+  function syncDock() {
+    if (!dock) return;
+    var barOn = composerOpen || flowOn(), popOn = !!dayPop && !dayPop.classList.contains('hidden'); // le pop-up des tâches du jour touché vit dans ce bloc : il reste visible même sans la barre d'écriture
+    var vis = !!(shown && root && root.getClientRects().length && (barOn || popOn));
+    dock.classList.toggle('hidden', !vis); dock.classList.toggle('noBar', !barOn);
+    document.documentElement.classList.toggle('composerOn', vis && barOn);
+  } // la barre d'ajout REMPLACE la barre des volets et le « + » (19 nov. 2026, Émilien)
   // Plus de « + » pour refermer : un toucher en dehors de la barre la referme (le texte écrit reste là), sauf pendant une proposition ou l'étape Enregistrer.
   document.addEventListener('pointerdown', function (e) { if (composerOpen && dock && !flowOn() && !dock.contains(e.target) && !(e.target.closest && e.target.closest('.cmpGlass, [role="dialog"]'))) setComposer(false); });
   function setComposer(v) {
@@ -166,7 +172,7 @@
     var on = viewDay !== 'all' && calExpanded; // pop-up seulement calendrier DÉPLIÉ ; replié : la liste du jour, comme d'habitude
     if (on) { dayPopKick.textContent = cap1(fromIso(dayIso()).toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })); if (listBox.parentNode !== dayPopBody) dayPopBody.appendChild(listBox); }
     else if (listBox.parentNode !== listHome) listHome.insertBefore(listBox, document.getElementById('goalsTodayArchiveSection'));
-    dayPop.classList.toggle('hidden', !on);
+    dayPop.classList.toggle('hidden', !on); syncDock();
     if (root) { root.classList.toggle('dayPopOn', on); root.classList.toggle('calUnfolded', !!calExpanded); }
   }
   function pickDay(d) {
@@ -1144,6 +1150,7 @@
       });
     },
     show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); syncCalendar(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; setComposer(false); resetDay(); openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    hide: function () { shown = false; setComposer(false); resetDay(); filt = { act: null, pole: null, sector: null }; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; if (filterBox) paintFilter(); // à l'arrivée sur le volet : toujours le jour actuel, toutes les activités
+    openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
