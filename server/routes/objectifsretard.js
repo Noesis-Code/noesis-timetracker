@@ -22,4 +22,19 @@ router.post('/objectifs/ajuste/:id/refuser', (req, res) => {
   try { res.json(ajuste().refuser(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/ajuste/:id/refuser', err); }
 });
 
+// Retard : un autre objectif proposé à une tâche sortie de son objectif (jamais plus loin que la période suivante). Avant / après ; accepter ou refuser (refus mémorisé). Voir server/lib/retard-rangement.js.
+const rr = () => require('../lib/retard-rangement');
+router.get('/objectifs/retard-propositions', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json({ propositions: rr().lister(req.userId) }); } catch (err) { fail(res, 'GET /objectifs/retard-propositions', err); }
+});
+router.post('/objectifs/retard-propositions/:id/accepter', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(rr().accepter(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/retard-propositions/:id/accepter', err); }
+});
+router.post('/objectifs/retard-propositions/:id/refuser', (req, res) => {
+  if (!req.userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(rr().refuser(req.userId, req.params.id)); } catch (err) { fail(res, 'POST /objectifs/retard-propositions/:id/refuser', err); }
+});
+
 module.exports = router;

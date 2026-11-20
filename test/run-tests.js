@@ -91,6 +91,7 @@ const SUITE_FILES = [
   'aujourdhui-tri-test.js',
   'rebalance-silencieux-test.js',
   'retard-objectif-periode-test.js',
+  'retard-rangement-test.js',
   'feuille-balayage-test.js',
   'vue-taches-jour-test.js',
   'reglages-categorie-test.js',
