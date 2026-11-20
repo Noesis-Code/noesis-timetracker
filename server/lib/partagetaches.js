@@ -59,10 +59,15 @@ function openSeries(activityId) {
 }
 
 // Tableau « Tâches récurrentes » : lignes = tâches récurrentes, colonnes = membres, valeur = occurrences faites dans la portée.
-function recurringTable(activityId, scope) {
+function recurringTable(activityId, scope, cat) {
   const range = insights.scopeRange(scope);
   const ms = members(activityId);
-  const series = openSeries(activityId);
+  let series = openSeries(activityId);
+  if (cat) { // Bilan : un pôle (avec ses secteurs) ou un secteur seulement
+    const keys = require('./portee').expand(activityId, String(cat));
+    const ids = new Set(db.prepare(`SELECT id FROM sub_projects WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')})`).all(activityId, ...keys).map((r) => r.id));
+    series = series.filter((s) => ids.has(s.subProjectId));
+  }
   const byKey = {}; series.forEach((s) => { byKey[s.key] = {}; });
   db.prepare(`SELECT i.label, i.subProjectId, i.doneBy, i.plannedUserId, i.doneAt FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 1`).all(activityId).forEach((r) => {

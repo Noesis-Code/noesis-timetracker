@@ -160,13 +160,20 @@ function objectivesChart(today, allObjs, year, minY) {
 // ---- Données de base -----------------------------------------------------
 function loadScope(activityId, poleKey) {
   let poles = goals.categoriesForActivity(activityId);
-  if (poleKey) poles = poles.filter((p) => p.key === poleKey);
+  let onlySector = null;
+  if (poleKey) {
+    if (poles.some((p) => p.key === poleKey)) poles = poles.filter((p) => p.key === poleKey);
+    else { // Bilan : la clé d'un SECTEUR limite à ce secteur (son pôle reste le parent)
+      const row = db.prepare('SELECT parentKey FROM activity_goal_categories WHERE activityId = ? AND key = ? AND parentKey IS NOT NULL').get(activityId, poleKey);
+      if (row) { onlySector = poleKey; poles = poles.filter((p) => p.key === row.parentKey); } else poles = poles.filter((p) => p.key === poleKey);
+    }
+  }
   const keyToPole = {};
   const out = poles.map((p) => {
-    const keys = [p.key].concat((goals.secteursForPole(activityId, p.key) || []).map((s) => s.key));
+    const keys = onlySector ? [onlySector] : [p.key].concat((goals.secteursForPole(activityId, p.key) || []).map((s) => s.key));
     keys.forEach((k) => { keyToPole[k] = p.key; });
     // Temps : aussi celui des secteurs supprimés (gelés), qui reste compté dans leur pôle.
-    const timeKeys = keys.concat(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? AND removedAt IS NOT NULL').all(activityId, p.key).map((r) => r.key));
+    const timeKeys = onlySector ? keys : keys.concat(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? AND removedAt IS NOT NULL').all(activityId, p.key).map((r) => r.key));
     return { key: p.key, label: p.label, keys, timeKeys, sectors: (goals.secteursForPole(activityId, p.key) || []).map((x) => ({ key: x.key, label: x.label })) };
   });
   return { poles: out, keyToPole };

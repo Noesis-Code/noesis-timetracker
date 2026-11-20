@@ -49,6 +49,12 @@ function regard(userId, activityId) {
   return mg.all ? null : mg;
 }
 const respOf = (x) => x.doneBy || x.plannedUserId || null;
+// Pôle ou secteur choisi dans le Bilan (20 nov. 2026) : ne garde que les tâches de cette catégorie (un pôle compte aussi ses secteurs) ; cat vide = toute l'activité.
+function inCat(list, activityId, cat) {
+  if (cat == null || cat === '') return list;
+  const keys = new Set(require('./portee').expand(Number(activityId), String(cat)));
+  return list.filter((x) => keys.has(x.k));
+}
 function visibles(list, vs, userId) { return vs ? list.filter((x) => vs.has(x.k) || respOf(x) === userId) : list; }
 function membresVus(list, vs, userId) { return vs && !vs.roots.length ? list.filter((m) => m.id === userId) : list; }
 function membersOf(activityId) {
@@ -64,9 +70,9 @@ function rowOf(list, periods) {
   });
   return { jour: jour.map((v) => r1(v / (periods.length * 4))), semaine: sem.map((v) => r1(v / periods.length)), total: list.length };
 }
-function moyenneTaches(userId, activityId, today) {
+function moyenneTaches(userId, activityId, today, cat) {
   const act = member(userId, activityId), t = today || require('./dates').userToday(), periods = lastPeriods(t);
-  const vs = regard(userId, act.id), tasks = visibles(doneTasks(act.id, periods[0].start, periods[3].end), vs, userId), mem = membresVus(membersOf(act.id), vs, userId);
+  const vs = regard(userId, act.id), tasks = inCat(visibles(doneTasks(act.id, periods[0].start, periods[3].end), vs, userId), act.id, cat), mem = membresVus(membersOf(act.id), vs, userId);
   const resp = (x) => x.doneBy || x.plannedUserId || null;
   const rows = mem.length <= 1 ? [Object.assign({ key: 'moi', label: 'Vous' }, rowOf(tasks, periods))]
     : [Object.assign({ key: 'tous', label: 'Tous' }, rowOf(tasks, periods))].concat(mem.map((m) => Object.assign({ key: m.id, label: m.name, userId: m.id }, rowOf(tasks.filter((x) => resp(x) === m.id), periods))));
@@ -91,10 +97,10 @@ function urgentes(userId, offset, today) {
   return { offset: off, period: g.period, year: g.year, start, end: addDays(start, 27), weeks };
 }
 // Proportion réelle contre demandée par membre (activité partagée) : { rows: [{ userId, name, realPct, wantedPct }] }.
-function proportion(userId, activityId, today) {
+function proportion(userId, activityId, today, cat) {
   const act = member(userId, activityId), t = today || require('./dates').userToday(), periods = lastPeriods(t);
   const vs = regard(userId, act.id), mem = membresVus(membersOf(act.id), vs, userId); if (mem.length < 2) return { activityId: act.id, rows: [] };
-  const done = visibles(doneTasks(act.id, periods[0].start, periods[3].end), vs, userId), resp = (x) => x.doneBy || x.plannedUserId || null;
+  const done = inCat(visibles(doneTasks(act.id, periods[0].start, periods[3].end), vs, userId), act.id, cat), resp = (x) => x.doneBy || x.plannedUserId || null;
   const total = done.filter((x) => mem.some((m) => m.id === resp(x))).length;
   const wantedRows = {}; try { db.prepare('SELECT userId, minutes FROM task_share_wanted WHERE activityId = ?').all(act.id).forEach((r) => { wantedRows[r.userId] = r.minutes; }); } catch (e) { /* table créée par partagetaches.js */ }
   const entered = {}; db.prepare('SELECT userId, pct FROM task_share_pct WHERE activityId = ?').all(act.id).forEach((r) => { entered[r.userId] = r.pct; });

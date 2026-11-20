@@ -6,7 +6,7 @@
   var TMT = window.TMT;
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var actId = null, recScope = 'year', recSeq = 0;
+  var actId = null, recCat = null, recScope = 'year', recSeq = 0; // recCat : pôle ou secteur choisi dans le Bilan (null = toute l'activité)
   var SCOPES = [['all', 'Tout'], ['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var recBody, recMeta;
 
@@ -75,7 +75,7 @@
   function loadRecurring() {
     if (!actId) return;
     var my = ++recSeq;
-    TMT.api('GET', '/api/stats/recurring-tasks?activityId=' + encodeURIComponent(actId) + '&scope=' + recScope).then(function (d) {
+    TMT.api('GET', '/api/stats/recurring-tasks?activityId=' + encodeURIComponent(actId) + '&scope=' + recScope + (recCat ? '&cat=' + encodeURIComponent(recCat) : '')).then(function (d) {
       if (my === recSeq) renderRecurring(d);
     }).catch(function (err) { if (my === recSeq) { recBody.textContent = ''; recBody.appendChild(el('p', 'hint', err.message)); } });
   }
@@ -183,8 +183,8 @@
   // Activités partagées seulement (au moins deux membres), choisies par des puces en haut, comme la 3e page du Chrono.
   // BILAN (14 nov. 2026) : le tableau « Tâches récurrentes » seul (ni « Qui fait quoi », ni « Tâches faites », ni « Partager les tâches »), posé dans le conteneur donné pour l'activité donnée.
   // remover (optionnel) : croix rouge en haut à droite.
-  TMT.groupStatsRecurring = function (aid, container, remover) {
-    actId = aid;
+  TMT.groupStatsRecurring = function (aid, container, remover, cat) {
+    actId = aid; recCat = cat || null;
     var card = el('div', 'saCard saGlass shrRec');
     recMeta = el('span', 'meta');
     cardHead(card, 'Tâches récurrentes', recMeta, scopeMenu(function () { return recScope; }, function (s2) { recScope = s2; recMeta.textContent = scopeLabel(recScope); loadRecurring(); }));

@@ -88,7 +88,7 @@ function memberGuard(req, res, activityId) {
 router.get('/stats/recurring-tasks', (req, res) => {
   const activityId = Number(req.query.activityId);
   if (!memberGuard(req, res, activityId)) return undefined;
-  try { return res.json(partage.recurringTable(activityId, String(req.query.scope || 'year'))); } catch (err) {
+  try { return res.json(partage.recurringTable(activityId, String(req.query.scope || 'year'), req.query.cat ? String(req.query.cat) : null)); } catch (err) {
     console.error('[stats-recurring-tasks]', err);
     return res.status(500).json({ error: 'Erreur serveur' });
   }

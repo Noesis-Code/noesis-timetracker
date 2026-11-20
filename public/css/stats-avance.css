@@ -142,7 +142,9 @@
 /* Sélecteur « Tous » : même position que sur la page Tâches (haut du bouton à 72 px), contenu juste dessous. */
 #bilanBlocs { margin: -10px 0 0; }
 #bilanBlocs .saChips { padding: 0; }
-#bilanBlocs .caSubProjectFilter { margin: 0 0 12px; }
+#bilanBlocs .tasksFilterRow { margin: 0 0 12px; }
+/* tableaux de temps du Chrono dans le Bilan : la croix rouge de retrait se pose dans leur coin */
+#statsPage1 .statsSection, #categoryStatsScroll .statsSection { position: relative; }
 /* Informations ajoutées : espacées les unes des autres. */
 .bbBody > div { margin-bottom: 16px; }
 .bilanBlocs.hidden { display: none; }

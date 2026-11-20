@@ -3,7 +3,7 @@ const fs = require('fs');
 let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
 const rd = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const js = rd('public/js/bilan-blocs.js'), css = rd('public/css/stats-avance.css'), html = rd('public/index.html'), sa = rd('public/js/stats-avance.js');
-assert(js.includes("'Toutes mes activités'") && js.includes("scope === 'all'") && js.includes('function rUrgent(') && js.includes('function rAvg(') && js.includes('function rProp('), 'sélecteur « Toutes mes activités » (défaut) ou une activité : urgentes en Toutes ; moyenne et proportion pour une activité');
+assert(js.includes('TMT.scopeFilter.paint') && js.includes("scope === 'all'") && js.includes('function rUrgent(') && js.includes('function rAvg(') && js.includes('function rProp('), 'sélecteur « Toutes mes activités » (défaut) ou une activité : urgentes en Toutes ; moyenne et proportion pour une activité');
 assert(js.includes("'Moyenne des tâches réalisées'") && !/Tâches faites/.test(js) && js.includes("tr(jourMode ? 'Jour' : 'Semaine')") && js.includes("el('button', 'iconBtn'"), 'bloc « Moyenne des tâches réalisées » (pas « Tâches faites »), UN seul bouton qui change de mot Jour ↔ Semaine');
 assert(js.includes("var DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];") && js.includes("['1', '2', '3', '4']"), 'colonnes Jour = L à D ; colonnes Semaine = 1 à 4');
 assert(js.includes("tr('Période'), tr('Année'), tr('Nombre')") && js.includes('w.label') && !/class.*bar|bbBar|progress/i.test(js), 'tâches urgentes : TABLEAU sans barres (S réel, période, année, nombre), navigation par période');

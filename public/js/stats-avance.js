@@ -678,12 +678,12 @@
   })();
 
   // BILAN : une instance par carte d'information d'une activité (dessin dans cfg.paint, aucune page, aucune feuille).
-  TMT.bilanCardInstance = function (paint) {
+  TMT.bilanCardInstance = function (paint, cat) { // cat : pôle ou secteur choisi dans le Bilan (null = toute l'activité)
     return createInstance({
       root: document.createElement('div'), paint: paint,
       activities: function () { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; },
       isShown: function () { return true; }, onTab: function () {},
-      fetch: function (aid, qs) { return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + qs).then(function (d) { return { data: d }; }); }
+      fetch: function (aid, qs) { return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + (cat ? '&poleKey=' + encodeURIComponent(cat) : '') + qs).then(function (d) { return { data: d }; }); }
     });
   };
   // Profil d'un AUTRE utilisateur : même code, lecture seule. Voir TMT.createVisitorStats (app.js : page de visite).

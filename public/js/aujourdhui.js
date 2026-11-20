@@ -237,7 +237,7 @@
   // ---------- Filtre (7 nov. 2026) : une ligne nue sous « Tâches | Objectifs », au-dessus du calendrier ----------
   // Un toucher déroule un panneau sur place : page 1 = « Toutes les activités » + les activités ; toucher une activité glisse vers la page 2 = ses pôles, chacun avec ses secteurs
   // dessous (choix direct, pas de 3e page). Balayage vers la droite = retour à la page 1. Les tâches sans objectif restent dans la liste de leur activité, pôle ou secteur.
-  var filt = { act: null, pole: null, sector: null }, filterBox = null, filtOpen = false, filtBrowse = null, filtPole = null, filtPage = 0;
+  var filt = { act: null, pole: null, sector: null }, filterBox = null, fv = { open: false, browse: null, pole: null, page: 0 };
   function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || (t.sectorKey !== undefined && filt.sectorKey ? t.sectorKey === filt.sectorKey : t.sector === filt.sector))); }
   var filterRow = null, periodHost = null;
   // Rangée du haut : icône de filtre à gauche ; à sa droite, la ligne de période du calendrier importé (masquée quand le panneau de filtre est ouvert).
@@ -263,67 +263,12 @@
     poles.sort(function (a, b) { return a.idx - b.idx; });
     return { acts: acts, poles: poles, secs: secs };
   }
-  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
-  function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; }
-  function poleColorOf(actId, key) { var a = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (x) { return String(x.id) === String(actId); })[0], st = struct && struct[String(actId)], p = st && st.filter(function (q) { return q.key === key; })[0]; return a && a.color && p && p.shadeRank != null && TMT.poleColor ? (TMT.poleColor(a.color, p.shadeRank) || a.color) : (a && a.color) || ''; } // nuance standard du pôle (même règle que Chrono et les statistiques)
-  function filtRow(parent, text, level, on, fn, color) {
-    var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; if (color) b.insertBefore(dotEl(color), b.firstChild); b.addEventListener('click', fn); parent.appendChild(b); return b;
-  }
-  document.addEventListener('click', function (e) { /* une ligne retirée du DOM par le redessin du panneau n'est pas un toucher dehors */ if (filtOpen && filterBox && e.target.isConnected && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); } });
+  function applyFilt(next) { filt = next; fv.open = false; fv.browse = null; fv.pole = null; fv.page = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
+  function poleColorOf(actId, key) { return TMT.scopeFilter.poleColor(struct, actId, key); } // nuance standard du pôle (composant commun)
+  var fctx = { view: null, filt: function () { return filt; }, data: filtData, poleColor: poleColorOf, apply: applyFilt, set: function (n) { filt = n; }, refresh: function () { if (lastData) render(lastData); syncCalendar(); }, repaint: function () { paintFilter(); }, onOpen: function () { loadStruct(); } }; // le dessin du filtre est le composant commun js/filtre-niveau.js (partagé avec le Bilan)
   function paintFilter() {
-    if (!filterBox) return; filterBox.textContent = ''; if (filterRow) filterRow.classList.toggle('open', filtOpen);
-    var d = filtData(filt.act), cur = d.acts.filter(function (a) { return String(a.id) === filt.act; })[0], pole = d.poles.filter(function (p) { return p.key === filt.pole; })[0];
-    var label = cur ? cur.name + (filt.pole != null && (pole || filt.poleLabel) ? ' › ' + (filt.sector || (pole ? pole.label : filt.poleLabel)) : '') : tr('Toutes les activités');
-    var head = el('button', 'caSubProjectBtn tasksFilterBtn' + (cur ? ' on' : '')); head.type = 'button'; head.setAttribute('aria-expanded', filtOpen ? 'true' : 'false');
-    head.title = label; head.setAttribute('aria-label', label); var hl = el('span', null, cur ? (filt.pole != null && (pole || filt.poleLabel) ? (filt.sector || (pole ? pole.label : filt.poleLabel)) : cur.name) : tr('Tous')); var hc = filt.sector && cur ? poleColorOf(filt.act, filt.pole) : null; if (hc) hl.style.color = hc; head.appendChild(hl); // un secteur choisi : ses lettres prennent la couleur de son pôle (sans pastille) // le bouton porte le nom du secteur, sinon du pôle, sinon de l'activité // même bouton que le filtre des statistiques : « Tous » (ou l'activité) + flèche qui change de sens ; il désigne seulement l'activité
-    head.addEventListener('click', function (e) { e.stopPropagation(); filtOpen = !filtOpen; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); if (filtOpen) loadStruct(); }); // la structure (ordre et couleurs des pôles) est relue à chaque ouverture : elle suit l'arbre et les réglages de l'activité
-    filterBox.appendChild(head);
-    if (!filtOpen) return;
-    var panel = el('div', 'tasksFilterPanel cmpGlass'), track = el('div', 'tasksFilterTrack'), p1 = el('div', 'tasksFilterPage'), p2 = el('div', 'tasksFilterPage'), p3 = el('div', 'tasksFilterPage'), pages = [p1, p2, p3];
-    filtRow(p1, tr('Tous'), 0, filt.act == null, function () { applyFilt({ act: null, pole: null, sector: null }); });
-    d.acts.forEach(function (a) {
-      var b = filtRow(p1, a.name, 0, String(a.id) === filt.act, function () { filtBrowse = String(a.id); filtPole = filt.act === filtBrowse ? filt.pole : null; paintFilterPage2(); go(1); }, a.color || '#9C8CC8');
-      b.appendChild(el('span', 'tasksFilterArrow', '›'));
-    });
-    track.appendChild(p1); track.appendChild(p2); track.appendChild(p3); panel.appendChild(track); filterBox.appendChild(panel);
-    // Page 2 : les pôles de l'activité (ni son nom ni les autres activités). Choisir un pôle l'applique aussitôt ; s'il a des secteurs, la page glisse vers eux (page 3), où en choisir un reste facultatif.
-    function paintFilterPage2() {
-      var a = d.acts.filter(function (x) { return String(x.id) === filtBrowse; })[0]; if (!a) return;
-      var dd = filtData(filtBrowse); p2.textContent = '';
-      filtRow(p2, tr('Toute l’activité'), 0, filt.act === filtBrowse && filt.pole == null, function () { applyFilt({ act: filtBrowse, pole: null, sector: null }); });
-      dd.poles.forEach(function (p) {
-        var secs = dd.secs[p.key] || [];
-        var pr = filtRow(p2, p.label, 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () {
-          if (!secs.length) { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }); return; }
-          filtPole = p.key; filt = { act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }; filtPage = 2; // d'abord la page des secteurs : le rendu ci-dessous peut redessiner le panneau
-          paintFilterPage3(); go(2);
-          if (lastData) render(lastData); syncCalendar(); // le pôle s'applique tout de suite ; le panneau reste ouvert
-        }, poleColorOf(filtBrowse, p.key));
-        pr.classList.add('pole');
-        if (secs.length) pr.appendChild(el('span', 'tasksFilterArrow', '›'));
-      });
-    }
-    function paintFilterPage3() {
-      var dd = filtData(filtBrowse), p = dd.poles.filter(function (q) { return q.key === filtPole; })[0]; if (!p) return; p3.textContent = '';
-      filtRow(p3, tr('Tout le pôle'), 0, filt.act === filtBrowse && filt.pole === p.key && !filt.sector, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: null }); });
-      var pc3 = poleColorOf(filtBrowse, p.key);
-      (dd.secs[p.key] || []).forEach(function (x) { var sr = filtRow(p3, x.label, 0, filt.act === filtBrowse && filt.pole === p.key && filt.sector === x.label, function () { applyFilt({ act: filtBrowse, pole: p.key, poleLabel: p.label, sector: x.label, sectorKey: x.key }); }); if (pc3) sr.style.color = pc3; }); // lettres de la couleur du pôle, sans pastille
-    }
-    var page = 0;
-    function size() { panel.style.height = (pages[page].offsetHeight + 8) + 'px'; }
-    function vis() { pages.forEach(function (pg, i) { pg.style.visibility = i === page ? '' : 'hidden'; pg.style.opacity = i === page ? '' : '0'; }); }
-    function go(n) { page = filtPage = n; pages.forEach(function (pg) { pg.style.visibility = ''; }); pages.forEach(function (pg, i) { pg.style.opacity = i === n ? '' : '0'; }); // la page qui part s'efface aussitôt
-      track.style.transform = 'translateX(' + (-n * 100 / 3) + '%)'; size(); if (n < 2) filtPole = null; if (!n) filtBrowse = null; window.setTimeout(function () { if (page === n) vis(); }, 280); }
-    if (filtBrowse) { paintFilterPage2(); page = filtPage; if (page === 2 && filtPole) paintFilterPage3(); else page = filtPage = 1; track.style.transition = 'none'; track.style.transform = 'translateX(' + (-page * 100 / 3) + '%)'; window.requestAnimationFrame(function () { track.style.transition = ''; }); }
-    vis(); window.requestAnimationFrame(size);
-    // Balayage vers la droite sur le panneau = page précédente (le geste ne change pas de page de l'application).
-    var x0 = 0, y0 = 0;
-    panel.addEventListener('touchstart', function (e) { e.stopPropagation(); x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
-    panel.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
-    panel.addEventListener('touchend', function (e) {
-      e.stopPropagation(); var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
-      if (page > 0 && dx > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(page - 1);
-    }, { passive: true });
+    if (!filterBox) return; fctx.view = fv; if (filterRow) filterRow.classList.toggle('open', fv.open);
+    TMT.scopeFilter.paint(filterBox, fctx);
   }
 
   // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
@@ -1170,7 +1115,7 @@
       if (o.date) calAnchor = o.date;
       return syncCalendar(o.date || null, true).then(function (ok) {
         if (!ok) { filt = prev; paintFilter(); syncCalendar(); return false; }
-        filtOpen = false; filtBrowse = null;
+        fv.open = false; fv.browse = null;
         if (o.date) { calAnchor = o.date; calExpanded = false; }
         viewDay = 'all'; paintCal(); syncDayPop(); paintFilter(); if (lastData) render(lastData);
         if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer'));
@@ -1179,7 +1124,7 @@
       });
     },
     show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); syncCalendar(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; setComposer(false); resetDay(); filt = { act: null, pole: null, sector: null }; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; if (filterBox) paintFilter(); // à l'arrivée sur le volet : toujours le jour actuel, toutes les activités
+    hide: function () { shown = false; setComposer(false); resetDay(); filt = { act: null, pole: null, sector: null }; fv.open = false; fv.browse = null; fv.pole = null; fv.page = 0; if (filterBox) paintFilter(); // à l'arrivée sur le volet : toujours le jour actuel, toutes les activités
     openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();
