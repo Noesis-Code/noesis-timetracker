@@ -55,6 +55,7 @@
     });
   }
   // Indicateur de chargement (R48) : le N en vague ; avec phrase = page ou zone, sans (opts.seul) = à la place d'un texte. La phrase est définie ICI, une seule fois.
+  var colorCache = null; // structure des couleurs de catégories (R53), rafraîchie toutes les 30 s
   var LOADER_PHRASE = 'Noèsis s’en occupe…';
   var LOADER_POLYS = ['183,293 287,461 287,616 183,675', '287,628 287,863 184,863 184,687', '192,262 293,262 468,557 367,555', '374,565 475,568 536,670 536,835', '556,262 616,262 659,286 661,616 556,673', '661,629 662,863 557,863 556,686', '729,151 612,186 635,253 708,287'];
   function loaderHtml(opts) {
@@ -104,6 +105,12 @@
       o = o || {}; var cat = !!(o.poleLabel || o.secteurLabel || o.poleIndex != null), color = o.activityColor || '';
       if (cat && color && o.poleIndex != null && window.TMT && typeof window.TMT.poleColor === 'function') color = window.TMT.poleColor(color, o.poleIndex) || color;
       return { name: o.secteurLabel || o.poleLabel || o.activityName || '', color: color, level: o.secteurLabel ? 'secteur' : o.poleLabel ? 'pole' : 'activite' };
+    },
+    // R53 (19 nov. 2026, Émilien) : dans TOUS les tableaux, le nom d'une catégorie prend sa couleur (activité = sa couleur, pôle = sa nuance, secteur = la nuance de son pôle ; plusieurs lignes peuvent donc porter la même). UNE seule définition : ce composant, jamais recopié.
+    // colorer([{ el, a: id de l'activité, p: clé du pôle (aussi pour un secteur) }]) : colore chaque élément dès que la structure est connue ; sans référence (ex. « Total », « Reste ») le nom garde sa couleur normale.
+    colorer: function (pairs) {
+      var now = Date.now(); if (!colorCache || now - colorCache.t > 30000) colorCache = { t: now, p: window.TMT.api('GET', '/api/objectifs/structure').then(function (st) { var by = {}; ((st && st.activities) || []).forEach(function (a) { by[a.id] = a; }); return function (aid, pk) { var a = by[aid]; if (!a) return ''; var po = pk && (a.poles || []).filter(function (x) { return x.key === pk; })[0]; return window.TMT.ui.etiquette({ activityName: a.name, activityColor: a.color, poleLabel: po && po.label, poleIndex: po && po.shadeRank }).color; }; }).catch(function () { colorCache = null; return function () { return ''; }; }) };
+      return colorCache.p.then(function (f) { pairs.forEach(function (x) { var c = x.a != null ? f(Number(x.a), x.p || null) : ''; if (c && x.el) x.el.style.color = c; }); });
     },
     loader: loader, loaderHtml: loaderHtml, attente: attente,
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
