@@ -1281,59 +1281,6 @@
              retiré avec le mode « déplié dans la ligne » qu'il servait. Toute
              activité ouvre de nouveau sa page, et c'est la croix de
              #activityPageHeader qui ferme — un seul geste, un seul endroit. -->
-        <!-- Fil de discussion de l'activité sélectionnée : une vraie
-             conversation entre ses membres, conservée durablement — à ne
-             pas confondre avec les notes "en direct" du Chrono (bloc "En ce
-             moment" de Communauté), qui s'effacent dès que leur auteur
-             clique sur STOP, ni avec les notes de session listées plus bas.
-             Placé en tête du détail : c'est ce qu'on vient voir en premier
-             quand quelqu'un a écrit. -->
-        <div id="communityDiscussionBlock" class="discussionBlock" data-module="sharing">
-          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que le
-               titre discussion - "activité" disparaisse ». Il répétait deux
-               informations déjà à l'écran à trois centimètres de là : le
-               bouton "Discussion" du sélecteur de sections, et le nom de
-               l'activité en gros dans l'en-tête de la page. Le <span
-               id="communityDiscussionName"> est parti avec, ainsi que la
-               ligne de loadDiscussion qui le remplissait. -->
-          <!-- ⚠️ .chatThread (3 septembre 2026, Activité — général) : ce fil et celui
-         d'un sous-projet sont de VRAIES conversations, avec des bulles alignées
-         à gauche ou à droite selon l'auteur. Les deux autres listes qui portent
-         .discussionList — le fil "Communauté" du Profil et les messages d'une
-         page de visite — sont des FLUX, pas des conversations : elles gardent
-         l'apparence d'origine. D'où ce modificateur, plutôt qu'une modification
-         de .discussionMsg qui les aurait toutes touchées. -->
-    <div id="communityDiscussionList" class="discussionList chatThread"></div>
-          <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
-          <!-- Composeur : le bouton "Envoyer" vit DANS la zone de saisie, à droite
-               (demande d'Emilien). .chatComposerRow le pose en absolu par-dessus le
-               textarea, qui lui réserve la place par un padding à droite. -->
-          <!-- 17 septembre 2026 (Design, correctif définitif du curseur signalé
-               le 16 septembre) : rows="2" → rows="1". Le `min-height:0` posé sur
-               #communityDiscussionInput (styles.css) neutralise la contrainte CSS
-               mais PAS la hauteur intrinsèque qu'un <textarea rows="2"> réserve
-               nativement pour du contenu vide — pollAutoGrow() ne fait que suivre
-               cette hauteur (scrollHeight), il ne la réduit jamais sous elle. Le
-               champ restait donc haut de 2 lignes au repos malgré le correctif du
-               16, plaçant le curseur natif hors de la ligne du placeholder — même
-               mécanisme déjà résolu pour #communityMyPostsInput le 6 septembre
-               (voir son commentaire, plus haut dans ce fichier) : rows="1" aligne
-               la hauteur intrinsèque sur le placeholder d'une ligne, pollAutoGrow
-               ne fait plus qu'agrandir, jamais réduire. -->
-          <div class="discussionComposer chatComposer">
-            <div class="chatComposerRow">
-              <input type="file" id="communityDiscussionFileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" class="hidden">
-              <textarea id="communityDiscussionInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-              <!-- Pièce jointe (1er oct. 2026, demande de Gaspard ; placé APRÈS le champ dans le DOM : Safari peignait le champ en verre (backdrop-filter) par-dessus le trombone) : trombone tout à GAUCHE, DANS la zone d'écriture, comme Envoyer à droite. -->
-              <button type="button" id="communityDiscussionAttachBtn" class="chatAttachBtn" aria-label="Joindre un fichier" title="Joindre une image ou un PDF">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              </button>
-              <button type="button" id="communityDiscussionSendBtn" class="cmpSend" aria-label="Envoyer"></button>
-            </div>
-            <div id="communityDiscussionPending" class="chatPendingFile hidden"></div>
-            <p id="communityDiscussionMsg" class="msg"></p>
-          </div>
-        </div>
 
         <!-- Fenêtre Activité > Statistiques : seule reste la page « Tâches par membre » (public/js/activite-stats-taches.js, GET /api/stats/activity-members).
              Les statistiques de temps par membre sont dans le Bilan (une activité partagée) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->

@@ -7,10 +7,10 @@
   var SEL = '.communityMembersModal, .imageViewer, .docTasksPop, .strategyPop, #offer1CodePage';
   // Plein écrans et fenêtres dont la croix ✕ fermait déjà, mais que le focus/Tab ne pilote pas (créés à la volée ou sans
   // classe commune) : Échap seulement, aucun rôle ni focus ajouté. Même geste que la croix, aucun effet visuel.
-  var ESC_ONLY = '#profileSettingsPanel, #tradePage, #docTasksPage, .goalTaskEditModal, .reportOverlay';
+  var ESC_ONLY = '#profileSettingsPanel, #tradePage, #docTasksPage, .goalTaskEditModal';
   // Fenêtres retirées du DOM à la fermeture : ce qui y est tapé serait perdu. Échap (frappe accidentelle) ne les ferme pas
   // tant qu'un champ y a été modifié ou qu'un envoi est en cours ; la croix ✕ reste le geste volontaire. Aucun élément visible.
-  var DISCARD = '.goalTaskEditModal, .reportOverlay';
+  var DISCARD = '.goalTaskEditModal';
   var typed = new WeakSet();
   document.addEventListener('input', function (e) { if (e.target && typeof e.target === 'object') typed.add(e.target); }, true);
   function unsaved(el) {

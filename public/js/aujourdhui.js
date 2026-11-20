@@ -244,7 +244,7 @@
   function buildFilter() { filterRow = el('div', 'tasksFilterRow'); filterBox = el('div', 'tasksFilter'); periodHost = el('div', 'tasksPeriodHost'); filterRow.appendChild(filterBox); filterRow.appendChild(periodHost); paintFilter(); return filterRow; }
   var struct = null; // { activityId: [{ key, label, secteurs: [{ key, label }] }] }, lu comme l'arbre (GET /api/objectifs/structure)
   function loadStruct() {
-    return TMT.api('GET', '/api/objectifs/structure').then(function (r) { var m = {}; ((r && r.activities) || []).forEach(function (a) { m[String(a.id)] = a.poles || []; }); struct = m; paintFilter(); }).catch(function () {});
+    return TMT.api('GET', '/api/objectifs/structure').then(function (r) { var m = {}; ((r && r.activities) || []).forEach(function (a) { m[String(a.id)] = a.poles || []; }); struct = m; return TMT.ui.couleur(0); }).then(function () { paintFilter(); }).catch(function () {});
   }
   function filtData(actId) {
     var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
@@ -263,9 +263,19 @@
     poles.sort(function (a, b) { return a.idx - b.idx; });
     return { acts: acts, poles: poles, secs: secs };
   }
+<<<<<<< Updated upstream
   function applyFilt(next) { filt = next; fv.open = false; fv.browse = null; fv.pole = null; fv.page = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
   function poleColorOf(actId, key) { return TMT.scopeFilter.poleColor(struct, actId, key); } // nuance standard du pôle (composant commun)
   var fctx = { view: null, filt: function () { return filt; }, data: filtData, poleColor: poleColorOf, apply: applyFilt, set: function (n) { filt = n; }, refresh: function () { if (lastData) render(lastData); syncCalendar(); }, repaint: function () { paintFilter(); }, onOpen: function () { loadStruct(); } }; // le dessin du filtre est le composant commun js/filtre-niveau.js (partagé avec le Bilan)
+=======
+  function applyFilt(next) { filt = next; filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
+  function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; }
+  function poleColorOf(actId, key) { return TMT.ui.couleurSync(actId, key) || ''; } // nuance standard du pôle : source centrale (TMT.ui.couleur), la même partout
+  function filtRow(parent, text, level, on, fn, color) {
+    var b = el('button', 'tasksChoice' + (level ? ' lv' + level : '') + (on ? ' on' : ''), text); b.type = 'button'; if (color) b.insertBefore(dotEl(color), b.firstChild); b.addEventListener('click', fn); parent.appendChild(b); return b;
+  }
+  document.addEventListener('click', function (e) { /* une ligne retirée du DOM par le redessin du panneau n'est pas un toucher dehors */ if (filtOpen && filterBox && e.target.isConnected && !filterBox.contains(e.target)) { filtOpen = false; filtBrowse = null; filtPole = null; filtPage = 0; paintFilter(); } });
+>>>>>>> Stashed changes
   function paintFilter() {
     if (!filterBox) return; fctx.view = fv; if (filterRow) filterRow.classList.toggle('open', fv.open);
     TMT.scopeFilter.paint(filterBox, fctx);
@@ -344,7 +354,8 @@
     ui.send.title = tr('Appui long : demande Expansion');
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
     ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
-    ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
+    ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg'); // jamais de texte sous la barre (20 nov. 2026, Émilien) : ce que le code y écrit s'affiche dans la bulle AU-DESSUS (showToast) et la ligne reste vide
+    if (typeof MutationObserver === 'function') new MutationObserver(function () { var m = ui.msg.textContent; if (m) { ui.msg.textContent = ''; showToast(m); } }).observe(ui.msg, { childList: true });
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
     ui.save = el('button', 'tasksSaveBtn', tr('Enregistrer')); ui.save.type = 'button'; // remplace la zone d'écriture à l'étape 2 d'Expansion (liste des tâches à valider)
     ui.save.addEventListener('click', function () { if (state.review && !state.exp && !state.expStep) send(); else expSave(); });
@@ -357,8 +368,6 @@
   function poleOf(o) { return String(o.categoryLabel || '').split(' → ')[0]; }
   function sectorOf(o) { var p = String(o.categoryLabel || '').split(' → '); return p.length > 1 ? p[1] : ''; }
   function actCount() { var seen = {}, n = 0; state.options.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; n++; } }); return n; }
-  function actColorOf(actId) { var a = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (x) { return String(x.id) === String(actId); })[0]; return (a && a.color) || ''; } // couleur de l'activité (point à gauche)
-  function poleColorOfOption(o) { var p = ((struct && struct[String(o.activityId)]) || []).filter(function (q) { return q.label === poleOf(o); })[0]; return p ? poleColorOf(o.activityId, p.key) : actColorOf(o.activityId); } // nuance standard du pôle ; le secteur reprend celle de son pôle
   function sectorsOfPole(t) { return state.options.filter(function (o) { return t && o.activityId === t.activityId && poleOf(o) === poleOf(t) && sectorOf(o); }); }
   function dateText(iso) {
     if (!iso) iso = dayIso();
@@ -438,7 +447,8 @@
     box.appendChild(row); return box;
   }
   function closeChooser() { state.open = ''; }
-  function choice(box, label, fn, look) { var b = el('button', 'tasksChoice', label); b.type = 'button'; if (look && look.dot) b.insertBefore(dotEl(look.dot), b.firstChild); if (look && look.text) b.style.color = look.text; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
+  // couleur standard (TMT.ui.couleur) : point = activité ; texte = pôle ou secteur (nuance de son pôle)
+  function choice(box, label, fn, look) { var b = el('button', 'tasksChoice', label); b.type = 'button'; if (look) { var paint = function (c) { if (!c) return; if (look.dot) b.insertBefore(dotEl(c), b.firstChild); else b.style.color = c; }, c0 = TMT.ui.couleurSync(look.a, look.p, look.label); if (c0) paint(c0); else TMT.ui.couleur(look.a, look.p, look.label).then(paint); } b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
   function toggleChooser(key) { state.open = state.open === key ? '' : key; paintProposal(); }
   // Les choix du champ ouvert (construits sous lui par fieldRow).
   function chooserFor(key) {
@@ -454,16 +464,16 @@
           state.poleId = o.activityId; state.who = null;
           state.choice = same || (mine.length === 1 ? mine[0] : null);
           if (!state.choice && state.proposal && state.proposal.activityId !== o.activityId) state.proposal = null;
-        }, { dot: actColorOf(o.activityId) });
+        }, { dot: true, a: o.activityId });
       });
     } else if (key === 'pole') {
       var seenP = {};
       state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) {
         var pl = poleOf(o); if (seenP[pl]) return; seenP[pl] = true;
-        choice(box, pl, function () { state.choice = o; }, { text: poleColorOfOption(o) });
+        choice(box, pl, function () { state.choice = o; }, { a: o.activityId, label: pl });
       });
     } else if (key === 'secteur') {
-      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }, { text: poleColorOfOption(o) }); });
+      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }, { a: o.activityId, label: poleOf(o) }); });
     } else if (key === 'who') {
       choice(box, '—', function () { state.who = null; });
       (state.members[poleId] || []).forEach(function (m) { choice(box, m.name, function () { state.who = { id: m.id, name: m.name }; }); });
@@ -704,7 +714,7 @@
     row.appendChild(b); wrap.appendChild(row);
     if (state.open === 'exp' && !b.disabled) {
       var box = el('div', 'tasksChooser');
-      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }, { dot: actColorOf(a.id) }); });
+      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }, { dot: true, a: a.id }); });
       ((state.essor && state.essor.others) || []).forEach(function (a) {
         var off = el('div', 'tasksChoice off'); off.appendChild(el('span', null, a.name)); off.appendChild(el('small', null, tr('Sans Expansion'))); box.appendChild(off);
       });

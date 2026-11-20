@@ -65,6 +65,7 @@
 .tasksComposer .tasksText { min-width: 120px; white-space: nowrap; text-overflow: ellipsis; }
 .tasksComposer .tasksClip, .tasksComposer .cmpSend { flex: none; }
 .tasksChips:empty, .tasksMsg:empty { display: none; }
+.tasksExHint, .tasksMsg { display: none !important; } /* aucun texte sous la barre d'ajout, jamais (consigne d'Émilien) */
 .tasksDock .cmpSend { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .tasksDock .cmpSend { transition: transform .15s ease-out; }
 .tasksDock .cmpSend.pressing { transform: scale(1.7); transition: transform 1s linear; } /* grossit pendant la seconde d'appui, reprend sa taille en .15 s */
