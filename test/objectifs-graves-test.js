@@ -11,6 +11,7 @@ const o = require('../server/lib/objectifs');
 const m = db.prepare('SELECT userId, activityId FROM activity_members LIMIT 1').get();
 if (!m) { console.log('  (pas de données de base : test ignoré)'); process.exit(0); }
 const u = m.userId;
+const legacyAbandon = (uid, id) => { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); const mm = JSON.parse(r.metaJson || '{}'); mm.abandoned = true; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(mm), id); }; // l'abandon n'existe plus (20 nov. 2026) : ce test simule une ancienne donnée
 o.setTasksCheck(() => false); // ici : la mécanique des macros ; le contrôle de conflit est éprouvé dans objectifs-fusion-conflit-test.js
 // Ici : la mécanique des macros. Le contrôle de conflit (toujours actif) est éprouvé dans objectifs-fusion-conflit-test.js : pendant chaque fusion, les AUTRES objectifs posés par les scénarios sont mis de côté (abandonnés le temps de l'appel, état rendu ensuite).
 const fusionReelle = o.fusionnerEnMacro;
@@ -64,13 +65,10 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   assert(ko.length === 0 && nSecteurs === 0, 'C12 : aucun secteur ni pôle créé par les objectifs (' + nSecteurs + ')');
 }
 
-// ---- 4. E03 : abandonner, réactiver, supprimer ----
+// ---- 4. E03 : supprimer (l'abandon et la réactivation n'existent plus) ----
 {
   const a = mk('Objectif E03'), kid = mk('Enfant E03', { parentId: a.id }), solo = mk('Seul E03');
-  assert(o.get(u, a.id).abandoned === false, 'E03 : un objectif neuf n’est pas abandonné');
-  assert(o.abandonner(u, a.id, true).abandoned === true, 'E03 : abandonner');
-  assert(o.get(u, kid.id).abandoned === false, 'E04 : l’abandon n’entraîne jamais les objectifs rattachés');
-  assert(o.abandonner(u, a.id, false).abandoned === false, 'E05 : réactiver');
+  assert(typeof o.abandonner === 'undefined', 'plus de fonction abandonner');
   let e = null; try { o.supprimer(u, a.id, false); } catch (x) { e = x; }
   assert(e && e.statusCode === 409 && e.extra && e.extra.children.length === 1 && e.extra.children[0].id === kid.id, 'E03 : suppression avec enfants refusée sans confirmation, liste des enfants rendue');
   assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE id IN (?, ?)').get(a.id, kid.id).n === 2, 'E03 : rien supprimé sans confirmation');
@@ -82,7 +80,7 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   let e2 = null; try { o.supprimer(u, solo.id, true); } catch (x) { e2 = x; }
   assert(e2 && e2.statusCode === 404, 'E03 : objectif déjà supprimé : 404');
   const rt = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
-  assert(rt.includes("'/objectifs/:id/abandon'") && rt.includes("'/objectifs/:id/reactiver'") && rt.includes("router.delete('/objectifs/:id'"), 'E03 : routes abandon, reactiver, suppression');
+  assert(!rt.includes('/abandon') && !rt.includes('/reactiver') && rt.includes("router.delete('/objectifs/:id'"), 'E03 : plus de routes abandon / reactiver ; suppression conservée');
 }
 
 // ---- 5. Échéance obligatoire (règle d'Émilien, 6 nov. 2026) ----
@@ -143,14 +141,14 @@ const mk = (title, extra) => o.creer(u, Object.assign({ title, activityId: m.act
   const done = (id) => { const r = o.get(u, id); r.periods.forEach((p) => p.weeks.forEach((w) => o.semaine(u, id, p.n, w.i, true))); };
   done(m1.id); done(m2.id);
   assert(o.get(u, macro.id).status === 'en_cours', 'macro : pas atteint tant qu’un enfant ne l’est pas');
-  o.abandonner(u, m5.id, true); done(m3.id);
+  legacyAbandon(u, m5.id); done(m3.id);
   g = o.get(u, macro.id);
   assert(g.status === 'atteint' && g.progress === 1, 'macro : atteint quand tous ses enfants non abandonnés le sont (calcul à l’affichage)');
   assert(o.liste(u, 'tous', { liens: true }).find((x) => x.id === macro.id).status === 'atteint' && o.macroDe(u, macro.id).status === 'atteint', 'macro : même état dans liste() et dans la route macro');
   // tous les enfants abandonnés
   const A4 = newAct('Macro A4'), A5 = newAct('Macro A5'), A6 = newAct('Macro A6'); // colonnes libres : une colonne déjà reliée à un macro ne peut pas être reliée à un autre
   const m6 = mkIn('Macro tout abandonné', A1, { isMacro: true }), c1 = mkIn('Enfant abandonné', A4, { parentId: m6.id });
-  o.abandonner(u, c1.id, true);
+  legacyAbandon(u, c1.id);
   g = o.get(u, m6.id); assert(g.macroAllAbandoned === true && g.status === 'en_cours', 'macro dont tous les enfants sont abandonnés : jamais atteint, signalé');
   // enfant déplacé vers une autre activité
   const moved = o.deplacer(u, m2.id, A3); assert(moved.activity.id === A3 && moved.parentId === macro.id, 'enfant de macro : déplaçable vers une autre activité, garde son parent macro');

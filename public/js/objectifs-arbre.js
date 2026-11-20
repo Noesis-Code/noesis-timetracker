@@ -7,7 +7,7 @@
  * ZOOM PAR NIVEAU (se cumule avec le zoom de temps) : on ouvre très dézoomé, les GRANDS objectifs par activité ; toucher la racine (ou une carte qui regroupe plusieurs objectifs) ou ÉCARTER
  * les doigts (Ctrl + molette sur ordinateur) descend d'un niveau : l'activité se découpe en PÔLES (une racine fixe par pôle), puis en SECTEURS ; au dernier niveau, la bulle ouvre l'arbre périodique (page 2).
  * La flèche ‹ ou RAPPROCHER les doigts remonte. Un objectif PORTE le niveau où il est créé (level, poleKey, categoryKey) ; toucher une case VIDE ajoute un objectif (activité, niveau, pôle/secteur, échéance = la case).
- * Couleurs (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. L'ACTIVITÉ est la racine, EN BAS : une BULLE pleine fixe sous sa colonne, juste au-dessus du bas de l'écran.
+ * Couleurs (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir. L'ACTIVITÉ est la racine, EN BAS : une BULLE pleine fixe sous sa colonne, juste au-dessus du bas de l'écran.
  * Appui long (TMT.ui.holdDrag) : menu d'actions (Relier, Modifier, Supprimer) ; une carte « N objectifs » est une cible (choix de l'objectif
  * qui reçoit) et, en appui long, propose l'objectif à déplacer. Une case grise juste au-dessus du sommet d'une branche porte un « + » : il crée un objectif rattaché à celui de la branche.
  * Données : GET /api/objectifs?filtre=tous ; PUT /api/objectifs/:id/parent. */
@@ -22,8 +22,8 @@
   var RAIL = 30, GAP = 10; // largeur de la colonne de repères + gouttière (RAIL change avec le niveau : ovale d'un bloc de 5 ans, d'une année, rond d'une période)
 
   function dayIso(date) { var d = date || new Date(), p = function (x) { return String(x).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-  function stateOf(o, today) { return o.abandoned ? 'dropped' : (o.status === 'atteint' ? 'done' : (o.startDate > today ? 'future' : 'now')); }
-  var STATE_LABEL = { now: 'En cours', done: 'Réalisé', future: 'À venir', dropped: 'Abandonné' };
+  function stateOf(o, today) { return o.status === 'atteint' ? 'done' : (o.startDate > today ? 'future' : 'now'); }
+  var STATE_LABEL = { now: 'En cours', done: 'Réalisé', future: 'À venir' };
   function color(o) { return o.activity && o.activity.color; } // couleur de DONNÉE de l'activité (celle du Chrono) : aucun repli, une couleur absente doit se voir
   function dockEl() { return TMT.objectifsView && TMT.objectifsView.dock && TMT.objectifsView.dock(); }
   function say(msg) { // message passager, au-dessus des bulles (toujours visible, même défilé en haut de l'arbre)
@@ -579,7 +579,7 @@
       var entries = [];
       roots.forEach(function (r, ri) {
         var seq = []; (function walk(o, d) { seq.push({ o: o, d: d }); (kids[o.id] || []).forEach(function (k) { walk(k, d + 1); }); })(r, 0);
-        var open = seq.some(function (x) { var s = stateOf(x.o, today); return s !== 'done' && s !== 'dropped'; });
+        var open = seq.some(function (x) { var s = stateOf(x.o, today); return s !== 'done'; });
         seq.forEach(function (x, i) { entries.push({ o: x.o, d: x.d, ri: ri, i: i, top: i === seq.length - 1, open: open, b: bucketOf(x.o, today) }); });
       });
       return { col: c, color: c.color, entries: entries, all: { byId: byId, kids: kids }, count: os.length };

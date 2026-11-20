@@ -22,7 +22,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   c = h.compute({ min: 100, max: 100 }, 7, 1);
   assert(c.perWeekMin.mid === 855, '100 h ÷ 7 sem = 14,29 h arrondi au quart d’heure (14h15)');
   c = h.compute({ min: 5000, max: 9000 }, 1, 1);
-  assert(c.perWeekMin.hi === 168 * 60 && c.perWeekMin.mid === 168 * 60, 'plafond : 168 h par semaine');
+  assert(c.perWeekMin.hi === 9000 * 60 && c.perWeekMin.mid === 7000 * 60, 'aucun plafond d’heures : 9 000 h sur 1 semaine = 9 000 h par semaine');
   c = h.compute({ min: 90, max: 140 }, 0.2, 1);
   assert(c.weeks === 1, 'au moins une semaine');
   // Facteur de correction : 1 sans données suffisantes ; moyenne (fait ÷ suggéré) au-delà ; compte d'abord, sinon agrégat

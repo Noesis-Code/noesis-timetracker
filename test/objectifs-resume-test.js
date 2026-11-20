@@ -40,8 +40,8 @@ const bad = async (fn) => { try { await fn(); return null; } catch (x) { return 
   db.prepare("UPDATE user_objectives SET title = 'Grand objectif 2028 bis' WHERE id = ?").run(g3.id);
   r = await R.resumeAnnuel(u, act, 2028); assert(r.source === 'titres', 'IA sans réponse : repli sur les titres, rien de stocké');
   assert(db.prepare('SELECT COUNT(*) AS n FROM objectifs_resume_annuel WHERE year = 2028').get().n === 0, 'un échec n’est jamais mémorisé');
-  // abandonné : ignoré
-  o.abandonner(u, g3.id, true); r = await R.resumeAnnuel(u, act, 2028); assert(r.count === 0, 'grand objectif abandonné : ignoré');
+  // ancien objectif abandonné (donnée existante) : ignoré
+  { const mm = JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(g3.id).metaJson || '{}'); mm.abandoned = true; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(mm), g3.id); } /* ancienne donnée : l'abandon n'existe plus */ r = await R.resumeAnnuel(u, act, 2028); assert(r.count === 0, 'grand objectif abandonné : ignoré');
   // validations
   let e = await bad(() => R.resumeAnnuel(u, act, 'abc')); assert(e && e.statusCode === 400, 'année invalide : 400');
   e = await bad(() => R.resumeAnnuel(u, 9999, 2027)); assert(e && e.statusCode === 404, 'activité inconnue : 404');

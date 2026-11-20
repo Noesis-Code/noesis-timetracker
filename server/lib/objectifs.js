@@ -64,6 +64,18 @@ db.exec(`CREATE TABLE IF NOT EXISTS objectifs_refus (
   createdAt TEXT NOT NULL,
   PRIMARY KEY (objectifId, candidateId)
 )`);
+// Trace d'un objectif SUPPRIMÉ qui avait au moins une tâche terminée rangée dedans (export personnel, Loi 25) : un objectif supprimé sans tâche terminée (erreur) ne laisse aucune trace.
+db.exec(`CREATE TABLE IF NOT EXISTS objectifs_supprimes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  userId TEXT NOT NULL,
+  objectifId INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  activityId INTEGER,
+  activityName TEXT,
+  createdOn TEXT,
+  deletedOn TEXT NOT NULL,
+  tasksDone INTEGER NOT NULL
+)`);
 
 const UNITS = ['semaines', 'mois', 'années'];
 const MAX_AMOUNT = { semaines: 156, mois: 120, 'années': 10 };
@@ -247,13 +259,17 @@ function tasksAllowed(userId) { // abonné Expansion actif ou code d'accès : ja
 }
 
 // Contexte du formulaire « Nouvel objectif » : dates déduites, activité proposée, objectifs existants. Ne crée rien.
+// Jour écrit dans le titre (« vendredi », « demain », « avant le 5 »…) : règles locales gratuites de capturedatehint (aucune IA). Seul un JOUR précis à venir (strictement après aujourd'hui) pré-remplit l'échéance ; jamais une date passée.
+function titleDay(text, start) {
+  try { const h = require('./capturedatehint').parseDateHint(text, start); return h && (h.kind === 'day' || h.kind === 'deadline') && isDay(h.date) && h.date > start ? h.date : null; } catch (e) { return null; }
+}
 function contexte(userId, body) {
   const text = String((body && body.text) || '');
   const title = body && body.blank === true && !text.trim() && isDay(body.endDate) ? '' : cleanTitle(text); // case vide de l'arbre : titre saisi dans le panneau, échéance imposée par la case
   const found = parseDuration(text);
   const start = today();
   const manual = !!(body && body.amount && body.unit);
-  const explicit = durees.explicitDate(text, start);
+  const explicit = durees.explicitDate(text, start) || (parseDuration(text) ? null : titleDay(text, start)); // le jour écrit pré-remplit l'échéance (visible et modifiable à l'étape Échéance, jamais silencieux)
   const fixedDate = durees.isFixedDate(text, start);
   // Échéance (9 nov. 2026, décision d'Émilien) : une date ou une durée ÉCRITE (ou une date imposée) est prise ; SINON AUCUNE date par défaut (plus de base de durées, plus d'estimation, plus de « 3 mois ») :
   // endDate = null, la date d'échéance est demandée en premier à la page Description (même mécanisme que dateReason « inconnue »).
@@ -666,7 +682,7 @@ function creer(userId, body) {
   const id = Number(info.lastInsertRowid);
   db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
-  const hpw = Number(body.hoursPerWeek) > 0 && Number(body.hoursPerWeek) <= 168 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
+  const hpw = Number(body.hoursPerWeek) > 0 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (hpw) meta0.hoursPerWeek = hpw;
   if (cad) meta0.cadence = cad; // posé sur le pôle : aucun secteur créé (voir bridge)
@@ -836,7 +852,7 @@ function parametres(userId, id, body) {
   if (body.inner != null) { if (!['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner)) throw err('Objectifs inclus : choix invalide.'); meta.inner = multi ? body.inner : 'hebdomadaires'; }
   else if (!multi && meta.inner) meta.inner = 'hebdomadaires';
   if (meta.inner) db.prepare('UPDATE user_objectives SET weekly = ? WHERE id = ?').run(meta.inner === 'periodiques' ? 0 : 1, r.id);
-  if ('hoursPerWeek' in body) { const v = Number(body.hoursPerWeek); if (v > 0 && v <= 80) meta.hoursPerWeek = Math.round(v * 10) / 10; else if (body.hoursPerWeek == null || body.hoursPerWeek === '') delete meta.hoursPerWeek; else throw err('Heures par semaine : entre 0 et 80.'); }
+  if ('hoursPerWeek' in body) { const v = Number(body.hoursPerWeek); if (v > 0) meta.hoursPerWeek = Math.round(v * 10) / 10; else if (body.hoursPerWeek == null || body.hoursPerWeek === '') delete meta.hoursPerWeek; else throw err('Heures par semaine : un nombre positif.'); }
   // Réglage « jour par jour » (9 nov. 2026) : meta.hoursByDay = 7 entiers (minutes, lundi = index 0), dont la somme = les heures par semaine. Ajout sans migration ; le planificateur ne l'utilise pas encore.
   const hpwMin = meta.hoursPerWeek > 0 ? Math.round(meta.hoursPerWeek * 60) : 0, tb = require('./tempsbudget');
   if ('hoursByDay' in body) {
@@ -1325,13 +1341,7 @@ function resumer(userId, id, text) {
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
   return get(userId, r.id);
 }
-// E03 : abandonner / réactiver (bascule de meta.abandoned) ; jamais en cascade : les objectifs rattachés gardent leur état (E04).
-function abandonner(userId, id, on) {
-  const r = rowOf(userId, id), meta = JSON.parse(r.metaJson || '{}');
-  if (on) { meta.abandoned = true; meta.abandonedAt = today(); } else { delete meta.abandoned; delete meta.abandonedAt; }
-  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
-  return get(userId, r.id);
-}
+// 20 nov. 2026 : plus d'« abandon » (ni route ni bouton) ; un objectif se SUPPRIME seulement. Un ancien objectif déjà abandonné (meta.abandoned en base, jamais effacée) reste exclu des calculs, s'affiche comme les autres et se supprime.
 // Suppression : jamais en cascade. S'il a des objectifs rattachés (enfants), la suppression est REFUSÉE (409, liste des enfants) tant que l'appelant n'a pas confirmé ;
 // confirmée, les enfants sont détachés (ils redeviennent des objectifs finaux), jamais supprimés. Le secteur et les tâches déjà posés dans l'arbre périodique restent à l'utilisateur.
 function supprimer(userId, id, confirmed) {
@@ -1354,6 +1364,9 @@ function supprimer(userId, id, confirmed) {
       db.prepare('UPDATE user_objectives SET parentId = ?, parentRel = NULL, position = ? WHERE id = ?').run(to, nextPosition(userId, to), k.id);
     }); // les objectifs reliés remontent sous le parent du macro (aucun, pour un macro d'activités)
     db.prepare('DELETE FROM objectifs_refus WHERE userId = ? AND (objectifId = ? OR candidateId = ?)').run(userId, r.id, r.id);
+    let ids = []; try { ids = JSON.parse(r.taskIdsJson || '[]').filter(Number.isInteger); } catch (e) { ids = []; }
+    const tasksDone = ids.length ? db.prepare('SELECT COUNT(*) AS n FROM sub_project_items WHERE done = 1 AND id IN (' + ids.map(() => '?').join(',') + ')').get(...ids).n : 0;
+    if (tasksDone > 0) { const ac = db.prepare('SELECT name FROM activities WHERE id = ?').get(r.activityId); db.prepare('INSERT INTO objectifs_supprimes (userId, objectifId, title, activityId, activityName, createdOn, deletedOn, tasksDone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(userId, r.id, r.title, r.activityId || null, ac ? ac.name : null, String(r.createdAt || '').slice(0, 10) || null, today(), tasksDone); } // trace gardée pour l'export, dans la même transaction
     db.prepare('DELETE FROM user_objectives WHERE id = ? AND userId = ?').run(r.id, userId);
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte : on garde l'erreur d'origine */ } throw e; }
@@ -1362,4 +1375,4 @@ function supprimer(userId, id, confirmed) {
 }
 migrateEcheances(); // au chargement (idempotent)
 try { const n = purgeOrphanMacros(null); if (n) console.log('[objectifs] ' + n + ' macro(s) sans objectif relié retiré(s)'); } catch (e) { console.warn('[objectifs] nettoyage des macros vides impossible :', e.message); }
-module.exports = { resumer, liensDirects, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, abandonner, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };
+module.exports = { resumer, liensDirects, blockYearOf, reprogrammer, reorganisation, appliquerReorganisation, reorganisationDe, appliquerReorganisationDe, natureOfCategory, gridOf, periodStartOf, mondayOf, addDays, isDay, cellKey, placement, joursDefaut, setEmptyColumns, changerPart, parametres, computeParts, purgeOrphanMacros, macroGroups, renommer, decrire, modifierEcheance, macroDe, setMacro, deplacer, fusionnerEnMacro, checkEcheance, migrateEcheances, occupant, supprimer, structure, rattachement, lier, refuser, refusDe, setAnon, anonOptIn, weeklyHoursHistory, lateness, recordSignals, setTasksCheck, tasksAllowed, learnedDurations, userRatios, aiAllowed, contexte, proposer, creer, get, liste, semaine, bilan, splitPeriods, computeEnd, parseDuration, cleanTitle, rankActivities, TASKS_PER_WEEK };

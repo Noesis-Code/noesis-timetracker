@@ -13,7 +13,6 @@ const goals = require('./goals');
 const weekplanner = require('./weekplanner');
 const weeklyavg = require('./weeklyavg'); // moyenne hebdomadaire partagée (4 semaines, les 2 dernières comptées double)
 
-const MAX_MIN = 168 * 60; // seul plafond : les heures d'une semaine
 function err(msg, status) { return Object.assign(new Error(msg), { statusCode: status || 400 }); }
 function today() { return require('./dates').userToday(); }
 function objectifs() { return require('./objectifs'); } // chargé à l'appel (évite une dépendance circulaire)
@@ -103,7 +102,7 @@ function etat(userId, spec) {
   if (level === 'secteur' && !sects.some((s) => s.key === catKey)) throw err('Choisis un secteur de ce pôle.');
   require('./portee').exigerObjectif(userId, aid, poleKey, catKey); // activité partagée : le budget d'heures suit les objectifs, réservé aux responsables de la portée
   const label = (k) => { const x = poles.concat(sects).find((p) => p.key === k); return x ? x.label : k; };
-  const out = { level, activityId: aid, poleKey, categoryKey: catKey, manualCapacity: manual, maxMin: MAX_MIN };
+  const out = { level, activityId: aid, poleKey, categoryKey: catKey, manualCapacity: manual };
   const ownNum = spec.ownMin === undefined || spec.ownMin === null || spec.ownMin === '' ? null : Math.round(Number(spec.ownMin));
   const inn = ['periodiques', 'hebdomadaires'].includes(spec.inner) ? spec.inner : undefined;
   const meCell = cell(userId, aid, level, poleKey, catKey, end, inn);
@@ -138,7 +137,7 @@ function etat(userId, spec) {
 function plan(userId, body, apply) {
   const e = etat(userId, body);
   const newMin = Math.round(Number(body.newMin));
-  if (!Number.isFinite(newMin) || newMin < 0 || newMin > MAX_MIN) throw err('Un budget va de 0 à 168 heures par semaine.');
+  if (!Number.isFinite(newMin) || newMin < 0) throw err('Heures invalides.');
   const old = e.valueMin || 0, delta = newMin - old, aid = e.activityId, end = body.endDate;
   const res = { ok: true, deltaMin: delta, increase: delta > 0, oldMin: old, newMin, lines: [], balanced: true };
   const cap = weekplanner.getWeeklyCapacity(userId) || { minutes: null, source: null };
@@ -173,4 +172,4 @@ function plan(userId, body, apply) {
   return res;
 }
 
-module.exports = { keysOf, etat, plan, passeMin, passeByDay, defaultByDay, roundQuarter, MAX_MIN };
+module.exports = { keysOf, etat, plan, passeMin, passeByDay, defaultByDay, roundQuarter };

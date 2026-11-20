@@ -46,7 +46,7 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   assert(e.up.kind === 'total' && e.me.label === 'Marketing' && e.me.passeMin === H(6) && e.me.prevuMin === null && e.valueMin === H(6), 'activité sans objectif : valeur par défaut = Passé (6 h)');
   e = tb.etat('u1', spec('pole'));
   assert(e.up.kind === 'activite' && e.up.label === 'Marketing' && e.up.prevuMin === null && e.me.label === 'Web', 'pôle : ligne du dessus = l’activité (sans objectif : inconnu)');
-  assert(tb.etat('u1', spec('secteur')).up.kind === 'pole' && tb.etat('u1', spec('pole')).maxMin === 168 * 60, 'secteur : ligne du dessus = le pôle ; seul plafond 168 h');
+  assert(tb.etat('u1', spec('secteur')).up.kind === 'pole' && tb.etat('u1', spec('pole')).maxMin === undefined, 'secteur : ligne du dessus = le pôle ; aucun plafond d’heures');
 
   // ---- Objectifs existants : Prévu = hoursPerWeek de l'objectif de la case ----
   const oA = obj(A, 'activite', null, null, 20), oB = obj(B, 'activite', null, null, 5), oP2 = obj(A, 'pole', P2, null, 3), oP3 = obj(A, 'pole', P3, null, null);
@@ -104,9 +104,10 @@ const spec = (level, extra) => Object.assign({ activityId: A, level, poleKey: le
   // ---- Arrondi au quart d'heure (Prévu par défaut et Passé) ----
   assert(tb.roundQuarter(790) === 795 && tb.roundQuarter(797) === 795 && tb.roundQuarter(780) === 780 && tb.roundQuarter(0) === 0 && tb.roundQuarter(null) === null, 'arrondi au quart d’heure : 790 et 797 min donnent 13,25 h (795), 780 reste 13 h, 0 et null inchangés');
   assert(tb.etat('u1', spec('pole', { poleKey: P3 })).me.passeMin === null && tb.passeMin('u1', A, P1) % 15 === 0, 'Passé : multiple de 15 min, null sans temps');
-  // ---- Plafond 168 h, décimales ----
-  bad = false; try { tb.plan('u1', spec('activite', { newMin: H(169) }), false); } catch (x) { bad = x.statusCode === 400; }
-  assert(bad, 'plafond : plus de 168 h refusé');
+  // ---- Aucun plafond d'heures (20 nov. 2026), décimales ----
+  assert(tb.plan('u1', spec('activite', { newMin: H(2000) }), false).ok, '2 000 h par semaine acceptées (réparties entre des membres)');
+  bad = false; try { tb.plan('u1', spec('activite', { newMin: -5 }), false); } catch (x) { bad = x.statusCode === 400; }
+  assert(bad, 'une valeur négative reste refusée');
   assert(tb.plan('u1', spec('activite', { newMin: H(168) }), false).ok && tb.plan('u1', spec('activite', { newMin: 90 }), false).newMin === 90, '168 h acceptées (pas de limite à 80) ; décimales permises (1,5 h)');
 
   // ---- Niveau activité : « Prendre sur les autres activités » toujours proposé ----

@@ -46,8 +46,8 @@ assert(R3.totalMin === L3[0].totalMin && R3.categories.find((c) => c.poleKey ===
 A.set('u1', P, '2028-01-01', null);
 assert(m('2028-06-01') === 300 && m('2029-01-01') === 180, 'retirer une valeur : reprend la précédente, la suite reste');
 // refus
-let bad = 0; [() => A.set('u1', P, '2028-01-01', 99999), () => A.set('u1', P, 'pas une date', 60), () => A.set('u1', { activityId: a1, level: 'pole', poleKey: 'zzz' }, '2028-01-01', 60), () => A.set('u3', P, '2028-01-01', 60)].forEach((f) => { try { f(); } catch (e) { bad += 1; } });
-assert(bad === 4, 'valeur > 168 h, date invalide, pôle inconnu, activité d\'un autre : refusés');
+let bad = 0; [() => A.set('u1', P, '2028-01-01', -5), () => A.set('u1', P, 'pas une date', 60), () => A.set('u1', { activityId: a1, level: 'pole', poleKey: 'zzz' }, '2028-01-01', 60), () => A.set('u3', P, '2028-01-01', 60)].forEach((f) => { try { f(); } catch (e) { bad += 1; } });
+assert(bad === 4, 'valeur négative (plus de plafond d’heures), date invalide, pôle inconnu, activité d\'un autre : refusés');
 // ---- Moyenne par semaine d'une ligne (bloc de 5 ans) : 5 h puis 8 h dès le milieu de la ligne ----
 const Q = { activityId: a1, level: 'activite' };
 A.set('u1', Q, '2030-01-01', 300); A.set('u1', Q, '2033-01-01', 480);

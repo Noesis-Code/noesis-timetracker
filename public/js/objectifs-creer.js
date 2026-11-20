@@ -18,10 +18,10 @@
   // UN SEUL format d'heures (composants.js)
   function hh(min) { return TMT.ui.heures(min); }
   // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
-  // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Plafond 168 h (les heures d'une semaine) ; une valeur choisie à la roue n'est jamais réarrondie.
+  // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Aucun plafond d'heures par objectif (la roue va jusqu'à 5000 h) ; une valeur choisie à la roue n'est jamais réarrondie.
   function tbtn(minutes, label, onPick, maxMin) { // maxMin (facultatif) : une source ne fait que baisser, jamais au-dessus de son « Avant »
     var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
-    b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
+    b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 5000 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
     return b;
   }
   // Tableau « Chrono / Objectif » (UNE seule fonction de rendu, partagée : écran 1 et écran « Déplacer » de l'étape Temps ; la fiche d'une catégorie pourra la reprendre).
@@ -164,7 +164,7 @@
   function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
     if (ficheEnd) { var fe = ficheEnd; ficheEnd = null; window.setTimeout(fe, 0); }
     if (extendCancel) { var xc = extendCancel; extendCancel = null; xc(); } // mode Étendre annulé (✕) : l'arbre reprend son état
-    clearPending(); dock.classList.remove('expSave', 'expExtend', 'objDockBar'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; seq = { base: 0, count: 1, i: 0 };
+    clearPending(); closeGuard = null; dock.classList.remove('expSave', 'expExtend', 'objDockBar'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; seq = { base: 0, count: 1, i: 0 };
   }
 
   // ---------- Fenêtre « Nouvel objectif » ----------
@@ -1052,7 +1052,7 @@
       }, Promise.resolve());
       TMT.ui.attente(chain).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); load(); sync(); });
     }
-    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
+    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null; closeGuard = function () { return !stepBtn.disabled; };
     paint();
   }
   function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
@@ -1065,7 +1065,8 @@
     return { setLabel: function (t) { stepLabel.textContent = t; stepBtn.setAttribute('aria-label', t); }, setEnabled: function (b) { stepBtn.disabled = !b; } };
   }
   function closeExtend() { extendCancel = null; endFlow(); }
-  function closePanel() { endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
+  var closeGuard = null; // vrai quand le panneau (fiche ou Modifier) a un changement non enregistré : le ✕ demande alors « Quitter sans enregistrer ? » (TMT.ui.confirm)
+  function closePanel() { if (closeGuard && closeGuard()) { TMT.ui.confirm(tr('Quitter sans enregistrer ?'), { ok: tr('Quitter') }).then(function (yes) { if (yes) endFlow(); }); return; } endFlow(); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
 
 
   // Carte fusionnée de l’arbre : la liste des objectifs qu’elle contient ; chaque ligne choisit un objectif.
@@ -1105,7 +1106,7 @@
       var proposal = false, chain = repBlock.rep.save().then(function (p) { proposal = p; });
       TMT.ui.attente(chain).then(function () { load(); if (!proposal) { endFlow(); return; } sync(); /* l'app propose d'ajuster des niveaux inférieurs : la fiche reste ouverte pour les valider ou les refuser */ }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }
-    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null;
+    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null; closeGuard = repOn;
   }
   // À la fin d'une MODIFICATION : l'app PROPOSE (fenêtre « Modifications proposées », jamais écrit seul) de réordonner ce qui suit l'objectif modifié ; Non = rien ne change.
   function proposeReorg(id) {
@@ -1168,7 +1169,7 @@
       panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
       var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
       hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
-      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 && v <= 168 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
+      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
       hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'), hTab = el('div'); hBody.appendChild(hTab); hTab.appendChild(hRow);
       api('GET', '/api/objectifs/temps?activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate)).then(function (e) {
         if (!e || !e.up || !e.me) return;
@@ -1266,7 +1267,6 @@
         });
         partsBox.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif. Changer une part change le temps des autres, le total reste le même.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
       }
-      var ab = btn('cmpBtn cmpBtnIdle', tr(o.abandoned ? 'Réactiver' : 'Abandonner'), function () { api('POST', '/api/objectifs/' + id + (o.abandoned ? '/reactiver' : '/abandon')).then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }); });
       var gen = btn('cmpBtn', tr('Générer'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
         msg.textContent = '';
         TMT.ui.attente(api('POST', '/api/objectifs/' + id + '/inferieurs/generer')).then(function (pl) {
@@ -1279,9 +1279,9 @@
           });
         }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
       });
-      if (!o.isMacro && !o.abandoned) { var genBody = el('div'); genBody.appendChild(el('p', 'hint', tr('Noèsis propose jusqu’à 8 objectifs plus petits sous celui-ci. Rien n’est créé avant ton Oui.'))); genBody.appendChild(gen); panelBody.insertBefore(accRow(tr('Générer les inférieurs'), function () { return ''; }, genBody), advBox); }
+      if (!o.isMacro) { var genBody = el('div'); genBody.appendChild(el('p', 'hint', tr('Noèsis propose jusqu’à 8 objectifs plus petits sous celui-ci. Rien n’est créé avant ton Oui.'))); genBody.appendChild(gen); panelBody.insertBefore(accRow(tr('Générer les inférieurs'), function () { return ''; }, genBody), advBox); }
       var del = btn('cmpBtn cmpBtnDanger', tr('Supprimer'), function () { confirmDelete(id, o.title, function () { load(); endFlow(); }, function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }, !!o.isMacro); }); /* suppression existante (confirmation TMT.ui.confirm), dans la fiche : rouge, tout en bas (R4, R28) */
-      var rare = el('div', 'objRare'); if (o.abandoned) rare.appendChild(ab); rare.appendChild(del); // Abandonner retiré (décision d'Émilien) : seul « Réactiver » reste pour un objectif déjà abandonné panelBody.appendChild(rare); // action rare, tout en bas, violette (R4, R28)
+      var rare = el('div', 'objRare'); rare.appendChild(del); panelBody.appendChild(rare); // action rare, tout en bas, rouge (R4, R28) ; un objectif se supprime seulement
       function save() {
         var calls = [];
         if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
@@ -1300,7 +1300,7 @@
           return TMT.ui.attente(chain).then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); });
         }).catch(function (e) { stepBtn.disabled = false; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
       }
-      dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save;
+      dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; closeGuard = dirty;
     }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
   }
 

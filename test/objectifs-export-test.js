@@ -14,7 +14,7 @@ const mk = (title, aid, extra) => o.creer(u, Object.assign({ title, activityId: 
 
 const done = mk('Objectif réalisé', A1, { description: 'Terminé' });
 o.get(u, done.id).periods.forEach((p) => p.weeks.forEach((w) => o.semaine(u, done.id, p.n, w.i, true)));
-const dropped = mk('Objectif abandonné', A1); o.abandonner(u, dropped.id, true);
+const dropped = mk('Objectif abandonné', A1); (() => { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(dropped.id); const mm = JSON.parse(r.metaJson || '{}'); mm.abandoned = true; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(mm), dropped.id); })(); // ancienne donnée : l'abandon n'existe plus, la valeur reste lisible
 const inProgress = mk('Objectif en cours', A2, { description: 'En cours' });
 const macro = mk('Macro export', A1, { isMacro: true }), c1 = mk('Enfant macro 1', A1, { parentId: macro.id }), c2 = mk('Enfant macro 2', A2, { parentId: macro.id });
 o.refuser(u, inProgress.id, done.id);

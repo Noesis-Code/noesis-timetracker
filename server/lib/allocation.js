@@ -4,7 +4,6 @@
 // Modèle : une ligne = une valeur posée à une DATE (début de la ligne de l'arbre où elle a été saisie) ; l'allocation d'une date = la dernière valeur posée à une date <= celle-ci (héritage vers l'avant, jamais vers l'arrière).
 const db = require('../db');
 
-const MAX_MIN = 168 * 60;
 const START = '2000-01-01'; // allocation de départ issue de l'ancienne capacité
 const LEVELS = ['activite', 'pole', 'secteur'];
 const err = (msg, code) => Object.assign(new Error(msg), { statusCode: code || 400 });
@@ -34,7 +33,7 @@ function migrateLegacy() {
     db.prepare('SELECT id, weeklyCapacityMinutes AS m FROM users WHERE weeklyCapacityMinutes IS NOT NULL AND weeklyCapacityMinutes > 0').all().forEach((u) => {
       const acts = db.prepare('SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1').all(u.id);
       if (acts.length !== 1) return;
-      const r = db.prepare("INSERT OR IGNORE INTO hour_allocations (userId, activityId, level, poleKey, categoryKey, fromDate, minutes, createdAt) VALUES (?, ?, 'activite', '', '', ?, ?, ?)").run(u.id, acts[0].id, START, Math.min(MAX_MIN, u.m), new Date().toISOString());
+      const r = db.prepare("INSERT OR IGNORE INTO hour_allocations (userId, activityId, level, poleKey, categoryKey, fromDate, minutes, createdAt) VALUES (?, ?, 'activite', '', '', ?, ?, ?)").run(u.id, acts[0].id, START, u.m, new Date().toISOString());
       n += r.changes;
     });
     db.prepare("INSERT OR IGNORE INTO hour_allocations_migration (name, doneAt) VALUES ('capacite-manuelle', ?)").run(new Date().toISOString());
@@ -76,7 +75,7 @@ function set(userId, spec, fromDate, minutes) {
     db.prepare('DELETE FROM hour_allocations WHERE userId = ? AND activityId = ? AND level = ? AND poleKey = ? AND categoryKey = ? AND fromDate = ?').run(userId, act, spec.level, k.pk, k.ck, fromDate);
   } else {
     const v = Math.round(Number(minutes));
-    if (!Number.isFinite(v) || v < 0 || v > MAX_MIN) throw err('Heures invalides : au plus 168 h par semaine.');
+    if (!Number.isFinite(v) || v < 0) throw err('Heures invalides.');
     db.prepare('INSERT INTO hour_allocations (userId, activityId, level, poleKey, categoryKey, fromDate, minutes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(userId, activityId, level, poleKey, categoryKey, fromDate) DO UPDATE SET minutes = excluded.minutes')
       .run(userId, act, spec.level, k.pk, k.ck, fromDate, v, new Date().toISOString());
   }
@@ -219,4 +218,4 @@ function repartition(userId, spec, row, today) {
   return { start: rr.start, end: rr.end, enCours: rr.start <= t && t <= rr.end, level: spec.level, categories: cols, totalMin: tot.totalMin };
 }
 
-module.exports = { MAX_MIN, START, effective, set, column, average, lignes, repartition, migrateLegacy };
+module.exports = { START, effective, set, column, average, lignes, repartition, migrateLegacy };

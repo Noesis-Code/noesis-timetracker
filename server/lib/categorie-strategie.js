@@ -73,7 +73,7 @@ function bad(m, code) { const e = new Error(m); e.statusCode = 400; e.code = cod
 const isNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 const enumV = (label, list) => (v) => { if (!list.includes(v)) throw bad(label + ' inconnu.'); return v; };
 const intV = (label, lo, hi) => (v) => { if (!isNum(v, lo, hi) || !Number.isInteger(v)) throw bad(label + ' : entier de ' + lo + ' à ' + hi + '.'); return v; };
-const numV = (label, lo, hi) => (v) => { if (!isNum(v, lo, hi)) throw bad(label + ' : nombre de ' + lo + ' à ' + hi + '.'); return Math.round(v * 100) / 100; };
+const numV = (label, lo, hi) => (v) => { if (!isNum(v, lo, hi)) throw bad(label + (hi === Infinity ? ' : nombre de ' + lo + ' ou plus.' : ' : nombre de ' + lo + ' à ' + hi + '.')); return Math.round(v * 100) / 100; };
 const boolV = (label) => (v) => { if (typeof v !== 'boolean') throw bad(label + ' : oui ou non.'); return v; };
 const strV = (label, max) => (v) => { if (typeof v !== 'string') throw bad(label + ' : texte attendu.'); const s = v.trim().slice(0, max); return s; };
 const iso = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -93,7 +93,7 @@ const SCHEMA = {
     unite: strV('Unité', 40), structure: enumV('Structure', STRUCTURES),
   },
   temps: {
-    heuresSemaine: numV('Heures par semaine', 0, 168),
+    heuresSemaine: numV('Heures par semaine', 0, Infinity),
     jours: (v) => { if (!Array.isArray(v) || v.length > 7 || v.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) throw bad('Jours : de 1 à 7.'); return Array.from(new Set(v)).sort(); },
     pauses: (v) => { if (!Array.isArray(v) || v.length > 12 || v.some((p) => !isObj(p) || !iso(p.from) || !iso(p.to) || p.to < p.from)) throw bad('Pauses : 12 au plus, dates valides.'); return v.map((p) => ({ from: p.from, to: p.to })); },
   },

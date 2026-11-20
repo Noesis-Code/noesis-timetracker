@@ -90,7 +90,7 @@ function depuisHeures(activityId, hours) {
   if (ms.length < 2) throw bad('La répartition existe seulement pour une activité à plusieurs membres.');
   if (!hours || typeof hours !== 'object') throw bad('Heures invalides.');
   const h = {};
-  Object.keys(hours).forEach((u) => { if (!ms.includes(u)) throw bad('Membre inconnu.'); const v = Number(String(hours[u]).replace(',', '.')); if (!Number.isFinite(v) || v < 0 || v > 1000) throw bad('Les heures vont de 0 à 1000.'); h[u] = Math.round(v * 10) / 10; });
+  Object.keys(hours).forEach((u) => { if (!ms.includes(u)) throw bad('Membre inconnu.'); const v = Number(String(hours[u]).replace(',', '.')); if (!Number.isFinite(v) || v < 0) throw bad('Heures invalides.'); h[u] = Math.round(v * 10) / 10; });
   ms.forEach((u) => { if (h[u] == null) h[u] = 0; });
   const total = ms.reduce((s, u) => s + h[u], 0); if (!(total > 0)) throw bad('Le total des heures doit être supérieur à 0.');
   const brut = {}; ms.forEach((u) => { brut[u] = h[u] * 100 / total; });

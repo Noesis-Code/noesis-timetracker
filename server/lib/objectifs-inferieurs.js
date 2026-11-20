@@ -191,7 +191,7 @@ async function planWeekly(userId, body, today) {
   if (!level || !O.isDay(body.endDate) || !process.env.ANTHROPIC_API_KEY) return skip;
   const act = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
   const rate = Math.round(Number(body.rateMin));
-  if (!act || !(rate > 0) || rate > 168 * 60) return skip;
+  if (!act || !(rate > 0)) return skip;
   const title = cleanText(body.title, 200); if (!title) return skip;
   const startIn = O.isDay(body.startDate) ? body.startDate : today;
   const start = O.placement({ level, endDate: body.endDate, cadence: level === 'secteur' ? undefined : 'periodique', inner: level === 'secteur' ? 'periodiques' : undefined }, startIn).start;
@@ -254,7 +254,7 @@ async function predictHours(userId, row, activityName, today) {
   try {
     const r = await require('./objectifs-heures').suggest(userId, { title: row.title, endDate: row.endDate, startDate: row.start > today ? row.start : today, activityName }, today);
     const mid = r && r.suggestion && r.suggestion.perWeekMin && Number(r.suggestion.perWeekMin.mid);
-    return Number.isFinite(mid) && mid > 0 && mid <= 168 * 60 ? mid : null;
+    return Number.isFinite(mid) && mid > 0 ? mid : null;
   } catch (e) { return null; }
 }
 async function planTrouRows(userId, body, today) {
@@ -263,7 +263,7 @@ async function planTrouRows(userId, body, today) {
   if (!type || !O.isDay(body.endDate)) return skip;
   const act = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
   const rate = Math.round(Number(body.rateMin)), title = cleanText(body.title, 200);
-  if (!act || !(rate > 0) || rate > 168 * 60 || !title) return skip;
+  if (!act || !(rate > 0) || !title) return skip;
   const level = ['activite', 'pole', 'secteur'].includes(body.level) ? body.level : 'activite';
   const col0 = { level, poleKey: level === 'activite' ? null : (body.poleKey || null), categoryKey: level === 'secteur' ? (body.categoryKey || null) : null };
   const tr = T.proposer(userId, Object.assign({}, body, { minLines: Math.max(0, T.MIN_PROPOSITIONS - modifsCount(userId, body, today)) }), today); if (!tr.lines.length) return skip; // au moins 8 propositions au total : modifications + ajouts
@@ -307,7 +307,7 @@ async function plan(userId, body, today) {
     if (!['activite', 'pole'].includes(level) || !O.isDay(body.endDate) || !process.env.ANTHROPIC_API_KEY) return skip;
     const act = db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.id = ?').get(userId, Number(body.activityId));
     const rate = Math.round(Number(body.rateMin));
-    if (!act || !(rate > 0) || rate > 168 * 60) return skip;
+    if (!act || !(rate > 0)) return skip;
     const title = cleanText(body.title, 200); if (!title) return skip;
     const startIn = O.isDay(body.startDate) ? body.startDate : today;
     const start = O.placement({ level, endDate: body.endDate }, startIn).start; // même début que la création du parent
@@ -388,7 +388,7 @@ function appliquer(userId, body) {
   const created = [], changed = [];
   list.forEach((r) => {
     const weeks = Math.max(1, Math.round(Number(r.weeks) || 1)), min = Math.round(Number(r.hoursMin));
-    if (!Number.isFinite(min) || min < 0 || min > 168 * 60 * weeks) throw err('Heures invalides.');
+    if (!Number.isFinite(min) || min < 0) throw err('Heures invalides.');
     const hpw = Math.round(min / 60 / weeks * 100) / 100;
     if (r.kind === 'modifier') {
       const ex = db.prepare('SELECT * FROM user_objectives WHERE id = ? AND userId = ?').get(Number(r.existingId), userId);

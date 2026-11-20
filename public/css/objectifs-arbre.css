@@ -30,7 +30,7 @@ html.arbreOn #app::after { display: none; }
 /* Repères à gauche (ils défilent avec le tableau) : numéro cerclé (à venir), pastille pleine (courante), point (passé) ; l'année sous le repère. */
 :is(.arGrid, .arRail) .goalsRowMarker { position: relative; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); align-self: center; background: var(--bg); }
 /* L'unique ligne « Aujourd'hui » : dans la gouttière entre deux rangées (le futur au-dessus, le passé au-dessous). */
-/* Cartes = cases remplies de la page 2, à la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir, atténué = abandonné. */
+/* Cartes = cases remplies de la page 2, à la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir. */
 .arCard { box-shadow: none; text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .arCard .goalsGridCellText { display: flex; flex-direction: column; gap: 2px; }
 .arCardName { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; word-break: normal; hyphens: manual; } /* jamais coupé au milieu d'un mot, sauf un mot plus long que la ligne */
@@ -52,7 +52,6 @@ html.arbreOn #app::after { display: none; }
 .arHole { cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
 .arHole:disabled { cursor: default; opacity: 1; }
 /* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
-.arCard.ar-dropped { opacity: .4; }
 .arBackNav { margin: 0 0 4px; }
 .objArbre { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
 .arGrid .goalsGridCell--filled.arCard { border-color: var(--ar-c) !important; border-width: 2px !important; }

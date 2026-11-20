@@ -1,6 +1,6 @@
 // Suggestion d'heures de l'étape Temps (10 nov. 2026, décision d'Émilien : « l'IA estime, le code fait l'arithmétique »).
 // L'IA (Haiku, puis le modèle fort si confiance < 80) reçoit l'objectif, l'échéance, le niveau et les trois réponses de la page Niveau et renvoie UNE FOURCHETTE d'heures TOTALES { min, max }
-// (+ une raison courte, gardée avec l'objectif, jamais affichée). Le CODE fait le reste : semaines jusqu'à l'échéance, facteur de correction, milieu, division, arrondi au quart d'heure, plafond de 168 h.
+// (+ une raison courte, gardée avec l'objectif, jamais affichée). Le CODE fait le reste : semaines jusqu'à l'échéance, facteur de correction, milieu, division, arrondi au quart d'heure, sans plafond d'heures.
 // Aucune échéance, appel échoué, plafond IA atteint ou réponse invalide : suggestion nulle (l'étape garde la valeur du Chrono, sans phrase). Jamais de blocage ; rien n'est écrit ici.
 const aicache = require('./aicache');
 const tb = require('./tempsbudget');
@@ -35,11 +35,11 @@ function factorFor(own, all, minDone) {
 // Paires (suggéré, réellement fait) des objectifs terminés : le stockage existe (metaJson.suggestion, heures du Chrono déjà disponibles) mais aucun rapport n'est encore branché : aucune donnée, facteur 1.
 function pairs() { return []; }
 
-// Arithmétique pure. weeks >= 1 ; heures totales -> minutes par semaine, au quart d'heure, plafonné à 168 h.
+// Arithmétique pure. weeks >= 1 ; heures totales -> minutes par semaine, au quart d'heure, sans plafond (l'heure d'un objectif se multiplie par le nombre de membres).
 function compute(range, weeks, f) {
   const k = Number.isFinite(f) && f > 0 ? f : 1, w = Math.max(1, Math.round(weeks));
   const total = { min: rq(range.min * k * 60), max: rq(range.max * k * 60) };
-  const per = (m) => Math.min(tb.MAX_MIN, rq(m / w));
+  const per = (m) => rq(m / w);
   return { weeks: w, factor: k, totalMin: total, perWeekMin: { lo: per(range.min * k * 60), mid: per((range.min + range.max) / 2 * k * 60), hi: per(range.max * k * 60) } };
 }
 
@@ -95,7 +95,7 @@ async function suggest(userId, body, today) {
 function readStored(raw) {
   const s = raw && typeof raw === 'object' ? raw : null; if (!s) return null;
   const range = validRange(s.range), mid = Number(s.perWeekMin && s.perWeekMin.mid), f = Number(s.factor), w = Number(s.weeks);
-  if (!range || !Number.isFinite(mid) || mid < 0 || mid > tb.MAX_MIN || !Number.isFinite(f) || f <= 0 || f > 100 || !Number.isFinite(w) || w < 1 || w > 5000) return null;
+  if (!range || !Number.isFinite(mid) || mid < 0 || !Number.isFinite(f) || f <= 0 || f > 100 || !Number.isFinite(w) || w < 1 || w > 5000) return null;
   return { suggestedMin: mid, range, factor: f, weeks: Math.round(w), reason: String(s.reason || '').replace(/\s+/g, ' ').trim().slice(0, 200) };
 }
 

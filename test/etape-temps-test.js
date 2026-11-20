@@ -23,7 +23,7 @@ assert((js.match(/\/api\/objectifs\/temps\/plan/g) || []).length === 1 && js.inc
 // plus aucune saisie au clavier dans la page Temps
 const tpCode = js.slice(js.indexOf('    var tpBox = '), js.indexOf('    function refresh() {')) + js.slice(js.indexOf('  function tbtn('), js.indexOf('  function btn('));
 assert(!tpCode.includes("el('input'") && !tpCode.includes('inputMode') && !tpCode.includes("'keydown'") && !tpCode.includes('.blur()') && (js.match(/function hh\(/g) || []).length === 1 && (js.match(/function tbtn\(/g) || []).length === 1 && !js.includes('function tedit(') && !js.includes('function parseHrs('), 'aucun champ de saisie, clavier, Entrée ni perte de focus dans la page Temps ; tedit et parseHrs supprimés');
-assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 168") && (tpCode.match(/tbtn\(/g) || []).length >= 2, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, plafond 168 h)');
+assert(tpCode.includes("TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 5000") && (tpCode.match(/tbtn\(/g) || []).length >= 2, 'le Prévu et les « Après » ouvrent le sélecteur de durée standard (initialisé à la valeur actuelle, sans plafond d’heures)');
 assert(!/durPickerSheet/.test(js), 'aucun second sélecteur : le composant unique de l’app (R29)');
 assert(js.includes("'&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques')") && js.includes("q.inner || ''"), 'la recherche de la case tient compte de Hebdomadaire / Périodique');
 const ed = css.slice(css.indexOf('button.objTEdit {'), css.indexOf('button.objTEdit {') + 400), edAll = css.slice(css.indexOf('button.objTEdit {'));

@@ -78,6 +78,7 @@ const P = {
   user_objectives: { cols: ['userId'], erase: 'explicit', exp: 'objectives' },
   fusion_absorption: { cols: ['userId'], erase: 'explicit', exp: 'fusionAbsorptions' },
   objectifs_refus: { cols: ['userId'], erase: 'explicit', exp: 'objectiveRefusals' },
+  objectifs_supprimes: { cols: ['userId'], erase: 'explicit', exp: 'objectivesDeleted' },
   goal_time_caps: { cols: ['userId'], erase: 'explicit', exp: 'goalTimeCaps' },
   goal_weekly: { cols: ['assignedUserId'], erase: 'setnull', exp: 'goalWeekly' },
   idempotency_keys: { cols: ['userId'], erase: 'explicit', exp: 'NON: clés techniques de capture hors ligne' },

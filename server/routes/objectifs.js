@@ -86,8 +86,6 @@ router.put('/objectifs/:id/echeance', run((req) => objectifs.modifierEcheance(re
 router.get('/objectifs/:id/macro', run((req) => objectifs.macroDe(req.userId, req.params.id)));
 router.put('/objectifs/:id/macro', run((req) => objectifs.setMacro(req.userId, req.params.id, (req.body || {}).isMacro === true, (req.body || {}).anchor)));
 router.put('/objectifs/:id/activite', run((req) => objectifs.deplacer(req.userId, req.params.id, (req.body || {}).activityId)));
-router.post('/objectifs/:id/abandon', run((req) => objectifs.abandonner(req.userId, req.params.id, true)));
-router.post('/objectifs/:id/reactiver', run((req) => objectifs.abandonner(req.userId, req.params.id, false)));
 router.delete('/objectifs/:id', run((req) => objectifs.supprimer(req.userId, req.params.id, String(req.query.confirm || '') === '1')));
 router.put('/objectifs/:id/parent', run((req) => objectifs.lier(req.userId, req.params.id, (req.body || {}).parentId == null ? null : Number((req.body || {}).parentId), (req.body || {}).rel)));
 router.get('/objectifs/:id/refus', run((req) => ({ refus: objectifs.refusDe(req.userId, req.params.id) })));

@@ -65,7 +65,7 @@ assert(!CS.regles(act, '_').some((r) => r.id === 'u_ab12'), 'une règle à moi s
 // ---- validation stricte ----
 assert(threw(() => CS.set(act, '_', 'own', { doc: { ajustement: { regles: { 'chrono-ecart': { seuil: 5000 } } } } })), 'seuil hors bornes refusé');
 assert(threw(() => CS.set(act, '_', 'own', { doc: { ajustement: { mode: 'chaos' } } })), 'mode inconnu refusé');
-assert(threw(() => CS.set(act, '_', 'own', { doc: { temps: { heuresSemaine: 999 } } })), 'heures hors bornes refusées');
+assert(threw(() => CS.set(act, '_', 'own', { doc: { temps: { heuresSemaine: -5 } } })), 'heures négatives refusées (plus de plafond d’heures)');
 assert(threw(() => CS.set(act, '_', 'own', { doc: { taches: { phases: ['zzz'] } } })), 'phase inconnue refusée');
 assert(threw(() => CS.set(act, '_', 'own', { doc: { nature: { structure: 'x' } } })), 'structure inconnue refusée');
 assert(threw(() => CS.set(act, '_', 'own', { doc: { temps: { inconnue: 1 } } })), 'variable inconnue refusée');

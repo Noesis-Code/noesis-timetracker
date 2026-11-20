@@ -36,7 +36,6 @@ CREATE INDEX IF NOT EXISTS idx_member_time_changes ON member_time_changes(activi
 const ORIGINS = ['ajout', 'autre-activite', 'meme-activite', 'echange'];
 const ORIGIN_LABELS = { ajout: "S'ajoute", 'autre-activite': 'Pris sur une autre activité', 'meme-activite': 'Pris sur un autre pôle ou secteur', echange: 'Échangé entre responsables' };
 const WEEKS = 4;
-const MAX_MIN = 168 * 60;
 
 // Responsables : module unique server/lib/responsables.js (activity_managers), jamais dupliqué ici.
 function isResponsable(activityId, userId) { return !!userId && responsables.isManager(userId, Number(activityId)); }
@@ -103,7 +102,7 @@ function changePlanned(opts, notify) {
   const origin = ORIGINS.includes(opts.origin) ? opts.origin : null;
   const afterMin = Math.round(Number(opts.afterMin));
   if (!origin) return { status: 400, error: 'Origine inconnue.' };
-  if (!Number.isFinite(afterMin) || afterMin < 0 || afterMin > MAX_MIN) return { status: 400, error: 'Temps invalide.' };
+  if (!Number.isFinite(afterMin) || afterMin < 0) return { status: 400, error: 'Temps invalide.' };
   if (!db.prepare('SELECT 1 FROM activities WHERE id = ?').get(activityId)) return { status: 404, error: 'Activité introuvable.' };
   if (!isActivityMember(by, activityId)) return { status: 403, error: "Tu n'es pas membre de cette activité." };
   if (!isActivityMember(memberId, activityId)) return { status: 403, error: "Cette personne n'est pas membre de cette activité." };

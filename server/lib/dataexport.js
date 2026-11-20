@@ -305,7 +305,7 @@ function buildUserExport(userId) {
     const meta = parse(metaJson, {});
     return { ...rest, description: meta.description || null, periodes: parse(stepsJson, []), taskIds: parse(taskIdsJson, []), meta };
   }) : [];
-  // Le passé n'est visible QUE par cet export (aucune interface d'archives) : TOUS les objectifs (réalisés et abandonnés compris), état explicite, noms lisibles,
+  // Le passé n'est visible QUE par cet export (aucune interface d'archives) : TOUS les objectifs (réalisés et anciens abandonnés compris), état explicite, noms lisibles,
   // enfants, macros (activités / colonnes reliées), périodes dépliées. Format décrit dans docs/objectifs/export-objectifs.md.
   if (objectives.length) {
     let byId = {};
@@ -333,6 +333,8 @@ function buildUserExport(userId) {
     });
   }
   const objectiveColumnOrder = has('objectifs_ordre') ? rows('SELECT level, scopeKey, orderJson, updatedAt FROM objectifs_ordre WHERE userId = ? ORDER BY level, scopeKey', userId).map((r) => { let order = []; try { order = JSON.parse(r.orderJson); } catch (e) { order = []; } return { level: r.level, scope: r.scopeKey, order, updatedAt: r.updatedAt }; }) : [];
+  // Objectifs SUPPRIMÉS qui avaient au moins une tâche terminée (le suivi existe : il figure dans l'export) ; un objectif supprimé sans tâche terminée n'a aucune trace.
+  const objectivesDeleted = has('objectifs_supprimes') ? rows('SELECT objectifId, title, activityId, activityName, createdOn, deletedOn, tasksDone FROM objectifs_supprimes WHERE userId = ? ORDER BY deletedOn, id', userId).map((r) => ({ ...r, etat: 'supprime', resume: 'supprimé le ' + r.deletedOn + (r.createdOn ? ', suivi depuis le ' + r.createdOn : '') })) : [];
   const objectiveRefusals = has('objectifs_refus') ? rows(
     'SELECT objectifId, candidateId, createdAt FROM objectifs_refus WHERE userId = ? ORDER BY objectifId, candidateId', userId) : [];
   const fusionAbsorptions = has('fusion_absorption') ? rows('SELECT level, absorbingActivityId, absorbingPoleKey, absorbingKey, absorbedActivityId, absorbedPoleKey, absorbedKey, fromDate, macroId, createdAt FROM fusion_absorption WHERE userId = ? ORDER BY fromDate, id', userId) : [];
@@ -483,6 +485,7 @@ function buildUserExport(userId) {
     goalCapacityOverrides,
     objectives,
     objectiveRefusals,
+    objectivesDeleted,
     fusionAbsorptions,
     objectiveColumnOrder,
     dailySuggestionSettings,

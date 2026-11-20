@@ -83,7 +83,7 @@ function appliquer(userId, body, today) {
   const moved = [];
   plan.sort((x, y) => x.p - y.p).forEach((x) => {
     if (indexOf(geo.cells, x.k.endDate) !== x.p) { O.modifierEcheance(userId, x.k.id, geo.cells[x.p - 1].endDate); moved.push(x.k.id); }
-    if (x.hpw != null && x.hpw > 0 && x.hpw <= 168) O.parametres(userId, x.k.id, { hoursPerWeek: x.hpw });
+    if (x.hpw != null && x.hpw > 0) O.parametres(userId, x.k.id, { hoursPerWeek: x.hpw });
   });
   return { moved };
 }
