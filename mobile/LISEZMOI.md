@@ -21,6 +21,6 @@ Apple (guideline 4.2) refuse une coque qui ne charge qu'une adresse distante : s
 
 - Notifications natives (APNs) : le Web Push n'existe pas en natif.
 - Face ID / clés d'accès natives (les clés d'accès WebAuthn du site sont masquées en natif).
-- Achat Expansion hors application (règles Apple sur les achats intégrés) : le lien vers Stripe est à revoir avant la soumission.
+- Achat Expansion hors application (règles Apple sur les achats intégrés) : traité : masqué dans les coques, voir docs/mobile/coques-sans-achat.md.
 - Compte Apple Developer, signature, TestFlight, icône complète et écran de lancement.
 - Mises à jour : le paquet est figé ; une nouvelle version du site demande un nouveau build.

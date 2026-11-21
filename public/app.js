@@ -16524,7 +16524,7 @@
   }
 
   function openOffer1CheckoutModal() {
-    if (!profile) return;
+    if (!profile || window.TMT_NATIVE_SHELL) return; // coques iOS/Android : jamais d'achat dans l'app
     resetOffer1CheckoutModal();
     $('offer1CheckoutModal').classList.remove('hidden');
     $('offer1CheckoutMsg').textContent = '';

@@ -5,6 +5,24 @@
   var cap = window.Capacitor;
   var platform = '';
   try { platform = cap && typeof cap.getPlatform === 'function' ? cap.getPlatform() : ''; } catch (e) {}
+  // Coques iOS et Android : pas d'achat ni de paiement externe pour Expansion (Apple 3.1.1, règles Google Play). L'achat se fait sur le site web.
+  if (platform === 'ios' || platform === 'android') {
+    window.TMT_NATIVE_SHELL = platform;
+    try { document.documentElement.classList.add('coqueNative'); } catch (e) {}
+    // Toute requête de la coque porte X-TMT-Coque : le serveur refuse alors de créer une session de paiement.
+    var shellFetch = window.fetch;
+    if (typeof shellFetch === 'function') {
+      window.fetch = function (input, init) {
+        try {
+          init = init || {};
+          var h = new Headers(init.headers || (input && input.headers) || undefined);
+          h.set('X-TMT-Coque', platform);
+          init.headers = h;
+        } catch (e) { /* en-tête non posé : la requête part telle quelle */ }
+        return shellFetch.call(window, input, init);
+      };
+    }
+  }
   if (platform !== 'ios') return;
 
   var SERVER = 'https://web-production-15a4a.up.railway.app';

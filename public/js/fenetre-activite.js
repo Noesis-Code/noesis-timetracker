@@ -120,7 +120,7 @@
     var req = ++goalsAddReq;
     function apply(on) {
       if (req !== goalsAddReq) return;
-      goalsHasExpansion = on; btn.classList.remove('hidden');
+      goalsHasExpansion = on; btn.classList.toggle('hidden', !on && !!window.TMT_NATIVE_SHELL); // coques iOS/Android : le « + » de découverte (achat) est masqué sans Expansion
       btn.classList.toggle('barPaid', on);
       btn.setAttribute('aria-label', on ? t('Modifications proposées, nouvelles tâches et Drive') : t('Découvrir Expansion')); btn.title = btn.getAttribute('aria-label');
       if (TMT.docTasksZoneSet) TMT.docTasksZoneSet(activityId, on);

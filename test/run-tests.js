@@ -219,6 +219,7 @@ const SUITE_FILES = [
   'expansion-acces-test.js',
   'expansion-sans-paiement-test.js',
   'expansion-checkout-securite-test.js',
+  'coques-sans-achat-test.js',
   'expansion-cycle-complet-test.js',
   'expansion-cron-dst-test.js',
   'migration-lasteventat-test.js',

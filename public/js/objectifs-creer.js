@@ -793,7 +793,7 @@
     }
     // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
     if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
-    if (!ctx.canGenerateTasks) boxes.taches.appendChild(offerBtn());
+    if (!ctx.canGenerateTasks && !window.TMT_NATIVE_SHELL) boxes.taches.appendChild(offerBtn());
     var stepNames = { desc: 'Objectif', temps: 'Temps', heures: 'Heures', niveau: 'Niveau', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
     function list() { /* création par le « + » d'une case : ni Emplacement ni Échéance (la fin de la case ; la date précise d'un périodique se touche dans le récapitulatif du dernier panneau) */ return ['desc'].concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(infListed() || form.rdNeeded ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
     function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)

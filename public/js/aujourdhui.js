@@ -586,6 +586,7 @@
       if (!list.length) {
         setExpMode(false); ui.exHint.classList.add('hidden');
         if (state.essor && state.essor.failed) { showAbove(tr('Impossible de vérifier Expansion pour le moment. Réessaie dans un instant.')); return null; }
+        if (window.TMT_NATIVE_SHELL) { showAbove(tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.')); return null; } // coques iOS/Android : information seule, aucun lien d'achat
         showAbove(tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.'), tr('Découvrir Expansion'), function () {
           TMT.api('GET', '/api/offer/available').then(function (r) { if (r && r.available && TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); else showAbove(tr('Expansion — à venir. Elle n’est pas encore disponible.')); })
             .catch(function () { showAbove(tr('Expansion — à venir. Elle n’est pas encore disponible.')); });
