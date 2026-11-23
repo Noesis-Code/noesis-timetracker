@@ -23,6 +23,18 @@ const DELETE_FR = [
   '<p>Une activité partagée dont d’autres personnes restent membres continue d’exister, avec sa propriété transférée au membre restant le plus ancien ; les sessions chronométrées et messages des autres membres restent inchangés, seuls les vôtres sont retirés.</p>',
   '<p class="hint">Détails : <a href="/confidentialite">Politique de confidentialité</a>, sections 5 et 6bis.</p>',
 ].join('\n');
+const SUPPORT_FR = [
+  '<h3>Nous écrire</h3>',
+  '<p>Écris-nous à <a href="mailto:' + MAIL + '">' + MAIL + '</a> en décrivant ton problème. Nous répondons sous quelques jours ouvrables.</p>',
+  '<h3>Mot de passe oublié</h3>',
+  '<p>Sur l’écran de connexion, une fois ton nom d’utilisateur choisi, touche « Mot de passe oublié ? » et entre l’adresse courriel de ton compte : si un compte correspond, un lien t’est envoyé pour choisir un nouveau mot de passe.</p>',
+  '<h3>Retrouver tes données</h3>',
+  '<p>Dans Noèsis, va dans Profil → Réglages → « Exporter mes données » : le bouton « Télécharger mes données » te remet un fichier avec tout ce qui te concerne.</p>',
+  '<h3>Supprimer ton compte</h3>',
+  '<p>Les étapes sont sur la page <a href="/suppression-compte">Suppression du compte</a>.</p>',
+  '<h3>Confidentialité</h3>',
+  '<p>Consulte notre <a href="/confidentialite">politique de confidentialité</a>.</p>',
+].join('\n');
 const DELETE_EN = [
   '<h3>Delete your account in the app</h3>',
   '<p>Open Noèsis, go to Profile → Settings, then tap the “Delete my account” button at the very bottom and confirm. The effect is immediate.</p>',
@@ -45,6 +57,7 @@ const PAGES = {
   '/en/terms': { id: 'legalTermsModal', lang: 'en', title: 'Terms of Use' },
   '/en/legal-notice': { id: 'legalNoticesModal', lang: 'en', title: 'Legal Notice' },
   '/suppression-compte': { lang: 'fr', title: 'Suppression du compte', body: DELETE_FR },
+  '/assistance': { lang: 'fr', title: 'Assistance', body: SUPPORT_FR },
   '/en/delete-account': { lang: 'en', title: 'Account deletion', body: DELETE_EN },
 };
 
