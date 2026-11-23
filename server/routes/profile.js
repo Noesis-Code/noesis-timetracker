@@ -37,8 +37,7 @@ const MAX_POST_LENGTH = 2000;
 // Validation volontairement légère (format uniquement) : pas de vérification
 // réelle (aucun SMS/email de confirmation envoyé) — juste de quoi filtrer
 // une saisie manifestement incomplète ou invalide.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^[0-9+()\-\s]{6,30}$/;
+const { isValidEmail, normalizeEmail, isValidPhone, normalizePhone } = require('../../public/js/saisie'); // règles uniques de saisie
 
 // Langues proposées par l'interface (voir public/i18n.js). Le français est
 // la langue par défaut de tout nouveau compte depuis le 9 septembre 2026
@@ -400,7 +399,7 @@ router.get('/users', (req, res) => {
 // chiffres) est obligatoire dès la création : c'est ce qui empêche
 // quelqu'un d'autre de récupérer ce profil juste en connaissant le prénom.
 // Depuis le 29 août 2026, l'identité complète (nom de famille, téléphone,
-// email) est également demandée dès la création — voir EMAIL_RE/PHONE_RE
+// email) est également demandée dès la création — voir public/js/saisie.js
 // plus haut et le commentaire sur les colonnes correspondantes dans
 // server/db.js pour les profils créés avant ce changement. Le thème démarre
 // toujours en sombre (défaut de toute l'app) ; il se change ensuite depuis
@@ -412,11 +411,11 @@ router.post('/profile', (req, res) => {
   const lastName = (req.body.lastName || '').trim();
   if (!lastName) return res.status(400).json({ error: 'Le nom de famille est requis.' });
 
-  const phone = (req.body.phone || '').trim();
-  if (!PHONE_RE.test(phone)) return res.status(400).json({ error: 'Un numéro de téléphone valide est requis.' });
+  const phone = normalizePhone(req.body.phone);
+  if (!isValidPhone(phone)) return res.status(400).json({ error: 'Indique un numéro de téléphone avec au moins 7 chiffres.' });
 
-  const email = (req.body.email || '').trim();
-  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Une adresse email valide est requise.' });
+  const email = normalizeEmail(req.body.email);
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Indique une adresse courriel valide (ex. nom@domaine.com).' });
 
   const pin = (req.body.pin || '').trim();
   const strength = checkPasswordStrength(pin, { name, lastName, email });
@@ -666,11 +665,12 @@ router.put('/profile/:id', (req, res) => {
   const lastName = (req.body.lastName !== undefined ? req.body.lastName : (user.lastName || '')).trim();
   if (req.body.lastName !== undefined && !lastName) return res.status(400).json({ error: 'Le nom de famille ne peut pas être vide.' });
 
-  const phone = (req.body.phone !== undefined ? req.body.phone : (user.phone || '')).trim();
-  if (req.body.phone !== undefined && !PHONE_RE.test(phone)) return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
+  const phone = normalizePhone(req.body.phone !== undefined ? req.body.phone : (user.phone || ''));
+  // Revalidé seulement s'il a changé par rapport au profil enregistré (un ancien format ne bloque jamais l'enregistrement du reste).
+  if (req.body.phone !== undefined && phone !== normalizePhone(user.phone) && !isValidPhone(phone)) return res.status(400).json({ error: 'Indique un numéro de téléphone avec au moins 7 chiffres.' });
 
-  const email = (req.body.email !== undefined ? req.body.email : (user.email || '')).trim();
-  if (req.body.email !== undefined && !EMAIL_RE.test(email)) return res.status(400).json({ error: 'Adresse email invalide.' });
+  const email = normalizeEmail(req.body.email !== undefined ? req.body.email : (user.email || ''));
+  if (req.body.email !== undefined && email !== normalizeEmail(user.email) && !isValidEmail(email)) return res.status(400).json({ error: 'Indique une adresse courriel valide (ex. nom@domaine.com).' });
 
   // contactShareEmail / contactSharePhone (7 septembre 2026) : deux cases à
   // cocher indépendantes dans Réglages > Identité, toujours envoyées par le
@@ -808,7 +808,7 @@ router.post('/profile/:id/verify-pin', verifyPin);
 router.post('/login-email', (req, res) => {
   if (loginIpLimited(req.ip || 'inconnu')) return res.status(429).json({ error: 'Trop de tentatives. Réessaie dans une minute.' });
   const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-  const user = EMAIL_RE.test(email) && email.length <= 254 ? db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(email) : null;
+  const user = isValidEmail(email) ? db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(email) : null;
   if (!user) return res.status(401).json({ error: 'Courriel ou mot de passe incorrect.' });
   req.params = { id: user.id };
   req.body = { pin: req.body.password };

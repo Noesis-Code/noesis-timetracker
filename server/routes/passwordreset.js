@@ -9,7 +9,7 @@ const { checkPasswordStrength, makePinRecord } = require('../lib/auth');
 const reset = require('../lib/passwordreset');
 const { sendMail } = require('../lib/mail');
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const { isValidEmail } = require('../../public/js/saisie');
 const GENERIC = { ok: true, message: 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.' };
 
 // Fenêtres glissantes en mémoire (une seule instance).
@@ -35,7 +35,7 @@ function baseUrl(req, env = process.env) {
 router.post('/password/forgot', async (req, res) => {
   if (limited('ip:' + (req.ip || 'inconnu'), 10, 15 * 60 * 1000)) return res.status(429).json({ error: 'Trop de demandes. Réessaie dans quelques minutes.' });
   const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Adresse email invalide.' });
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Indique une adresse courriel valide (ex. nom@domaine.com).' });
   if (limited('mail:' + email, 3, 60 * 60 * 1000)) return res.json(GENERIC); // au plus 3 courriels par heure pour une même adresse
   const base = baseUrl(req);
   const users = db.prepare('SELECT id, name FROM users WHERE LOWER(email) = ?').all(email);

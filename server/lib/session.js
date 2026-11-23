@@ -287,7 +287,7 @@ function touchLastSeen(userId) {
 const PASSWORD_FREE = /^\/api\/(session\/|version$|password\/|profile\/[^/]+\/(set-pin|verify-pin)$)/;
 // Courriel obligatoire pour tous (26 oct. 2026) : il sert à retrouver son compte (mot de passe oublié). Un compte plus ancien sans courriel valable n'a accès
 // qu'à l'ajout de son courriel (PUT /api/profile/:id) tant qu'il n'est pas renseigné.
-const EMAIL_VALID = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_VALID = { test: (v) => require('../../public/js/saisie').isValidEmail(v) }; // règle unique : public/js/saisie.js
 const EMAIL_FREE = (req) => req.method === 'PUT' && /^\/api\/profile\/[^/]+$/.test(req.path);
 
 function middleware(req, res, next) {

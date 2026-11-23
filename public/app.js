@@ -1770,7 +1770,7 @@
     $('onbNewActivitySave').disabled = true;
     api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id })
       .then(function () { showApp(); })
-      .catch(function (err) { $('onbMsg').textContent = err.message; $('onbNewActivitySave').disabled = false; });
+      .catch(function (err) { showMsg($('onbMsg'), err.message); $('onbNewActivitySave').disabled = false; });
   });
 
   // Règles du mot de passe (création individu ou entreprise) : visibles seulement pendant la saisie d'un des deux champs.
@@ -1798,8 +1798,15 @@
   // d'Emilien) — même validation légère de format que côté serveur (voir
   // EMAIL_RE/PHONE_RE dans server/routes/profile.js), le serveur revalide de
   // toute façon en dernier recours.
-  var ONB_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  var ONB_PHONE_RE = /^[0-9+()\-\s]{6,30}$/;
+  // Contrôles de saisie : règle unique dans public/js/saisie.js (objet Saisie), partagée avec le serveur.
+  var MSG_EMAIL = 'Indique une adresse courriel valide (ex. nom@domaine.com).';
+  var MSG_PHONE = 'Indique un numéro de téléphone avec au moins 7 chiffres.';
+  // Message d'erreur sous le champ : rouge du système, amené à l'écran (jamais caché sous la barre Enregistrer fixe).
+  function showMsg(el, text, isError) {
+    if (isError === undefined) isError = true;
+    el.textContent = text; el.style.color = isError ? 'var(--danger)' : '';
+    if (text && isError && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
 
   // 11 septembre 2026, demande directe d'Emilien : le simple lien de lecture
   // des CGU (#onbLegalTermsLink, 7 septembre 2026) ne formalisait aucun
@@ -1874,11 +1881,11 @@
     var name = $('onbName').value.trim();
     if (!name) { $('onbMsg').textContent = t(onbAccountType === 'entreprise' ? "Indique le nom de l'entreprise." : 'Indique un prénom ou un pseudo.'); return false; }
     if (!$('onbLastName').value.trim()) { $('onbMsg').textContent = t(onbAccountType === 'entreprise' ? 'Indique le nom du responsable.' : 'Indique ton nom de famille.'); return false; }
-    if (!ONB_PHONE_RE.test($('onbPhone').value.trim())) { $('onbMsg').textContent = t('Indique un numéro de téléphone valide.'); return false; }
-    if (!ONB_EMAIL_RE.test($('onbEmail').value.trim())) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return false; }
+    if (!Saisie.isValidPhone($('onbPhone').value.trim())) { showMsg($('onbMsg'), t(MSG_PHONE)); return false; }
+    if (!Saisie.isValidEmail($('onbEmail').value.trim())) { showMsg($('onbMsg'), t(MSG_EMAIL)); return false; }
     var pinProblem = passwordProblem($('onbPin').value.trim());
-    if (pinProblem) { $('onbMsg').textContent = pinProblem; return false; }
-    if ($('onbPin').value.trim() !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return false; }
+    if (pinProblem) { showMsg($('onbMsg'), pinProblem); return false; }
+    if ($('onbPin').value.trim() !== $('onbPinConfirm').value.trim()) { showMsg($('onbMsg'), t('Les deux mots de passe ne correspondent pas.')); return false; }
     return true;
   }
 
@@ -1888,17 +1895,17 @@
       return;
     }
     var name = $('onbName').value.trim();
-    if (!name) { $('onbMsg').textContent = t('Indique un prénom ou un pseudo.'); return; }
+    if (!name) { showMsg($('onbMsg'), t('Indique un prénom ou un pseudo.')); return; }
     var lastName = $('onbLastName').value.trim();
-    if (!lastName) { $('onbMsg').textContent = t('Indique ton nom de famille.'); return; }
+    if (!lastName) { showMsg($('onbMsg'), t('Indique ton nom de famille.')); return; }
     var phone = $('onbPhone').value.trim();
-    if (!ONB_PHONE_RE.test(phone)) { $('onbMsg').textContent = t('Indique un numéro de téléphone valide.'); return; }
+    if (!Saisie.isValidPhone(phone)) { showMsg($('onbMsg'), t(MSG_PHONE)); return; }
     var email = $('onbEmail').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
+    if (!Saisie.isValidEmail(email)) { showMsg($('onbMsg'), t(MSG_EMAIL)); return; }
     var pin = $('onbPin').value.trim();
     var pinProblem = passwordProblem(pin);
-    if (pinProblem) { $('onbMsg').textContent = pinProblem; return; }
-    if (pin !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (pinProblem) { showMsg($('onbMsg'), pinProblem); return; }
+    if (pin !== $('onbPinConfirm').value.trim()) { showMsg($('onbMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
     if (onbModules && !onbModules.valid()) { $('onbMsg').textContent = t('Choisis au moins un module.'); return; }
     $('onbCreateBtn').disabled = true;
     api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
@@ -2009,13 +2016,8 @@
   // un s'il n'en a pas encore — comptes créés avant cette protection) -----
   var pendingPinUser = null;
 
-  // Mot de passe fort (26 oct. 2026) : mêmes règles que le serveur (server/lib/auth.js, checkPasswordStrength), qui reste l'autorité.
-  function passwordProblem(pw) {
-    if (!pw) return t('Choisis un mot de passe.');
-    if (pw.length < 10) return t('Le mot de passe doit comporter au moins 10 caractères.');
-    if (!/[a-zà-ÿ]/.test(pw) || !/[A-ZÀ-Ý]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9À-ÿ]/.test(pw)) return t('Le mot de passe doit contenir une minuscule, une majuscule, un chiffre et un caractère spécial.');
-    return '';
-  }
+  // Mot de passe fort (26 oct. 2026) : règle unique dans public/js/saisie.js (10 caractères ou plus), le serveur reste l'autorité.
+  function passwordProblem(pw) { var p = Saisie.passwordProblem(pw); return p ? t(p) : ''; }
   // Les comptes qui ont encore l'ancien code à 4 chiffres choisissent un mot de passe fort avant d'aller plus loin (le serveur bloque le reste : lib/session.js).
   var forceKnownPin = '', forceAfter = null;
   function showForcePassword(knownPin, after) {
@@ -2031,8 +2033,8 @@
     var cur = forceKnownPin || $('forcePwdCurrent').value.trim();
     var pw = $('forcePwdNew').value.trim();
     var problem = passwordProblem(pw);
-    if (problem) { $('forcePwdMsg').textContent = problem; return; }
-    if (pw !== $('forcePwdConfirm').value.trim()) { $('forcePwdMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (problem) { showMsg($('forcePwdMsg'), problem); return; }
+    if (pw !== $('forcePwdConfirm').value.trim()) { showMsg($('forcePwdMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
     var p = profile || loadProfile();
     if (!p) return;
     $('forcePwdSave').disabled = true;
@@ -2041,7 +2043,7 @@
         $('forcePwd').classList.add('hidden');
         if (forceAfter) forceAfter(); else window.location.reload();
       })
-      .catch(function (err) { $('forcePwdMsg').textContent = err.message; })
+      .catch(function (err) { showMsg($('forcePwdMsg'), err.message); })
       .finally(function () { $('forcePwdSave').disabled = false; });
   });
   // ----- Œil « voir le mot de passe » sur chaque champ mot de passe (26 oct. 2026, demande d'Émilien) : un appui montre les caractères, un second les masque -----
@@ -2069,7 +2071,7 @@
   function showForceEmail() { $('forceEmailMsg').textContent = ''; $('forceEmail').classList.remove('hidden'); }
   $('forceEmailSave').addEventListener('click', function () {
     var email = $('forceEmailInput').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('forceEmailMsg').textContent = t('Indique une adresse email valide.'); return; }
+    if (!Saisie.isValidEmail(email)) { showMsg($('forceEmailMsg'), t(MSG_EMAIL)); return; }
     var p = profile || loadProfile();
     if (!p) return;
     $('forceEmailSave').disabled = true;
@@ -2089,8 +2091,8 @@
   $('onbEmailLoginBtn').addEventListener('click', function () {
     var email = $('onbEmailLoginEmail').value.trim();
     var pw = $('onbEmailLoginPwd').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
-    if (!pw) { $('onbMsg').textContent = t('Indique ton mot de passe.'); return; }
+    if (!Saisie.isValidEmail(email)) { showMsg($('onbMsg'), t(MSG_EMAIL)); return; }
+    if (!pw) { showMsg($('onbMsg'), t('Indique ton mot de passe.')); return; }
     $('onbMsg').textContent = '';
     $('onbEmailLoginBtn').disabled = true;
     api('POST', '/api/login-email', { email: email, password: pw })
@@ -2112,7 +2114,7 @@
     });
     $('onbForgotSend' + sfx).addEventListener('click', function () {
       var email = $('onbForgotEmail' + sfx).value.trim();
-      if (!ONB_EMAIL_RE.test(email)) { $('onbForgotMsg' + sfx).textContent = t('Indique une adresse email valide.'); return; }
+      if (!Saisie.isValidEmail(email)) { showMsg($('onbForgotMsg' + sfx), t(MSG_EMAIL)); return; }
       $('onbForgotSend' + sfx).disabled = true;
       api('POST', '/api/password/forgot', { email: email })
         .then(function (r) { $('onbForgotMsg' + sfx).textContent = t((r && r.message) || 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.'); })
@@ -2228,8 +2230,8 @@
     if (!pendingPinUser.hasPin) {
       var confirmPin = $('onbPinConfirmInput').value.trim();
       var setProblem = passwordProblem(pin);
-      if (setProblem) { $('onbMsg').textContent = setProblem; return; }
-      if (pin !== confirmPin) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+      if (setProblem) { showMsg($('onbMsg'), setProblem); return; }
+      if (pin !== confirmPin) { showMsg($('onbMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
       $('onbPinSubmit').disabled = true;
       api('POST', '/api/profile/' + pendingPinUser.id + '/set-pin', { pin: pin })
         .then(function () {
@@ -11191,9 +11193,9 @@
     var phone = $('settingsPhone').value.trim();
     var email = $('settingsEmail').value.trim();
     if (lastName && lastName !== String(profile.lastName || '')) payload.lastName = lastName;
-    if (phone && phone !== String(profile.phone || '') && !ONB_PHONE_RE.test(phone)) { showIdentityMsg(t('Indique un numéro de téléphone valide.'), true); syncIdentitySaveState(false); return; } // 01 : refus côté client (le serveur refuse aussi)
+    if (phone && phone !== String(profile.phone || '') && !Saisie.isValidPhone(phone)) { showIdentityMsg(t(MSG_PHONE), true); syncIdentitySaveState(false); return; } // 01 : refus côté client (le serveur refuse aussi)
     if (phone && phone !== String(profile.phone || '')) payload.phone = phone;
-    if (email && !/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) { showIdentityMsg(t('Adresse email invalide.'), true); syncIdentitySaveState(false); return; }
+    if (email && email.toLowerCase() !== String(profile.email || '').toLowerCase() && !Saisie.isValidEmail(email)) { showIdentityMsg(t(MSG_EMAIL), true); syncIdentitySaveState(false); return; }
     if (email && email !== String(profile.email || '')) payload.email = email;
     // contactShareEmail/contactSharePhone : contrairement à lastName/phone/
     // email ci-dessus, une case à cocher a toujours un état défini (cochée
@@ -11318,17 +11320,17 @@
     var newPin = $('settingsNewPin').value.trim();
     var newPinConfirm = $('settingsNewPinConfirm').value.trim();
     var newProblem = passwordProblem(newPin);
-    if (newProblem) { $('settingsPinMsg').textContent = newProblem; return; }
-    if (newPin !== newPinConfirm) { $('settingsPinMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (newProblem) { showMsg($('settingsPinMsg'), newProblem); return; }
+    if (newPin !== newPinConfirm) { showMsg($('settingsPinMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
     $('settingsPinSaveBtn').disabled = true;
     api('POST', '/api/profile/' + profile.id + '/set-pin', { pin: newPin, currentPin: currentPin })
       .then(function () {
-        $('settingsPinMsg').textContent = t('Mot de passe mis à jour.');
+        showMsg($('settingsPinMsg'), t('Mot de passe mis à jour.'), false);
         $('settingsCurrentPin').value = '';
         $('settingsNewPin').value = '';
         $('settingsNewPinConfirm').value = '';
       })
-      .catch(function (err) { $('settingsPinMsg').textContent = err.message; })
+      .catch(function (err) { showMsg($('settingsPinMsg'), err.message); })
       .finally(function () { $('settingsPinSaveBtn').disabled = false; });
   });
 
