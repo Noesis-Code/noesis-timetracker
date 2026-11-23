@@ -889,7 +889,7 @@
     TMT.captureTaskFlow(c.label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
       var ok = flow && (flow.results || []).filter(function (x) { return x.ok; })[0];
       if (!ok) { var bad = flow && (flow.results || [])[0]; fail(bad && bad.error ? tr(bad.error) : ''); return null; }
-      state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
+      state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true, addedAt: Date.now() });
       var extra = { userId: TMT.getProfile().id, dueDate: c.date };
       if (c.nature) extra.nature = c.nature; // choisie dans « Avancé » ; vide = l'IA décide en silence
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
@@ -943,7 +943,7 @@
         if (!ok) { var bad = (flow.results || [])[0]; ui.msg.textContent = bad && bad.error ? tr(bad.error) : tr('non ajoutée'); return null; }
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
-          state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
+          state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true, addedAt: Date.now() });
           var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date }; if (natureValue()) extra.nature = natureValue();
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }) : Promise.resolve();
@@ -1111,7 +1111,7 @@
     if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
     var day = viewKey();
-    TMT.api('GET', '/api/goals/today?today=' + localIso() + (viewDay ? '&day=' + viewDay : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    var t0 = Date.now(); TMT.api('GET', '/api/goals/today?today=' + localIso() + (viewDay ? '&day=' + viewDay : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) { if (d && d.tasks) { var inSrv = {}; d.tasks.forEach(function (x) { inSrv[x.id] = true; }); state.added = state.added.filter(function (a) { return inSrv[a.id] || !(a.addedAt < t0); }); } render(d); } }) // une tâche ajoutée que le serveur a rangée à un autre jour (rééquilibrage silencieux) quitte la liste : liste et compteur « faites / prévues ce jour » restent d'accord.catch(function () {});
   }
 
   // Préchargement : les tâches du jour sont demandées dès l'ouverture de l'app (et au retour au premier plan), avant même d'ouvrir la Feuille de route.

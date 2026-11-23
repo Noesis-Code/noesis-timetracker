@@ -184,6 +184,11 @@
   function $(id) { return document.getElementById(id); }
   function pad(n) { return n < 10 ? '0' + n : String(n); }
 
+  // Stats / camembert : sous 1 min = 0 ; ensuite à la minute, 30 s et moins vers le bas, 31 s et plus vers le haut (1 min 30 s -> 1 min, 1 min 31 s -> 2 min).
+  function formatHMStats(seconds) {
+    return TMT.ui.heures(seconds < 60 ? 0 : Math.ceil((seconds - 30) / 60));
+  }
+
   function formatHM(seconds) {
     if (seconds > 0 && seconds < 60) return Math.round(seconds) + ' s'; // 10 : sous la minute, même unité (secondes) que la confirmation d'arrêt, jamais « 1 min » pour 38 s
     return TMT.ui.heures(Math.round(seconds / 60)); // UN SEUL format d'heures (composants.js)
@@ -4025,8 +4030,8 @@
     svg.setAttribute('role', 'img');
     // Alternative texte : titre + chaque part (nom, durée, pourcentage) + total, pour qui ne voit pas le graphique.
     svg.setAttribute('aria-label', ((ids && ids.ariaLabel) || t('Répartition du temps par activité')) + ' : '
-      + activities.map(function (a) { return a.name + ' ' + formatHM(a.seconds) + ' (' + a.percent + ' %)'; }).join(', ')
-      + ' — ' + t('Total') + ' ' + formatHM(totalSeconds));
+      + activities.map(function (a) { return a.name + ' ' + formatHMStats(a.seconds) + ' (' + a.percent + ' %)'; }).join(', ')
+      + ' — ' + t('Total') + ' ' + formatHMStats(totalSeconds));
 
     // Centre du donut — total par défaut, ou `ids.centerOverride` ({ value,
     // label }, 22 septembre 2026 — voir `ids.onGroupTap` plus bas) affiché à
@@ -4039,7 +4044,7 @@
       centerVal.textContent = ids.centerOverride.value;
       centerLabel.textContent = ids.centerOverride.label || '';
     } else {
-      centerVal.textContent = formatHM(totalSeconds);
+      centerVal.textContent = formatHMStats(totalSeconds);
       centerLabel.textContent = 'total';
     }
 
@@ -4055,7 +4060,7 @@
       path.setAttribute('fill', a.color);
       path.setAttribute('class', 'pieSlice');
       var title = document.createElementNS(svgNS, 'title');
-      title.textContent = a.name + ' — ' + formatHM(a.seconds) + ' (' + a.percent + '%)';
+      title.textContent = a.name + ' — ' + formatHMStats(a.seconds) + ' (' + a.percent + '%)';
       path.appendChild(title);
       // `ids.canTap` est un filtre OPTIONNEL par activité (4 septembre 2026) :
       // absent, toutes les parts sont cliquables comme avant ; présent, seules
@@ -4108,7 +4113,7 @@
       label.textContent = a.name;
       var value = document.createElement('span');
       value.className = 'pieLegendValue';
-      value.textContent = formatHM(a.seconds) + ' · ' + a.percent + '%';
+      value.textContent = formatHMStats(a.seconds) + ' · ' + a.percent + '%';
       row.appendChild(dot); row.appendChild(label); row.appendChild(value);
       // ⚠️ 4 septembre 2026 (Chrono — sous-projets, débordement signalé) :
       // paramètre OPTIONNEL `ids.onActivityTap`. Absent — c'est le cas de tous
@@ -4697,7 +4702,7 @@
       // « uniquement le temps du pôle sans le nom » : la valeur seule, le
       // libellé du centre (normalement « total ») est vidé plutôt que
       // remplacé par le nom du pôle.
-      centerOverride = { value: formatHM(selected.seconds), label: '' };
+      centerOverride = { value: formatHMStats(selected.seconds), label: '' };
     }
 
     renderPie(grouped.slices, totalSeconds, {
