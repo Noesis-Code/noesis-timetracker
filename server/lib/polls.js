@@ -289,7 +289,8 @@ function pollsForFollowing(viewerId, limit) {
     LIMIT ?
   `).all(viewerId, viewerId, limit || 100);
   const at = nowIso();
-  return rows.map((r) => serializePoll(r, viewerId, at));
+  const blockedIds = new Set(db.prepare('SELECT blockedId FROM blocks WHERE blockerId = ?').all(viewerId).map((r) => r.blockedId)); // auteurs bloqués : masqués pour le bloqueur
+  return rows.filter((r) => !blockedIds.has(r.authorId)).map((r) => serializePoll(r, viewerId, at));
 }
 
 // ===================== ÉCRITURE =====================

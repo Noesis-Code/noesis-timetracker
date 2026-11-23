@@ -1777,6 +1777,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 /* Suivre + Contact de la page de visite (7 septembre 2026, demande d'Emilien) — voir #viewProfileActionsRow dans index.html et renderViewProfileFollowRow dans app.js. */
+.viewProfileBlockSlot { margin-top: 24px; }
 .viewProfileActionsRow {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
 }

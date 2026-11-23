@@ -37,9 +37,23 @@ function createReport(reporterId, messageRef, reason, detail, now) {
   return { ok: true, report: { id: Number(info.lastInsertRowid), messageRef, reason, detail } };
 }
 
+// Signalement d'une PUBLICATION du fil de la Communauté (profile_posts). Idempotent : un 2e signalement renvoie { ok:true, already:true }.
+// Refus : publication introuvable ou non visible par le signaleur (404), sa propre publication (400). Motif fixe : 'inapproprie' (aucun choix à faire).
+function reportPost(reporterId, postId, now) {
+  const post = db.prepare('SELECT p.id, p.userId, p.body, u.shareProfile FROM profile_posts p JOIN users u ON u.id = p.userId WHERE p.id = ?').get(postId);
+  if (!post) return { status: 404, error: 'Publication introuvable.' };
+  if (post.userId === reporterId) return { status: 400, error: 'Tu ne peux pas signaler ta propre publication.' };
+  const visible = post.shareProfile === 1 && db.prepare("SELECT 1 FROM follows WHERE followerId = ? AND followeeId = ? AND status = 'accepted'").get(reporterId, post.userId);
+  if (!visible) return { status: 404, error: 'Publication introuvable.' };
+  const r = createReport(reporterId, 'post:' + post.id, 'inapproprie', '', now);
+  if (r.status === 409) return { ok: true, already: true };
+  if (r.error) return r;
+  return { ok: true, report: r.report, post: { id: post.id, userId: post.userId, body: post.body } };
+}
+
 function hiddenRefsFor(reporterId, prefix) {
   return db.prepare('SELECT messageRef FROM message_reports WHERE reporterId = ? AND messageRef LIKE ?')
     .all(reporterId, prefix + '%').map((r) => r.messageRef);
 }
 
-module.exports = { createReport, hiddenRefsFor, REASONS, REASON_LABELS, MAX_DETAIL };
+module.exports = { createReport, reportPost, hiddenRefsFor, REASONS, REASON_LABELS, MAX_DETAIL };

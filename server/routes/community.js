@@ -277,6 +277,22 @@ router.post('/community/activity-messages/:id/report', async (req, res) => {
     .catch((err) => console.error('[signalement] courriel non envoyé : ' + err.message));
 });
 
+// Signalement d'une publication du fil (une seule fois par publication et par membre, idempotent).
+// Masquée pour le signaleur seulement ; l'équipe reçoit un courriel (ids + contenu signalé).
+router.post('/community/posts/:id/report', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ error: 'Non connecté.' });
+  const r = messageReports.reportPost(userId, Number(req.params.id));
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.status(r.already ? 200 : 201).json({ ok: true });
+  if (r.already) return;
+  const text = ['Signalement #' + r.report.id + ' : ' + r.report.messageRef,
+    'Publication : ' + r.post.id + ' · auteur : ' + r.post.userId + ' · signalant : ' + userId,
+    'Contenu signalé :', String(r.post.body).slice(0, 2000)].join('\n');
+  sendMail({ to: CONTACT_EMAIL, subject: '[Noèsis — Signalement de publication] #' + r.report.id, text })
+    .catch((err) => console.error('[signalement] courriel non envoyé : ' + err.message));
+});
+
 // Pièce jointe d'un message : réservée aux membres ACTUELS de l'activité
 // (même contrôle que le fil), jamais servie publiquement.
 router.get('/community/activity-message-files/:id', (req, res) => {

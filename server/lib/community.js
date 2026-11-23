@@ -154,6 +154,8 @@ function followingFeedForUser(userId, limit) {
   // prénom), sans jamais aller chercher le nom de famille : « nom complet »
   // au sens où Emilien l'utilise ailleurs (renderIdentityHeader,
   // renderViewProfileIdentity) veut dire prénom + nom de famille.
+  const blockedIds = new Set(db.prepare('SELECT blockedId FROM blocks WHERE blockerId = ?').all(userId).map((r) => r.blockedId));
+  const reportedRefs = new Set(require('./messagereports').hiddenRefsFor(userId, 'post:'));
   const posts = db.prepare(`
     SELECT p.id, p.userId, u.name AS userName, u.lastName AS userLastName, u.color AS userColor, u.avatar AS userAvatar, p.body, p.createdAt
     FROM profile_posts p
@@ -163,7 +165,10 @@ function followingFeedForUser(userId, limit) {
            AND EXISTS (SELECT 1 FROM follows f WHERE f.followerId = ? AND f.followeeId = p.userId AND f.status = 'accepted'))
     ORDER BY p.createdAt DESC
     LIMIT ?
-  `).all(userId, userId, limit).map((row) => Object.assign({ type: 'post' }, row));
+  `).all(userId, userId, limit * 2)
+    // Auteurs que j'ai bloqués et publications que j'ai signalées : masqués POUR MOI seulement.
+    .filter((row) => !blockedIds.has(row.userId) && !reportedRefs.has('post:' + row.id)).slice(0, limit)
+    .map((row) => Object.assign({ type: 'post' }, row));
   posts.forEach((post) => { post.attachments = profilePostAttachmentsFor(post.id); });
 
   // 5 oct. 2026 (Emilien) : les annonces Noèsis (table announcements, envoyées à la main par

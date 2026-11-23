@@ -9540,6 +9540,36 @@
   // bouton de suppression (pas son message), pièces jointes en lecture
   // seule (buildAttachmentRowReadOnly), et le nom de l'auteur est affiché
   // (buildProfilePostCard ne montre jamais que "toi").
+  // Bloquer un auteur (App Store 1.2 / Google Play) : confirmation puis POST /api/blocks existant ; le fil est ensuite rechargé (ses publications et sondages disparaissent).
+  function confirmBlockMember(userId, name, onDone) {
+    TMT.ui.confirm(t('Bloquer {name} ? Ses publications disparaîtront de ton fil et cette personne ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }), { ok: t('Bloquer') }).then(function (ok) {
+      if (!ok) return;
+      api('POST', '/api/blocks', { blockedId: userId })
+        .then(function () { if (onDone) onDone(); loadFollowingFeed(); })
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: 'OK' }); });
+    });
+  }
+
+  // Appui long (500 ms, TMT.ui.holdDrag, R27) sur une publication d'un autre membre : petite fenêtre centrée à deux choix, chacun confirmé.
+  function openPostActions(entry) {
+    var name = fullName(entry.userName, entry.userLastName);
+    TMT.ui.confirm('', { closeLabel: t('Fermer'), choices: [
+      { value: 'report', label: t('Signaler cette publication') },
+      { value: 'block', label: t('Bloquer cet auteur') },
+    ] }).then(function (choice) {
+      if (choice === 'report') {
+        TMT.ui.confirm(t('Signaler cette publication à l\'équipe Noèsis ? Elle disparaîtra de ton fil.'), { ok: t('Signaler') }).then(function (ok) {
+          if (!ok) return;
+          api('POST', '/api/community/posts/' + entry.id + '/report', {})
+            .then(function () { loadFollowingFeed(); })
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: 'OK' }); });
+        });
+      } else if (choice === 'block') {
+        confirmBlockMember(entry.userId, name);
+      }
+    });
+  }
+
   function buildFollowingPostCard(entry) {
     // Mes propres publications défilent désormais dans ce flux, mêlées à celles
     // des membres que je suis (3 septembre 2026, demande d'Emilien) — voir
@@ -9596,6 +9626,7 @@
     if (!isMine && !isAnnouncement) {
       authorSpan.style.cursor = 'pointer';
       authorSpan.addEventListener('click', function () { openProfileViewModal(entry.userId, entry.userName, entry.userColor); });
+      if (TMT.ui.holdDrag) TMT.ui.holdDrag(card, { holdMs: 500, onHold: function () { openPostActions(entry); } });
     }
     top.appendChild(authorSpan);
 
@@ -12604,11 +12635,22 @@
     // se présenter (rien n'ouvre #viewProfileModal sur soi-même), mais
     // mieux vaut une rangée simplement masquée qu'un bouton absurde si ça
     // arrivait malgré tout.
+    var blockSlot = $('viewProfileBlockSlot');
+    blockSlot.innerHTML = '';
+    blockSlot.classList.add('hidden');
     if (card.isSelf) {
       $('viewProfileFollowSlot').innerHTML = '';
       row.classList.add('hidden');
       return;
     }
+    // « Bloquer » tout en bas de la fenêtre, séparé, violet (R4/R28), avec confirmation.
+    var blockBtn = document.createElement('button');
+    blockBtn.type = 'button'; blockBtn.className = 'cmpBtn'; blockBtn.textContent = t('Bloquer');
+    blockBtn.addEventListener('click', function () {
+      confirmBlockMember(card.id, fullName(card.name, card.lastName), closeProfileViewModal);
+    });
+    blockSlot.appendChild(blockBtn);
+    blockSlot.classList.remove('hidden');
 
     renderViewProfileFollowButton(card);
 
