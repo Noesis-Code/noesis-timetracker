@@ -69,7 +69,7 @@
   function setComposer(v) {
     v = !!v; if (v && !canAddHere()) v = false;
     if (v === composerOpen) return;
-    composerOpen = v; syncDock();
+    composerOpen = v; syncDock(); if (!v && ui.text && document.activeElement === ui.text) ui.text.blur();
     if (v && dock) { dock.classList.remove('tasksDockIn'); void dock.offsetWidth; dock.classList.add('tasksDockIn'); if (ui.text) ui.text.focus({ preventScroll: true }); } // apparition de droite à gauche (css/aujourdhui.css)
     try { document.dispatchEvent(new CustomEvent('tmt:composer')); } catch (e) { /* vieux navigateur */ }
   } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
@@ -156,7 +156,7 @@
   function toggleExpand(resetAnchor) {
     if (calExpanded && resetAnchor) calAnchor = viewDay === 'all' ? localIso() : dayIso();
     calExpanded = !calExpanded; paintCal(); syncDayPop(); calNavChanged();
-    setComposer(calExpanded); // calendrier déplié : la barre d'ajout remplace la barre des volets et le « + » ; elle disparaît au repli
+    if (!calExpanded) setComposer(false); // 05 : déplier le mois n'ouvre ni la barre « Nouvelle tâche » ni le clavier (elle s'ouvre au toucher d'un jour ou par « + ») ; elle se ferme au repli
   }
   function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
   // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
@@ -884,7 +884,7 @@
   }
   function fastCommit(c) {
     var t = c.t;
-    reset(); showToast(tr('Tâche enregistrée'));
+    reset(); setComposer(false); showToast(tr('Tâche enregistrée')); // 07 : après l'envoi la barre se referme proprement (clavier compris)
     function fail(msg) { ui.toast.classList.add('hidden'); ui.text.value = c.label; ui.msg.textContent = msg || tr('non ajoutée'); }
     TMT.captureTaskFlow(c.label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
       var ok = flow && (flow.results || []).filter(function (x) { return x.ok; })[0];
@@ -948,7 +948,7 @@
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
           var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
-            reset(); refresh(); calReload(); showToast(tr('Tâche enregistrée'));
+            reset(); setComposer(false); refresh(); calReload(); showToast(tr('Tâche enregistrée'));
           });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })

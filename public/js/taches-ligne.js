@@ -178,10 +178,10 @@
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     save.addEventListener('click', function () {
       var label = txt.value.trim();
-      if (!label) { txt.focus(); return; }
+      if (!label) { pastMsg.textContent = t('Le titre est obligatoire.'); pastMsg.classList.remove('hidden'); txt.focus(); return; } // 06 : message au lieu d'un refus muet
       var body = { userId: uid, label: label };
       var nowD = new Date(), todayD = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0') + '-' + String(nowD.getDate()).padStart(2, '0');
-      if (dateIn.value && dateIn.value !== task.dueDate && dateIn.value < todayD) { pastMsg.classList.remove('hidden'); return; } // aucun déplacement vers un jour passé ; une tâche déjà passée garde sa date
+      if (dateIn.value && dateIn.value !== task.dueDate && dateIn.value < todayD) { pastMsg.textContent = t('Pas de date dans le passé.'); pastMsg.classList.remove('hidden'); return; } // aucun déplacement vers un jour passé ; une tâche déjà passée garde sa date
       pastMsg.classList.add('hidden');
       if (dateIn.value) body.dueDate = dateIn.value;
       if (assignSel && task.plannedUserId !== undefined) body.plannedUserId = assignSel.value || null;
@@ -295,6 +295,16 @@
 
     return row;
   }
+
+  // 04 : un double toucher sur un cercle ne déclenche qu'UNE coche (la liste se redessine entre les deux touchers : le second tombait sur la tâche suivante).
+  var lastCheckTap = 0;
+  document.addEventListener('click', function (e) {
+    var c = e.target && e.target.closest ? e.target.closest('.tasksPopCheck, .subProjectItem > input[type="checkbox"]') : null;
+    if (!c) return;
+    var now = Date.now();
+    if (now - lastCheckTap < 600) { e.preventDefault(); e.stopPropagation(); return; }
+    lastCheckTap = now;
+  }, true);
 
   TMT.buildGoalsGroupRow = buildGoalsGroupRow;
   TMT.buildRecurrenceField = buildRecurrenceField;

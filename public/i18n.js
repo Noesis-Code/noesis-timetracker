@@ -1264,6 +1264,8 @@
     'objectifs hebdomadaires atteints': 'weekly goals met',
     'Aujourd’hui': 'Today',
     'Pas de date dans le passé.': 'No date in the past.',
+    'Le titre est obligatoire.': 'The title is required.',
+    'La fin doit suivre le début.': 'The end must come after the start.',
     'Pas d’ajout dans un jour passé.': 'No new tasks on a past day.',
     'Impossible d’ajouter la tâche.': 'Could not add the task.',
 

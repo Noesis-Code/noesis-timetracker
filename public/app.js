@@ -184,6 +184,7 @@
   function pad(n) { return n < 10 ? '0' + n : String(n); }
 
   function formatHM(seconds) {
+    if (seconds > 0 && seconds < 60) return Math.round(seconds) + ' s'; // 10 : sous la minute, même unité (secondes) que la confirmation d'arrêt, jamais « 1 min » pour 38 s
     return TMT.ui.heures(Math.round(seconds / 60)); // UN SEUL format d'heures (composants.js)
   }
 
@@ -3188,10 +3189,12 @@
     var end = stopDateOf('end');
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
       $('stopDurationLabel').textContent = t('Durée : —');
+      $('stopConfirmMsg').textContent = (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end <= start) ? t('La fin doit suivre le début.') : ''; // 11 : explique le bouton grisé
       $('stopConfirmBtn').disabled = true;
       return;
     }
     $('stopConfirmBtn').disabled = false;
+    $('stopConfirmMsg').textContent = '';
     var totalSeconds = Math.round((end - start) / 1000);
     var durationLabel;
     if (totalSeconds < 60) {
@@ -5239,6 +5242,9 @@
       label.setAttribute('class', 'chartAxisLabel');
       label.setAttribute('text-anchor', 'middle');
       label.textContent = dayChartLabel(d, true);
+      var halfLabel = label.textContent.length * 2.7; // 02 : étiquette du premier/dernier point jamais coupée par le bord
+      if (x - halfLabel < 2) { label.setAttribute('x', 2); label.setAttribute('text-anchor', 'start'); }
+      else if (x + halfLabel > width - 2) { label.setAttribute('x', width - 2); label.setAttribute('text-anchor', 'end'); }
       svg.appendChild(label);
     });
 
@@ -9098,6 +9104,7 @@
   function renderSearchResults(list, isDiscovery) {
     var box = $('communitySearchResults');
     box.innerHTML = '';
+    var pg1 = $('communityPage1'); if (pg1) pg1.classList.toggle('searchEmpty', list.length === 0 && !isDiscovery); // 09 : recherche sans résultat = UN seul message d'état vide (celui du fil se masque)
     if (list.length === 0) {
       box.className = 'activitiesList';
       box.innerHTML = '<p class="hint">' + t('Aucun membre trouvé.') + '</p>';
@@ -11101,7 +11108,7 @@
   });
 
   ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
-    $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
+    $(id).addEventListener('input', function () { $('settingsMsg').textContent = ''; syncIdentitySaveState(false); });
     $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
   });
   TMT.ui.dockEnregistrer($('settingsSaveBtn'), $('profileSettingsPanel')); // R50 : Enregistrer décollé, à la place de la barre des volets
@@ -11120,6 +11127,7 @@
     var phone = $('settingsPhone').value.trim();
     var email = $('settingsEmail').value.trim();
     if (lastName) payload.lastName = lastName;
+    if (phone && !ONB_PHONE_RE.test(phone)) { $('settingsMsg').textContent = t('Indique un numéro de téléphone valide.'); syncIdentitySaveState(false); return; } // 01 : refus côté client (le serveur refuse aussi)
     if (phone) payload.phone = phone;
     if (email) payload.email = email;
     // contactShareEmail/contactSharePhone : contrairement à lastName/phone/
