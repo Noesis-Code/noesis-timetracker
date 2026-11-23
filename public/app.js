@@ -2105,12 +2105,28 @@
       .finally(function () { $('onbEmailLoginBtn').disabled = false; });
   });
 
+  // « Mot de passe oublié ? » : le bloc courriel REMPLACE le bloc du mot de passe (champ, Valider, Face ID, lien) ; Retour ramène à l'écran du mot de passe, remis à zéro.
+  function setForgotMode(on) {
+    ['onbPinInput', 'onbPinConfirmInput', 'onbPinSubmit', 'onbFaceIdRow', 'onbForgotLink'].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      var box = (id === 'onbForgotLink' || el.parentNode.classList.contains('cmpPwdWrap')) ? el.parentNode : el; // l'œil est dans le même habillage que le champ
+      box.style.display = on ? 'none' : '';
+    });
+    $('onbForgot').classList.toggle('hidden', !on);
+    $('onbForgotMsg').textContent = '';
+    $('onbForgotEmail').value = '';
+    $('onbMsg').textContent = '';
+    $('onbPinInput').value = '';
+    $('onbPinConfirmInput').value = '';
+    pendingForgot = on;
+  }
+  var pendingForgot = false;
+
   // Même bloc sur l'écran du mot de passe (suffixe vide) et sur la recherche de profil (suffixe « S »).
   ['', 'S'].filter(function (sfx) { return $('onbForgotLink' + sfx); }).forEach(function (sfx) {
     $('onbForgotLink' + sfx).addEventListener('click', function (e) {
       e.preventDefault();
-      $('onbForgot' + sfx).classList.toggle('hidden');
-      $('onbForgotMsg' + sfx).textContent = '';
+      setForgotMode(true);
     });
     $('onbForgotSend' + sfx).addEventListener('click', function () {
       var email = $('onbForgotEmail' + sfx).value.trim();
@@ -2163,6 +2179,7 @@
     $('onbExisting').classList.add('hidden');
     $('onbPinStep').classList.remove('hidden');
     $('onbMsg').textContent = '';
+    setForgotMode(false);
     $('onbPinInput').value = '';
     $('onbPinConfirmInput').value = '';
     // 8 septembre 2026, puis 10 septembre 2026 (Connexion / Création de
@@ -2217,6 +2234,7 @@
 
   $('onbPinCancel').addEventListener('click', function (e) {
     e.preventDefault();
+    if (pendingForgot) { setForgotMode(false); return; }
     pendingPinUser = null;
     $('onbPinStep').classList.add('hidden');
     $('onbExisting').classList.remove('hidden');
