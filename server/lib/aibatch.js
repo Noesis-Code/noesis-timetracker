@@ -33,6 +33,7 @@ async function request(url, init) {
 // userId : le budget IA (jour + tranche, lots en vol compris) est vérifié sur le coût maximal du lot (x0,5) avant tout envoi.
 async function submit(requests, userId) {
   const uid = userId || aibudget.currentUser() || aibudget.SYSTEM_USER;
+  if (aibudget.isAbsent(uid)) throw Object.assign(new Error("Mode IA « Absent » : aucun appel à l'IA."), { aiBlocked: true, aiAbsent: true });
   const free = aibudget.isFreeUser(uid);
   if (free) requests = (requests || []).map((r) => (r && r.params ? { ...r, params: aibudget.lightParams(r.params) } : r)); // compte gratuit : modèle léger seul
   const est = (requests || []).reduce((a, r) => a + aibudget.estimateMaxCost(r && r.params, 0.5), 0);

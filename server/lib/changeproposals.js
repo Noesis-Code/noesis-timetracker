@@ -293,6 +293,7 @@ function storeFromText(userId, activityId, text, ctx) {
 async function generate(userId, activityId, opts) {
   const o = opts || {};
   if (!docanalysis.hasCaller() && !classify.configured()) return { added: 0, configured: false };
+  if (aibudget.isAbsent(userId)) return { added: 0, configured: false }; // mode IA « Absent » : aucun appel
   const ctx = buildContext(userId, activityId);
   if (!ctx.open.length && !ctx.weeklies.length) return { added: 0 };
   const drivesync = require('./drivesync'); // chargé à l'usage : drivesync dépend de documenttasks

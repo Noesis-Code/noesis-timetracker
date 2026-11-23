@@ -268,6 +268,7 @@ async function generateForPeriod(activityId, userId, category, periodNumber, opt
   // pour corréler avec un double envoi éventuel côté client (voir le
   // correctif du même jour sur public/app.js#commitMainGoalText).
   const logCtx = 'activité ' + activityId + ' / ' + category + ' / période ' + periodNumber;
+  if (aibudget.isAbsent(userId)) return { skipped: 'ia-absente' }; // mode IA « Absent » : aucun appel
   console.log('[objectifs][remplissage IA hebdomadaire] appelé (' + logCtx + ')');
   try {
     if (!aiConfigured()) {

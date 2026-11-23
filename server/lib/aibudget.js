@@ -150,6 +150,11 @@ function spentWeek(userId, now) {
 // travaille sur cette clé comme sur un compte. Sans activité (rangement d'une tâche, etc.), la clé reste l'utilisateur.
 function keyFor(userId, activityId) { return activityId != null && activityId !== '' ? String(userId) + '#a' + Number(activityId) : String(userId); }
 function splitKey(key) { const m = /^(.*)#a(\d+)$/.exec(String(key)); return m ? { userId: m[1], activityId: Number(m[2]) } : { userId: String(key), activityId: null }; }
+// Mode IA « Absent » (users.aiMode = 'absence') : RIEN ne part vers Anthropic pour ce compte (décision d'Émilien, 23 nov. 2026).
+function isAbsent(key) {
+  try { const r = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(splitKey(key).userId); return !!r && r.aiMode === 'absence'; } catch (e) { return false; }
+}
+function absentError() { return Object.assign(new Error("Mode IA « Absent » : aucun appel à l'IA."), { aiBlocked: true, aiAbsent: true }); }
 
 // Appels directs en vol : coût maximal estimé, réservé avant l'envoi, libéré quand le coût réel est enregistré.
 const reserved = new Map();
@@ -503,6 +508,7 @@ function lightBody(init) {
 // l'attrapent déjà comme n'importe quelle panne IA). Renvoie la Response d'origine, intacte.
 async function fetchAnthropic(feature, url, init, userId) {
   const uid = userId || currentUser() || SYSTEM_USER;
+  if (isAbsent(uid)) throw absentError(); // aucun appel réseau en mode Absent
   const free = isFreeUser(uid);
   if (free) { init = lightBody(init); const fc = freeCheck(uid, undefined, estimateMaxCost(init && init.body)); if (!fc.ok) throw Object.assign(new Error(fc.message), { aiBlocked: true, freeCap: true, resumesOn: fc.resumesOn, period: fc.period || 'mois' }); }
   const est = estimateMaxCost(init && init.body);
@@ -533,4 +539,4 @@ async function fetchAnthropic(feature, url, init, userId) {
   } finally { release(uid, est); }
 }
 
-module.exports = { capFreeMonth, capFreeMonthCad, freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, lightParams, hold, freeInflight, runAs, currentUser, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
+module.exports = { capFreeMonth, capFreeMonthCad, freeMonthCost, freeNetYear, monthlyFreeReminder, freeStatus, freeCheck, isFreeUser, keyFor, splitKey, recordQuality, usageReport, fallbackReport, check, record, status, computeCost, priceFor, weekStart, nextMonthStart, blockedMessage, spentMonth, spentWeek, capMonth, capWeek, capMonthCad, capWeekCad, alertDayCad, estimateMaxCost, lightParams, hold, freeInflight, runAs, currentUser, isAbsent, fetchAnthropic, breakerReset, alertKeyRefused, todayLocal, SYSTEM_USER, alertDayUsd, resetDayAlert };
