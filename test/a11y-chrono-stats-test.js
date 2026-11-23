@@ -38,7 +38,7 @@ ok(/aria-labelledby="chronoCategoryLabel"/.test(tag('chronoCategoryPicker')) && 
 
 // Graphiques : alternative texte résumée (donnée, pas seulement « Graphique »).
 ok(/function chartSummary/.test(app) && /svg\.setAttribute\('role', 'img'\)[\s\S]{0,80}chartSummary\(sorted, series\)/.test(app), 'graphique : role=img + résumé (période, total par série)');
-ok(/aria-label', \(\(ids && ids\.ariaLabel\)[\s\S]{0,400}formatHM\(a\.seconds\)[\s\S]{0,200}formatHM\(totalSeconds\)/.test(app), 'camembert : résumé de chaque part et du total');
+ok(/aria-label', \(\(ids && ids\.ariaLabel\)[\s\S]{0,400}formatHMStats\(a\.seconds\)[\s\S]{0,200}formatHMStats\(totalSeconds\)/.test(app), 'camembert : résumé de chaque part et du total');
 
 // Zones tactiles >= 44 px (zone invisible), traductions des nouvelles chaînes.
 for (const id of ['tsPeriodBtn', 'chartPeriodBtn', 'statsPieTodayBtn']) ok(new RegExp('#' + id + '(::after|::before)?[,\\s{]').test(css.slice(css.indexOf('Accessibilité (20 oct. 2026, 390 px)'))), id + ' : zone tactile 44 px');
