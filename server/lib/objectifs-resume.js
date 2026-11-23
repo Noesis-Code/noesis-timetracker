@@ -71,17 +71,18 @@ async function callAi(userId, prompt) {
 }
 
 // Retourne { text, source: 'ia' | 'titres', generatedAt, count } ; jamais d'erreur d'IA (repli sur les titres).
-async function resumeAnnuel(userId, activityId, year) {
+async function resumeAnnuel(userId, activityId, year, idsParam) {
   const y = Number(year), aid = Number(activityId);
   if (!Number.isInteger(y) || y < 2000 || y > 2100) throw err('Année invalide.');
   if (!db.prepare('SELECT 1 FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND m.activityId = ? AND a.active = 1').get(userId, aid)) throw err('Activité introuvable.', 404);
   const pt = require('./portee');
-  const bigs = bigOnes(userId, aid, y).filter((b) => pt.objectifVisible(userId, aid, b.poleKey, b.categoryKey)); // activité partagée : seulement les objectifs de la portée du responsable (un simple membre : aucun)
+  const only = idsParam ? new Set(String(idsParam).split(',').map(Number).filter(Number.isInteger)) : null; // case d'UN pôle : seulement ses objectifs, jamais ceux des autres pôles de l'année
+  const bigs = bigOnes(userId, aid, y).filter((b) => !only || only.has(b.id)).filter((b) => pt.objectifVisible(userId, aid, b.poleKey, b.categoryKey)); // activité partagée : seulement les objectifs de la portée du responsable (un simple membre : aucun)
   if (!bigs.length) return { text: '', source: 'titres', generatedAt: null, count: 0, iaPersonnelle: false };
   const mode = aiMode(userId);
   if (mode !== 'expansion') return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic
   const hash = hashOf(bigs);
-  const row = db.prepare('SELECT hash, text, createdAt FROM objectifs_resume_annuel WHERE userId = ? AND activityId = ? AND year = ?').get(userId, aid, y);
+  const row = only ? null : db.prepare('SELECT hash, text, createdAt FROM objectifs_resume_annuel WHERE userId = ? AND activityId = ? AND year = ?').get(userId, aid, y);
   if (row && row.hash === hash) return { text: row.text, source: 'ia', generatedAt: row.createdAt, count: bigs.length, iaPersonnelle: false };
   let text = null;
   try {
@@ -90,7 +91,7 @@ async function resumeAnnuel(userId, activityId, year) {
   } catch (e) { text = null; } // panne, limite de budget ou plafond : repli sans IA
   if (!text) return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: false };
   const now = new Date().toISOString();
-  db.prepare(`INSERT INTO objectifs_resume_annuel (userId, activityId, year, hash, text, createdAt) VALUES (?, ?, ?, ?, ?, ?)
+  if (!only) db.prepare(`INSERT INTO objectifs_resume_annuel (userId, activityId, year, hash, text, createdAt) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(userId, activityId, year) DO UPDATE SET hash = excluded.hash, text = excluded.text, createdAt = excluded.createdAt`).run(userId, aid, y, hash, text, now);
   return { text, source: 'ia', generatedAt: now, count: bigs.length, iaPersonnelle: false };
 }

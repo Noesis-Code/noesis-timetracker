@@ -134,6 +134,13 @@ const bad = async (fn) => { try { await fn(); return null; } catch (x) { return 
   o.lier(u, k2.id, null);
   assert(o.get(u, mac.id).macroColumns.length === 1 && o.get(u, k2.id).parentId === null, 'délier un enfant retire l’extension sur sa colonne');
   e = await bad(() => o.modifierEcheance(u, mac.id, '2027-01-01')); assert(e && /au moins celle/.test(e.message), 'échéance du macro >= celle de ses enfants');
+  // une case de pôle : seulement SES objectifs (filtre ids), jamais ceux des autres pôles
+  const pa = mk('Carte de 20', { endDate: '2028-06-01' }), pb = mk('10 000 $/mois', { endDate: '2028-07-01' });
+  mk('Sous A', { parentId: pa.id, endDate: '2028-02-01' }); mk('Sous B', { parentId: pb.id, endDate: '2028-02-01' });
+  r = await R.resumeAnnuel(u, act, 2028, String(pa.id));
+  assert(!/10 000/.test(r.text) && /Carte de 20/.test(r.text) && r.count === 1, 'ids : la case ne montre que l’objectif de son pôle');
+  r = await R.resumeAnnuel(u, act, 2028, String(pb.id));
+  assert(!/Carte de 20/.test(r.text) && /10 000/.test(r.text), 'ids : l’autre pôle montre le sien (cache non partagé)');
   // route
   const rt = require('fs').readFileSync(require('path').join(__dirname, '..', 'server', 'routes', 'objectifs.js'), 'utf8');
   assert(rt.indexOf("'/objectifs/resume-annuel'") > 0 && rt.indexOf("'/objectifs/resume-annuel'") < rt.indexOf("'/objectifs/:id'"), 'route GET /objectifs/resume-annuel déclarée avant /objectifs/:id');

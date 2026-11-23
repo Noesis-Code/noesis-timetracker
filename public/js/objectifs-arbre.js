@@ -242,14 +242,14 @@
   }, true);
   // Case d'une ANNÉE  // Case d'une ANNÉE : résumé des grands objectifs de l'année (texte simple, sans IA : leurs titres, quatre au plus) ; touchée, elle liste ces objectifs.
   var resumeCache = {};
-  function resumeOf(aid, year) { // résumé annuel du serveur (IA à la demande, repli titres), mémorisé le temps de la session
-    var k = aid + ':' + year; if (!resumeCache[k]) resumeCache[k] = TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + aid + '&year=' + year).then(function (r) { return r && r.text ? String(r.text) : ''; }).catch(function () { return ''; });
+  function resumeOf(aid, year, ids) { // résumé annuel du serveur (IA à la demande, repli titres), mémorisé le temps de la session
+    var k = aid + ':' + year + ':' + (ids || ''); if (!resumeCache[k]) resumeCache[k] = TMT.api('GET', '/api/objectifs/resume-annuel?activityId=' + aid + '&year=' + year + (ids ? '&ids=' + ids : '')).then(function (r) { return r && r.text ? String(r.text) : ''; }).catch(function () { return ''; });
     return resumeCache[k];
   }
   function summaryCard(os, color, w, year, ci, members) {
     var b = el('button', 'goalsGridCell goalsGridCell--filled arSummary arCard' + (ext && ext.mode === 'create' && ext.base && os.some(function (x) { return x.id === ext.base.id; }) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-ids', os.map(function (x) { return x.id; }).join(',')); cellSize(b, w); paint(b, 'now', color);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', bigOf(os).title)); b.appendChild(t); b.appendChild(editMark(bigOf(os))); /* case occupée = crayon, même à plusieurs objectifs (celui qui englobe les autres) */
-    resumeOf(os[0].activity.id, year).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
+    resumeOf(os[0].activity.id, year, os.map(function (x) { return x.id; }).join(',')).then(function (txt) { // le texte du serveur remplace la liste de titres dans la case (3 lignes au plus, coupure propre)
       if (!txt || !b.isConnected) return;
       t.textContent = ''; t.appendChild(el('span', 'arSummaryText', txt.replace(/\n\s*-\s*/g, ' · ').replace(/^\s*-\s*/, '')));
     });

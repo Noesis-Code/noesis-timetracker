@@ -24,7 +24,7 @@ router.post('/objectifs/contexte', run((req) => objectifs.contexte(req.userId, r
 router.post('/objectifs/macro/titre', run((req) => require('../lib/objectifs-resume').titreMacro(req.userId, req.body || {})));
 router.get('/objectifs/ordre', run((req) => require('../lib/objectifs-ordre').lire(req.userId, String(req.query.level || ''), req.query.scope, req.query.anchor)));
 router.put('/objectifs/ordre', run((req) => require('../lib/objectifs-ordre').ecrire(req.userId, req.body || {})));
-router.get('/objectifs/resume-annuel', run((req) => require('../lib/objectifs-resume').resumeAnnuel(req.userId, req.query.activityId, req.query.year)));
+router.get('/objectifs/resume-annuel', run((req) => require('../lib/objectifs-resume').resumeAnnuel(req.userId, req.query.activityId, req.query.year, req.query.ids)));
 router.get('/objectifs/structure', run((req) => objectifs.structure(req.userId)));
 router.get('/objectifs/reglage', run((req) => ({ anon: objectifs.anonOptIn(req.userId) })));
 router.put('/objectifs/reglage', run((req) => objectifs.setAnon(req.userId, !(req.body && req.body.anon === false))));
