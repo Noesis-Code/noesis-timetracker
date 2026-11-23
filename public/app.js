@@ -11140,11 +11140,19 @@
     return JSON.stringify(['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail'].map(function (id) { return $(id).value.trim(); })
       .concat([$('settingsContactShareEmail').checked, $('settingsContactSharePhone').checked]));
   }
+  var identityJustSaved = false; // vrai juste après un enregistrement réussi : le bouton pâle dit « Enregistré » jusqu'à la prochaine modification
   function syncIdentitySaveState(resetBaseline) {
     if (resetBaseline) identityBaseline = identityState();
     var dirty = identityState() !== identityBaseline;
+    if (dirty) identityJustSaved = false;
     $('settingsSaveBtn').disabled = !dirty;
     $('settingsSaveBtn').classList.toggle('cmpBtnInactif', !dirty);
+    $('settingsSaveBtn').textContent = (!dirty && identityJustSaved) ? t('Enregistré') : t('Enregistrer');
+  }
+  // Le message d'erreur sous le formulaire doit se voir : rouge du système, amené à l'écran (il restait sous le bouton fixe).
+  function showIdentityMsg(text, isError) {
+    var m = $('settingsMsg'); m.textContent = text; m.style.color = isError ? 'var(--danger)' : '';
+    if (text && isError && m.scrollIntoView) m.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   // Partage du score : enregistré à l'instant (route à part), pas par « Enregistrer ».
   $('settingsScoreShared').addEventListener('change', function () {
@@ -11163,7 +11171,7 @@
   });
 
   ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
-    $(id).addEventListener('input', function () { $('settingsMsg').textContent = ''; syncIdentitySaveState(false); });
+    $(id).addEventListener('input', function () { showIdentityMsg('', false); syncIdentitySaveState(false); });
     $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
   });
   TMT.ui.dockEnregistrer($('settingsSaveBtn'), $('profileSettingsPanel')); // R50 : Enregistrer décollé, à la place de la barre des volets
@@ -11177,14 +11185,16 @@
     // 2026) n'est donc pas envoyé, plutôt que d'être refusé par le serveur
     // (qui interdit d'enregistrer une valeur vide sur ces champs une fois
     // qu'ils existent — voir server/routes/profile.js).
+    // Seuls les champs MODIFIÉS sont validés et envoyés : un ancien téléphone au format non conforme ne bloque plus l'enregistrement du courriel.
     var payload = { name: $('settingsName').value.trim() };
     var lastName = $('settingsLastName').value.trim();
     var phone = $('settingsPhone').value.trim();
     var email = $('settingsEmail').value.trim();
-    if (lastName) payload.lastName = lastName;
-    if (phone && !ONB_PHONE_RE.test(phone)) { $('settingsMsg').textContent = t('Indique un numéro de téléphone valide.'); syncIdentitySaveState(false); return; } // 01 : refus côté client (le serveur refuse aussi)
-    if (phone) payload.phone = phone;
-    if (email) payload.email = email;
+    if (lastName && lastName !== String(profile.lastName || '')) payload.lastName = lastName;
+    if (phone && phone !== String(profile.phone || '') && !ONB_PHONE_RE.test(phone)) { showIdentityMsg(t('Indique un numéro de téléphone valide.'), true); syncIdentitySaveState(false); return; } // 01 : refus côté client (le serveur refuse aussi)
+    if (phone && phone !== String(profile.phone || '')) payload.phone = phone;
+    if (email && !/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) { showIdentityMsg(t('Adresse email invalide.'), true); syncIdentitySaveState(false); return; }
+    if (email && email !== String(profile.email || '')) payload.email = email;
     // contactShareEmail/contactSharePhone : contrairement à lastName/phone/
     // email ci-dessus, une case à cocher a toujours un état défini (cochée
     // ou non) — envoyée systématiquement, jamais omise du payload.
@@ -11197,10 +11207,11 @@
         // ligne "$('whoamiName')..." devenue inutile depuis le 3 septembre
         // 2026 (remplacement du nom en topbar par une photo) a été retirée.
         saveProfile(p);
-        $('settingsMsg').textContent = t('Profil mis à jour.');
+        showIdentityMsg(t('Profil mis à jour.'), false);
+        identityJustSaved = true;
         syncIdentitySaveState(true);
       })
-      .catch(function (err) { $('settingsMsg').textContent = err.message; })
+      .catch(function (err) { showIdentityMsg(err.message || t('Enregistrement impossible.'), true); })
       .finally(function () { syncIdentitySaveState(false); });
   });
 
