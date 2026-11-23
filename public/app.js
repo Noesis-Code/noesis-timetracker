@@ -5707,9 +5707,6 @@
     var frozen = '<div class="tsCalCorner"></div>';
     var html = '';
     for (var pi = 1; pi <= 13; pi++) html += '<div class="tsCalHeaderCell">P' + escapeHtml(String(pi)) + '</div>';
-    for (var mi = 0; mi < 12; mi++) {
-      html += '<div class="tsCalHeaderCell">' + escapeHtml(monthNameLocal(mi).slice(0, 3)) + '</div>';
-    }
     data.rows.forEach(function (r) {
       var rowName = r.name || t('Sans pôle');
       frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
@@ -5722,25 +5719,14 @@
         for (var dp = 1; dp <= 28; dp++) html += '<i class="tsYearDot"' + (litP[dp] ? ' style="background:' + r.color + '"' : '') + '></i>';
         html += '</div></div>';
       });
-      r.months.forEach(function (sec, m) {
-        var lit = {};
-        ((r.days && r.days[m]) || []).forEach(function (d) { lit[d] = true; });
-        html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
-        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>'; // ligne du total toujours réservée : points à la même hauteur dans une ligne
-        html += '<div class="tsYearDots">';
-        for (var d = 1, n = new Date(year, m + 1, 0).getDate(); d <= n; d++) {
-          html += '<i class="tsYearDot"' + (lit[d] ? ' style="background:' + r.color + '"' : '') + '></i>';
-        }
-        html += '</div></div>';
-      });
     });
     $(I.frozen).innerHTML = frozen;
-    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(25,minmax(56px,1fr))">' + html + '</div>';
+    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(13,minmax(56px,1fr))">' + html + '</div>';
 
     // Ouvre la vue sur le mois en cours (dernière colonne visible), pas sur janvier ; une année passée s'ouvre sur janvier.
     var yScroller = $(I.calendar).parentNode;
     if (yScroller && yScroller.clientWidth > 0) {
-      var cw = yScroller.scrollWidth / 25;
+      var cw = yScroller.scrollWidth / 13;
       yScroller.scrollLeft = data.isCurrentYear && data.currentPeriod ? Math.max(0, Math.round(data.currentPeriod * cw - yScroller.clientWidth)) : 0;
     }
   }
