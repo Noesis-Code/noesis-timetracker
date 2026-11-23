@@ -114,8 +114,7 @@
     var st = stateOf(m, today), span = c1 - c0 + 1, w = spanW(W, span);
     var b = el('button', 'goalsGridCell goalsGridCell--filled arNode arMacro arCard ar-' + st + (ext && (ext.macro && ext.macro.id === m.id || ext.mode === 'create' && m.id < 0) ? ' arExtSelf' : '')); b.type = 'button'; b.setAttribute('data-c0', String(c0)); b.setAttribute('data-c1', String(c1)); b.setAttribute('data-id', String(m.id)); b.setAttribute('data-span', String(span)); cellSize(b, w); var ec = ov || eaterColor(m, c0, c1, cols); if (ec) paint(b, st, ec);
     var t = el('div', 'goalsGridCellText'); t.appendChild(el('span', 'arCardName', m.title));
-    t.appendChild(el('span', 'arCardMeta', (cols ? cols.slice(c0, c1 + 1).map(function (c) { return c.label; }) : (m.macroActivities || []).map(function (a) { return a.name; })).join(' · '))); // les colonnes reliées, sans comptage
-    b.appendChild(t); b.appendChild(editMark(m));
+    b.appendChild(t); b.appendChild(editMark(m)); // le titre seul, centré : les colonnes reliées ne s'écrivent plus sous le titre (Émilien, 23 nov. 2026)
     b.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.cmpEdit')) return; if (editOn) { openEditOf(m.id); return; } descend(c0, null, null, m, members); }); // toucher COURT = descendre d'un niveau (règle générale)
     if (m.id > 0 && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(b, { holdMs: 500, list: function () { return tree; }, scroller: function () { return gridArea; }, targetSel: '.arNode[data-id]', draggingClass: 'arDragging', targetClass: 'arDropTarget', badClass: 'arDropBad', onHold: function () { startExtendEdit(m); } }); // appui long sur un macro : modifier les colonnes reliées / Séparer (mode Étendre existant)
     return b;
