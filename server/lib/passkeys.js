@@ -63,7 +63,7 @@ async function registrationOptions(user, cfg, now = Date.now()) {
   if (count(user.id) >= MAX_PER_USER) { const e = new Error('limite'); e.code = 'limit'; throw e; }
   const challenge = issueChallenge({ purpose: 'register', bind: sha256(user.id), now });
   return W.generateRegistrationOptions({
-    rpName: cfg.rpName, rpID: cfg.rpID, userName: user.email || user.name, userDisplayName: [user.name, user.lastName].filter(Boolean).join(' ') || 'Noèsis',
+    rpName: cfg.rpName, rpID: cfg.rpID, userName: [user.name, user.lastName].filter(Boolean).join(' ') || 'Noèsis', userDisplayName: [user.name, user.lastName].filter(Boolean).join(' ') || 'Noèsis', // jamais le courriel : le téléphone garde ce libellé après un changement d'adresse
     userID: userHandle(user.id), challenge: Buffer.from(challenge, 'base64url'), attestationType: 'none', timeout: CHALLENGE_TTL_MS, supportedAlgorithmIDs: ALGS,
     authenticatorSelection: { residentKey: 'required', userVerification: 'required', authenticatorAttachment: 'platform' },
     excludeCredentials: rows(user.id).map((r) => ({ id: r.credentialId, transports: r.transports ? r.transports.split(',') : undefined })),

@@ -102,7 +102,7 @@
     "Entre le courriel de ton compte : on t'envoie un lien pour choisir un nouveau mot de passe.": "Enter your account email: we will send you a link to choose a new password.",
     "Courriel du compte": "Account email",
     "Envoyer le lien": "Send the link",
-    "Si un compte correspond à ce courriel, un lien vient d’y être envoyé.": "If an account matches this email, a link has just been sent to it.",
+    "Aucun compte ne correspond à ce courriel, ou un lien vient d’y être envoyé.": "No account matches this email, or a link has just been sent to it.",
     "Ajoute ton courriel": "Add your email",
     "Ton courriel sert à retrouver ton compte si tu oublies ton mot de passe. Il est obligatoire pour tout le monde.": "Your email is used to recover your account if you forget your password. It is required for everyone.",
     "Ton courriel": "Your email",

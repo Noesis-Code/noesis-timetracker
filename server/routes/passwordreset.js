@@ -10,7 +10,7 @@ const reset = require('../lib/passwordreset');
 const { sendMail } = require('../lib/mail');
 
 const { isValidEmail } = require('../../public/js/saisie');
-const GENERIC = { ok: true, message: 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.' };
+const GENERIC = { ok: true, message: 'Aucun compte ne correspond à ce courriel, ou un lien vient d’y être envoyé.' };
 
 // Fenêtres glissantes en mémoire (une seule instance).
 const hits = new Map();
