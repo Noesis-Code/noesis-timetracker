@@ -1239,6 +1239,8 @@
       if (!_isTextInputEl(active)) return;
       var target = e.target;
       if (target === active || (active.contains && active.contains(target))) return;
+      // Un bouton / une croix touchés : le champ GARDE le focus jusqu'au clic (le clavier ne se ferme qu'après l'action, voir plus bas) ; sinon le clavier se ferme au toucher, la page bouge et le clic de la ✕ est perdu (retour testeur, 23 nov. 2026).
+      if (target && target.closest && target.closest('button, .btn, .iconBtn, [data-keep-kb], .chatComposerRow, label, a, select')) return;
       active.blur();
     }, { capture: true, passive: true });
   }
@@ -7395,12 +7397,12 @@
     // Clic en dehors : les lignes déroulées se referment ; l'écouteur disparaît avec le bloc (retiré du DOM).
     var wasIn = false;
     function outside(e) {
-      if (!root.isConnected) { if (wasIn) document.removeEventListener('click', outside, true); return; }
+      if (!root.isConnected) { if (wasIn) document.removeEventListener('pointerdown', outside, true); return; }
       wasIn = true; if (root.contains(e.target)) return;
       var any = Object.keys(openIds).some(function (k) { return openIds[k]; });
       if (any) { openIds = {}; if (data) paint(); }
     }
-    document.addEventListener('click', outside, true);
+    document.addEventListener('pointerdown', outside, true); // pointerdown et non click : sur iPhone un toucher sur une zone non cliquable ne produit pas de click
     if (open) load();
     return root;
   }

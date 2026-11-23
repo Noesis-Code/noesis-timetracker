@@ -1467,6 +1467,10 @@ body.scrollLock { overflow: hidden; }
 .goalTaskEditModal { align-items: center; padding: 16px; box-sizing: border-box; }
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage) > .communityMembersModalCard,
 .goalTaskEditCard { border: 1px solid var(--sheet-line); border-radius: var(--radius-xl); }
+/* Pop-up ouvert : le fond ne défile plus, au clavier non plus (Android : le fond et la fenêtre bougeaient quand le clavier s'ouvrait). Un seul verrou pour tous les pop-up centrés. */
+html:has(.communityMembersModal:not(.hidden):not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage)),
+html:has(.communityMembersModal:not(.hidden):not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage)) body { overflow: hidden; overscroll-behavior: none; }
+.communityMembersModal, .communityMembersModalCard { overscroll-behavior: contain; }
 /* Fenêtres imbriquées dans une page plein écran (ex. Membres dans la fenêtre d'activité) : mêmes règles, ligne fine incluse. */
 #activityPage .communityMembersModal > .communityMembersModalCard,
 #profilePage .communityMembersModal > .communityMembersModalCard,
@@ -1896,6 +1900,10 @@ button { -webkit-user-select: none; user-select: none; }
 #netContactModal .settingsFieldList, #communityGroupCreateModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #netContactModal input, #netContactModal select, #communityGroupCreateModal input { width: 100%; box-sizing: border-box; }
 #netcSave { margin: 12px 0 0; }
+/* Champs des fenêtres Contact / Créer une communauté : tous la même hauteur, zone de toucher de 44 px ; le champ de date (Relance) perd son habillage natif iPhone, qui le rendait plus large et plus haut que les autres. */
+#netContactModal input, #netContactModal select, #communityGroupCreateModal input { min-height: 44px; min-width: 0; max-width: 100%; display: block; -webkit-appearance: none; appearance: none; }
+#netcFollow { text-align: left; line-height: normal; }
+#netcFollow::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
 #netContactModal input, #netContactModal select, #communityGroupCreateModal input { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); color: var(--text); font-family: inherit; font-size: 14px; } /* même gabarit de champ que .activitySettingsPanel */
 .netSvg .netCount { fill: var(--text); font-size: var(--netfs, 13px); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
 .netSvg .netNode.joined .netCount { fill: var(--on-action); }
@@ -2487,6 +2495,7 @@ button { -webkit-user-select: none; user-select: none; }
     .topbar { padding-top: max(47px, env(safe-area-inset-top)); }
     .cmpClose.imageViewerClose { top: max(47px, env(safe-area-inset-top)); }
     .activityPageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
+    #profileSettingsPanel.settingsDrill .settingsSubHead { padding-top: calc(max(41px, env(safe-area-inset-top, 0px)) + 6px); } /* le « ‹ Retour » des sous-écrans de Réglages sort de la zone système, comme les autres en-têtes */
   }
 }
 
