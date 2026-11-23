@@ -313,6 +313,7 @@
 .cmpDockSlot { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .cmpDockSave { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1; }
 .cmpDockSave.hidden { display: none; }
+.cmpDockSave { pointer-events: none; } .cmpDockSave > * { pointer-events: auto; } /* seul le bouton capte le toucher : le conteneur ne bloque jamais un Retour, une croix ou la barre du bas */
 .cmpDockSave .tasksSaveBtn { display: flex; height: 52px; }
 .cmpDockHost:has(> .cmpDockSave:not(.hidden)) > :not(.cmpDockSave):not(.cmpDockSlot) { margin-bottom: 84px; } /* le contenu de la fenêtre s'arrête au-dessus du bouton */
 :root.dockSaveOn .tabbar { visibility: hidden; } /* le bouton REMPLACE la barre des volets ; elle revient à la fermeture */
