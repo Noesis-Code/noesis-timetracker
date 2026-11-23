@@ -105,7 +105,7 @@ function breakdownForRange(userId, startIso, endIso, excludeActivityIds, clipEnd
     FROM time_entries t
     JOIN activities a ON a.id = t.activityId
     LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
   `).all(userId, startIso, endIso);
 
   const excluded = new Set(excludeActivityIds || []);
@@ -233,7 +233,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
              t.goalCategory AS category,
              SUM(t.durationSeconds) AS seconds
       FROM time_entries t
-      WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+      WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
       GROUP BY t.isoDate, t.goalCategory
       ORDER BY t.isoDate ASC, seconds DESC
     `).all(userId, activityId, start, end).filter((r) => !(o.viewScope && !o.viewScope.all && !o.viewScope.has(r.category))) // regard d'un responsable sur un autre membre : sa portée seulement
@@ -244,7 +244,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
       FROM time_entries t
       JOIN activities a ON a.id = t.activityId
       LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-      WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+      WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
       GROUP BY t.isoDate, a.id
       ORDER BY t.isoDate ASC, seconds DESC
     `).all(userId, start, end);
@@ -433,7 +433,7 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     ? db.prepare(`
         SELECT t.startTime, t.endTime, t.goalCategory AS category
         FROM time_entries t
-        WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+        WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
       `).all(userId, onlyActivityId, start, end).filter((r) => !(opts.viewScope && !opts.viewScope.all && !opts.viewScope.has(r.category)))
     : db.prepare(`
     SELECT t.startTime, t.endTime, a.id AS activityId, a.name AS activity,
@@ -441,7 +441,7 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     FROM time_entries t
     JOIN activities a ON a.id = t.activityId
     LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
   `).all(userId, start, end);
 
   if (!byCategory && opts && opts.excludeActivityIds && opts.excludeActivityIds.length) {
@@ -721,7 +721,7 @@ function timesheetYearForUser(userId, yearOffset, opts) {
     });
   }
   // Jours (1 à 31) de chaque mois où l'activité a au moins un enregistrement chrono : un point coloré par jour dans la vue Année.
-  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?')
+  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60')
     .all(userId, `${year}-01-01`, `${year}-12-31`)
     .forEach((r) => {
       const row = rowsById[r.activityId];
@@ -744,7 +744,7 @@ function timesheetYearForUser(userId, yearOffset, opts) {
       rowsById[a.activityId].periods[p] = a.seconds;
     });
   }
-  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?')
+  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60')
     .all(userId, anchor, goals.addDays(anchor, 363))
     .forEach((r) => {
       const row = rowsById[r.activityId];

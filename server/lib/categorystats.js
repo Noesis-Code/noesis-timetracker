@@ -146,7 +146,7 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz, vie
   const rows = db.prepare(`
     SELECT t.startTime, t.endTime, t.goalCategory AS category
     FROM time_entries t
-    WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
   `).all(userId, Number(activityId), startIso, endIso);
 
   const buckets = new Map();

@@ -189,9 +189,9 @@
     return TMT.ui.heures(seconds < 60 ? 0 : Math.ceil((seconds - 30) / 60));
   }
 
+  // Partout (sauf la confirmation d'arrêt) : même arrondi que formatHMStats ; sous 1 min rien ne s'affiche (la donnée reste en base).
   function formatHM(seconds) {
-    if (seconds > 0 && seconds < 60) return Math.round(seconds) + ' s'; // 10 : sous la minute, même unité (secondes) que la confirmation d'arrêt, jamais « 1 min » pour 38 s
-    return TMT.ui.heures(Math.round(seconds / 60)); // UN SEUL format d'heures (composants.js)
+    return formatHMStats(seconds);
   }
 
   // Déconnexion forcée par le serveur (7 septembre 2026 — correctif du
@@ -3644,6 +3644,7 @@
     box.innerHTML = '';
     var groups = [];
     var groupByDay = {};
+    entries = entries.filter(function (e) { return e.durationSeconds >= 60; }); // sous 1 min : jamais affiché
     entries.forEach(function (entry) {
       var key = entry.isoDate || '';
       if (!groupByDay[key]) {
@@ -5294,7 +5295,7 @@
 
       ordered.slice().reverse().forEach(function (s) {
         // Bulle : seulement les séries > 0 (activités supprimées incluses) + le Total.
-        if (!s.isTotal && !(s.values[i] > 0)) return;
+        if (!s.isTotal && !(s.values[i] >= 60)) return;
         var row = document.createElement('div');
         row.className = 'chartTooltipRow';
         var dot = document.createElement('span');
@@ -5719,7 +5720,7 @@
         var litP = {};
         ((r.periodDays && r.periodDays[p]) || []).forEach(function (d) { litP[d] = true; });
         html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · P' + (p + 1) + '">';
-        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
+        html += '<div class="tsCalDayNum">' + (sec >= 60 ? formatHM(sec) : '') + '</div>';
         html += '<div class="tsYearDots">';
         for (var dp = 1; dp <= 28; dp++) html += '<i class="tsYearDot"' + (litP[dp] ? ' style="background:' + r.color + '"' : '') + '></i>';
         html += '</div></div>';
