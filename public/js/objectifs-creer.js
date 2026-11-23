@@ -990,7 +990,7 @@
       api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
         var src = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return r.kind === 'nouveau'; }) : [], free = genWeeks();
         if (!src.length || !free.length) { msg.textContent = tr((pl && pl.skip && pl.reason) || 'Rien à proposer pour le moment.'); return null; }
-        var body = free.slice(0, src.length).map(function (x, i) { var r = src[i], end = spec.parentEnd && x.w.end > spec.parentEnd ? spec.parentEnd : x.w.end; return { kind: 'nouveau', title: String(r.title || '').replace(/^Sd+ · /, 'S' + x.w.i + ' · '), description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, start: x.w.start, endDate: end, weeks: 1, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
+        var body = free.slice(0, src.length).map(function (x, i) { var r = src[i], end = spec.parentEnd && x.w.end > spec.parentEnd ? spec.parentEnd : x.w.end; return { kind: 'nouveau', title: String(r.title || '').replace(/^S\d+ · /, 'S' + x.w.i + ' · '), description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, start: x.w.start, endDate: end, weeks: 1, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
         return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: true, rows: body }).then(fresh);
       }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }).then(function () { paint(); });
     }

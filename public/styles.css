@@ -1896,7 +1896,7 @@ button { -webkit-user-select: none; user-select: none; }
 #netContactModal .settingsFieldList, #communityGroupCreateModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #netContactModal input, #netContactModal select, #communityGroupCreateModal input { width: 100%; box-sizing: border-box; }
 #netcSave { margin: 12px 0 0; }
-#communityGroupCreateModal input { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); color: var(--text); font-family: inherit; font-size: 14px; } /* même gabarit de champ que .activitySettingsPanel */
+#netContactModal input, #netContactModal select, #communityGroupCreateModal input { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); color: var(--text); font-family: inherit; font-size: 14px; } /* même gabarit de champ que .activitySettingsPanel */
 .netSvg .netCount { fill: var(--text); font-size: var(--netfs, 13px); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
 .netSvg .netNode.joined .netCount { fill: var(--on-action); }
 .netSvg .netName { fill: var(--text); font-size: var(--netfs, 13px); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
@@ -3097,7 +3097,7 @@ button { -webkit-user-select: none; user-select: none; }
 .catStrategieQ .objTimeRow select, .catStrategieQ .objTimeRow input { width: auto; max-width: 60%; }
 .catStrategieQ .objTimeRow .objHoursVal input { width: 64px; text-align: right; }
 .objTimeRow { align-items: center; }
-.catStrategieQ .objTimeRow input { font: inherit; text-align: right; box-sizing: border-box; padding: 0 12px; }
+.catStrategieQ .objTimeRow input { font: inherit; text-align: right; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); }
 .catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .catEditForm .catNewPoleActions > .cmpRemove { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, comme les historiques */

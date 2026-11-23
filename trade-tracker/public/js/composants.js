@@ -402,6 +402,9 @@
     function loop() { sync(); if (Date.now() < stop || dock.contains(document.activeElement) || document.documentElement.classList.contains('kbOpen')) raf = root.requestAnimationFrame(loop); else raf = null; }
     function watch() { stop = Date.now() + 800; if (!raf) raf = root.requestAnimationFrame(loop); }
     if (root.visualViewport) { root.visualViewport.addEventListener('resize', watch); root.visualViewport.addEventListener('scroll', watch); }
+    // Toucher un bouton de la barre (Enregistrer, ✕…) ne retire pas le focus du champ : sinon le clavier se ferme, la barre redescend avant le clic et le clic est perdu.
+    function keepFocus(e) { if (e.target && e.target.closest && e.target.closest('button')) e.preventDefault(); }
+    dock.addEventListener('mousedown', keepFocus); dock.addEventListener('pointerdown', keepFocus);
     dock.addEventListener('focusin', watch); dock.addEventListener('focusout', watch); field.addEventListener('focus', watch); field.addEventListener('blur', watch);
   }
   ui.dockKeyboard = dockKeyboard;
