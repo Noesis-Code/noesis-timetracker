@@ -69,6 +69,7 @@
   var currentTimesheetOffset = 0; // décalage en semaines calendaires ; repart à 0 à chaque ouverture de l'onglet Statistiques
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
   var currentTimesheetYearOffset = 0; // décalage en années (vue Année)
+  var currentTimesheetPeriodOffset = 0; // décalage en périodes de 4 semaines (vue Période)
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
   // Ni la Feuille de temps (retiré le 1er septembre 2026) ni le Graphique
@@ -2269,6 +2270,7 @@
     currentTimesheetOffset = 0;
     currentTimesheetMonthOffset = 0;
     currentTimesheetYearOffset = 0;
+    currentTimesheetPeriodOffset = 0;
     syncPeriodMenuActive($('tsPeriodMenu'), 'week');
     // La Répartition repart toujours SYNCHRONISÉE sur la Feuille de temps
     // (3 septembre 2026, demande d'Emilien : « je souhaite que la
@@ -3780,7 +3782,7 @@
   // camembert suit désormais la période de la Feuille de temps — voir
   // renderPieFromTimesheet plus bas.)
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
-    currentChartGranularity = period; // 'day' | 'week' | 'month' (data-period du menu ⋮ du Graphique)
+    currentChartGranularity = period; // 'day' | 'week' | 'period' (data-period du menu ⋮ du Graphique)
     loadChartStats();
   });
   setupStatsPeriodMenu($('tsPeriodBtn'), $('tsPeriodMenu'), function (period) {
@@ -3788,7 +3790,8 @@
     // Reprend systématiquement "en cours" (semaine ou mois) au changement de
     // période, plutôt que de convertir un décalage semaine en décalage mois
     // (les deux ne correspondent à rien l'un pour l'autre).
-    if (period === 'month') currentTimesheetMonthOffset = 0;
+    if (period === 'period') currentTimesheetPeriodOffset = 0;
+    else if (period === 'month') currentTimesheetMonthOffset = 0;
     else if (period === 'year') currentTimesheetYearOffset = 0;
     else currentTimesheetOffset = 0;
     loadTimesheet();
@@ -3809,9 +3812,14 @@
   // sources ont volontairement la même forme : la réponse de
   // GET /stats/timesheet (mode synchronisé) et celle de GET /stats/today
   // (mode "Aujourd'hui") — un seul chemin de rendu, pas de code en double.
+  // 23 nov. 2026 : une semaine s'écrit « S47 » (numéro de la grille des périodes), jamais en dates ; les autres libellés (période, jour) restent tels quels.
+  function gridRangeLabel(data) {
+    if (data && data.weekNumber && /^Semaine du /.test(data.label || '')) return 'S' + data.weekNumber;
+    return t(data.label);
+  }
   function renderPieBreakdown(data) {
     var breakdown = (data && data.breakdown) || { totalSeconds: 0, activities: [] };
-    $('statsLabel').textContent = data && data.label ? t(data.label) : '';
+    $('statsLabel').textContent = data && data.label ? gridRangeLabel(data) : '';
     // Plus de total écrit au-dessus du camembert depuis le 6 septembre
     // 2026 (Emilien : « le temps total est marqué deux fois ») : renderPie
     // l'affiche déjà au centre du donut. Idem dans les quatre autres
@@ -4225,7 +4233,8 @@
   // lente peindre par-dessus la plus récente.
   var categoryStatsToken = 0;
   var csCtx = null;              // { activityId, memberId, name }
-  var csPeriod = 'week';         // 'week' | 'month'
+  var csPeriod = 'week';         // 'week' | 'period'
+  var csPeriodOffset = 0;
   var csWeekOffset = 0;
   var csMonthOffset = 0;
   var csTodayMode = false;       // Répartition désynchronisée sur la journée
@@ -4372,6 +4381,7 @@
     csPeriod = 'week';
     csWeekOffset = 0;
     csMonthOffset = 0;
+    csPeriodOffset = 0;
     csTodayMode = false;
     csLastData = null;
     csChartGranularity = 'day';
@@ -4418,7 +4428,7 @@
       if (!bilanCsHome) bilanCsHome = { parent: scroll.parentNode, next: scroll.nextSibling };
       hostEl.appendChild(scroll);
       csCtx = { activityId: Number(activityId), memberId: memberId && memberId !== profile.id ? memberId : null, name: name || '' };
-      csPeriod = 'week'; csWeekOffset = 0; csMonthOffset = 0; csTodayMode = false; csLastData = null; csChartGranularity = 'day';
+      csPeriod = 'week'; csWeekOffset = 0; csMonthOffset = 0; csPeriodOffset = 0; csTodayMode = false; csLastData = null; csChartGranularity = 'day';
       syncCsTodayBtn();
       syncPeriodMenuActive($('csTsPeriodMenu'), 'week');
       syncPeriodMenuActive($('csChartPeriodMenu'), 'day');
@@ -4448,7 +4458,7 @@
     var url = '/api/category-timesheet?userId=' + profile.id
       + '&activityId=' + csCtx.activityId
       + '&period=' + csPeriod
-      + (csPeriod === 'month' ? '&monthOffset=' + csMonthOffset : '&weekOffset=' + csWeekOffset)
+      + (csPeriod === 'period' ? '&periodOffset=' + csPeriodOffset : '&weekOffset=' + csWeekOffset)
       + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
 
     api('GET', url).then(function (data) {
@@ -4539,11 +4549,11 @@
       colorOf: function (slot) { return categoryColorFor(data, slot.category); },
       tappable: false,
     };
-    if (data.period === 'month') renderTimesheetMonth(data, ids);
+    if (data.period === 'month' || data.period === 'period') renderTimesheetMonth(data, ids);
     else renderTimesheetWeek(data, ids);
 
     // ----- La répartition, synchronisée sur la grille ci-dessus -----
-    if (!csTodayMode) renderCategoryPie(data.breakdown, data.label, data);
+    if (!csTodayMode) renderCategoryPie(data.breakdown, gridRangeLabel(data), data);
   }
 
   // ===================== PÔLES & SECTEURS — CAMEMBERT/LÉGENDE =====================
@@ -4773,22 +4783,23 @@
     csTodayMode = !csTodayMode;
     syncCsTodayBtn();
     if (csTodayMode) loadCsToday();
-    else if (csLastData) renderCategoryPie(csLastData.breakdown, csLastData.label, csLastData);
+    else if (csLastData) renderCategoryPie(csLastData.breakdown, gridRangeLabel(csLastData), csLastData);
   });
 
   $('csTsPrevWeek').addEventListener('click', function () {
-    if (csPeriod === 'month') csMonthOffset += 1; else csWeekOffset += 1;
+    if (csPeriod === 'period') csPeriodOffset += 1; else csWeekOffset += 1;
     loadCategoryStats();
   });
   $('csTsNextWeek').addEventListener('click', function () {
-    if (csPeriod === 'month') { if (csMonthOffset === 0) return; csMonthOffset -= 1; }
+    if (csPeriod === 'period') { if (csPeriodOffset === 0) return; csPeriodOffset -= 1; }
     else { if (csWeekOffset === 0) return; csWeekOffset -= 1; }
     loadCategoryStats();
   });
   setupStatsPeriodMenu($('csTsPeriodBtn'), $('csTsPeriodMenu'), function (period) {
-    csPeriod = period === 'month' ? 'month' : 'week';
+    csPeriod = period === 'period' ? 'period' : 'week';
     csWeekOffset = 0;
     csMonthOffset = 0;
+    csPeriodOffset = 0;
     loadCategoryStats();
   });
 
@@ -4957,7 +4968,7 @@
   }
 
   setupStatsPeriodMenu($('csChartPeriodBtn'), $('csChartPeriodMenu'), function (g) {
-    csChartGranularity = g === 'week' || g === 'month' ? g : 'day';
+    csChartGranularity = g === 'week' || g === 'period' ? g : 'day';
     loadCategoryChart();
   });
 
@@ -5013,7 +5024,7 @@
   // (voir chartBreakdownForUser, server/lib/stats.js) — pas de calcul de date
   // ici pour ces deux cas.
   function dayChartLabel(d, shortForm) {
-    if (d.granularity === 'week' || d.granularity === 'month') {
+    if (d.granularity === 'week' || d.granularity === 'month' || d.granularity === 'period') {
       // Mois : en anglais, nom du mois formaté par le navigateur (le serveur envoie du français).
       if (d.granularity === 'month' && currentLang === 'en' && d.isoDate) {
         return new Date(d.isoDate + 'T00:00:00').toLocaleDateString(dateLocale(), { month: shortForm ? 'short' : 'long', year: 'numeric' });
@@ -5418,15 +5429,15 @@
   // choisie dans le menu "⋮" (currentTimesheetPeriod) : mêmes boutons, mêmes
   // ids, comportement adapté à la vue affichée.
   $('tsPrevWeek').addEventListener('click', function () {
-    if (currentTimesheetPeriod === 'month') currentTimesheetMonthOffset += 1;
+    if (currentTimesheetPeriod === 'period') currentTimesheetPeriodOffset += 1;
     else if (currentTimesheetPeriod === 'year') currentTimesheetYearOffset += 1;
     else currentTimesheetOffset += 1;
     loadTimesheet();
   });
   $('tsNextWeek').addEventListener('click', function () {
-    if (currentTimesheetPeriod === 'month') {
-      if (currentTimesheetMonthOffset === 0) return;
-      currentTimesheetMonthOffset -= 1;
+    if (currentTimesheetPeriod === 'period') {
+      if (currentTimesheetPeriodOffset === 0) return;
+      currentTimesheetPeriodOffset -= 1;
     } else if (currentTimesheetPeriod === 'year') {
       if (currentTimesheetYearOffset === 0) return;
       currentTimesheetYearOffset -= 1;
@@ -5450,8 +5461,8 @@
         renderTimesheetYear(data);
         renderPieFromTimesheet(data);
       });
-    } else if (currentTimesheetPeriod === 'month') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset).then(function (data) {
+    } else if (currentTimesheetPeriod === 'period') {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=period&periodOffset=' + currentTimesheetPeriodOffset).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
       });
@@ -5514,8 +5525,8 @@
     $(I.frozen).classList.remove('tsFrozenCal');
 
     // 29 oct. 2026 (Émilien) : la semaine s'écrit « Du 26/10 au 01/11 » (sans le mot « Semaine ») et la semaine en cours « En cours » (sans dates) ; les dates ne se coupent jamais (espaces insécables).
-    var wm = /^Semaine du (\S+) au (\S+)$/.exec(data.label || '');
-    $(I.weekLabel).textContent = (wm && data.isCurrentWeek) ? t('En cours') : (wm ? t('Du') + ' ' + wm[1] + ' ' + t('au') + ' ' + wm[2] : t(data.label)) + (data.isCurrentWeek ? t(' (en cours)') : '');
+    // 23 nov. 2026 (Émilien) : la semaine s'écrit par son numéro (S1 à S52, même grille que les périodes) ; la semaine en cours reste « En cours ».
+    $(I.weekLabel).textContent = data.isCurrentWeek ? t('En cours') : (data.weekNumber ? 'S' + data.weekNumber : t(data.label));
     $(I.nextBtn).disabled = data.isCurrentWeek;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
@@ -5618,8 +5629,8 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.add('tsFrozenCal');
 
-    $(I.weekLabel).textContent = monthShortLabel(t(data.label)); // seule la semaine en cours s'écrit « En cours » ; le mois et l'année gardent leur nom, sans « en cours » (Émilien, 29 oct. 2026)
-    $(I.nextBtn).disabled = data.isCurrentMonth;
+    $(I.weekLabel).textContent = data.weekNumbers ? data.label : monthShortLabel(t(data.label)); // seule la semaine en cours s'écrit « En cours » ; le mois et l'année gardent leur nom, sans « en cours » (Émilien, 29 oct. 2026)
+    $(I.nextBtn).disabled = data.isCurrentMonth || data.isCurrentPeriod;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
     var hasAnyEntry = data.weeks.some(function (week) {
@@ -5637,11 +5648,11 @@
       html += '<div class="tsCalHeaderCell">' + t(name).slice(0, 3) + '</div>';
     });
 
-    data.weeks.forEach(function (week) {
+    data.weeks.forEach(function (week, wi) {
       var firstDate = new Date(week[0].isoDate + 'T00:00:00');
       var lastDate = new Date(week[6].isoDate + 'T00:00:00');
-      frozen += '<div class="tsCalWeekLabel">' + pad(firstDate.getDate()) + '/' + pad(firstDate.getMonth() + 1)
-        + ' - ' + pad(lastDate.getDate()) + '/' + pad(lastDate.getMonth() + 1) + '</div>';
+      frozen += '<div class="tsCalWeekLabel">' + (data.weekNumbers ? 'S' + escapeHtml(String(data.weekNumbers[wi])) : pad(firstDate.getDate()) + '/' + pad(firstDate.getMonth() + 1)
+        + ' - ' + pad(lastDate.getDate()) + '/' + pad(lastDate.getMonth() + 1)) + '</div>';
 
       week.forEach(function (day) {
         var dateObj = new Date(day.isoDate + 'T00:00:00');
@@ -5695,12 +5706,22 @@
     var year = parseInt(String(data.start).slice(0, 4), 10);
     var frozen = '<div class="tsCalCorner"></div>';
     var html = '';
+    for (var pi = 1; pi <= 13; pi++) html += '<div class="tsCalHeaderCell">P' + escapeHtml(String(pi)) + '</div>';
     for (var mi = 0; mi < 12; mi++) {
       html += '<div class="tsCalHeaderCell">' + escapeHtml(monthNameLocal(mi).slice(0, 3)) + '</div>';
     }
     data.rows.forEach(function (r) {
       var rowName = r.name || t('Sans pôle');
       frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
+      (r.periods || []).forEach(function (sec, p) {
+        var litP = {};
+        ((r.periodDays && r.periodDays[p]) || []).forEach(function (d) { litP[d] = true; });
+        html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · P' + (p + 1) + '">';
+        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>';
+        html += '<div class="tsYearDots">';
+        for (var dp = 1; dp <= 28; dp++) html += '<i class="tsYearDot"' + (litP[dp] ? ' style="background:' + r.color + '"' : '') + '></i>';
+        html += '</div></div>';
+      });
       r.months.forEach(function (sec, m) {
         var lit = {};
         ((r.days && r.days[m]) || []).forEach(function (d) { lit[d] = true; });
@@ -5714,13 +5735,13 @@
       });
     });
     $(I.frozen).innerHTML = frozen;
-    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(12,minmax(56px,1fr))">' + html + '</div>';
+    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(25,minmax(56px,1fr))">' + html + '</div>';
 
     // Ouvre la vue sur le mois en cours (dernière colonne visible), pas sur janvier ; une année passée s'ouvre sur janvier.
     var yScroller = $(I.calendar).parentNode;
     if (yScroller && yScroller.clientWidth > 0) {
-      var cw = yScroller.scrollWidth / 12;
-      yScroller.scrollLeft = data.isCurrentYear ? Math.max(0, Math.round((new Date().getMonth() + 1) * cw - yScroller.clientWidth)) : 0;
+      var cw = yScroller.scrollWidth / 25;
+      yScroller.scrollLeft = data.isCurrentYear && data.currentPeriod ? Math.max(0, Math.round(data.currentPeriod * cw - yScroller.clientWidth)) : 0;
     }
   }
 

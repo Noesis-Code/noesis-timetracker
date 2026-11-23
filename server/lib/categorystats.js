@@ -245,13 +245,15 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz, vie
 // diverger : même règle de semaine glissante, même calendrier du mois, mêmes
 // libellés, même départage des créneaux. Une copie aurait divergé au premier
 // ajustement.
-const { timesheetForUser, timesheetMonthForUser, chartBreakdownForUser } = require('./stats');
+const { timesheetForUser, timesheetMonthForUser, timesheetPeriodForUser, chartBreakdownForUser } = require('./stats');
 
 function categoryTimesheet(userId, activityId, period, offset, tz, viewScope) {
   const opts = { activityId: Number(activityId), groupByCategory: true, tz, viewScope };
-  const grid = period === 'month'
-    ? timesheetMonthForUser(userId, offset, opts)
-    : timesheetForUser(userId, offset, opts);
+  const grid = period === 'period'
+    ? timesheetPeriodForUser(userId, offset, opts)
+    : period === 'month'
+      ? timesheetMonthForUser(userId, offset, opts)
+      : timesheetForUser(userId, offset, opts);
 
   // Rangs de nuance, joints à la grille : le client colore chaque case à
   // partir de la couleur de l'activité, sans jamais recalculer un rang.
@@ -259,7 +261,7 @@ function categoryTimesheet(userId, activityId, period, offset, tz, viewScope) {
   const shadeByCategory = {};
   ranks.forEach((rank, key) => { shadeByCategory[key] = rank; });
 
-  return Object.assign({ period: period === 'month' ? 'month' : 'week' }, grid, {
+  return Object.assign({ period: period === 'period' ? 'period' : period === 'month' ? 'month' : 'week' }, grid, {
     shadeCount: count,
     shadeByCategory,
   });
@@ -303,12 +305,13 @@ function activitiesWithCategoryTime(userId, startIso, endIso) {
 // sur la Feuille de temps — les deux comportements sont ceux du volet
 // Statistiques, dont Emilien demande la reprise.
 function categoryChart(userId, activityId, granularity, tz, viewScope) {
-  const g = granularity === 'week' || granularity === 'month' ? granularity : 'day';
+  const g = granularity === 'week' || granularity === 'month' || granularity === 'period' ? granularity : 'day';
   const points = chartBreakdownForUser(userId, g, null, {
     activityId: Number(activityId),
     groupByCategory: true,
     tz,
     viewScope,
+    gridLabels: true,
   });
 
   const { ranks, count } = shadeRanks(Number(activityId));

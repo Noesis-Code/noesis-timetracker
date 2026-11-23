@@ -38,6 +38,7 @@ const {
 // n'est modifiée, elle est seulement appelée — comme le font déjà
 // community.js, history.js et profile.js.
 const { periodRange } = require('../lib/period');
+const { currentGridPeriodRange } = require('../lib/stats');
 
 const router = express.Router();
 
@@ -68,8 +69,8 @@ router.get('/category-stats', (req, res) => {
   // `from`/`to` restent PRIORITAIRES : aucun appelant existant ne change de
   // comportement, et la discipline « on ne recalcule jamais une période quand
   // l'écran d'où l'on vient en affiche déjà une » reste intacte.
-  if (!from && !to && ['day', 'week', 'month', 'year'].includes(String(req.query.period || ''))) {
-    const range = periodRange(String(req.query.period), null, req.timezone);
+  if (!from && !to && ['day', 'week', 'month', 'period', 'year'].includes(String(req.query.period || ''))) {
+    const range = String(req.query.period) === 'period' ? currentGridPeriodRange(req.timezone) : periodRange(String(req.query.period), null, req.timezone);
     from = range.start;
     to = range.end;
     periodLabel = range.label;
@@ -123,8 +124,8 @@ router.get('/category-timesheet', (req, res) => {
   if (access.error) return res.status(access.error.status).json(access.error.body);
   const targetId = access.targetId;
 
-  const period = req.query.period === 'month' ? 'month' : 'week';
-  const rawOffset = Number(period === 'month' ? req.query.monthOffset : req.query.weekOffset);
+  const period = req.query.period === 'period' ? 'period' : req.query.period === 'month' ? 'month' : 'week';
+  const rawOffset = Number(period === 'period' ? req.query.periodOffset : period === 'month' ? req.query.monthOffset : req.query.weekOffset);
   const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
 
   const grid = categoryTimesheet(targetId, activityId, period, offset, req.timezone, access.viewScope);

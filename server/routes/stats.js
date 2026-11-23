@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { ownVisibilityExcludedIds, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetYearForUser } = require('../lib/stats');
+const { ownVisibilityExcludedIds, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetPeriodForUser, timesheetYearForUser } = require('../lib/stats');
 const { isoDateOf, mondayOf } = require('../lib/dates');
 
 const router = express.Router();
@@ -60,13 +60,13 @@ router.get('/stats', (req, res) => {
   // est simplement ignoré.
   // Granularité du Graphique : regroupe les points de tout l'historique par
   // jour (défaut, comportement historique), semaine ou mois calendaire.
-  const VALID_GRANULARITIES = ['day', 'week', 'month'];
+  const VALID_GRANULARITIES = ['day', 'week', 'month', 'period'];
   const granularity = VALID_GRANULARITIES.includes(req.query.granularity) ? req.query.granularity : 'day';
 
   res.json({
     // Nom de champ conservé tel quel (historique) même si ce n'est plus
     // forcément "journalier" : le client (app.js) le lit sous ce nom.
-    dailyBreakdown: chartBreakdownForUser(userId, granularity, refDate, { excludeActivityIds: ownVisibilityExcludedIds(userId, req.query.visibility), tz: req.timezone }),
+    dailyBreakdown: chartBreakdownForUser(userId, granularity, refDate, { excludeActivityIds: ownVisibilityExcludedIds(userId, req.query.visibility), tz: req.timezone, gridLabels: true }),
   });
 });
 
@@ -93,7 +93,7 @@ router.get('/stats/timesheet', (req, res) => {
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
 
-  const period = req.query.period === 'month' ? 'month' : req.query.period === 'year' ? 'year' : 'week';
+  const period = req.query.period === 'month' ? 'month' : req.query.period === 'period' ? 'period' : req.query.period === 'year' ? 'year' : 'week';
   const excl = ownVisibilityExcludedIds(userId, req.query.visibility);
 
   if (period === 'year') {
@@ -102,6 +102,14 @@ router.get('/stats/timesheet', (req, res) => {
       return res.status(400).json({ error: 'yearOffset invalide.' });
     }
     return res.json(Object.assign({ period }, withBreakdown(userId, timesheetYearForUser(userId, isNaN(yearOffset) ? 0 : yearOffset, { excludeActivityIds: excl, tz: req.timezone }), excl, req.timezone)));
+  }
+
+  if (period === 'period') {
+    const periodOffset = parseInt(req.query.periodOffset, 10);
+    if (req.query.periodOffset !== undefined && (isNaN(periodOffset) || periodOffset < 0)) {
+      return res.status(400).json({ error: 'periodOffset invalide.' });
+    }
+    return res.json(Object.assign({ period }, withBreakdown(userId, timesheetPeriodForUser(userId, isNaN(periodOffset) ? 0 : periodOffset, { excludeActivityIds: excl, tz: req.timezone }), excl, req.timezone)));
   }
 
   if (period === 'month') {

@@ -288,6 +288,7 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
   const doneDays = doneCount.map((n, i) => (dates[i] > today ? null : n));
   const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
   let label = fmt(start) + ' – ' + fmt(end);
+  if (kind === 'week') { const ay = anchorYearOf(start); label = 'S' + Math.min(52, Math.floor(goals.daysBetween(yearAnchor(ay), start) / 7) + 1); } // 23 nov. 2026 : semaine = numéro, comme les périodes
   if (kind !== 'week') { const ay = anchorYearOf(start); label = 'P' + (Math.floor(goals.daysBetween(yearAnchor(ay), start) / 28) + 1) + ' · ' + label; }
   return { kind: kind === 'week' ? 'week' : 'period', start, end, label, offset, minutes: days, doneDays, plannedDays: plannedCount, dates, canNext: offset < 0 };
 }
