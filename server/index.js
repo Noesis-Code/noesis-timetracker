@@ -347,6 +347,7 @@ app.listen(PORT, HOST, () => {
   console.log(`Noèsis en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`Version de l'app servie : ${APP_VERSION}`);
   require('./lib/envcheck').logAtStartup();
+  require('./lib/envcheck').logRecoveryAtStartup();
 
   // Rappels avant l'échéance d'un sous-projet (4 septembre 2026, discussion
   // "Calendrier des clôtures") : 3 jours avant, puis la veille.
