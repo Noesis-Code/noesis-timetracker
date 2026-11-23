@@ -10,7 +10,7 @@ const reset = require('../lib/passwordreset');
 const { sendMail } = require('../lib/mail');
 
 const { isValidEmail } = require('../../public/js/saisie');
-const GENERIC = { ok: true, message: 'Aucun compte ne correspond à ce courriel, ou un lien vient d’y être envoyé.' };
+const GENERIC = { ok: true, message: 'Un lien vient d’être envoyé.' };
 
 // Fenêtres glissantes en mémoire (une seule instance).
 const hits = new Map();
@@ -39,18 +39,21 @@ router.post('/password/forgot', async (req, res) => {
   if (limited('mail:' + email, 3, 60 * 60 * 1000)) return res.json(GENERIC); // au plus 3 courriels par heure pour une même adresse
   const base = baseUrl(req);
   const users = db.prepare('SELECT id, name FROM users WHERE LOWER(email) = ?').all(email);
+  if (!users.length) console.log('[password/forgot] aucun profil correspondant');
   if (base) {
     for (const u of users) {
       try {
+        console.log('[password/forgot] envoi demandé (profil id ' + u.id + ')');
         const link = base + '/?reset=' + reset.issue(u.id);
-        await sendMail({
+        const sent = await sendMail({
           to: email,
           subject: 'Noèsis : change ton mot de passe',
           text: 'Bonjour ' + (u.name || '') + ',\n\nTu as demandé à changer ton mot de passe Noèsis. Ouvre ce lien dans l’heure qui suit :\n\n' + link
             + '\n\nSi tu n’as pas fait cette demande, ignore ce courriel : ton mot de passe actuel reste valable.\n\nL’équipe Noèsis',
         });
+        console.log('[password/forgot] envoyé (Resend id ' + (sent && sent.id) + ')');
       } catch (e) {
-        console.error('[password/forgot] envoi impossible :', e && e.message ? e.message : e); // jamais de jeton ni de lien dans les journaux
+        console.error('[password/forgot] échec de l’envoi (profil id ' + u.id + ') : ' + (e && e.message ? e.message : e)); // jamais de jeton ni de lien dans les journaux
       }
     }
   } else {

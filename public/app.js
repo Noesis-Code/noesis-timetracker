@@ -2134,7 +2134,7 @@
       if (!Saisie.isValidEmail(email)) { showMsg($('onbForgotMsg' + sfx), t(MSG_EMAIL)); return; }
       $('onbForgotSend' + sfx).disabled = true;
       api('POST', '/api/password/forgot', { email: email })
-        .then(function (r) { $('onbForgotMsg' + sfx).textContent = t((r && r.message) || 'Aucun compte ne correspond à ce courriel, ou un lien vient d’y être envoyé.'); })
+        .then(function (r) { $('onbForgotMsg' + sfx).textContent = t((r && r.message) || 'Un lien vient d’être envoyé.'); })
         .catch(function (err) { $('onbForgotMsg' + sfx).textContent = err.message; })
         .finally(function () { $('onbForgotSend' + sfx).disabled = false; });
     });
