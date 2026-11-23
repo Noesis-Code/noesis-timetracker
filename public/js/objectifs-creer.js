@@ -90,7 +90,7 @@
     if (tab && window.MutationObserver) {
       new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] });
     }
-    Array.prototype.forEach.call(document.querySelectorAll('#goalsCapturePage, #goalsActivitiesView'), function (n) { if (window.MutationObserver) new MutationObserver(syncDock).observe(n, { attributes: true, attributeFilter: ['class'] }); });
+    Array.prototype.forEach.call(document.querySelectorAll('#goalsCapturePage, #goalsActivitiesView, #goalsActivitySwitcher'), function (n) { if (window.MutationObserver) new MutationObserver(syncDock).observe(n, { attributes: true, attributeFilter: ['class'] }); });
     TMT.ui.dockKeyboard(dock, panelBody); // MÊME code que la barre « Nouvelle tâche… » : le panneau reste juste au-dessus du clavier
     if (window.MutationObserver) new MutationObserver(syncDock).observe(dock, { attributes: true, attributeFilter: ['class'] }); // plus de barre d'écriture : la zone du bas n'existe que pendant une création ou une modification (classe expSave)
   }
@@ -989,7 +989,7 @@
       msg.textContent = ''; genBtn.disabled = true;
       api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
         var src = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return r.kind === 'nouveau'; }) : [], free = genWeeks();
-        if (!src.length || !free.length) { msg.textContent = tr('Rien à proposer pour le moment.'); return null; }
+        if (!src.length || !free.length) { msg.textContent = tr((pl && pl.skip && pl.reason) || 'Rien à proposer pour le moment.'); return null; }
         var body = free.slice(0, src.length).map(function (x, i) { var r = src[i], end = spec.parentEnd && x.w.end > spec.parentEnd ? spec.parentEnd : x.w.end; return { kind: 'nouveau', title: String(r.title || '').replace(/^Sd+ · /, 'S' + x.w.i + ' · '), description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, start: x.w.start, endDate: end, weeks: 1, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
         return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: true, rows: body }).then(fresh);
       }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }).then(function () { paint(); });
@@ -1102,12 +1102,14 @@
     // Le temps prévu : retiré de la fiche (19 nov. 2026), absorbé par la Répartition des tâches (heures par membre ; au niveau pôle, le temps prévu déjà saisi les initialise).
     var repBlock = null; /* Répartition des tâches (bloc de app.js) : ses heures modifiées rejoignent le bouton Enregistrer du bas (R50, R35), enregistrable seulement si le total d'heures est > 0 */
     function repOn() { return !!(repBlock && repBlock.rep && repBlock.rep.changed()); }
-    function sync() { stepBtn.disabled = !(repOn() && repBlock.rep.valid()); }
+    var stratOn = false; /* la Stratégie s'enregistre toute seule à chaque changement : Enregistrer s'active pour fermer la fiche */
+    function sync() { stepBtn.disabled = !(stratOn || (repOn() && repBlock.rep.valid())); }
     // 4. Stratégie et Répartition des tâches de CETTE catégorie (18 nov. 2026, Émilien : réglages de la catégorie, plus de Réglages > activité) : mêmes blocs que partout (app.js), la ligne se déroule sur place ; Répartition : activité à plusieurs membres seulement.
-    if (TMT.buildStrategieBlock) { if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false)); repBlock = TMT.buildRepartitionBlock(act.id, catKey, false, sync); panelBody.appendChild(repBlock); } }
+    if (TMT.buildStrategieBlock) { if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false, function () { stratOn = true; sync(); })); repBlock = TMT.buildRepartitionBlock(act.id, catKey, false, sync); panelBody.appendChild(repBlock); } }
     function save() {
       if (stepBtn.disabled) return;
       stepBtn.disabled = true; msg.textContent = '';
+      if (!repOn()) { endFlow(); return; } /* seule la Stratégie a changé : déjà enregistrée, on ferme */
       var proposal = false, chain = repBlock.rep.save().then(function (p) { proposal = p; });
       chain.then(function () { load(); if (!proposal) { endFlow(); return; } sync(); /* l'app propose d'ajuster des niveaux inférieurs : la fiche reste ouverte pour les valider ou les refuser */ }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
     }

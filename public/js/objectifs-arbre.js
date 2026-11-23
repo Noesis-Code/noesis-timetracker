@@ -52,7 +52,7 @@
   function rowSpan(rw) { // première et dernière date de la ligne (bloc de 5 ans, année, période de 28 jours)
     if (rw.block) return { start: rw.y + '-01-01', end: rw.y2 + '-12-31' };
     if (rw.w) { var dw = new Date(Date.UTC(rw.y, 0, 1)); dw.setUTCDate(dw.getUTCDate() + (rw.w - 1) * 7); var sw = dw.toISOString().slice(0, 10); dw.setUTCDate(dw.getUTCDate() + 6); return { start: sw, end: dw.toISOString().slice(0, 10) }; }
-    if (rw.p) { var d = new Date(Date.UTC(rw.y, 0, 1)); d.setUTCDate(d.getUTCDate() + (rw.p - 1) * PER_DAYS); var s0 = d.toISOString().slice(0, 10); d.setUTCDate(d.getUTCDate() + PER_DAYS - 1); return { start: s0, end: d.toISOString().slice(0, 10) }; }
+    if (rw.p) { var d = new Date(Date.UTC(rw.y, 0, 1)); d.setUTCDate(d.getUTCDate() + (rw.p - 1) * PER_DAYS); var s0 = d.toISOString().slice(0, 10); d.setUTCDate(d.getUTCDate() + PER_DAYS - 1); return { start: s0, end: rw.p >= PER_YEAR ? rw.y + '-12-31' : d.toISOString().slice(0, 10) }; } /* P13 = le reste de l'année (29 ou 30 jours) */
     return { start: rw.y + '-01-01', end: rw.y + '-12-31' };
   }
   function cellSize(node, w) { node.style.flex = '0 0 ' + w; node.style.width = w; }
@@ -378,7 +378,7 @@
     if (!rw.p || !TMT.objectifsView || !TMT.objectifsView.openSemaines) return;
     var iso = function (t) { return new Date(t).toISOString().slice(0, 10); }, t0 = Date.UTC(rw.y, 0, 1) + (rw.p - 1) * PER_DAYS * 86400000, weeks = [];
     for (var i = 1; i <= 4; i++) { var a = iso(t0 + (i - 1) * 7 * 86400000), b = iso(t0 + (i * 7 - 1) * 86400000); weeks.push({ i: i, start: a, end: b, obj: c.col.objs.filter(function (o) { return !o.isMacro && weeksOf(o) <= 1 && o.endDate >= a && o.endDate <= b; })[0] || null }); }
-    var pe = iso(t0 + 27 * 86400000), par = c.col.objs.filter(function (o) { return !o.isMacro && weeksOf(o) > 1 && o.endDate >= iso(t0) && o.endDate <= pe; })[0]; // l'objectif périodique touché : la génération part de lui
+    var pe = rw.p >= PER_YEAR ? rw.y + '-12-31' : iso(t0 + 27 * 86400000), par = c.col.objs.filter(function (o) { return !o.isMacro && weeksOf(o) > 1 && o.endDate >= iso(t0) && o.endDate <= pe; })[0]; // l'objectif périodique touché : la génération part de lui
     TMT.objectifsView.openSemaines({ label: 'P' + rw.p + ' · ' + rw.y + ' · ' + c.col.label, ctx: c.col.ctx, color: c.col.color, parentId: par ? par.id : null, parentStart: par ? par.startDate : null, parentEnd: par ? par.endDate : null, weeks: weeks });
   }
   function enterCell(rw, c, ci) { if (lvl === 'secteur') { openWeeks(rw, c); return; } descend(ci, lvl === 'activite' ? rw.y : null, rw.y); } // entrer dans une case vide : même descente qu'une carte (bloc de 5 ans / année de la ligne) ; dernier niveau : les 4 semaines de la période

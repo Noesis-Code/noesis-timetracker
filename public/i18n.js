@@ -1314,6 +1314,7 @@
     'Ajouter un pôle': 'Add a division',
     '+ Ajouter un pôle': '+ Add a division',
     'Cette activité n’a pas encore de pôle.': 'This activity has no division yet.',
+    'Pour créer un objectif, utilise le tableau d’objectifs.': 'To create a goal, use the goals board.',
     'Crée ton premier pôle pour organiser tes tâches et tes objectifs.': 'Create your first division to organise your tasks and goals.',
     'Nom de secteur requis.': 'Sector name required.',
     'Nouveau secteur…': 'New sector…',

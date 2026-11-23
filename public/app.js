@@ -7201,7 +7201,7 @@
   // Seules les règles dont le moteur existe sont actives ; les autres sont enregistrées et dites « pas encore active ». L'héritage descend (activité -> pôle -> secteur), le niveau inférieur ne change jamais le supérieur.
   // ENREGISTREMENT : à chaque choix (comme avant ; un bouton du bas ne servirait qu'aux champs numériques et la fiche a déjà celui de la Répartition). Voir docs/ia/strategie-modele.md.
   // Composants existants : .activityEditRow, .cmpSepRow, .cmpSeg, .cmpChev (TMT.ui.chev), .cmpAdd (TMT.ui.addBtn), .cmpRemove, .objTimeRow, .toggleSwitch. Écriture : propriétaire et responsables de la catégorie (le serveur décide).
-  function buildStrategieBlock(activityId, key, open) {
+  function buildStrategieBlock(activityId, key, open, onChange) {
     var url = '/api/activities/' + activityId + '/strategie-categorie/' + (key || '_');
     var root = document.createElement('div'); root.className = 'catStrategie';
     var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
@@ -7219,7 +7219,7 @@
       api('GET', url).then(function (d) { data = d; paint(); }).catch(function (e) { body.textContent = e.message; }).then(function () { loading = false; });
     }
     function put(doc) { // doc : patch du document de stratégie de CETTE catégorie ; null efface (retour à la valeur du dessus ou de Noèsis)
-      return api('PUT', url, { doc: doc }).then(function (d) { data = d; paint(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
+      return api('PUT', url, { doc: doc }).then(function (d) { data = d; paint(); if (onChange) onChange(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
     }
     function patch(fam, field, v) { var f = {}, d = {}; f[field] = v; d[fam] = f; return put(d); }
     function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -7379,6 +7379,15 @@
       body.appendChild(famille('ajustement', 'Ajustement', sumOf('ajustement', 'mode', MOD), [modeFold, choice('ajustement', 'frequence', 'Révision', FRQ), field('ajustement', 'ampleurMaxPct', 'Ampleur max (%)', '%', 'int'), rulesFold()]));
       var msg = el('p', 'msg'); body.appendChild(msg);
     }
+    // Clic en dehors : les lignes déroulées se referment ; l'écouteur disparaît avec le bloc (retiré du DOM).
+    var wasIn = false;
+    function outside(e) {
+      if (!root.isConnected) { if (wasIn) document.removeEventListener('click', outside, true); return; }
+      wasIn = true; if (root.contains(e.target)) return;
+      var any = Object.keys(openIds).some(function (k) { return openIds[k]; });
+      if (any) { openIds = {}; if (data) paint(); }
+    }
+    document.addEventListener('click', outside, true);
     if (open) load();
     return root;
   }
@@ -10706,7 +10715,8 @@
       var checkbox = this;
       var enabled = checkbox.checked;
       checkbox.disabled = true;
-      ensurePushSubscribedForToggle().then(function () {
+      ensurePushSubscribedForToggle(); // lancé sans l'attendre : une permission ou un service worker qui ne répond pas ne doit pas bloquer la case
+      Promise.resolve().then(function () {
         return api('PUT', '/api/profile/' + profile.id + '/notify-community', { enabled: enabled });
       }).catch(function (err) {
         checkbox.checked = !enabled;
@@ -10723,7 +10733,8 @@
       var activityId = checkbox.dataset.activityId;
       var enabled = checkbox.checked;
       checkbox.disabled = true;
-      ensurePushSubscribedForToggle().then(function () {
+      ensurePushSubscribedForToggle(); // lancé sans l'attendre : une permission ou un service worker qui ne répond pas ne doit pas bloquer la case
+      Promise.resolve().then(function () {
         return api('PUT', '/api/activities/' + activityId, { notifyEnabled: enabled });
       }).catch(function (err) {
         checkbox.checked = !enabled;
