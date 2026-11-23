@@ -229,7 +229,7 @@ function loadObjectives(activityId, keyToPole) {
 function minutesFor(activityId, keys, start, end) {
   if (!keys.length) return 0;
   const tl = tempsLimite();
-  const row = db.prepare(`SELECT COALESCE(SUM(durationSeconds),0) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ?${tl.sql}`)
+  const row = db.prepare(`SELECT COALESCE(SUM(durationSeconds),0) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60${tl.sql}`)
     .get(activityId, ...keys, start, end, ...tl.args);
   return Math.round(row.s / 60);
 }
@@ -270,7 +270,7 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
   const start = goals.addDays(cur.start, offset * len);
   const end = goals.addDays(start, len - 1);
   const tl = tempsLimite();
-  const rows = db.prepare(`SELECT isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ?${tl.sql} GROUP BY isoDate`)
+  const rows = db.prepare(`SELECT isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60${tl.sql} GROUP BY isoDate`)
     .all(activityId, ...keys, start, end, ...tl.args);
   const byDay = {}; rows.forEach((r) => { byDay[r.isoDate] = Math.round(r.s / 60); });
   const days = []; const dates = [];

@@ -180,7 +180,7 @@ function objectifsAvg(userId, c, start, end) {
 function chronoAvg(userId, c, start, end, today) {
   const stop = end < today ? end : today; if (stop < start) return null;
   const weeks = Math.max(1, (daysBetween(start, stop) + 1) / 7), keys = c.level === 'activite' ? null : c.level === 'pole' ? [c.poleKey].concat((require('./goals').secteursForPole(Number(c.activityId), c.poleKey) || []).map((x) => x.key)) : [c.categoryKey];
-  let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?', args = [userId, Number(c.activityId), start, stop];
+  let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [userId, Number(c.activityId), start, stop];
   if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
   const m = db.prepare(q).get(...args).s / 60 / weeks; return m > 0 ? Math.round(m) : null;
 }
@@ -199,7 +199,7 @@ function membres(userId, c, start, end, today) {
     const resp = require('./responsables').ids(act) || [];
     return mem.map((m) => {
       let chrono = null;
-      if (weeks) { let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?', args = [m.userId, act, start, stop]; if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); } const v = db.prepare(q).get(...args).s / 60 / weeks; chrono = v > 0 ? Math.round(v) : null; }
+      if (weeks) { let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [m.userId, act, start, stop]; if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); } const v = db.prepare(q).get(...args).s / 60 / weeks; chrono = v > 0 ? Math.round(v) : null; }
       let tasks = 0; try { let q = 'SELECT COUNT(*) AS n FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE sp.activityId = ? AND i.plannedUserId = ? AND i.done = 0', args = [act, m.userId]; if (keys) { q += ' AND sp.goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); } tasks = db.prepare(q).get(...args).n; } catch (e) { tasks = 0; } // tâches non faites qui lui sont attribuées dans la catégorie
       const pr = lvl ? (lvl.rows.find((x) => x.userId === m.userId) || {}).plannedMin : undefined;
       return { userId: m.userId, name: m.name || null, plannedMin: pr == null ? null : pr, chronoMin: chrono, isResponsable: resp.indexOf(m.userId) >= 0, tasks };

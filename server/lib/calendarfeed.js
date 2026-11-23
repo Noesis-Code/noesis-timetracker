@@ -438,7 +438,7 @@ function periodDaysForUser(userId, activityId, category, periodNumber) {
   const rows = db.prepare(`
     SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS seconds
     FROM time_entries
-    WHERE activityId = ? AND isoDate BETWEEN ? AND ?${vus ? ' AND userId IN (' + [...vus].map(() => '?').join(',') + ')' : ''}
+    WHERE activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60${vus ? ' AND userId IN (' + [...vus].map(() => '?').join(',') + ')' : ''}
     GROUP BY isoDate
   `).all(activityId, period.startDate, period.endDate, ...(vus ? [...vus] : []));
   const secondsByDay = {};

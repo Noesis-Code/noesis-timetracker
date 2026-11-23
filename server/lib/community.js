@@ -23,7 +23,7 @@ function sharedActivitiesForUser(userId, period, refDate, tz) {
            COALESCE(SUM(t.durationSeconds), 0) AS seconds
     FROM activity_members am
     JOIN users u ON u.id = am.userId
-    LEFT JOIN time_entries t ON t.userId = am.userId AND t.activityId = am.activityId AND t.isoDate BETWEEN ? AND ?
+    LEFT JOIN time_entries t ON t.userId = am.userId AND t.activityId = am.activityId AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
     WHERE am.activityId = ?
     GROUP BY u.id
     ORDER BY seconds DESC, u.name COLLATE NOCASE ASC
@@ -350,7 +350,7 @@ function activityBreakdownForUser(activityId, period, refDate, categoryFilter, t
            COALESCE(SUM(t.durationSeconds), 0) AS seconds
     FROM activity_members am
     JOIN users u ON u.id = am.userId
-    LEFT JOIN time_entries t ON t.userId = am.userId AND t.activityId = am.activityId AND t.isoDate BETWEEN ? AND ?${joinExtra}
+    LEFT JOIN time_entries t ON t.userId = am.userId AND t.activityId = am.activityId AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60${joinExtra}
     WHERE am.activityId = ?
     GROUP BY u.id
     ORDER BY seconds DESC, u.name COLLATE NOCASE ASC
@@ -416,7 +416,7 @@ function activityChartBreakdownForUser(activityId, granularity, refDate, categor
     FROM time_entries t
     JOIN activity_members am ON am.activityId = t.activityId AND am.userId = t.userId
     JOIN users u ON u.id = am.userId
-    WHERE t.activityId = ? AND t.isoDate BETWEEN ? AND ?${whereExtra}
+    WHERE t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60${whereExtra}
     GROUP BY t.isoDate, u.id
     ORDER BY t.isoDate ASC, seconds DESC
   `).all(activityId, start, end, ...extraArgs);
@@ -571,4 +571,4 @@ module.exports = {
   sharedActivitiesForUser, sharedFeedForUser, followingFeedForUser, activityMembersForUser,
   activityMessagesForUser, postActivityMessage, markActivityMessagesRead, unreadMessageCountsForUser,
   activityBreakdownForUser, activityChartBreakdownForUser, activityTotalRange, activityTimesheetForUser,
-};
+};

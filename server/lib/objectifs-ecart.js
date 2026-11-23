@@ -45,7 +45,7 @@ function keysOf(o) {
   return null;
 }
 function realIn(userId, activityId, keys, start, end) {
-  let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?', args = [userId, Number(activityId), start, end];
+  let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [userId, Number(activityId), start, end];
   if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
   return db.prepare(q).get(...args).s / 60;
 }

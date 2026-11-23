@@ -553,7 +553,7 @@ function actualSecondsForRange(activityId, startDate, endDate) {
   const row = db.prepare(`
     SELECT COALESCE(SUM(durationSeconds), 0) AS seconds
     FROM time_entries
-    WHERE activityId = ? AND isoDate BETWEEN ? AND ?
+    WHERE activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60
   `).get(activityId, startDate, endDate);
   return row.seconds;
 }

@@ -38,7 +38,7 @@ function roundQuarter(m) { return m == null ? null : Math.round(m / QUARTER) * Q
 function passeMin(userId, activityId, key) {
   const keys = activityId == null ? null : keysOf(activityId, key);
   const m = weeklyavg.weeklyAverage(today(), (s, e) => {
-    let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?', args = [userId, s, e];
+    let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [userId, s, e];
     if (activityId != null) { q += ' AND activityId = ?'; args.push(Number(activityId)); }
     if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
     return db.prepare(q).get(...args).s / 60;
@@ -49,7 +49,7 @@ function passeMin(userId, activityId, key) {
 function passeByDay(userId, activityId, key) {
   const keys = activityId == null ? null : keysOf(activityId, key);
   return weeklyavg.weeklyByDay(today(), (s, e) => {
-    let q = 'SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?', args = [userId, s, e];
+    let q = 'SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [userId, s, e];
     if (activityId != null) { q += ' AND activityId = ?'; args.push(Number(activityId)); }
     if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
     q += ' GROUP BY isoDate';

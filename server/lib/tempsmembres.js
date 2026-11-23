@@ -173,7 +173,7 @@ function pastMinutes(activityId, todayIso) {
   const d = new Date(end + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - (WEEKS * 7 - 1));
   const start = d.toISOString().slice(0, 10);
   const rows = db.prepare(`SELECT userId, goalCategory AS cat, SUM(durationSeconds) AS s FROM time_entries
-    WHERE activityId = ? AND isoDate BETWEEN ? AND ? GROUP BY userId, goalCategory`).all(Number(activityId), start, end);
+    WHERE activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60 GROUP BY userId, goalCategory`).all(Number(activityId), start, end);
   const byPole = new Map(), byMember = new Map(), byCat = new Map();
   rows.forEach((r) => {
     const m = (r.s || 0) / 60 / WEEKS;

@@ -141,7 +141,7 @@ function tempsMembres(userId, activityId, cat, today) {
   const keys = cat ? require('./portee').expand(act.id, String(cat)) : null;
   const cur = O().periodStartOf(t), p = O().gridOf(cur).period, periods = [];
   for (let i = 1; i <= 13; i += 1) { const s = addDays(cur, 28 * (i - p)); periods.push({ n: i, start: s, end: addDays(s, 27) }); }
-  const rows = db.prepare(`SELECT userId, isoDate, durationSeconds FROM time_entries WHERE activityId = ? AND isoDate BETWEEN ? AND ?${keys ? ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')' : ''}`).all(act.id, periods[0].start, periods[12].end, ...(keys || []));
+  const rows = db.prepare(`SELECT userId, isoDate, durationSeconds FROM time_entries WHERE activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60${keys ? ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')' : ''}`).all(act.id, periods[0].start, periods[12].end, ...(keys || []));
   const mem = membresVus(membersOf(act.id), vs, userId);
   const members = mem.map((m) => {
     const hours = periods.map(() => 0);

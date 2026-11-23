@@ -223,7 +223,7 @@ for (const [col, def] of [['objPerYear', 13], ['objPeriodWeeks', 4], ['objPeriod
 }
 function userPW() { return String(temps.PERIOD_WEEKS); }
 function chronoHours(userId, activityId, start, end) {
-  try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ?').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
+  try { return db.prepare('SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60').get(userId, activityId, start, end).s / 3600; } catch (e) { return 0; }
 }
 // Heures Chrono par semaine sur l'activité : moyenne des 4 dernières semaines, les 2 dernières comptées double (fonction partagée weeklyavg) — seule source de la valeur de départ de « Temps par semaine » (jamais une valeur de catégorie).
 function weeklyHoursHistory(userId, activityId) {
