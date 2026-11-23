@@ -1406,7 +1406,7 @@
   if (_isCoarsePointer && window.visualViewport) {
     (function () {
       var pinBars = document.querySelectorAll('#topbar');
-      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage');
+      var pinPages = document.querySelectorAll('#activityPage, #goalsDetailPage, #communityGroupCreateModal'); // la fenêtre « Créer une communauté » suit la zone visible (clavier ouvert) au lieu de faire remonter toute l'app
       // 27 septembre 2026 (Design) : .tabbar rejoint ce pincement continu, en
       // remplacement du masquage complet (.tabbarHidden, retiré ci-dessus) —
       // ancrée en BAS (pas en haut comme #topbar), sa formule de compensation

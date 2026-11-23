@@ -1837,6 +1837,7 @@ button { -webkit-user-select: none; user-select: none; }
 #tab-community.communityOnPage2 #communitySeekingFilters { display: none; }
 #communityGroupsBlock, #communityMyGroupsBlock { margin-bottom: 24px; }
 #communityGroupCreateBtn { margin-top: 16px; }
+#communityGroupDeleteBtn { margin-top: 12px; }
 /* Réseau des communautés (page 2) : violet seulement (R11), aucune couleur de secteur (R16), verre calme. */
 .netSvg { display: block; margin: 0 0 12px; overflow: visible; }
 .netSvg .netZone { fill: var(--glass-calm-bg); stroke: var(--glass-calm-line); stroke-width: 1; }
@@ -1861,7 +1862,9 @@ button { -webkit-user-select: none; user-select: none; }
 /* Réseau personnel (page 3) : violet seulement ; les couleurs de la toile sont des couleurs de DONNÉE (palette des pôles, R16). */
 #communityPage3 { padding-bottom: 24px; }
 .netTag { display: inline-block; margin: 4px 4px 0 0; padding: 2px 10px; border: 1px solid var(--glass-calm-line); border-radius: 999px; font-size: 13px; color: var(--link-blue, var(--text)); }
-#netCrmOverview { display: flex; gap: 16px; align-items: center; cursor: default; }
+#netCrmOverview { display: flex; flex-direction: row; gap: 16px; align-items: center; cursor: default; }
+#netCrmOverviewBlock { margin-top: 16px; }
+#netCrmSeeWeb { margin-top: 12px; }
 #netCrmMini { flex: 0 0 150px; width: 150px; height: 110px; }
 .netStats .netBig { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
 .netFilters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
@@ -1889,9 +1892,10 @@ button { -webkit-user-select: none; user-select: none; }
 .netGlobe .gName { fill: var(--text); font-size: 11px; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 #netGlobePick { min-height: 48px; }
 #netGlobePick .activityRow { margin-top: 8px; }
-#netContactModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-#netContactModal input, #netContactModal select { width: 100%; box-sizing: border-box; }
+#netContactModal .settingsFieldList, #communityGroupCreateModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#netContactModal input, #netContactModal select, #communityGroupCreateModal input { width: 100%; box-sizing: border-box; }
 #netcSave { margin: 12px 0 0; }
+#communityGroupCreateModal input { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); color: var(--text); font-family: inherit; font-size: 14px; } /* même gabarit de champ que .activitySettingsPanel */
 .netSvg .netCount { fill: var(--text); font-size: var(--netfs, 13px); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
 .netSvg .netNode.joined .netCount { fill: var(--on-action); }
 .netSvg .netName { fill: var(--text); font-size: var(--netfs, 13px); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
@@ -2895,6 +2899,7 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Projets : en mode « + », seul le formulaire d'ajout est visible. */
 #profileProjectsPanel.projectsAddMode #projectsList { display: none; }
+:root #profileProjectsPanel #newProjectCard { background: none !important; border: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; padding: 0 !important; } /* un seul niveau de cadre : la fenêtre Projets, pas une carte dans la fenêtre */
 
 /* 30 sept. 2026 (Sécurité) : « Changer mon code » en gris (comme « Enregistrer » d'Identité / confirmation chrono, .iconBtn) ;
    boutons empilés pleine largeur, écart uniforme de 8px entre « Changer mon code », « Se déconnecter de tous les appareils »
