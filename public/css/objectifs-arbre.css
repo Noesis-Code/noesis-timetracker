@@ -222,7 +222,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid .arFuse > .goalsGridCell { box-sizing: border-box; flex: 0 0 calc((100% - (var(--k) - 1) * var(--g)) / var(--k)) !important; width: auto !important; min-width: 0; }
 .arGrid .arFuse > .goalsGridCell { border-radius: 12px; }
 .arGrid .arDead { display: flex; align-items: center; justify-content: center; border: 0 !important; outline: 0 !important; background: color-mix(in srgb, var(--ar-c) 30%, transparent) !important; pointer-events: none; cursor: default; opacity: 1 !important; }
-.arGrid .arDead b { font-weight: 600; font-size: 14px; line-height: 1; color: color-mix(in srgb, var(--ar-c) 55%, var(--text)); }
+.arGrid .arDead b { font-weight: 600; font-size: 30px; line-height: 1; color: color-mix(in srgb, var(--ar-c) 45%, var(--ar-hole-mark)); } /* même format que le nombre des cases vides (.arHoleCount) + une touche de la couleur de la macro */
 /* ligne de la fusion : cases collées, couture fine ; coins extérieurs 12 px, côtés qui se touchent 4 px */
 .arGrid .arFuseGlue { --g: 2px; }
 .arGrid .arFuseGlue > .goalsGridCell { border-radius: 4px; }
