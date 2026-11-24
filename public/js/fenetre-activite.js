@@ -31,7 +31,6 @@
         <div id="goalsActivitySwitcherScroll">
         <!-- « + » EXACTEMENT celui de la barre des volets (.barAddBtn, css/barre-volets.css) ; pointillé gris sans Expansion (découverte), verre avec Expansion (ouvre « Ajouter des tâches »). -->
         <button type="button" class="barAddBtn hidden" id="goalsPage2AddBtn" aria-label="Découvrir Expansion" title="Découvrir Expansion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-        <p class="hint">Pour créer un objectif, utilise le tableau d’objectifs.</p>
         <div id="goalsObjectifsView"></div>
         </div>
       </div>
