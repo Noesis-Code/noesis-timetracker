@@ -112,6 +112,11 @@
   }
   // GROUPE FUSIONNÉ (24 nov. 2026, maquette validée) : la case vivante (macro / carte) au milieu de ses cases absorbées, « mortes » (pâles, sans bordure, non cliquables, jamais de « + »).
   // Chaque case garde la largeur d'une colonne : le bloc fait EXACTEMENT la largeur des colonnes liées (bords alignés sur la grille). Ligne de la fusion : cases collées (couture 2 px) + nombre d'objectifs dans chaque case absorbée ; lignes du dessus : cases séparées, sans chiffre.
+  function annualCount(q, rw) { // nombre d'objectifs ANNUELS de la case absorbée (même nombre que dans la vue annuelle) : ceux de son activité dont l'échéance tombe dans le bloc de la ligne
+    var cc = curCols[q], x = cc && (cc.col ? cc.col.ctx : cc.ctx); if (!x) return 0;
+    if (lvl === 'activite' && rw.block) { var n = 0; items.forEach(function (o) { if (o.isMacro || o.abandoned || o.activity.id !== x.activityId || lv(o) !== 'annee') return; var y = Number(String(o.endDate).slice(0, 4)); if (y >= rw.y && y <= rw.y2) n++; }); return n; }
+    var b = belowOf(cc.col ? cc : { col: cc }, rw); return b ? b.n : 0;
+  }
   function fuseNode(main, r, rw, gr, cells, recolor, links) {
     var k = gr.members.length, col = recolor[r + ':' + gr.members[0]] || curCols[gr.anchor].color;
     var glue = links.some(function (l) { return l.rank === rw.rank && l.cols.every(function (q) { return gr.members.indexOf(q) >= 0; }); });
@@ -119,7 +124,7 @@
     gr.members.forEach(function (q) {
       var n;
       if (q === gr.anchor) n = main;
-      else { n = el('div', 'goalsGridCell arDead'); n.setAttribute('aria-hidden', 'true'); var cnt = cells[r][q].length; if (glue && cnt > 0) n.appendChild(el('b', null, String(cnt))); }
+      else { n = el('div', 'goalsGridCell arDead'); n.setAttribute('aria-hidden', 'true'); var cnt = annualCount(q, rw); if (glue && cnt > 0) n.appendChild(el('b', null, String(cnt))); }
       n.style.flex = ''; n.style.width = ''; wrap.appendChild(n); // largeur imposée par le CSS (--k) : toutes égales
     });
     return wrap;
@@ -523,14 +528,14 @@
   }
   document.addEventListener('click', function (e) { lastTap = [e.clientX, e.clientY]; }, true); // où l'on a touché : origine du zoom de descente
   function descend(ci, block, year, macro, members) { // toucher la racine / la colonne / la carte qui regroupe, ou pincer : un niveau plus bas ; au dernier niveau, l'arbre périodique de la page 2
-    var c = curCols[ci]; if (!c) return; if (lvl === 'activite' && block == null && year != null && !macro) block = blockStart(year + '-06-01'); /* case d'un bloc qui résume plusieurs objectifs : SON bloc fixe (jamais celui du présent) */ dive = !(macro || ext); /* 18 nov. 2026 (Émilien) : AUCUN zoom en touchant une bulle fusionnée ni en mode fusion */ // transition de zoom (arZoomIn) : on entre dans la bulle touchée
+    var c = curCols[ci]; if (!c) return; var directIds = lvl === 'activite' && macro && macro.id > 0 ? directIdx(macro).map(function (i) { return colPayload(i).activityId; }) : null; /* fil d'Ariane : seulement les activités reliées PAR CE macro (pas celles déjà absorbées plus bas) */ if (lvl === 'activite' && block == null && year != null && !macro) block = blockStart(year + '-06-01'); /* case d'un bloc qui résume plusieurs objectifs : SON bloc fixe (jamais celui du présent) */ dive = !(macro || ext); /* 18 nov. 2026 (Émilien) : AUCUN zoom en touchant une bulle fusionnée ni en mode fusion */ // transition de zoom (arZoomIn) : on entre dans la bulle touchée
     if (members && members.length > 1 && lvl !== 'secteur') macro = { endDate: macro && macro.endDate, macroColumns: TMT.liaison.unionColumns(lvl, macro && macro.macroColumns, members.map(colPayload)) }; /* case d'un GROUPE fusionné : on descend vers les catégories de TOUS ses membres (jamais la seule dominante) */
     if (macro && block == null && macro.endDate) block = blockStart(macro.endDate); // la vue des années d'un macro : le bloc FIXE de 5 ans de SON échéance, jamais l'étendue de ses enfants
     if (lvl === 'activite') {
       var order = ((struct && struct.activities) || []).map(function (x) { return x.id; }), ids = [];
       if (macro) (macro.macroColumns || []).forEach(function (mc) { if (ids.indexOf(mc.activityId) < 0) ids.push(mc.activityId); });
       ids.sort(function (p, q) { return order.indexOf(p) - order.indexOf(q); }); // ordre de la page précédente (même si les colonnes sont absorbées dans le temps)
-      if (ids.length > 1) go('pole', { activityId: ids[0], activityIds: ids, block: block }); // macro reliant plusieurs activités : les pôles de toutes ces activités, ensemble
+      if (ids.length > 1) go('pole', { activityId: ids[0], activityIds: ids, block: block, crumbIds: directIds && directIds.length > 1 ? directIds.slice().sort(function (p, q) { return order.indexOf(p) - order.indexOf(q); }) : null }); // macro reliant plusieurs activités : les pôles de toutes ces activités, ensemble
       else go('pole', { activityId: c.ctx.activityId, block: block });
     }
     else if (lvl === 'pole' && macro && (function () { var u = {}; (macro.macroColumns || []).forEach(function (mc) { u[mc.activityId + '/' + mc.poleKey] = { activityId: mc.activityId, poleKey: mc.poleKey }; }); window.__pairs = Object.keys(u).map(function (k) { return u[k]; }); return window.__pairs.length > 1; })()) { var pr0 = window.__pairs[0]; go('secteur', { activityId: pr0.activityId, poleKey: pr0.poleKey, poleLabel: '', year: year || (macro.endDate ? Number(String(macro.endDate).slice(0, 4)) : new Date().getFullYear()), pairs: window.__pairs }); window.__pairs = null; }
@@ -542,7 +547,7 @@
   function ascend() { if (lvl === 'secteur') { var ids2 = pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, x) { return x.indexOf(v) === i; }); go('pole', ids2.length > 1 ? { activityId: ids2[0], activityIds: ids2 } : { activityId: focus.activityId }); } else if (lvl === 'pole') go('activite', null); } // flèche de retour ou pincer inverse
   function backNav() { // FIL D'ARIANE « Activités › Noèsis › TiMeTracker » (tableau simple, 12 nov. 2026) : seule technique pour remonter ; on touche l'élément du niveau voulu, le dernier (où l'on est) n'est pas touchable
     var nav = el('nav', 'arCrumbs'); nav.setAttribute('aria-label', tr('Chemin'));
-    var act = actOf(focus.activityId), name = isMulti() ? (focus.activityIds || pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, a) { return a.indexOf(v) === i; })).map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
+    var act = actOf(focus.activityId), name = isMulti() ? (focus.crumbIds || focus.activityIds || pairsOf().map(function (p) { return p.activityId; }).filter(function (v, i, a) { return a.indexOf(v) === i; })).map(function (id) { var x = actOf(id); return x ? x.name : ''; }).join(' + ') : (act ? act.name : '');
     var parts = [{ label: tr('Activités'), go: function () { go('activite', null); } }, { label: name, go: lvl === 'secteur' ? ascend : null }];
     if (lvl === 'secteur') parts.push({ label: pairsOf().length ? tr('Secteurs') : (focus.poleLabel || ''), go: null });
     parts.forEach(function (p, i) {
