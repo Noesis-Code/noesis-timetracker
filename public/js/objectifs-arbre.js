@@ -115,7 +115,7 @@
   function fuseNode(main, r, rw, gr, cells, recolor, links) {
     var k = gr.members.length, col = recolor[r + ':' + gr.members[0]] || curCols[gr.anchor].color;
     var glue = links.some(function (l) { return l.rank === rw.rank && l.cols.every(function (q) { return gr.members.indexOf(q) >= 0; }); });
-    var wrap = el('div', 'arFuse' + (glue ? ' arFuseGlue' : '')); wrap.style.setProperty('--ar-c', col); cellSize(wrap, spanW('var(--ar-w)', k)); wrap.setAttribute('data-span', String(k)); wrap.style.setProperty('--k', String(k));
+    var wrap = el('div', 'arFuse arFuseGlue'); /* 24 nov. 2026 : sur TOUTES les lignes du groupe (jusqu'en haut) les cases restent collées ; seul le nombre est propre à la ligne de la fusion */ wrap.style.setProperty('--ar-c', col); cellSize(wrap, spanW('var(--ar-w)', k)); wrap.setAttribute('data-span', String(k)); wrap.style.setProperty('--k', String(k));
     gr.members.forEach(function (q) {
       var n;
       if (q === gr.anchor) n = main;
