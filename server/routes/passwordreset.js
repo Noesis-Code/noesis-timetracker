@@ -45,9 +45,17 @@ router.post('/password/forgot', async (req, res) => {
       try {
         console.log('[password/forgot] envoi demandé (profil id ' + u.id + ')');
         const link = base + '/?reset=' + reset.issue(u.id);
+        const nom = String(u.name || '').replace(/[&<>"]/g, '');
+        const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#222;max-width:480px">'
+          + '<p>Bonjour ' + nom + ',</p>'
+          + '<p>Tu as demandé à changer ton mot de passe Noèsis.</p>'
+          + '<p style="margin:24px 0"><a href="' + link + '" style="background:#7c6bb0;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:10px;display:inline-block;font-weight:bold">Choisir un nouveau mot de passe</a></p>'
+          + '<p style="font-size:14px;color:#555">Le bouton est valable une heure. Si tu n’as pas fait cette demande, ignore ce courriel : ton mot de passe actuel reste valable.</p>'
+          + '<p style="font-size:14px;color:#555">L’équipe Noèsis</p></div>';
         const sent = await sendMail({
           to: email,
           subject: 'Noèsis : change ton mot de passe',
+          html,
           text: 'Bonjour ' + (u.name || '') + ',\n\nTu as demandé à changer ton mot de passe Noèsis. Ouvre ce lien dans l’heure qui suit :\n\n' + link
             + '\n\nSi tu n’as pas fait cette demande, ignore ce courriel : ton mot de passe actuel reste valable.\n\nL’équipe Noèsis',
         });
