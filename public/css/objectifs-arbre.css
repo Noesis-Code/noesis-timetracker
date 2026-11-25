@@ -239,3 +239,5 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid .arFuseSect.arFuseGrey { --ar-line: color-mix(in srgb, var(--text-light) 45%, transparent); }
 .arGrid .arFuse.arFuseSect > .goalsGridCell { background: none !important; box-shadow: none !important; border: 0 !important; outline: 1.5px solid var(--ar-line) !important; outline-offset: -1.5px; color: var(--text); }
 .arGrid .arFuse.arFuseSect > .arMacro .arCardName { color: var(--text); }
+/* 4 semaines, au-dessus de la fusion : la case du secteur dominant sans objectif périodique reste EN POINTILLÉS (case vide) ; la case absorbée à côté : contour gris plein */
+.arGrid .arFuse.arFuseSect.arFuseGrey > .goalsGridCell--empty { outline: 1px dashed color-mix(in srgb, var(--text-light) 45%, transparent) !important; outline-offset: -2px; }

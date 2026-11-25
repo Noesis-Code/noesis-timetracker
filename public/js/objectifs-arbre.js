@@ -313,6 +313,10 @@
     return b;
   }
   // Création depuis une case vide : cadre = la colonne, type = la ligne (bloc de 5 ans, année, période), échéance = la fin de la case.
+  function weeklyBelow(c, rw) { // vue 4 semaines, case du secteur dominant d'une fusion : le nombre d'objectifs HEBDOMADAIRES inscrits dedans (4 au plus) ; aucun chiffre s'il n'y en a pas
+    var sp = rowSpan(rw), seen = {}; (c.col.objs || []).forEach(function (o) { if (!o.isMacro && weeksOf(o) <= 1 && o.endDate >= sp.start && o.endDate <= sp.end) seen[o.endDate.slice(0, 10)] = true; });
+    var n = Math.min(4, Object.keys(seen).length); return n ? { n: n, go: function () { openWeeks(rw, c); } } : null;
+  }
   function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, start: rowSpan(rw).start, type: rw.block ? 'pluriannuel' : rw.w ? 'hebdomadaire' : rw.p ? 'periodique' : 'annuel', label: rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
   // Fin de la case (jour ISO) : fin de la période du réglage, ou de l'année ; null si elle n'est pas dans le futur.
   function absorbCutoff(aid) { // activité ABSORBÉE par une macro : on peut y ajouter jusqu'à l'échéance de l'objectif qui absorbe (incluse), jamais au-delà ; null = sans limite
@@ -689,7 +693,7 @@
         var made = null;
         if (gr && skip[ci]) made = macroCard(skip[ci].m, today, ci, ci, W, curCols, recolor[r + ':' + ci] || curCols[gr.anchor].color, gr.members);
         else if (!es.length && c.col && c.col.ctx && absorbCutoff(c.col.ctx.activityId) != null && rowSpan(rw).start > absorbCutoff(c.col.ctx.activityId)) made = emptyCell(Wc, null, null, null, null, null); // au-delà de l'échéance de la macro : case grise morte, sans « + »
-        else if (!es.length) made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); }); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
+        else if (!es.length) made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, gr && lvl === 'secteur' ? weeklyBelow(c, rw) : belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); }); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
         else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) made = summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci, gr ? gr.members : null); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else made = card(grTitle || fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: grTitle || fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color, gr ? gr.members : null);
         if (gr) made = fuseNode(made, r, rw, gr, cells, recolor, links); // groupe fusionné : la macro + ses cases absorbées dans UN bloc de la largeur des colonnes liées
