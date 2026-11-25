@@ -113,7 +113,7 @@ function average(userId, spec, start, end) {
   cuts.forEach((c) => { seg(c.fromDate); from = c.fromDate; cur = { minutes: c.minutes }; });
   seg(addDays(end, 1));
   const own = cur.own === true || cuts.length > 0 || !!db.prepare('SELECT 1 FROM hour_allocations WHERE userId = ? AND activityId = ? AND level = ? AND poleKey = ? AND categoryKey = ? AND fromDate = ?').get(userId, act, spec.level, k.pk, k.ck, start);
-  return { minutes: days ? Math.round(sum / days) : null, own };
+  return { minutes: days ? Math.round(sum / days / 15) * 15 : null, own };
 }
 // rows : [{ start, end }] (une ligne de l'arbre) ; compatible avec une simple liste de dates (ligne d'un jour).
 const rowsOf = (input) => (Array.isArray(input) ? input.slice(0, 80) : []).map((r) => (typeof r === 'string' ? { start: r, end: r } : { start: r && r.start, end: r && r.end })).filter((r) => isDay(r.start) && isDay(r.end) && r.end >= r.start);
@@ -157,8 +157,8 @@ function levelTotals(userId, cols, start, end) {
     filled++; curves.forEach((cv, j) => { sums[j] += cv[i] || 0; });
   }
   if (!filled) return { totalMin: null, parts: cols.map(() => null) };
-  const parts = sums.map((v, j) => (curves[j].some((x) => x != null) ? Math.round(v / filled) : null));
-  return { totalMin: Math.round(sums.reduce((a, b) => a + b, 0) / filled), parts };
+  const parts = sums.map((v, j) => (curves[j].some((x) => x != null) ? Math.round(v / filled / 15) * 15 : null));
+  return { totalMin: Math.round(sums.reduce((a, b) => a + b, 0) / filled / 15) * 15, parts };
 }
 function lignes(userId, spec, input) {
   const cols = colsOf(userId, spec);
@@ -175,7 +175,7 @@ function lignes(userId, spec, input) {
 // Chrono (temps mesuré par semaine sur la part écoulée de la ligne). Par MEMBRE, quand la catégorie appartient à une activité partagée : prévu (alloué au membre) et Chrono mesuré (moyenne des 4 dernières semaines), voir tempsmembres.js.
 function objectifsAvg(userId, c, start, end) {
   const cv = objCurve(userId, c, start, end, daysBetween(start, end) + 1).filter((v) => v != null);
-  return cv.length ? Math.round(cv.reduce((a, b) => a + b, 0) / cv.length) : 0;
+  return cv.length ? Math.round(cv.reduce((a, b) => a + b, 0) / cv.length / 15) * 15 : 0;
 }
 function chronoAvg(userId, c, start, end, today) {
   const stop = end < today ? end : today; if (stop < start) return null;

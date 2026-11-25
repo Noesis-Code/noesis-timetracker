@@ -682,7 +682,7 @@ function creer(userId, body) {
   const id = Number(info.lastInsertRowid);
   db.prepare('UPDATE user_objectives SET parentRel = ?, position = ?, level = ?, poleKey = ?, categoryKey = ?, isMacro = ? WHERE id = ?').run(parentRel, nextPosition(userId, parentId), lvl.level, lvl.poleKey, lvl.categoryKey, body.isMacro === true ? 1 : 0, id);
   (Array.isArray(body.refus) ? body.refus : []).slice(0, 20).forEach((cid) => { const c = db.prepare('SELECT id FROM user_objectives WHERE id = ? AND userId = ?').get(Number(cid), userId); if (c && c.id !== id) db.prepare('INSERT OR REPLACE INTO objectifs_refus (userId, objectifId, candidateId, createdAt) VALUES (?, ?, ?, ?)').run(userId, id, c.id, new Date().toISOString()); });
-  const hpw = Number(body.hoursPerWeek) > 0 ? Math.round(Number(body.hoursPerWeek) * 10) / 10 : null; // facultatif : valeur de départ = historique Chrono, modifiable
+  const hpw = Number(body.hoursPerWeek) > 0 ? Math.round(Number(body.hoursPerWeek) * 4) / 4 : null; // facultatif : valeur de départ = historique Chrono, modifiable
   const meta0 = { plannedWeeks: Math.round(daysBetween(start, body.endDate) / 7), term, inner };
   if (hpw) meta0.hoursPerWeek = hpw;
   if (cad) meta0.cadence = cad; // posé sur le pôle : aucun secteur créé (voir bridge)
@@ -834,12 +834,12 @@ function changerPart(userId, id, body, apply) {
   others.forEach((i) => { sh[i] = Math.round(oldOthers > 0 ? cur[i] * rest / oldOthers : rest / others.length); });
   const diff = 100 - sh.reduce((a, b) => a + b, 0); if (diff && others.length) { const big = others.reduce((m, i) => (sh[i] >= sh[m] ? i : m), others[0]); sh[big] += diff; }
   const items = kids.map((k, i) => {
-    const before = meta(k).hoursPerWeek == null ? null : Number(meta(k).hoursPerWeek), after = Math.round(sh[i] / 100 * total / weeks(k) * 10) / 10;
+    const before = meta(k).hoursPerWeek == null ? null : Number(meta(k).hoursPerWeek), after = Math.round(sh[i] / 100 * total / weeks(k) * 4) / 4;
     const act = db.prepare('SELECT name FROM activities WHERE id = ?').get(k.activityId), habit = weeklyHoursHistory(userId, k.activityId);
     return { id: k.id, title: k.title, activityName: act ? act.name : '', percent: sh[i], hoursBefore: before, hoursAfter: after, belowHabit: !!(habit && after < habit), habit: habit || null };
   });
   if (apply) { db.exec('BEGIN'); try { kids.forEach((k, i) => { const m = meta(k); m.hoursPerWeek = items[i].hoursAfter; db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(m), k.id); }); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } } // une seule transaction
-  return apply ? get(userId, id) : { items, total: Math.round(total * 10) / 10 };
+  return apply ? get(userId, id) : { items, total: Math.round(total * 4) / 4 };
 }
 // Mode édition : terme, objectifs inclus, heures par semaine, niveau (l'activité et la fusion ne se modifient pas ici). Chaque règle est vérifiée ici, pas seulement dans l'interface.
 function parametres(userId, id, body) {
@@ -852,7 +852,7 @@ function parametres(userId, id, body) {
   if (body.inner != null) { if (!['periodiques', 'hebdomadaires', 'les_deux'].includes(body.inner)) throw err('Objectifs inclus : choix invalide.'); meta.inner = multi ? body.inner : 'hebdomadaires'; }
   else if (!multi && meta.inner) meta.inner = 'hebdomadaires';
   if (meta.inner) db.prepare('UPDATE user_objectives SET weekly = ? WHERE id = ?').run(meta.inner === 'periodiques' ? 0 : 1, r.id);
-  if ('hoursPerWeek' in body) { const v = Number(body.hoursPerWeek); if (v > 0) meta.hoursPerWeek = Math.round(v * 10) / 10; else if (body.hoursPerWeek == null || body.hoursPerWeek === '') delete meta.hoursPerWeek; else throw err('Heures par semaine : un nombre positif.'); }
+  if ('hoursPerWeek' in body) { const v = Number(body.hoursPerWeek); if (v > 0) meta.hoursPerWeek = Math.round(v * 4) / 4; else if (body.hoursPerWeek == null || body.hoursPerWeek === '') delete meta.hoursPerWeek; else throw err('Heures par semaine : un nombre positif.'); }
   // Réglage « jour par jour » (9 nov. 2026) : meta.hoursByDay = 7 entiers (minutes, lundi = index 0), dont la somme = les heures par semaine. Ajout sans migration ; le planificateur ne l'utilise pas encore.
   const hpwMin = meta.hoursPerWeek > 0 ? Math.round(meta.hoursPerWeek * 60) : 0, tb = require('./tempsbudget');
   if ('hoursByDay' in body) {
@@ -1069,7 +1069,7 @@ function bilan(userId, id, action, n) {
   let end = r.endDate;
   if (action === 'alleger') { // le plan s'aligne sur le rythme réel : « Temps par semaine » devient le rythme observé (plus d'alerte tant que ce rythme tient)
     const wk = Math.max(1, daysBetween(r.startDate, today()) / 7);
-    meta.hoursPerWeek = Math.round(chronoHours(userId, r.activityId, r.startDate, today()) / wk * 10) / 10 || meta.hoursPerWeek;
+    meta.hoursPerWeek = Math.round(chronoHours(userId, r.activityId, r.startDate, today()) / wk * 4) / 4 || meta.hoursPerWeek;
   } else if (action === 'prolonger') { // la période suivante gagne une semaine ; les suivantes et la fin d'objectif glissent de 7 jours
     let k = Number(n); // index de la période suivante = n (0-based) ; dernière période : on prolonge celle-ci
     if (!periods[k]) k = Number(n) - 1;

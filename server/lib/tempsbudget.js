@@ -81,7 +81,7 @@ function cell(userId, aid, level, pk, ck, endDate, inner) { // inner : « Hebdom
   return { id: o.id, min: h > 0 ? Math.round(h * 60) : null };
 }
 function writeHours(id, minutes) {
-  const meta = metaOf(id); meta.hoursPerWeek = Math.max(0, Math.round(minutes / 60 * 100) / 100);
+  const meta = metaOf(id); meta.hoursPerWeek = Math.max(0, Math.round(minutes / 15) / 4);
   db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), id);
 }
 
