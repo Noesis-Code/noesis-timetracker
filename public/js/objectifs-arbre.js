@@ -689,7 +689,7 @@
         var es = cells[r][ci];
         var gr = groupOf(r, ci), Wc = W; if (gr && gr.members[0] !== ci) return; // colonne absorbée : sa case morte est dessinée par le groupe
         if (skip[ci] && !gr) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols, skip[ci].ov, skip[ci].members)); return; }
-        if (gr) { es = []; if (lvl === 'secteur' && !skip[ci]) es = cells[r][gr.anchor].slice(); /* 4 semaines : au-dessus de la fusion seule la case du DOMINANT compte (jamais les titres des absorbés) */ else gr.members.forEach(function (q) { es = es.concat(cells[r][q]); }); }
+        if (gr) { es = []; if (lvl === 'secteur' && !skip[ci]) es = cells[r][gr.anchor].filter(function (e) { return weeksOf(e.o) > 1; }); /* les objectifs HEBDOMADAIRES ne font pas un objectif périodique : ils ne se comptent que dans le nombre */ /* 4 semaines : au-dessus de la fusion seule la case du DOMINANT compte (jamais les titres des absorbés) */ else gr.members.forEach(function (q) { es = es.concat(cells[r][q]); }); }
         var grTitle = gr && es.length > 1 ? es.map(function (e) { return fused[e.o.id] || e.o.title; }).filter(function (v, i2, a2) { return a2.indexOf(v) === i2; }).join(' · ') : null; // tous les objectifs du groupe sur la ligne, jamais l'un caché derrière l'autre
         var made = null;
         if (gr && skip[ci]) made = macroCard(skip[ci].m, today, ci, ci, W, curCols, recolor[r + ':' + ci] || curCols[gr.anchor].color, gr.members);
