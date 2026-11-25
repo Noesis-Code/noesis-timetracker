@@ -229,6 +229,7 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid .arFuseGlue > .goalsGridCell:first-child { border-radius: 12px 4px 4px 12px; }
 .arGrid .arFuseGlue > .goalsGridCell:last-child { border-radius: 4px 12px 12px 4px; }
 .arGrid .arDead.arDeadGrey { background: color-mix(in srgb, var(--text-light) 20%, transparent) !important; } /* absorbée sans objectif de la macro sur la ligne : gris des pointillés, sans couleur */
+.arGrid .arDead.arDeadGrey b { color: color-mix(in srgb, var(--text-light) 40%, transparent); } /* gris sans teinte de pôle (la macro n'a pas d'objectif sur la ligne) */
 .arGrid .arDead.arDive { pointer-events: auto; cursor: pointer; font: inherit; }
 /* titre d'une macro : centré en hauteur et en largeur dans sa case */
 .arGrid .arCard.arMacro { position: relative; }
