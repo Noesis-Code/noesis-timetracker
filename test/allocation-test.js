@@ -52,7 +52,7 @@ assert(bad === 4, 'valeur négative (plus de plafond d’heures), date invalide,
 const Q = { activityId: a1, level: 'activite' };
 A.set('u1', Q, '2030-01-01', 300); A.set('u1', Q, '2033-01-01', 480);
 const avg = A.average('u1', Q, '2030-01-01', '2034-12-31'); // 3 ans à 5 h, 2 ans à 8 h : (3 × 300 + 2 × 480) / 5 ≈ 372, arrondi au quart d'heure = 375
-assert(avg.minutes === 375 && avg.own === true, 'moyenne par semaine d\'une ligne de 5 ans : 5 h puis 8 h -> 6 h15 (quart d'heure) (' + avg.minutes + ' min), réglé');
+assert(avg.minutes === 375 && avg.own === true, 'moyenne par semaine d\'une ligne de 5 ans : 5 h puis 8 h -> 6 h15 (quart d’heure) (' + avg.minutes + ' min), réglé');
 const avg2 = A.average('u1', Q, '2036-01-01', '2036-12-31');
 assert(avg2.minutes === 480 && avg2.own === false, 'une ligne sans valeur posée reprend la précédente : 8 h, gris');
 const O = require('../server/lib/objectifs');
