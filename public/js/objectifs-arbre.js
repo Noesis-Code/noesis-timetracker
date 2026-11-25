@@ -34,11 +34,12 @@
   }
   function descendants(id, kids) { var out = {}; (function walk(i) { (kids[i] || []).forEach(function (k) { out[k.id] = true; walk(k.id); }); })(id); return out; }
   // MÊME cadre pour tous les objectifs : bordure fine de la couleur de l'activité (pleine, ou pointillée pour « à venir ») ; l'état = la teinte (vif, pâle, vide + pointillé, atténué).
+  function darkFill(c) { var m = /^#?([a-fd]{2})([a-fd]{2})([a-fd]{2})$/i.exec(String(c || '').trim()); if (!m) return false; var l = [1, 2, 3].map(function (i) { var v = parseInt(m[i], 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2] < 0.1; } // nuance très foncée (clarté relative < 0,10) : texte clair, la règle est la même pour toutes les nuances
   function paint(b, st, c) {
     // Carte PLEINE de la couleur de la colonne TELLE QUELLE (comme l'arbre périodique original), quel que soit l'état : aucun mélange, aucune variation de teinte ; sans liseré de couleur (le contour est celui du fond).
     // Aucune marque ni variation par état : seule la couleur de l'activité compte (demande d'Émilien). Texte lisible via TMT.readableTextOn.
     b.style.background = c; b.style.borderWidth = '2px'; b.style.borderStyle = 'solid'; b.style.borderColor = c; b.style.setProperty('--ar-c', c); // --ar-c : la règle de la page 2 rend les bordures transparentes (!important)
-    b.style.color = 'var(--bg)'; /* texte EN CREUX : de la couleur du fond de l'app (18 nov. 2026) */
+    b.style.color = darkFill(c) ? 'var(--text)' : 'var(--bg)'; /* nuance FONCÉE : texte clair (contraste lisible, même règle pour toutes les nuances) ; sinon texte EN CREUX : de la couleur du fond de l'app (18 nov. 2026) */
   }
   // L03 : un objectif ne se rattache qu'à un objectif de la MÊME ACTIVITÉ (toutes colonnes confondues : pôles et secteurs d'une activité sont des colonnes d'une même activité).
   var kidsAll = {};
@@ -688,12 +689,12 @@
         var es = cells[r][ci];
         var gr = groupOf(r, ci), Wc = W; if (gr && gr.members[0] !== ci) return; // colonne absorbée : sa case morte est dessinée par le groupe
         if (skip[ci] && !gr) { if (skip[ci].c0 === ci) row.appendChild(macroCard(skip[ci].m, today, skip[ci].c0, skip[ci].c1, W, curCols, skip[ci].ov, skip[ci].members)); return; }
-        if (gr) { es = []; gr.members.forEach(function (q) { es = es.concat(cells[r][q]); }); }
+        if (gr) { es = []; if (lvl === 'secteur' && !skip[ci]) es = cells[r][gr.anchor].slice(); /* 4 semaines : au-dessus de la fusion seule la case du DOMINANT compte (jamais les titres des absorbés) */ else gr.members.forEach(function (q) { es = es.concat(cells[r][q]); }); }
         var grTitle = gr && es.length > 1 ? es.map(function (e) { return fused[e.o.id] || e.o.title; }).filter(function (v, i2, a2) { return a2.indexOf(v) === i2; }).join(' · ') : null; // tous les objectifs du groupe sur la ligne, jamais l'un caché derrière l'autre
         var made = null;
         if (gr && skip[ci]) made = macroCard(skip[ci].m, today, ci, ci, W, curCols, recolor[r + ':' + ci] || curCols[gr.anchor].color, gr.members);
         else if (!es.length && c.col && c.col.ctx && absorbCutoff(c.col.ctx.activityId) != null && rowSpan(rw).start > absorbCutoff(c.col.ctx.activityId)) made = emptyCell(Wc, null, null, null, null, null); // au-delà de l'échéance de la macro : case grise morte, sans « + »
-        else if (!es.length) made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, gr && lvl === 'secteur' ? weeklyBelow(c, rw) : belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); }); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
+        else if (!es.length) made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, gr && lvl === 'secteur' ? weeklyBelow(data[gr.anchor] || c, rw) : belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); }); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
         else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) made = summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci, gr ? gr.members : null); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else made = card(grTitle || fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: grTitle || fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color, gr ? gr.members : null);
         if (gr) made = fuseNode(made, r, rw, gr, cells, recolor, links); // groupe fusionné : la macro + ses cases absorbées dans UN bloc de la largeur des colonnes liées
