@@ -119,6 +119,6 @@ function forMacro(userId, columns, anchorKey) {
 }
 // COULEUR ATTRIBUÉE À LA PLACE (Émilien, 18 nov. 2026) : le rang de nuance d'un pôle dans l'arbre = sa place dans l'ordre de présentation (ordre de base réarrangé par les fusions), pas une propriété du pôle. Map clé -> rang ; null si illisible (repli : rang du serveur).
 function placeRanks(userId, activityId) {
-  try { const ord = orderFor(userId, 'pole', String(activityId)), m = new Map(); ord.forEach((k, i) => m.set(k, i)); return m; } catch (e) { return null; }
+  try { const ord = orderFor(userId, 'pole', String(activityId)), m = new Map(); const sp = require('./categorystats').spreadRank; ord.forEach((k, i) => m.set(k, sp(i, ord.length))); return m; /* 25 nov. 2026 : nuances étalées sur les extrêmes selon le nombre de pôles */ } catch (e) { return null; }
 }
 module.exports = { placeRanks, baseOrder, orderFor, lire, ecrire, forMacro, arrange };

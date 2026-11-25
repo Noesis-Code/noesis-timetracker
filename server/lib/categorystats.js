@@ -96,6 +96,10 @@ function checkAccess(callerId, activityId, memberId) {
 // (« part de camembert séparée MAIS de la MÊME couleur que son pôle » —
 // seul un petit espace physique les distingue, affichage réservé au
 // chantier frontend séparé).
+// RÈGLE DES NUANCES (25 nov. 2026, Émilien) : 5 nuances par activité (0 = la plus claire … 4 = la plus foncée), TOUJOURS étalées sur les extrêmes selon le nombre de pôles actifs :
+// 1 pôle = [0] ; 2 = [0,4] ; 3 = [0,2,4] ; 4 = [0,1,3,4] ; 5 = [0..4]. Au-delà de 5 : le rang cyclique d'avant. Le rang est DÉRIVÉ (rien n'est stocké) : il se réajuste seul quand le nombre de pôles change.
+const SPREAD = { 1: [0], 2: [0, 4], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4] };
+function spreadRank(i, activeCount) { return SPREAD[activeCount] && i < activeCount ? SPREAD[activeCount][i] : i; }
 function shadeRanks(activityId) {
   const rows = db.prepare(
     'SELECT key, parentKey, removedAt FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
@@ -107,7 +111,7 @@ function shadeRanks(activityId) {
   const activeCount = poleRows.filter((r) => !r.removedAt).length;
   if (poleRows.length) {
     const ranks = new Map();
-    poleRows.forEach((r, i) => ranks.set(r.key, i));
+    poleRows.forEach((r, i) => ranks.set(r.key, spreadRank(i, activeCount)));
     rows.filter((r) => r.parentKey).forEach((r) => {
       if (ranks.has(r.parentKey)) ranks.set(r.key, ranks.get(r.parentKey));
     });
@@ -323,6 +327,7 @@ function categoryChart(userId, activityId, granularity, tz, viewScope) {
 
 module.exports = {
   shadeRanks,
+  spreadRank,
   categoryBreakdownForRange,
   categoryTimesheet,
   categoryChart,
