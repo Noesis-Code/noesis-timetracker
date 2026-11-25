@@ -118,13 +118,15 @@
     var b = belowOf(cc.col ? cc : { col: cc }, rw); return b ? b.n : 0;
   }
   function fuseNode(main, r, rw, gr, cells, recolor, links) {
+    var live = !main.classList.contains('goalsGridCell--empty'); // la macro a un objectif sur cette ligne : cases absorbées à SA teinte ; sinon gris neutre, mortes
     var k = gr.members.length, col = recolor[r + ':' + gr.members[0]] || curCols[gr.anchor].color;
     var glue = links.some(function (l) { return l.rank === rw.rank && l.cols.every(function (q) { return gr.members.indexOf(q) >= 0; }); });
     var wrap = el('div', 'arFuse arFuseGlue'); /* 24 nov. 2026 : sur TOUTES les lignes du groupe (jusqu'en haut) les cases restent collées ; seul le nombre est propre à la ligne de la fusion */ wrap.style.setProperty('--ar-c', col); cellSize(wrap, spanW('var(--ar-w)', k)); wrap.setAttribute('data-span', String(k)); wrap.style.setProperty('--k', String(k));
     gr.members.forEach(function (q) {
       var n;
       if (q === gr.anchor) n = main;
-      else { n = el('div', 'goalsGridCell arDead'); n.setAttribute('aria-hidden', 'true'); var cnt = annualCount(q, rw); if (glue && cnt > 0) n.appendChild(el('b', null, String(cnt))); }
+      else if (glue) { n = el('button', 'goalsGridCell arDead arDive'); n.type = 'button'; var cnt = annualCount(q, rw); if (cnt > 0) n.appendChild(el('b', null, String(cnt))); n.setAttribute('aria-label', tr('Ouvrir')); (function (qq) { n.addEventListener('click', function () { enterCell(rw, null, qq); }); })(q); } // ligne de la fusion : la case absorbée se touche pour DESCENDRE dedans (jamais de « + »)
+      else { n = el('div', 'goalsGridCell arDead' + (live ? '' : ' arDeadGrey')); n.setAttribute('aria-hidden', 'true'); }
       n.style.flex = ''; n.style.width = ''; wrap.appendChild(n); // largeur imposée par le CSS (--k) : toutes égales
     });
     return wrap;
@@ -312,6 +314,9 @@
   // Création depuis une case vide : cadre = la colonne, type = la ligne (bloc de 5 ans, année, période), échéance = la fin de la case.
   function createFrom(c, rw, endIso) { if (TMT.objectifsView && TMT.objectifsView.createAt) TMT.objectifsView.createAt({ ctx: c.col.ctx, endDate: endIso, start: rowSpan(rw).start, type: rw.block ? 'pluriannuel' : rw.w ? 'hebdomadaire' : rw.p ? 'periodique' : 'annuel', label: rw.w ? 'S' + rw.w + ' ' + rw.y : rw.p ? 'P' + rw.p + ' ' + rw.y : String(rw.y) }); }
   // Fin de la case (jour ISO) : fin de la période du réglage, ou de l'année ; null si elle n'est pas dans le futur.
+  function absorbCutoff(aid) { // activité ABSORBÉE par une macro : on peut y ajouter jusqu'à l'échéance de l'objectif qui absorbe (incluse), jamais au-delà ; null = sans limite
+    var cut = null; items.forEach(function (m) { if (!m.isMacro || (m.macroLevel || m.level || 'activite') !== 'activite' || !m.endDate || !m.activity || m.activity.id === aid) return; if ((m.macroColumns || []).some(function (mc) { return mc.activityId === aid; }) && (cut == null || m.endDate < cut)) cut = m.endDate; }); return cut;
+  }
   function rowEnd(rw) {
     var iso;
     if (rw.block) iso = rw.y2 + '-12-31';
@@ -682,6 +687,7 @@
         var grTitle = gr && es.length > 1 ? es.map(function (e) { return fused[e.o.id] || e.o.title; }).filter(function (v, i2, a2) { return a2.indexOf(v) === i2; }).join(' · ') : null; // tous les objectifs du groupe sur la ligne, jamais l'un caché derrière l'autre
         var made = null;
         if (gr && skip[ci]) made = macroCard(skip[ci].m, today, ci, ci, W, curCols, recolor[r + ':' + ci] || curCols[gr.anchor].color, gr.members);
+        else if (!es.length && c.col && c.col.ctx && absorbCutoff(c.col.ctx.activityId) != null && rowSpan(rw).start > absorbCutoff(c.col.ctx.activityId)) made = emptyCell(Wc, null, null, null, null, null); // au-delà de l'échéance de la macro : case grise morte, sans « + »
         else if (!es.length) made = emptyCell(Wc, rowEnd(rw), function (endIso) { createFrom(c, rw, endIso); }, belowOf(c, rw), function () { createFrom(c, rw, rowEnd(rw)); }, function () { enterCell(rw, c, ci); }); // « + » d'une case VIDE = ajouter un objectif (activité, niveau et échéance de la case) ; ailleurs dans la case = y entrer
         else if (zoom === 'year' || (zoom === 'block' && es.length > 1)) made = summaryCard(es.map(function (e) { return e.o; }), recolor[r + ':' + ci] || c.color, Wc, rw.y, ci, gr ? gr.members : null); // arbre des années : le résumé des grands objectifs de l'année = l'« objectif annuel »
         else made = card(grTitle || fused[es[0].o.id] ? Object.assign({}, es[0].o, { title: grTitle || fused[es[0].o.id] }) : es[0].o, today, c.all, mode, Wc, calTap(rw, c), ci, recolor[r + ':' + ci] || c.color, gr ? gr.members : null);

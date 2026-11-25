@@ -228,3 +228,5 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid .arFuseGlue > .goalsGridCell { border-radius: 4px; }
 .arGrid .arFuseGlue > .goalsGridCell:first-child { border-radius: 12px 4px 4px 12px; }
 .arGrid .arFuseGlue > .goalsGridCell:last-child { border-radius: 4px 12px 12px 4px; }
+.arGrid .arDead.arDeadGrey { background: color-mix(in srgb, var(--text-light) 20%, transparent) !important; } /* absorbée sans objectif de la macro sur la ligne : gris des pointillés, sans couleur */
+.arGrid .arDead.arDive { pointer-events: auto; cursor: pointer; font: inherit; }
