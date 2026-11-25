@@ -230,3 +230,11 @@ html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { displa
 .arGrid .arFuseGlue > .goalsGridCell:last-child { border-radius: 4px 12px 12px 4px; }
 .arGrid .arDead.arDeadGrey { background: color-mix(in srgb, var(--text-light) 20%, transparent) !important; } /* absorbée sans objectif de la macro sur la ligne : gris des pointillés, sans couleur */
 .arGrid .arDead.arDive { pointer-events: auto; cursor: pointer; font: inherit; }
+/* titre d'une macro : centré en hauteur et en largeur dans sa case */
+.arGrid .arCard.arMacro > .goalsGridCellText { display: flex; align-items: center; justify-content: center; align-self: stretch; padding: 0 4px; }
+.arGrid .arCard.arMacro .arCardName { margin: 0; text-align: center; }
+/* fusion de SECTEURS : deux cases collées, SANS remplissage, contour plein sur chaque case (clair ; gris quand le secteur qui absorbe n'a pas d'objectif sur la ligne) */
+.arGrid .arFuseSect { --ar-line: color-mix(in srgb, var(--text) 75%, transparent); }
+.arGrid .arFuseSect.arFuseGrey { --ar-line: color-mix(in srgb, var(--text-light) 45%, transparent); }
+.arGrid .arFuse.arFuseSect > .goalsGridCell { background: none !important; box-shadow: none !important; border: 0 !important; outline: 1.5px solid var(--ar-line) !important; outline-offset: -1.5px; color: var(--text); }
+.arGrid .arFuse.arFuseSect > .arMacro .arCardName { color: var(--text); }

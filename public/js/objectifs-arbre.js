@@ -115,13 +115,14 @@
   function annualCount(q, rw) { // nombre d'objectifs ANNUELS de la case absorbée (même nombre que dans la vue annuelle) : ceux de son activité dont l'échéance tombe dans le bloc de la ligne
     var cc = curCols[q], x = cc && (cc.col ? cc.col.ctx : cc.ctx); if (!x) return 0;
     if (lvl === 'activite' && rw.block) { var n = 0; items.forEach(function (o) { if (o.isMacro || o.abandoned || o.activity.id !== x.activityId || lv(o) !== 'annee') return; var y = Number(String(o.endDate).slice(0, 4)); if (y >= rw.y && y <= rw.y2) n++; }); return n; }
+    if (lvl === 'pole' && x.poleKey != null) { var act = actOf(x.activityId), fp = act && act.poles && act.poles[0] ? act.poles[0].key : null, np = 0; items.forEach(function (o) { if (o.isMacro || o.abandoned || o.activity.id !== x.activityId || (o.poleKey || fp) !== x.poleKey || lv(o) !== 'periode') return; if (periodOf(o.endDate).y === rw.y) np++; }); return np; } // niveau juste en dessous : les objectifs de période du pôle dans l'année
     var b = belowOf(cc.col ? cc : { col: cc }, rw); return b ? b.n : 0;
   }
   function fuseNode(main, r, rw, gr, cells, recolor, links) {
     var live = !main.classList.contains('goalsGridCell--empty'); // la macro a un objectif sur cette ligne : cases absorbées à SA teinte ; sinon gris neutre, mortes
     var k = gr.members.length, col = recolor[r + ':' + gr.members[0]] || curCols[gr.anchor].color;
     var glue = links.some(function (l) { return l.rank === rw.rank && l.cols.every(function (q) { return gr.members.indexOf(q) >= 0; }); });
-    var wrap = el('div', 'arFuse arFuseGlue'); /* 24 nov. 2026 : sur TOUTES les lignes du groupe (jusqu'en haut) les cases restent collées ; seul le nombre est propre à la ligne de la fusion */ wrap.style.setProperty('--ar-c', col); cellSize(wrap, spanW('var(--ar-w)', k)); wrap.setAttribute('data-span', String(k)); wrap.style.setProperty('--k', String(k));
+    var wrap = el('div', 'arFuse arFuseGlue' + (lvl === 'secteur' ? ' arFuseSect' + (live ? '' : ' arFuseGrey') : '')); /* 24 nov. 2026 : sur TOUTES les lignes du groupe (jusqu'en haut) les cases restent collées ; seul le nombre est propre à la ligne de la fusion */ wrap.style.setProperty('--ar-c', col); cellSize(wrap, spanW('var(--ar-w)', k)); wrap.setAttribute('data-span', String(k)); wrap.style.setProperty('--k', String(k));
     gr.members.forEach(function (q) {
       var n;
       if (q === gr.anchor) n = main;
