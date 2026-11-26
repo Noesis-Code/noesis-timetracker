@@ -9,7 +9,7 @@
     "build:release": "cap sync android && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
-    "@capacitor/android": "7.4.3",
+    "@capacitor/android": "7.6.9",
     "@capacitor/core": "7.4.3",
     "@capacitor/ios": "7.4.3",
     "@capacitor/keyboard": "^7.0.6"
