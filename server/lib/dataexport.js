@@ -267,6 +267,20 @@ function buildUserExport(userId) {
      FROM blocks b JOIN users u ON u.id = b.blockedId WHERE b.blockerId = ? ORDER BY b.createdAt`,
     userId
   ) : [];
+  // Communautés (1er nov. 2026) : celles que la personne a créées, celles qu'elle a rejointes, et ses messages.
+  const communitiesOut = has('communities') ? {
+    created: rows('SELECT id, name, topic, sector, priceCents, createdAt FROM communities WHERE ownerId = ? ORDER BY id', userId),
+    joined: rows(`SELECT c.id, c.name, m.joinedAt FROM community_members m JOIN communities c ON c.id = m.communityId
+      WHERE m.userId = ? ORDER BY m.joinedAt`, userId),
+  } : { created: [], joined: [] };
+  const communityPostsOut = has('community_posts') ? rows(
+    'SELECT id, communityId, body, createdAt FROM community_posts WHERE userId = ? ORDER BY id', userId) : [];
+  // Réseau personnel privé (2 nov. 2026) : contacts, notes et liens saisis par la personne.
+  const networkContactsOut = has('network_contacts') ? rows(
+    'SELECT id, name, company, role, whereMet, city, workCity, interests, skills, strength, lastTouchAt, followUpAt, createdAt FROM network_contacts WHERE ownerId = ? ORDER BY id', userId) : [];
+  const networkNotesOut = has('network_notes') ? rows(
+    'SELECT id, contactId, body, createdAt FROM network_notes WHERE ownerId = ? ORDER BY id', userId) : [];
+  const networkEdgesOut = has('network_edges') ? rows('SELECT a, b FROM network_edges WHERE ownerId = ? ORDER BY a, b', userId) : [];
   const clientProfileForm = has('client_profile_forms')
     ? row('SELECT answers, updatedAt FROM client_profile_forms WHERE userId = ?', userId) || null : null;
   const goalTimeCaps = has('goal_time_caps') ? rows(
@@ -279,6 +293,52 @@ function buildUserExport(userId) {
      FROM goal_capacity_overrides o JOIN activities a ON a.id = o.activityId WHERE o.userId = ?`,
     userId
   ) : [];
+  // Objectifs de l'arbre (Loi 25) : titre, durée, dates, étapes, description, lien parent/enfant, objectifs refusés pour une fusion.
+  const objectives = has('user_objectives') ? rows(
+    `SELECT o.id, o.activityId, a.name AS activityName, o.title, o.amount, o.unit, o.startDate, o.endDate, o.periodWeeks, o.weekly,
+            o.level, o.poleKey, o.categoryKey, o.parentId, o.parentRel, o.position, o.isMacro, o.stepsJson, o.taskIdsJson, o.metaJson, o.createdAt
+     FROM user_objectives o LEFT JOIN activities a ON a.id = o.activityId WHERE o.userId = ? ORDER BY o.id`,
+    userId
+  ).map((o) => {
+    const parse = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
+    const { stepsJson, taskIdsJson, metaJson, ...rest } = o;
+    const meta = parse(metaJson, {});
+    return { ...rest, description: meta.description || null, periodes: parse(stepsJson, []), taskIds: parse(taskIdsJson, []), meta };
+  }) : [];
+  // Le passé n'est visible QUE par cet export (aucune interface d'archives) : TOUS les objectifs (réalisés et anciens abandonnés compris), état explicite, noms lisibles,
+  // enfants, macros (activités / colonnes reliées), périodes dépliées. Format décrit dans docs/objectifs/export-objectifs.md.
+  if (objectives.length) {
+    let byId = {};
+    try { require('./objectifs').liste(userId, 'tous', { liens: true }).forEach((x) => { byId[x.id] = x; }); } catch (e) { byId = {}; }
+    const poleLabel = {}, sectLabel = {};
+    const goalsLib = require('./goals');
+    const labelsOf = (aid) => {
+      if (poleLabel[aid]) return;
+      poleLabel[aid] = {}; sectLabel[aid] = {};
+      try { goalsLib.categoriesForActivity(aid).forEach((p) => { poleLabel[aid][p.key] = p.label; goalsLib.secteursForPole(aid, p.key).forEach((s) => { sectLabel[aid][p.key + '/' + s.key] = s.label; }); }); } catch (e) { /* noms illisibles : clés seules */ }
+    };
+    const kids = {}; objectives.forEach((o) => { if (o.parentId != null) (kids[o.parentId] = kids[o.parentId] || []).push(o.id); });
+    objectives.forEach((o) => {
+      const d = byId[o.id] || {};
+      labelsOf(o.activityId);
+      o.niveau = o.level || 'activite';
+      o.poleName = o.poleKey ? (poleLabel[o.activityId][o.poleKey] || null) : null;
+      o.categoryName = o.categoryKey ? (sectLabel[o.activityId][o.poleKey + '/' + o.categoryKey] || null) : null;
+      const weeks = (Array.isArray(o.periodes) ? o.periodes : []).reduce((a, p) => a.concat((p && p.weeks) || []), []);
+      const reached = d.status ? d.status === 'atteint' : (weeks.length > 0 && weeks.every((w) => w.done)); // repli si la ligne n'a pas pu être lue par liste()
+      o.atteintLe = (o.meta && (o.meta.atteintConfirme || o.meta.atteintLe)) || null; // date d'atteinte (confirmée par la personne, sinon première lecture « atteint »)
+      o.etat = (o.meta && o.meta.abandoned) ? 'abandonne' : (reached ? 'realise' : 'en_cours');
+      o.isMacro = !!o.isMacro;
+      o.enfants = kids[o.id] || [];
+      if (o.isMacro) { o.macroActivities = d.macroActivities || []; o.macroColumns = d.macroColumns || []; o.childMacroIds = d.childMacroIds || []; }
+    });
+  }
+  const objectiveColumnOrder = has('objectifs_ordre') ? rows('SELECT level, scopeKey, orderJson, updatedAt FROM objectifs_ordre WHERE userId = ? ORDER BY level, scopeKey', userId).map((r) => { let order = []; try { order = JSON.parse(r.orderJson); } catch (e) { order = []; } return { level: r.level, scope: r.scopeKey, order, updatedAt: r.updatedAt }; }) : [];
+  // Objectifs SUPPRIMÉS qui avaient au moins une tâche terminée (le suivi existe : il figure dans l'export) ; un objectif supprimé sans tâche terminée n'a aucune trace.
+  const objectivesDeleted = has('objectifs_supprimes') ? rows('SELECT objectifId, title, activityId, activityName, createdOn, deletedOn, tasksDone FROM objectifs_supprimes WHERE userId = ? ORDER BY deletedOn, id', userId).map((r) => ({ ...r, etat: 'supprime', resume: 'supprimé le ' + r.deletedOn + (r.createdOn ? ', suivi depuis le ' + r.createdOn : '') })) : [];
+  const objectiveRefusals = has('objectifs_refus') ? rows(
+    'SELECT objectifId, candidateId, createdAt FROM objectifs_refus WHERE userId = ? ORDER BY objectifId, candidateId', userId) : [];
+  const fusionAbsorptions = has('fusion_absorption') ? rows('SELECT level, absorbingActivityId, absorbingPoleKey, absorbingKey, absorbedActivityId, absorbedPoleKey, absorbedKey, fromDate, macroId, createdAt FROM fusion_absorption WHERE userId = ? ORDER BY fromDate, id', userId) : [];
   const dailySuggestionSettings = has('daily_suggestion_settings')
     ? row('SELECT declaredMinutes, updatedAt FROM daily_suggestion_settings WHERE userId = ?', userId) || null : null;
   // Abonnement payant : état et dates seulement, jamais les identifiants Stripe.
@@ -416,9 +476,19 @@ function buildUserExport(userId) {
     goalCategories,
     tasks,
     blockedUsers: blocked,
+    communities: communitiesOut,
+    communityPosts: communityPostsOut,
+    networkContacts: networkContactsOut,
+    networkNotes: networkNotesOut,
+    networkEdges: networkEdgesOut,
     clientProfileForm,
     goalTimeCaps,
     goalCapacityOverrides,
+    objectives,
+    objectiveRefusals,
+    objectivesDeleted,
+    fusionAbsorptions,
+    objectiveColumnOrder,
     dailySuggestionSettings,
     subscriptions,
     horaire,

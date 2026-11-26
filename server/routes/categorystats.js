@@ -38,6 +38,7 @@ const {
 // n'est modifiée, elle est seulement appelée — comme le font déjà
 // community.js, history.js et profile.js.
 const { periodRange } = require('../lib/period');
+const { currentGridPeriodRange } = require('../lib/stats');
 
 const router = express.Router();
 
@@ -68,8 +69,8 @@ router.get('/category-stats', (req, res) => {
   // `from`/`to` restent PRIORITAIRES : aucun appelant existant ne change de
   // comportement, et la discipline « on ne recalcule jamais une période quand
   // l'écran d'où l'on vient en affiche déjà une » reste intacte.
-  if (!from && !to && ['day', 'week', 'month', 'year'].includes(String(req.query.period || ''))) {
-    const range = periodRange(String(req.query.period), null, req.timezone);
+  if (!from && !to && ['day', 'week', 'month', 'period', 'year'].includes(String(req.query.period || ''))) {
+    const range = String(req.query.period) === 'period' ? currentGridPeriodRange(req.timezone) : periodRange(String(req.query.period), null, req.timezone);
     from = range.start;
     to = range.end;
     periodLabel = range.label;
@@ -92,7 +93,7 @@ router.get('/category-stats', (req, res) => {
     'SELECT color FROM activity_members WHERE activityId = ? AND userId = ?'
   ).get(activityId, targetId);
 
-  const data = categoryBreakdownForRange(targetId, activityId, from, to, req.timezone);
+  const data = categoryBreakdownForRange(targetId, activityId, from, to, req.timezone, access.viewScope);
 
   res.json(Object.assign({
     activityName: access.activity.name,
@@ -123,13 +124,13 @@ router.get('/category-timesheet', (req, res) => {
   if (access.error) return res.status(access.error.status).json(access.error.body);
   const targetId = access.targetId;
 
-  const period = req.query.period === 'month' ? 'month' : 'week';
-  const rawOffset = Number(period === 'month' ? req.query.monthOffset : req.query.weekOffset);
+  const period = req.query.period === 'period' ? 'period' : req.query.period === 'month' ? 'month' : 'week';
+  const rawOffset = Number(period === 'period' ? req.query.periodOffset : period === 'month' ? req.query.monthOffset : req.query.weekOffset);
   const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
 
-  const grid = categoryTimesheet(targetId, activityId, period, offset, req.timezone);
+  const grid = categoryTimesheet(targetId, activityId, period, offset, req.timezone, access.viewScope);
   // La répartition porte sur EXACTEMENT les bornes de la grille ci-dessus.
-  const breakdown = categoryBreakdownForRange(targetId, activityId, grid.start, grid.end, req.timezone);
+  const breakdown = categoryBreakdownForRange(targetId, activityId, grid.start, grid.end, req.timezone, access.viewScope);
 
   const member = db.prepare('SELECT name, lastName FROM users WHERE id = ?').get(targetId);
   const membership = db.prepare(
@@ -176,7 +177,7 @@ router.get('/category-chart', (req, res) => {
       memberId: access.targetId,
       baseColor: membership ? membership.color : '#3498db',
     },
-    categoryChart(access.targetId, activityId, String(req.query.granularity || 'day'), req.timezone),
+    categoryChart(access.targetId, activityId, String(req.query.granularity || 'day'), req.timezone, access.viewScope),
   ));
 });
 
@@ -195,6 +196,26 @@ router.get('/category-stats/activities', (req, res) => {
   }
 
   res.json({ from, to, activityIds: activitiesWithCategoryTime(userId, from, to) });
+});
+
+// Temps par membre (8 nov. 2026, Émilien) : tableau de tous les temps (activité, pôles, membres) + historique continu
+// des changements de temps prévu + « Changements demandés ». Logique : server/lib/tempsmembres.js (sans IA).
+const tempsMembres = require('../lib/tempsmembres');
+router.get('/member-times', (req, res) => {
+  const activityId = Number(req.query.activityId);
+  if (!Number.isInteger(activityId) || activityId <= 0) return res.status(400).json({ error: 'Activité invalide.' });
+  const r = tempsMembres.tableFor(activityId, req.userId);
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json(r);
+});
+router.post('/member-times', (req, res) => {
+  const b = req.body || {};
+  const r = tempsMembres.changePlanned({
+    activityId: b.activityId, poleKey: b.poleKey, memberId: b.memberId || req.userId, changedBy: req.userId,
+    afterMin: b.afterMin, origin: b.origin, fromActivityId: b.fromActivityId, fromPoleKey: b.fromPoleKey, withMemberId: b.withMemberId,
+  });
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.json(r);
 });
 
 module.exports = router;

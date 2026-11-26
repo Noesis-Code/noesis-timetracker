@@ -1,156 +1,199 @@
-// Statistiques de groupe de la Feuille de route : « Tâches par membre » (réalisation des tâches et des objectifs par membre, activités partagées).
-// Page tout à droite des statistiques de la Feuille de route : [ Feuille de route | Tâches | Objectifs | Groupe ] (demande d'Émilien, 26 oct. 2026).
-// Avant, cette page vivait dans la fenêtre Activité (page 2 de Statistiques) ; elle est désormais ici (#statsGroupPage, GET /api/stats/activity-members).
+// Tâches récurrentes (carte du volet Bilan) et fenêtre « Partager les tâches » (calcul sans IA : server/lib/partagetaches.js).
+// La page « Groupe » de la Feuille de route, « Qui fait quoi » et « Tâches faites » sont supprimés (18 nov. 2026).
+// Données : GET /api/stats/recurring-tasks, GET/POST /api/stats/task-share.
 (function () {
   'use strict';
   var TMT = window.TMT;
-  var host = document.getElementById('sgBody'), chips = document.getElementById('sgChips'), empty = document.getElementById('sgEmpty');
-  if (!host || !chips || !empty) return;
   function tr(s) { return typeof window.t === 'function' ? window.t(s) : s; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
-  var actId = null, scope = 'year', seq = 0, built = false, loadedKey = null, body;
+  var actId = null, recCat = null, recScope = 'year', recSeq = 0; // recCat : pôle ou secteur choisi dans le Bilan (null = toute l'activité)
   var SCOPES = [['all', 'Tout'], ['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
-  var chartBody, chartMeta;
+  var recBody, recMeta;
 
-  function avatar(m) {
-    var a = el('span', 'smallAvatar');
-    if (m.avatar) { var im = document.createElement('img'); im.src = m.avatar; im.alt = ''; a.appendChild(im); a.style.background = 'transparent'; }
-    else { a.textContent = (m.name || '?').trim().charAt(0).toUpperCase(); a.style.background = m.color || 'var(--purple)'; }
-    return a;
+  function scopeLabel(s) { var c = SCOPES.filter(function (x) { return x[0] === s; })[0]; return c ? '· ' + tr(c[1]) : ''; }
+  function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  // Durées : « 1 h 30 », « 3 h », « 20 min ».
+  function fmtMin(m) {
+    return TMT.ui.heures(m); // UN SEUL format d'heures (composants.js)
   }
-  function line(label, value) {
-    var r = el('div', 'caTaskLine'); r.appendChild(el('span', null, label)); r.appendChild(el('strong', null, value)); return r;
+  // Saisie libre : « 1 h 30 », « 1h30 », « 20 min », « 1,5 » (heures), « 2 » (heures). null si illisible.
+  function parseMin(s) {
+    s = String(s || '').trim().toLowerCase().replace(',', '.');
+    var m = /^(\d+(?:\.\d+)?)\s*h\s*(\d{1,2})?\s*(?:min)?$/.exec(s); if (m) return Math.round(Number(m[1]) * 60 + Number(m[2] || 0));
+    m = /^(\d+)\s*min$/.exec(s); if (m) return Number(m[1]);
+    m = /^(\d+(?:\.\d+)?)$/.exec(s); if (m) return Math.round(Number(m[1]) * 60);
+    return null;
   }
-  function setMeta() { if (!chartMeta) return; var c = SCOPES.filter(function (x) { return x[0] === scope; })[0]; chartMeta.textContent = c ? '· ' + tr(c[1]) : ''; }
-  function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
-  // Courbes cumulées des tâches faites, une par membre (même gabarit que le graphique « Chemin parcouru »).
-  function chartSvg(sr, colors) {
-    var labels = sr.labels || [], n = labels.length;
-    if (n < 2) return null;
-    var W = 300, H = 140, L = 26, R = 292, T = 8, B = 112, mx = Math.max(1, sr.max || 1);
-    var x = function (i) { return L + (R - L) * i / (n - 1); }, y = function (v) { return B - (B - T) * v / mx; };
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(tr('Tâches par membre')) + '">';
-    [0, mx / 2, mx].forEach(function (v) {
-      s += '<line class="saGrid" x1="' + L + '" x2="' + R + '" y1="' + y(v) + '" y2="' + y(v) + '"/><text class="saTick" x="' + (L - 4) + '" y="' + (y(v) + 3) + '" text-anchor="end">' + Math.round(v * 10) / 10 + '</text>';
-    });
-    var step = Math.max(1, Math.ceil(n / 7));
-    labels.forEach(function (l, i) { if (l !== '' && (i % step === 0 || i === n - 1 && (n - 1) % step >= Math.ceil(step / 2))) s += '<text class="saTick" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(l) + '</text>'; });
-    if (!sr.noToday && sr.todayIndex != null) s += '<line class="saToday" x1="' + x(sr.todayIndex) + '" x2="' + x(sr.todayIndex) + '" y1="' + T + '" y2="' + B + '"/>';
-    sr.members.forEach(function (m, k) {
-      var pts = [], last = -1;
-      m.values.forEach(function (v, i) { if (v != null) { pts.push((pts.length ? 'L' : 'M') + x(i) + ',' + y(v)); last = i; } });
-      if (!pts.length) return;
-      s += '<path d="' + pts.join(' ') + '" fill="none" stroke="' + colors[k] + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
-      s += '<circle cx="' + x(last) + '" cy="' + y(m.values[last]) + '" r="3" fill="' + colors[k] + '" stroke="#fff" stroke-width="1.2"/>';
-    });
-    return s + '</svg>';
-  }
-  function renderChart(d) {
-    chartBody.textContent = '';
-    var sr = d.series;
-    if (!sr || !sr.members.length) { chartBody.appendChild(el('p', 'hint', '—')); return; }
-    var colors = TMT.caMemberColors ? TMT.caMemberColors(sr.members) : sr.members.map(function (m) { return m.color || '#674EA7'; });
-    var svg = chartSvg(sr, colors);
-    if (!svg) { chartBody.appendChild(el('p', 'hint', '—')); return; }
-    var c = el('div'); c.innerHTML = svg; chartBody.appendChild(c);
-    var lg = el('div', 'saLegend');
-    sr.members.forEach(function (m, k) { var sp = el('span'), i = el('i', 'saSw'); i.style.background = colors[k]; sp.appendChild(i); sp.appendChild(document.createTextNode(m.name)); lg.appendChild(sp); });
-    chartBody.appendChild(lg);
-  }
-  function build() {
-    if (built) return; built = true;
-    var card = el('div', 'caTaskPage');
-    var chartCard = el('div', 'saCard saGlass caTaskChartCard');
-    var row = el('div', 'saHd');
-    var ttl = el('p', 'sectionTitle', tr('Tâches par membre') + ' '); chartMeta = el('span', 'meta'); ttl.appendChild(chartMeta); row.appendChild(ttl);
+
+  // Menu ⋮ des portées (Tout / Année / Période / Semaine), composant commun .statsPeriodMenu.
+  function scopeMenu(getScope, onPick) {
     var wrap = el('div', 'statsPeriodMenuWrap');
     var btn = el('button', 'menuBtn', '⋮'); btn.type = 'button'; btn.setAttribute('aria-haspopup', 'true'); btn.setAttribute('aria-label', tr('Choisir la période'));
     var menu = el('div', 'statsPeriodMenu hidden');
     SCOPES.forEach(function (o) {
-      var it = el('button', 'statsPeriodMenuItem' + (o[0] === scope ? ' active' : ''), tr(o[1])); it.type = 'button'; it.setAttribute('data-scope', o[0]);
+      var it = el('button', 'statsPeriodMenuItem' + (o[0] === getScope() ? ' active' : ''), tr(o[1])); it.type = 'button'; it.setAttribute('data-scope', o[0]);
       it.addEventListener('click', function () {
         menu.classList.add('hidden');
-        if (o[0] === scope) return;
-        scope = o[0]; setMeta();
-        Array.prototype.forEach.call(menu.children, function (b) { b.classList.toggle('active', b.getAttribute('data-scope') === scope); });
-        load(true);
+        if (o[0] === getScope()) return;
+        Array.prototype.forEach.call(menu.children, function (b) { b.classList.toggle('active', b.getAttribute('data-scope') === o[0]); });
+        onPick(o[0]);
       });
       menu.appendChild(it);
     });
+    // Ouvert, le menu est posé sur la page par le mécanisme commun (composants.js) : au-dessus des sections, en verre.
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       var willOpen = menu.classList.contains('hidden');
       document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
       if (willOpen) menu.classList.remove('hidden');
     });
-    wrap.appendChild(btn); wrap.appendChild(menu); row.appendChild(wrap); chartCard.appendChild(row);
-    chartBody = el('div'); chartCard.appendChild(chartBody); card.appendChild(chartCard); setMeta();
-    body = el('div', 'caTaskBody'); card.appendChild(body); host.appendChild(card);
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    return wrap;
   }
-  function render(d) {
-    renderChart(d);
-    body.textContent = '';
-    var sum = el('div', 'caTaskCard caTaskSummary');
-    sum.appendChild(line(tr('Tâches faites'), d.total.done + ' / ' + d.total.tasks));
-    sum.appendChild(line(tr('Restantes'), String(d.total.remaining)));
-    body.appendChild(sum);
-    if (!d.members.length || !d.total.tasks) body.appendChild(el('p', 'hint', tr('Aucune tâche sur cette période.')));
-    d.members.forEach(function (m, i) {
-      var c = el('div', 'caTaskCard'), head = el('div', 'caTaskHead');
-      head.appendChild(el('span', 'caTaskRank', String(i + 1)));
-      head.appendChild(avatar(m));
-      head.appendChild(el('span', 'caTaskName', m.lastName ? m.name + ' ' + m.lastName : m.name));
-      head.appendChild(el('strong', null, m.done + ' / ' + m.assigned));
-      c.appendChild(head);
-      var bar = el('div', 'caTaskBar'), fill = el('div', 'caTaskFill ' + (m.assigned && !m.good ? 'bad' : 'good'));
-      fill.style.width = (m.assigned ? m.donePct : 0) + '%'; bar.appendChild(fill); c.appendChild(bar);
-      c.appendChild(line(tr('Faites à la date prévue'), m.onTimePct == null ? '—' : m.onTimePct + ' %'));
-      c.appendChild(line(tr('En retard'), String(m.late)));
-      body.appendChild(c);
+  function cardHead(card, title, meta, menu) {
+    var row = el('div', 'saHd');
+    var ttl = el('p', 'sectionTitle', tr(title) + ' '); ttl.appendChild(meta); row.appendChild(ttl);
+    row.appendChild(menu); card.appendChild(row);
+  }
+
+  // Tableau « Tâches récurrentes » : lignes = tâches, colonnes = membres, nombre de fois faite.
+  function renderRecurring(d) {
+    recBody.textContent = '';
+    if (!d.rows.length || !d.members.length) { recBody.appendChild(el('p', 'hint cmpEmpty', tr('Aucune tâche récurrente.'))); return; }
+    var tb = el('table', 'shrTable'), th = el('tr');
+    th.appendChild(el('th'));
+    d.members.forEach(function (m) { th.appendChild(el('th', null, m.name)); });
+    var head = el('thead'); head.appendChild(th); tb.appendChild(head);
+    var body = el('tbody');
+    d.rows.forEach(function (r) {
+      var row = el('tr'); row.appendChild(el('td', 'shrTask', r.label));
+      r.counts.forEach(function (c) { row.appendChild(el('td', 'shrCount', String(c))); });
+      body.appendChild(row);
     });
+    tb.appendChild(body); recBody.appendChild(tb);
   }
-  function load(force) {
+  function loadRecurring() {
     if (!actId) return;
-    var key = actId + '|' + scope;
-    if (!force && key === loadedKey) return;
-    build();
-    var my = ++seq;
-    TMT.api('GET', '/api/stats/activity-members?activityId=' + encodeURIComponent(actId) + '&scope=' + scope).then(function (d) {
-      if (my !== seq) return; loadedKey = key; render(d);
-    }).catch(function (err) { if (my === seq) { body.textContent = ''; body.appendChild(el('p', 'hint', err.message)); } });
+    var my = ++recSeq;
+    TMT.api('GET', '/api/stats/recurring-tasks?activityId=' + encodeURIComponent(actId) + '&scope=' + recScope + (recCat ? '&cat=' + encodeURIComponent(recCat) : '')).then(function (d) {
+      if (my === recSeq) renderRecurring(d);
+    }).catch(function (err) { if (my === recSeq) { recBody.textContent = ''; recBody.appendChild(el('p', 'hint', err.message)); } });
+  }
+  // ---- Fenêtre « Partager les tâches » (pop-up centré, ✕ en haut à droite, verre commun) ----
+  function openShare(activityId) {
+    var mode = 'week', data = null, wantedEdit = {}, minutesEdit = {}, pick = {}, mySeq = 0;
+    var veil = el('div', 'cmpConfirmVeil'), card = el('div', 'cmpConfirmCard cmpGlass shrShare');
+    card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', tr('Partager les tâches'));
+    var head = el('div', 'shrShareHead'); head.appendChild(el('h2', null, tr('Partager les tâches')));
+    var x = TMT.ui.closeBtn(null, tr('Fermer')); head.appendChild(x); card.appendChild(head);
+    var seg = el('div', 'cmpSeg');
+    [['week', 'Semaine prochaine'], ['period', 'Période']].forEach(function (o) {
+      var b = el('button', o[0] === mode ? 'active' : '', tr(o[1])); b.type = 'button'; b.setAttribute('data-mode', o[0]);
+      b.addEventListener('click', function () {
+        if (mode === o[0]) return; mode = o[0];
+        Array.prototype.forEach.call(seg.children, function (c) { c.classList.toggle('active', c.getAttribute('data-mode') === mode); });
+        fetchProposal();
+      });
+      seg.appendChild(b);
+    });
+    card.appendChild(seg);
+    var body = el('div', 'shrShareBody'); card.appendChild(body);
+    var ok = el('button', 'cmpBtn', tr('Valider le partage')); ok.type = 'button'; card.appendChild(ok);
+    veil.appendChild(card);
+    function close() { document.removeEventListener('keydown', onKey, true); veil.remove(); }
+    function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
+    x.addEventListener('click', close);
+    veil.addEventListener('click', function (e) { if (e.target === veil) close(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(veil);
+
+    function minutesOf(t) { return minutesEdit[t.id] != null ? minutesEdit[t.id] : t.minutes; }
+    function wantedOf(m) { return wantedEdit[m.userId] != null ? wantedEdit[m.userId] : m.wanted; }
+    function pill(cls, value, onCommit, label) {
+      var i = el('input', 'shrPill ' + (cls || '')); i.type = 'text'; i.inputMode = 'text'; i.value = fmtMin(value); i.setAttribute('aria-label', label);
+      i.addEventListener('focus', function () { i.select(); });
+      i.addEventListener('change', function () { var v = parseMin(i.value); if (v == null) { i.value = fmtMin(value); return; } value = v; i.value = fmtMin(v); onCommit(v); });
+      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); i.blur(); } });
+      return i;
+    }
+    function draw() {
+      body.textContent = '';
+      if (!data) return;
+      var colors = memberColors(data.members), colorOf = {};
+      data.members.forEach(function (m, k) { colorOf[m.userId] = colors[k]; });
+      if (!data.tasks.length) body.appendChild(el('p', 'hint cmpEmpty', tr('Aucune tâche récurrente.')));
+      else {
+        var hd = el('div', 'shrRow shrHeadRow'); hd.appendChild(el('span', 'shrLabel', tr('Tâche récurrente'))); hd.appendChild(el('span', 'shrResp', tr('Exécutant'))); hd.appendChild(el('span', 'shrHours', tr('h / sem.'))); body.appendChild(hd);
+        data.tasks.forEach(function (t) {
+          var row = el('div', 'shrRow'); row.appendChild(el('span', 'shrLabel', t.label));
+          var resp = el('label', 'shrResp shrPick'), dot = el('i', 'shrDot'), sel = el('select');
+          sel.setAttribute('aria-label', tr('Exécutant') + ' : ' + t.label);
+          data.members.forEach(function (m) { var o = el('option', null, m.name + ' ▾'); o.value = m.userId; sel.appendChild(o); });
+          sel.value = pick[t.id] || '';
+          dot.style.background = colorOf[sel.value] || 'transparent';
+          sel.addEventListener('change', function () { pick[t.id] = sel.value; dot.style.background = colorOf[sel.value] || 'transparent'; drawTotals(); });
+          resp.appendChild(dot); resp.appendChild(sel); row.appendChild(resp);
+          row.appendChild(pill('shrHours', minutesOf(t), function (v) { minutesEdit[t.id] = v; drawTotals(); }, tr('h / sem.') + ' : ' + t.label));
+          body.appendChild(row);
+        });
+      }
+      var mh = el('div', 'shrRow shrHeadRow shrMemberHead'); mh.appendChild(el('span', 'shrLabel')); mh.appendChild(el('span', 'shrWant', tr('Voulu'))); mh.appendChild(el('span', 'shrTotal', tr('Total'))); body.appendChild(mh);
+      data.members.forEach(function (m) {
+        var row = el('div', 'shrRow shrMember'), lab = el('span', 'shrLabel'), dot = el('i', 'shrDot');
+        dot.style.background = colorOf[m.userId]; lab.appendChild(dot); lab.appendChild(document.createTextNode(m.name)); row.appendChild(lab);
+        row.appendChild(pill('shrWant', wantedOf(m), function (v) { wantedEdit[m.userId] = v; drawTotals(); }, tr('Voulu') + ' : ' + m.name));
+        var tot = el('strong', 'shrTotal'); tot.setAttribute('data-user', m.userId); row.appendChild(tot);
+        body.appendChild(row);
+      });
+      var gap = el('p', 'shrGap'); body.appendChild(gap);
+      drawTotals();
+    }
+    function drawTotals() {
+      var tot = {}; data.members.forEach(function (m) { tot[m.userId] = 0; });
+      data.tasks.forEach(function (t) { if (pick[t.id] in tot) tot[pick[t.id]] += minutesOf(t); });
+      Array.prototype.forEach.call(body.querySelectorAll('.shrTotal[data-user]'), function (n) { n.textContent = fmtMin(tot[n.getAttribute('data-user')] || 0); });
+      var lines = [];
+      data.members.forEach(function (m) {
+        var d = tot[m.userId] - wantedOf(m);
+        if (d < 0) lines.push(m.name + ' : ' + fmtMin(-d) + ' ' + tr('de moins que voulu.'));
+        else if (d > 0) lines.push(m.name + ' : ' + fmtMin(d) + ' ' + tr('de plus que voulu.'));
+      });
+      var gap = body.querySelector('.shrGap'); if (gap) gap.textContent = lines.join(' ');
+    }
+    function fetchProposal() {
+      var my = ++mySeq; ok.disabled = true;
+      TMT.api('GET', '/api/stats/task-share?activityId=' + encodeURIComponent(activityId) + '&mode=' + mode).then(function (d) {
+        if (my !== mySeq) return;
+        data = d; pick = {}; d.tasks.forEach(function (t) { pick[t.id] = t.userId || (d.members[0] && d.members[0].userId); });
+        ok.disabled = !d.tasks.length; draw();
+      }).catch(function (err) { if (my === mySeq) { body.textContent = ''; body.appendChild(el('p', 'hint', err.message)); } });
+    }
+    ok.addEventListener('click', function () {
+      if (!data) return;
+      ok.disabled = true;
+      var wanted = {}; data.members.forEach(function (m) { wanted[m.userId] = wantedOf(m); });
+      TMT.api('POST', '/api/stats/task-share', {
+        activityId: activityId, wanted: wanted,
+        tasks: data.tasks.map(function (t) { return { id: t.id, userId: pick[t.id] || null, minutes: minutesOf(t) }; }),
+      }).then(function () { close(); loadRecurring(); }).catch(function (err) { ok.disabled = false; if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm(err.message, { ok: 'OK' }); });
+    });
+    fetchProposal();
   }
 
   // Activités partagées seulement (au moins deux membres), choisies par des puces en haut, comme la 3e page du Chrono.
-  function shared() { return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1; }); }
-  function renderChips(list) {
-    chips.innerHTML = '';
-    list.forEach(function (a) {
-      var b = el('button', 'saChip' + (String(a.id) === String(actId) ? ' on' : ''));
-      b.type = 'button';
-      b.style.setProperty('--chipEdge', a.color || '#674EA7');
-      var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
-      b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () {
-        if (String(a.id) === String(actId)) return;
-        actId = a.id; loadedKey = null; renderChips(list); load(true);
-      });
-      chips.appendChild(b);
-    });
-  }
-  TMT.groupStats = {
-    // Ouverture de la page : puces des activités partagées, puis les données de l'activité choisie.
-    open: function () {
-      var list = shared();
-      if (!list.some(function (a) { return String(a.id) === String(actId); })) {
-        var pref = list.filter(function (a) { return String(a.id) === String(TMT.currentGoalsActivityId); })[0];
-        actId = pref ? pref.id : (list[0] ? list[0].id : null);
-        loadedKey = null;
-      }
-      empty.classList.toggle('hidden', list.length > 0);
-      host.classList.toggle('hidden', list.length === 0);
-      renderChips(list);
-      if (list.length) { build(); load(); }
-    }
+  // BILAN (14 nov. 2026) : le tableau « Tâches récurrentes » seul (ni « Qui fait quoi », ni « Tâches faites », ni « Partager les tâches »), posé dans le conteneur donné pour l'activité donnée.
+  // remover (optionnel) : croix rouge en haut à droite.
+  TMT.groupStatsRecurring = function (aid, container, remover, cat) {
+    actId = aid; recCat = cat || null;
+    var card = el('div', 'saCard saGlass shrRec');
+    recMeta = el('span', 'meta');
+    cardHead(card, 'Tâches récurrentes', recMeta, scopeMenu(function () { return recScope; }, function (s2) { recScope = s2; recMeta.textContent = scopeLabel(recScope); loadRecurring(); }));
+    recMeta.textContent = scopeLabel(recScope);
+    recBody = el('div'); card.appendChild(recBody);
+    if (remover) { var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer')); x.addEventListener('click', remover); card.appendChild(x); }
+    container.appendChild(card);
+    loadRecurring();
+    return card;
   };
   // Anciens appels (fenêtre Activité) : plus rien à faire, la page n'est plus là-bas.
   TMT.caTasks = { onActivity: function () {}, onCategory: function () {}, onShow: function () {} };

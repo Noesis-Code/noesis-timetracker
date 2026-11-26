@@ -1,0 +1,1349 @@
+/* Noèsis — Feuille de route, vue « Objectifs » (4 nov. 2026) : créer et suivre ses objectifs.
+ * Toucher le « + » d'une case vide de l'arbre -> fenêtre « Nouvel objectif » (durée, activité liée) -> « Étapes proposées »
+ * (périodes, semaines, tâches de la semaine 1, tout modifiable) -> Valider -> liste des objectifs -> détail.
+ * Rien n'est créé avant « Valider » (POST /api/objectifs/contexte et /proposition ne créent rien).
+ * Serveur : server/lib/objectifs.js. Composants réutilisés : .goalTaskEditModal/.cmpGlass, TMT.ui.closeBtn (R13), .cmpSeg (R42),
+ * .cmpNav (R45), .cmpBtn, .cmpBlockTitle (R41), .tasksPopRow/.tasksPopCheck.
+ * Monté dans #goalsActivitiesView par objectifs-page1.js (TMT.objectifsView.show / hide). */
+(function () {
+  'use strict';
+  var TMT = window.TMT = window.TMT || {};
+  var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
+  var api = function (m, u, b) { return TMT.api(m, u, b); };
+  var host = document.getElementById('goalsActivitiesView');
+  if (!host) return;
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  // UNE seule fonction de formatage des durées pour toute la page Temps : heures puis minutes, jamais de décimale (« 13h », « 13h15 », « 13h30 », « 0h30 », « 2h05 »). Les minutes choisies à la roue s'affichent telles quelles.
+  // UN SEUL format d'heures (composants.js)
+  function hh(min) { return TMT.ui.heures(min); }
+  // Valeur modifiable = chiffre violet SANS rectangle (R11, R33), simple bouton-texte : le toucher ouvre le sélecteur de durée STANDARD de l'app (TMT.openDurationPicker, composant unique R29) ; aucun clavier.
+  // ✓ = confirmation (onPick reçoit les minutes) ; ✕ ou toucher dehors : rien ne change. Aucun plafond d'heures par objectif (la roue va jusqu'à 5000 h) ; une valeur choisie à la roue n'est jamais réarrondie.
+  function tbtn(minutes, label, onPick, maxMin) { // maxMin (facultatif) : une source ne fait que baisser, jamais au-dessus de son « Avant »
+    var b = el('button', 'objTEdit', hh(minutes)); b.type = 'button'; b.setAttribute('aria-label', label);
+    b.addEventListener('click', function () { TMT.openDurationPicker({ title: 'Heures par semaine', minutes: minutes || 0, maxHours: maxMin == null ? 5000 : Math.max(1, Math.ceil(maxMin / 60)), minuteStep: 15, onDone: function (v) { if (maxMin != null) v = Math.min(v, maxMin); minutes = v; onPick(v, b); } }); });
+    return b;
+  }
+  // Tableau « Chrono / Objectif » (UNE seule fonction de rendu, partagée : écran 1 et écran « Déplacer » de l'étape Temps ; la fiche d'une catégorie pourra la reprendre).
+  // cfg = { levelLabel, rows: [{ label, chrono, avant, apres?, edit?: { label, maxMin, onPick(min) }, white? }], total?: true } ; chrono / avant : minutes ou null (« — ») ; apres absent = pas de « / ».
+  // Colonnes : nom du niveau (en-tête blanc 11 px), « Chrono » (lecture seule, gris sable), UN titre « Objectif » centré ; chaque ligne montre « avant / après » (barre oblique grise entre les VALEURS) ; après violet et modifiable
+  // (sélecteur de durée standard) si edit, sinon blanc. Traits : horizontaux entre les lignes ; un trait vertical continu entre Chrono et Objectif (décalé de 12 px), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ».
+  function objTable(cfg) {
+    var fmt = cfg.fmt || hh, node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead'), tints = [];
+    head.appendChild(el('span', 'objGridName', cfg.levelLabel)); if (!cfg.noChrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif')));
+    body.appendChild(head);
+    cfg.rows.forEach(function (r) {
+      var row = el('div', 'objGridRow'), obj = el('span', 'objGridObj');
+      var nm = el('span', 'objGridName', r.label); if (r.ref) tints.push({ el: nm, a: r.ref.a, p: r.ref.p }); /* R53 : nom de catégorie dans sa couleur */
+      row.appendChild(nm); if (!cfg.noChrono) row.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : fmt(r.chrono)));
+      obj.appendChild(el('span', 'objGridAvant', r.avant == null ? '—' : fmt(r.avant)));
+      if (r.apres !== undefined) {
+        obj.appendChild(el('span', 'objGridSlash', '/'));
+        if (r.edit) obj.appendChild(tbtn(r.apres, r.edit.label, function (v, b) { b.textContent = hh(v); r.edit.onPick(v); }, r.edit.maxMin));
+        else obj.appendChild(el('span', 'objGridApres', hh(r.apres)));
+      }
+      row.appendChild(obj); body.appendChild(row);
+    });
+    node.appendChild(body); if (tints.length) TMT.ui.colorer(tints);
+    var tA = el('span', 'objGridApres'), tB = el('span', 'objGridApres');
+    if (cfg.total) {
+      var tot = el('div', 'objGridTotal'), tObj = el('span', 'objGridObj');
+      tObj.appendChild(tA); tObj.appendChild(el('span', 'objGridSlash', '/')); tObj.appendChild(tB);
+      tot.appendChild(el('span', 'objGridName', tr('Total'))); tot.appendChild(el('span', 'objGridChrono')); tot.appendChild(tObj); node.appendChild(tot);
+    }
+    return { node: node, setTotal: function (avant, apres) { tA.textContent = hh(avant); tB.textContent = hh(apres); } };
+  }
+  // R53 : référence de couleur (activité, pôle) d'une ligne d'un tableau de temps
+  function refOf(e, which, key) { // which : 'up' | 'me' | 'line'
+    var lv = e.level, a = e.activityId, p = e.poleKey || null;
+    if (which === 'up') return lv === 'activite' ? null : lv === 'pole' ? { a: a } : { a: a, p: p };
+    if (which === 'me') return lv === 'activite' ? { a: a } : { a: a, p: lv === 'pole' ? (key || p) : p };
+    if (typeof key === 'string' && /^ad+$/.test(key)) return { a: Number(key.slice(1)) };
+    if (key == null || key === 'reste' || key === 'sans') return null;
+    return { a: a, p: lv === 'pole' ? key : p };
+  }
+  function btn(cls, text, fn) { var b = el('button', cls, text); b.type = 'button'; if (fn) b.addEventListener('click', fn); return b; }
+  function plural(n, one, many) { return n + ' ' + tr(n > 1 ? many : one); }
+
+  // ---------- Vue : liste, état vide, barre « Nouvel objectif… » ----------
+  var root = el('div', 'objView'), dock, panel, panelBody, panelFoot, panelKicker, stepBtn, stepLabel, stepPos, panelForm = null, goPropose = function () {}, backBtn, advance = null, goBack = null, seq = { base: 0, count: 1, i: 0 };
+  var state = { items: [], total: 0, shown: false };
+
+  function buildView() {
+    // Vue Objectifs : l'ARBRE des objectifs (js/objectifs-arbre.js, #goalsObjArbre) ; ici la barre « Nouvel objectif… » et ses étapes.
+    host.insertBefore(root, host.firstChild);
+    // Barre d'écriture : même gabarit que « Ajouter une tâche » (verre, flèche d'envoi DANS la zone, R29).
+    dock = el('div', 'tasksPopAdd tasksDock objDock hidden');
+    // Panneau des paramètres : le MÊME gabarit que le panneau d'ajout d'une tâche (aujourdhui.js) — au-dessus de la barre, visible seulement après ↑.
+    panel = el('div', 'tasksPropose cmpGlass hidden');
+    var ph = el('div', 'tasksProposeHead'); panelKicker = el('span', 'tasksProposeKicker', tr('Nouvel objectif')); backBtn = el('button', 'cmpNavArrow objBack hidden', '‹'); backBtn.type = 'button'; backBtn.setAttribute('aria-label', tr('Retour')); backBtn.addEventListener('click', function () { if (goBack) goBack(); }); ph.appendChild(backBtn); ph.appendChild(panelKicker); /* flèche de retour à l'étape précédente (sans cadre, zone 44 px) */ ph.appendChild(TMT.ui.closeBtn(function () { closePanel(); }, tr('Fermer'))); // ✕ en haut à droite (R13) : annule
+    panelBody = el('div', 'tasksProposeBody'); panelFoot = el('div', 'objPanelFoot');
+    panel.appendChild(ph); panel.appendChild(panelBody); panel.appendChild(panelFoot); dock.appendChild(panel);
+    panel.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true }); // les gestes du panneau n'appartiennent pas au balayage de page
+    panel.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
+    // Une fois l'objectif envoyé, la barre devient UN bouton (même mécanisme que « Enregistrer » d'Expansion : .tasksDock.expSave) : « Passer à … » à gauche, n/total à droite.
+    stepBtn = el('button', 'tasksSaveBtn objStepBtn'); stepBtn.type = 'button'; stepLabel = el('span', 'objStepLabel'); stepPos = el('span', 'objStepPos');
+    stepBtn.appendChild(stepLabel); stepBtn.appendChild(stepPos); stepBtn.addEventListener('click', function () { if (advance) advance(); });
+    dock.appendChild(stepBtn); document.body.appendChild(dock);
+    // La barre suit la page pendant le glissement vers les statistiques, et disparaît avec elle.
+    var tab = document.getElementById('tab-goals');
+    if (tab && window.MutationObserver) {
+      new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('#goalsCapturePage, #goalsActivitiesView, #goalsActivitySwitcher'), function (n) { if (window.MutationObserver) new MutationObserver(syncDock).observe(n, { attributes: true, attributeFilter: ['class'] }); });
+    TMT.ui.dockKeyboard(dock, panelBody); // MÊME code que la barre « Nouvelle tâche… » : le panneau reste juste au-dessus du clavier
+    if (window.MutationObserver) new MutationObserver(syncDock).observe(dock, { attributes: true, attributeFilter: ['class'] }); // plus de barre d'écriture : la zone du bas n'existe que pendant une création ou une modification (classe expSave)
+  }
+  function syncDock() { if (!dock) return; dock.classList.toggle('hidden', !(state.shown && dock.classList.contains('expSave') && host.getClientRects().length && !host.classList.contains('hidden'))); document.documentElement.classList.toggle('objBarOn', dock.classList.contains('objDockBar') && !dock.classList.contains('hidden')); } // pendant la création, le bouton du bas REMPLACE la barre des volets (classe objBarOn sur <html>, CSS objectifs-creer.css)
+  function load() { if (TMT.objectifsArbre) TMT.objectifsArbre.refresh(); } // l'arbre se redessine après une création ou une modification
+
+  // ---------- Fenêtres (gabarit commun .goalTaskEditModal) ----------
+  function openModal(title, opts) {
+    opts = opts || {};
+    var overlay = el('div', 'goalTaskEditModal goalsPlacementModal aiModeModal objModal');
+    var cardEl = el('div', 'goalTaskEditCard cmpGlass');
+    var head = el('div', 'goalTaskEditHeader');
+    var titleBox = el('div', 'objModalTitle');
+    titleBox.appendChild(el('p', 'sectionTitle', title));
+    if (opts.sub) titleBox.appendChild(el('p', 'objMeta objSub', opts.sub));
+    var x = TMT.ui.closeBtn(null, tr('Fermer'));
+    head.appendChild(titleBox); head.appendChild(x); cardEl.appendChild(head);
+    var body = el('div', 'goalsPlacementScroll objScroll'); cardEl.appendChild(body);
+    var foot = el('div', 'objFoot'); cardEl.appendChild(foot);
+    overlay.appendChild(cardEl); document.body.appendChild(overlay);
+    function close() { overlay.remove(); if (opts.onClose) opts.onClose(); }
+    function tryClose() { TMT.ui.fermerAvecConfirmation(close, opts.dirty); } // ✕ ou fond : confirmation si un changement n'est pas enregistré
+    x.addEventListener('click', tryClose);
+    overlay.addEventListener('mousedown', function (e) { overlay._down = e.target === overlay; });
+    var born = Date.now(); // le relâchement d'un appui long (carte fusionnée) ne ferme jamais la fenêtre qu'il vient d'ouvrir
+    overlay.addEventListener('click', function (e) { if (e.target === overlay && overlay._down && Date.now() - born > 700) tryClose(); });
+    return { overlay: overlay, body: body, foot: foot, close: close, head: titleBox };
+  }
+  function field(label, node) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', label)); w.appendChild(node); return w; }
+  function resumeField(form, onChange) { // « Résumé » (sous « Avancé », facultatif, 300 au plus) : lu seulement par les responsables d'un niveau inférieur ; champ séparé de la Description, jamais lu par l'IA
+    var inp = el('textarea'); inp.rows = 4; inp.maxLength = 300; inp.value = form.resume || ''; inp.setAttribute('aria-label', tr('Résumé pour les membres'));
+    inp.placeholder = tr('Résume l’objectif'); inp.addEventListener('input', function () { form.resume = inp.value; if (onChange) onChange(); });
+    var sb = el('div', 'objResumeBox'); sb.appendChild(inp); var w = field(tr('Résumé pour les membres'), sb); w.classList.add('objResumeField'); w.appendChild(el('p', 'hint', tr("Lu seulement par les responsables d'un niveau inférieur"))); return w;
+  }
+  function descHead(title, hint) { var w = el('div', 'objField'); w.appendChild(el('p', 'cmpBlockTitle', tr(title))); if (hint) w.appendChild(el('p', 'hint', tr(hint))); return w; } // titre de bloc (+ aide d'une ligne) de la Description pour Noèsis
+  function seg(options, current, onPick, label) {
+    var s = el('div', 'cmpSeg'); s.setAttribute('role', 'group'); if (label) s.setAttribute('aria-label', label);
+    options.forEach(function (o) {
+      var b = btn(o[0] === current ? 'active' : '', o[1], function () { Array.prototype.forEach.call(s.children, function (c) { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); }); b.classList.add('active'); b.setAttribute('aria-pressed', 'true'); onPick(o[0]); });
+      b.setAttribute('aria-pressed', o[0] === current ? 'true' : 'false'); s.appendChild(b);
+    });
+    return s;
+  }
+  function choice(title, desc, on, color, onClick) {
+    var b = btn('aiModeChoice objChoice' + (on ? ' on' : ''), '', onClick); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    var t = el('span', 'aiModeChoiceTitle');
+    if (color) { var d = el('span', 'objDot'); d.style.background = color; t.appendChild(d); }
+    t.appendChild(document.createTextNode(title)); b.appendChild(t);
+    if (desc) b.appendChild(el('span', 'aiModeChoiceDesc', desc));
+    return b;
+  }
+
+  function say(m) { if (TMT.ui && TMT.ui.confirm) TMT.ui.confirm(m, { ok: tr('OK') }); }
+  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
+
+  // ---------- Parcours : paramètres -> étapes proposées (-> objectifs lus avant, si plusieurs) ----------
+  function total() { return seq.base + 2 * seq.count; }
+  function setBack(fn) { goBack = fn; if (backBtn) backBtn.classList.toggle('hidden', !fn); }
+  // Contexte posé par l'arbre : niveau (activité | pôle | secteur) + activité, pôle, secteur ; toucher une case VIDE ajoute l'échéance de la case. Le prochain objectif écrit dans la barre
+  // PORTE ce niveau, et l'activité (pôle, secteur) est verrouillée dans le panneau de création.
+  var viewCtx = { level: 'activite' }, pendingEnd = null, pendingType = null, pendingStart = null;
+  function setContext(c) { viewCtx = c || { level: 'activite' }; }
+  function createAt(o) { // case vide touchée : le panneau s'ouvre tout de suite (titre vide à saisir), l'échéance de la case est imposée
+    if (busy) return;
+    setContext(o.ctx); pendingEnd = o.endDate || null; pendingStart = o.start || null; pendingType = o.type || null; seq = { base: 0, count: 1, i: 0 }; busy = true;
+    api('POST', '/api/objectifs/contexte', { text: '', blank: true, amount: 1, unit: 'semaines', endDate: pendingEnd }).then(function (ctx) { busy = false; openComposer(ctx); })
+      .catch(function (err) { busy = false; clearPending(); say((err && err.message) || tr('Impossible pour le moment.')); });
+  }
+  function clearPending() { pendingEnd = null; pendingType = null; pendingStart = null; }
+  var extendCancel = null;
+  var ficheEnd = null; // rappel posé par openFiche (pop-up de retard B) : appelé à la fin de la fiche, enregistrée ou fermée
+  function endFlow() { // ✕ ou fin : la barre redevient la barre d'écriture normale
+    if (ficheEnd) { var fe = ficheEnd; ficheEnd = null; window.setTimeout(fe, 0); }
+    if (extendCancel) { var xc = extendCancel; extendCancel = null; xc(); } // mode Étendre annulé (✕) : l'arbre reprend son état
+    clearPending(); closeGuard = null; dock.classList.remove('expSave', 'expExtend', 'objDockBar'); advance = null; setBack(null); panel.classList.add('hidden'); panelForm = null; goPropose = function () {}; seq = { base: 0, count: 1, i: 0 };
+  }
+
+  // ---------- Fenêtre « Nouvel objectif » ----------
+  var busy = false;
+  var TACHES_PAGE = false; // page « Tâches » (offre Expansion) gardée de côté jusqu'au lancement d'Expansion : remettre à true (docs/objectifs/creation-objectif-tache.md)
+  // ---------- Blocs partagés par la création et la modification d'un objectif (une seule copie) ----------
+  // Description guidée (9 nov. 2026, décision d'Émilien) : neuf questions FACULTATIVES en trois groupes de trois ; UN seul groupe ouvert à la fois (flèche à droite, R21).
+  // Chaque question propose trois mots : un toucher INSÈRE le mot dans la réponse (champ texte modifiable). Le texte composé « Libellé : réponse · … » est lu par l'IA (rattachement
+  // des tâches à l'objectif) ; l'IA élargit chaque réponse avec des synonymes côté serveur, sans que la personne écrive plus. Le texte des questions et des mots est fixé par Émilien.
+  var GUIDE_GROUPS = [
+    { g: 'Point de départ', qs: [
+      { k: 'qui', q: 'Avec qui ?', label: 'Avec qui', opts: ['Client', 'Équipe', 'Proches'] },
+      { k: 'quoi', q: 'Avec quoi ?', label: 'Avec quoi', opts: ['Outils', 'Matériel', 'Documents'] },
+      { k: 'ou', q: 'Où ?', label: 'Lieu', opts: ['Lieu', 'En ligne', 'Déplacement'] }] },
+    { g: 'But', qs: [
+      { k: 'faire', q: 'Que faire ?', label: 'Faire', opts: ['Contacter', 'Créer', 'Organiser'] },
+      { k: 'resultat', q: 'Quel résultat ?', label: 'Résultat', opts: ['Document', 'Livraison', 'Décision'] },
+      { k: 'avance', q: 'Comment ça avance ?', label: 'Avancement', opts: ['Chiffre', 'Terminé', 'Habitude'] }] },
+    { g: 'Ce qui peut gêner', qs: [
+      { k: 'obstacle', q: 'Obstacle ?', label: 'Obstacle', opts: ['Temps', 'Argent', 'Quelqu’un'] },
+      { k: 'horssujet', q: 'Hors sujet ?', label: 'Hors sujet', opts: ['Autre projet', 'Autre domaine', 'Plus tard'] },
+      { k: 'nom', q: 'Autre nom ?', label: 'Autre nom', opts: ['Sigle', 'Surnom', 'Nom du client'] }] }
+  ];
+  var GUIDE_REST_GROUPS = [{ g: 'Précisions', ks: ['ou', 'resultat', 'avance'] }, { g: 'Limites', ks: ['obstacle', 'horssujet', 'nom'] }]; // sous « Avancé » à la création : deux groupes de trois (la modification d'un objectif garde GUIDE_GROUPS)
+  var GUIDE_MAIN = ['faire', 'qui', 'quoi']; // les trois questions VISIBLES à la création (les plus utiles pour reconnaître et rediriger les tâches) ; les six autres sont sous « Avancé »
+  var GUIDE_ORDER = ['faire', 'resultat', 'avance', 'qui', 'quoi', 'ou', 'obstacle', 'horssujet', 'nom'];
+  var GUIDE = [].concat.apply([], GUIDE_GROUPS.map(function (x) { return x.qs; })).sort(function (a, b) { return GUIDE_ORDER.indexOf(a.k) - GUIDE_ORDER.indexOf(b.k); }); // ordre du texte composé inchangé (Faire en premier), quel que soit le groupe
+  function guideAns(form, g) { form.guide = form.guide || {}; return form.guide[g.k] || (form.guide[g.k] = { picks: [], text: '' }); }
+  function guideParse(form, text) { // relit une description déjà enregistrée : mots connus = mots sélectionnés, le reste = texte libre ; tout texte qui n'est pas une réponse connue (ancien format compris) est gardé tel quel (form.guideRest), jamais perdu
+    form.guide = {}; var rest = [];
+    String(text || '').split(' · ').forEach(function (part) {
+      var g = GUIDE.filter(function (x) { return part.indexOf(tr(x.label) + ' : ') === 0; })[0];
+      if (!g) { if (part.trim()) rest.push(part.trim()); return; }
+      var a = guideAns(form, g), words = [];
+      part.slice((tr(g.label) + ' : ').length).split(', ').forEach(function (tok) {
+        var o = g.opts.filter(function (x) { return tr(x).toLowerCase() === tok.trim().toLowerCase(); })[0];
+        if (o) { if (a.picks.indexOf(o) < 0) a.picks.push(o); } else if (tok.trim()) words.push(tok.trim());
+      });
+      a.text = words.join(', ');
+    });
+    form.guideRest = rest.join(' · ');
+  }
+  function guideCompose(form) { // « Libellé : mots sélectionnés, texte écrit » ; lu par l'IA (rattachement des tâches)
+    var t = GUIDE.map(function (g) { var a = guideAns(form, g), p = a.picks.map(function (x) { return tr(x).toLowerCase(); }); if (a.text.trim()) p.push(a.text.trim()); return p.length ? tr(g.label) + ' : ' + p.join(', ') : ''; }).filter(Boolean);
+    if (form.guideRest) t.push(form.guideRest);
+    return t.join(' · ').slice(0, 900);
+  }
+  // Pré-remplissage depuis le PARENT (9 nov. 2026, décision d'Émilien) : seules cinq questions sont proposées à l'objectif enfant, par simple copie champ par champ (sans IA) : mots pré-sélectionnés ET texte du parent ;
+  // jamais « Que faire ? », « Quel résultat ? », « Comment ça avance ? » ni « Obstacle ? ». Rien n'est enregistré avant la validation (toucher la proposition ou un mot) ; pas depuis les enfants.
+  var GUIDE_FROM_PARENT = ['qui', 'quoi', 'ou', 'nom', 'horssujet'];
+  function guideProposals(parentDescription) {
+    var tmp = {}, out = {}; guideParse(tmp, parentDescription);
+    GUIDE_FROM_PARENT.forEach(function (k) { var a = tmp.guide && tmp.guide[k]; if (a && (a.picks.length || a.text.trim())) out[k] = { picks: a.picks.slice(), text: a.text.trim() }; });
+    return out;
+  }
+  // Une question est remplie si au moins un mot est sélectionné OU du texte est écrit (jamais une proposition du parent non touchée)
+  function guideFilled(a) { return a.picks.length > 0 || !!a.text.trim(); }
+  function guideToggle(a, word) { var i = a.picks.indexOf(word); if (i >= 0) a.picks.splice(i, 1); else a.picks.push(word); a.touched = true; } // bascule sélectionné / non sélectionné ; rien n'est écrit dans le champ texte
+  function paintGuideInto(box, form, onChange, focusFirst, part) { // part : undefined = les neuf questions en groupes (modification d'un objectif) ; 'main' = les trois questions visibles de la création, à plat ; 'rest' = les six autres, en groupes (sous « Avancé »)
+    box.textContent = '';
+    if (form.guideOpen === undefined) form.guideOpen = 0;
+    var flat = part === 'main', groups = flat ? [{ g: '', qs: GUIDE_GROUPS.reduce(function (o, x) { return o.concat(x.qs); }, []).filter(function (g) { return GUIDE_MAIN.indexOf(g.k) >= 0; }).sort(function (x, y) { return GUIDE_MAIN.indexOf(x.k) - GUIDE_MAIN.indexOf(y.k); }) }] : part === 'rest' ? GUIDE_REST_GROUPS.map(function (x) { return { g: x.g, qs: x.ks.map(function (k) { return GUIDE.filter(function (g) { return g.k === k; })[0]; }) }; }) : GUIDE_GROUPS;
+    function again(foc) { paintGuideInto(box, form, onChange, foc, part); }
+    groups.forEach(function (grp, gi) {
+      var open = flat || form.guideOpen === gi, wrap = el('div', flat ? 'objField objGuideFlat' : 'objField objGuideRow' + (open ? ' open' : ''));
+      var head = flat ? null : btn('objGuideHead cmpToggle', '', function () { form.guideOpen = open ? -1 : gi; again(); });
+      if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (head) { var filled = grp.qs.filter(function (g) { return guideFilled(guideAns(form, g)); }).length, tx = el('span', 'objGuideTxt');
+      tx.appendChild(el('span', 'cmpBlockTitle', tr(grp.g)));
+      // à droite : compteur « 2/3 » (gris sable) puis la flèche R21 (composant .cmpChev, pivotée quand le groupe est ouvert)
+      head.appendChild(tx); head.appendChild(el('span', 'hint objGuideRight', filled + '/' + grp.qs.length)); head.appendChild(el('span', 'cmpChev' + (open ? ' open' : '')));
+      wrap.appendChild(head); }
+      if (open) {
+        var firstIn = null;
+        grp.qs.forEach(function (g, qi) {
+          var a = guideAns(form, g), q = el('div', 'objGuideQ'), s = el('div', 'cmpSeg'), ans = el('input');
+          q.appendChild(el('span', 'cmpBlockTitle', tr(g.q)));
+          var prop = form.proposed && form.proposed[g.k], pending = !!prop && !a.touched && !guideFilled(a); // proposition du parent : visible tant qu'on n'y touche pas
+          if (pending) q.appendChild(btn('cmpBtn cmpBtnIdle', tr('Proposé') + ' : ' + prop.picks.map(function (x) { return tr(x).toLowerCase(); }).concat(prop.text ? [prop.text] : []).join(', '), function () { a.picks = prop.picks.slice(); a.text = prop.text; a.touched = true; onChange(); again(); }));
+          s.setAttribute('role', 'group'); s.setAttribute('aria-label', tr(g.q));
+          ans.type = 'text'; ans.maxLength = 80; ans.value = a.text; ans.placeholder = tr('Quelques mots'); ans.setAttribute('aria-label', tr(g.q)); ans.enterKeyHint = 'next';
+          g.opts.forEach(function (o) {
+            var on = a.picks.indexOf(o) >= 0 || (pending && prop.picks.indexOf(o) >= 0); // mots proposés : pré-sélectionnés (comme une sélection), mais pas enregistrés
+            var b = btn(on ? 'active' : '', tr(o), function () {
+              if (pending && !a.touched) { a.picks = prop.picks.slice(); a.touched = true; } // toucher un mot valide la sélection proposée puis la modifie
+              guideToggle(a, o); onChange(); again();
+            });
+            b.setAttribute('aria-pressed', on ? 'true' : 'false'); s.appendChild(b);
+          });
+          ans.addEventListener('input', function () { a.text = ans.value; a.touched = true; onChange(); });
+          ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = box.querySelectorAll('.objGuideQ input')[qi + 1]; if (nx) nx.focus(); else if (!flat) { form.guideOpen = gi + 1 < groups.length ? gi + 1 : -1; again(true); } } });
+          q.appendChild(s); q.appendChild(ans); wrap.appendChild(q);
+          if (!firstIn) firstIn = ans;
+        });
+        if (focusFirst && firstIn) window.setTimeout(function () { firstIn.focus(); }, 0);
+      }
+      box.appendChild(wrap);
+    });
+  }
+  // Terme (Périodique / Moyen terme / Long terme) et objectifs inclus : mêmes seuils que server/lib/objectifs-temps.js (26 et 130 semaines) ; choix impossibles grisés ; vérifiés aussi par le serveur.
+  var TERMS = [['periode', 'Court'], ['annee', 'Moyen'], ['pluriannuel', 'Long']], INNER = [['periodiques', 'Périodiques'], ['hebdomadaires', 'Hebdomadaires'], ['les_deux', 'Les deux']];
+  function termsFor(days) { var w = (days || 0) / 7; return w <= 26 ? ['periode'] : w <= 130 ? ['periode', 'annee'] : ['periode', 'annee', 'pluriannuel']; }
+  function multiOf(days) { return (days || 0) > 28; }
+  function isoAdd(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  // Interrupteur « Hebdomadaire » (9 nov. 2026) : possible SEULEMENT au niveau secteur et si l'échéance tombe dans la semaine en cours ou la suivante ; l'échéance décide ce qui est possible.
+  // Numéros de semaine et de période : la MÊME fonction que le calendrier (public/js/calendrier-numeros.js, premier lundi de janvier) ; aucune copie ici.
+  // Tranche de 5 ans d'un objectif d'ACTIVITÉ (pluriannuel) : MÊME définition que la colonne pluriannuelle de l'arbre (objectifs-arbre.js, blockStart / rowKey) : première année = année en cours + 5 × partie entière de (année de l'échéance - année en cours) / 5.
+  function blockStart(iso) { var y = Number(iso.slice(0, 4)); return 2026 + 5 * Math.floor((y - 2026) / 5); } /* blocs de 5 ans FIXES */
+  function weeklyPossible(f) { return f.level === 'secteur'; } // dès qu'un secteur est choisi, « Hebdomadaire » est toujours possible (l'échéance place l'objectif : sa semaine ou sa période)
+  function segDisabled(options, current, allowed, onPick, label) {
+    var s = seg(options, current, onPick, label);
+    Array.prototype.forEach.call(s.children, function (b, i) { if (allowed.indexOf(options[i][0]) < 0) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); } });
+    return s;
+  }
+  function goalCounts(form, days) { // nombre de périodes et de semaines : même découpage que server/lib/objectifs.js (splitPeriods)
+    var D = 86400000, st = form.startDate ? Date.parse(form.startDate + 'T00:00:00Z') : Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()), en = st + (days || 0) * D;
+    var pw = form.periodWeeks || (days <= 28 ? '1' : days <= 366 ? '4' : 'mois'), out = [], cur = st;
+    while (cur <= en && out.length < 400) {
+      var pe; if (pw === 'mois') { var d0 = new Date(st); d0.setUTCMonth(d0.getUTCMonth() + out.length + 1); pe = d0.getTime() - D; } else pe = cur + Number(pw) * 7 * D - D;
+      if (pe > en) pe = en; if (pe < cur) pe = cur; out.push([cur, pe]); cur = pe + D;
+    }
+    if (out.length > 1 && (out[out.length - 1][1] - out[out.length - 1][0]) / D + 1 < 7) { var l = out.pop(); out[out.length - 1][1] = l[1]; }
+    var weeks = 0; out.forEach(function (r) { for (var t = r[0]; t <= r[1]; t += 7 * D) weeks++; });
+    return { periods: out.length, weeks: weeks };
+  }
+  function paintTermInto(box, form, days, onChange, noTerm) { // noTerm : création, le terme se déduit du niveau (activité = long, pôle = moyen, secteur = court)
+    var ok = termsFor(days); if (!noTerm && ok.indexOf(form.term) < 0) form.term = ok[ok.length - 1]; // imposé si un seul choix ; sinon, tant que rien n'est choisi, le terme le plus long permis
+    if (!noTerm) box.appendChild(field(tr('Terme'), segDisabled(TERMS.map(function (t) { return [t[0], tr(t[1])]; }), form.term, ok, function (k) { form.term = k; form.termTouched = true; if (onChange) onChange(); }, tr('Terme'))));
+    // Objectifs inclus : deux cases (cochées par défaut quand c'est possible, au moins une reste cochée) avec le nombre de chacun ; une seule période (≤ 28 jours) : hebdomadaires seulement, périodiques grisés
+    if (form._switchShown) return; // le bloc « Type d’objectif » (étape Cadre) décide : périodique ou hebdomadaire
+    var multi = multiOf(days), cnt = goalCounts(form, days), per = multi && form.innerGoals !== 'hebdomadaires', wk = form.innerGoals !== 'periodiques';
+    var gs = el('div', 'cmpSeg'); gs.setAttribute('role', 'group'); gs.setAttribute('aria-label', tr('Objectifs inclus'));
+    function goalBtn(on, label, n, enabled, toggle) {
+      var g = btn(on ? 'active' : '', label + ' (' + n + ')', function () { toggle(); });
+      g.setAttribute('aria-pressed', on ? 'true' : 'false'); if (!enabled) { g.disabled = true; g.setAttribute('aria-disabled', 'true'); } return g;
+    }
+    function setInner(p2, w2) { form.innerGoals = p2 && w2 ? 'les_deux' : p2 ? 'periodiques' : 'hebdomadaires'; form.weekly = w2; if (onChange) onChange(); }
+    gs.appendChild(goalBtn(per, tr('Périodiques'), cnt.periods, multi, function () { if (per && !wk) return; setInner(!per, wk); }));
+    gs.appendChild(goalBtn(wk, tr('Hebdomadaires'), cnt.weeks, true, function () { if (wk && !per) return; setInner(per, !wk); }));
+    box.appendChild(field(tr('Objectifs inclus'), gs));
+  }
+
+  function openComposer(ctx) {
+    var form = ctx._form || (ctx._form = { acts: ctx.suggestedActivityId != null ? [ctx.suggestedActivityId] : [], hoursBy: {}, title: ctx.title, amount: ctx.amount, unit: ctx.unit, startDate: ctx.startDate, endDate: ctx.endDate, activityId: ctx.suggestedActivityId, parentId: null, showAll: false, periodWeeks: ctx.periodWeeks, hours: null, proposedEnd: null, _ctx: ctx });
+    if (!form.ctxApplied) {
+      form.ctxApplied = true; var vc = viewCtx || {}, fromCell = !!pendingEnd; // verrouillé SEULEMENT si on part d'une case vide de l'arbre ; depuis la barre, le choix de l'activité est libre
+      form.level = fromCell ? (vc.level || 'activite') : 'activite'; form.poleKey = fromCell ? (vc.poleKey || null) : null; form.categoryKey = fromCell ? (vc.categoryKey || null) : null; form.ctxLabel = fromCell ? (vc.label || '') : '';
+      if (vc.activityId != null) { form.activityId = vc.activityId; form.acts = [vc.activityId]; form.fixedCtx = fromCell; }
+      if (pendingType) { form.type = pendingType; form.typeTouched = true; }
+      if (pendingEnd && form.fixedCtx && pendingType === 'periodique') { form.cellPeriodic = true; form.cellEnd = pendingEnd; form.cellStart = new Date(Date.parse(pendingEnd + 'T00:00:00Z') - 27 * 86400000).toISOString().slice(0, 10); } // période de 28 jours : la date précise se choisit sur le dernier panneau, entre le début et la fin de la case // le type vient de la ligne de la case touchée
+      if (pendingEnd) { form.cellFrom = pendingStart; form.cellDefaultEnd = pendingEnd; }
+      if (pendingEnd) { var dd0 = Math.round((Date.parse(pendingEnd + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000); form.endDate = pendingEnd; form.amount = Math.max(1, Math.ceil(dd0 / 7)); form.unit = 'semaines'; form.dateOk = true; form.durTouched = true; form.endFixed = true; }
+      clearPending();
+    }
+    var win = { body: panelBody, foot: panelFoot, close: closePanel };
+    panelBody.textContent = ''; panelFoot.textContent = ''; panel.classList.remove('hidden'); panelKicker.textContent = tr('Objectif'); // titre du premier panneau
+    var msg = el('p', 'tasksMsg objMsg'); win.foot.appendChild(msg);
+    var boxes = { desc: el('div'), temps: el('div'), heures: el('div'), niveau: el('div'), inf: el('div'), taches: el('div') };
+    var slidePages = el('div', 'tasksPages'), slideTrack = el('div', 'tasksTrack'), slideA = el('div', 'tasksPage'), slideB = el('div', 'tasksPage off'), slideTimer = 0;
+    ['desc', 'temps', 'heures', 'niveau', 'inf', 'taches'].forEach(function (k) { slideA.appendChild(boxes[k]); });
+    slideTrack.appendChild(slideA); slideTrack.appendChild(slideB); slidePages.appendChild(slideTrack); panelBody.appendChild(slidePages);
+    if (form.dateOk === undefined) form.dateOk = !ctx.fixedDate || !!ctx.dateConfirmed;
+    panelForm = form; setBack(null);
+    function todayLocal() { return new Date().toLocaleDateString('en-CA'); } // échéance : demain ou après seulement (20 nov. 2026)
+    var MSG_ECH = tr('L’échéance doit être après aujourd’hui.');
+    function stepOff() { return cur === 'desc' ? (!String(form.title || '').trim() || form.dateBad === true) : false; } // Description : grisé sans titre ; Échéance (étape propre, après Activité et Niveau) : grisé sans date valide (R35)
+    function syncGo() { stepBtn.disabled = stepOff(); }
+    var titleIn = el('input'); titleIn.type = 'text'; titleIn.maxLength = 140; titleIn.value = form.title; titleIn.placeholder = tr('Titre'); titleIn.setAttribute('aria-label', tr('Titre'));
+    titleIn.addEventListener('input', function () { form.title = titleIn.value; syncGo(); });
+    closeGuard = function () { return !!String(titleIn.value || '').trim() || form.dateFixe === true || !!form.description; }; // ✕ après saisie : « Quitter sans enregistrer ? »
+    boxes.desc.appendChild(field(tr('Titre'), titleIn)); // libellé du champ du titre (l'en-tête du panneau reste « Objectif »)
+    if (form.endFixed && form.cellDefaultEnd) { // depuis une case : ÉCHÉANCE et « Date fixe » juste sous le titre, dès le premier écran (une fonction, un seul endroit)
+      var fxWrap = el('div', 'objFxWrap' + (form.dateFixe === true ? ' fixed' : '')), dueRow = el('div', 'objDueRow'), dueIn = el('input', 'objDueInput'), cfrom = form.cellFrom && form.cellFrom > form.startDate ? form.cellFrom : form.startDate;
+      dueIn.type = 'date'; dueIn.value = form.endDate || form.cellDefaultEnd; dueIn.setAttribute('aria-label', tr('Échéance')); /* aucun min/max : jamais de jour grisé, la date est ramenée dans la case */
+      dueRow.appendChild(el('span', 'objDueLabel', tr('Échéance'))); dueRow.appendChild(dueIn); fxWrap.appendChild(dueRow); boxes.desc.appendChild(fxWrap); // à « Fixe », un cadre entoure les boutons Souple / Fixe ET l'échéance (19 nov. 2026)
+      dueRow.classList.toggle('hidden', form.dateFixe !== true); // la date n'apparaît que pour « Fixe » (même choix que « Modifier l'objectif »)
+      var fxPick = el('div'); 
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); fxWrap.classList.toggle('fixed', !!v); if (!v) { dueIn.value = form.cellDefaultEnd; dueIn.dispatchEvent(new Event('change')); form.dateFixe = false; } }, tr('Date de fin')));
+      fxWrap.insertBefore(fxPick, dueRow);
+      dueIn.addEventListener('change', function () {
+        var v = dueIn.value || form.cellDefaultEnd; if (v < cfrom) v = cfrom; if (v > form.cellDefaultEnd) v = form.cellDefaultEnd; dueIn.value = v; form.dateBad = v <= todayLocal(); msg.textContent = form.dateBad ? MSG_ECH : ''; syncGo(); if (form.dateBad) return; // aujourd’hui ou avant : message sous le champ, « Suivant » inactif // l'échéance reste dans la case où l'on crée
+        var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
+        form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines';
+        if (form.cellPeriodic) form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
+        if (v !== form.cellDefaultEnd) { form.dateFixe = true; fxWrap.classList.add('fixed'); } // une date modifiée vaut « date fixée »
+      });
+    }
+    if (form.guideOpen === undefined) form.guideOpen = -1; // à la création, les groupes de questions sont repliés par défaut (19 nov. 2026)
+    form.guide = form.guide || {}; // description guidée : blocs partagés avec la modification (paintGuideInto)
+    var mainBox = el('div', 'objGuide'), advBox = el('div', 'objGuide'), guideBox = el('div', 'objAdvBody'), advOpen = false; boxes.desc.appendChild(mainBox); boxes.desc.appendChild(advBox); // sous-titre du bloc des questions visibles // les neuf questions : sous « Avancé », replié par défaut (R8)
+    function composeDesc() { form.description = guideCompose(form); }
+    function paintAdv() {
+      advBox.textContent = '';
+      var wrap = el('div', 'objField objGuideRow' + (advOpen ? ' open' : '')), head = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpen = !advOpen; paintAdv(); if (advOpen) TMT.ui.revealOpened(advBox.querySelector('.objAdvHead')); });
+      head.setAttribute('aria-expanded', advOpen ? 'true' : 'false');
+      var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+      head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (advOpen ? ' open' : ''))); wrap.appendChild(head); advBox.appendChild(wrap);
+      if (advOpen) { advBox.appendChild(descHead('Description pour Noèsis')); advBox.appendChild(guideBox); paintGuideInto(guideBox, form, composeDesc, undefined, 'rest'); advBox.appendChild(resumeField(form)); }
+    }
+    function paintGuide(f) { paintGuideInto(mainBox, form, composeDesc, undefined, 'main'); if (advOpen) paintGuideInto(guideBox, form, composeDesc, f, 'rest'); }
+    paintAdv();
+    // Parent retenu automatiquement (même appel que le rattachement : même activité, échéance du parent au moins celle du nouvel objectif) : { id, title } ou null. Lecture seule.
+    function rattBody() { return { inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined, cadence: cadenceNow(), endDate: form.endDate, title: form.title, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, refused: form.refused || [] }; }
+    function rattKey() { return [form.title, form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || ''].join('|'); }
+    function fetchParent() {
+      if (form.activityId == null) return Promise.resolve(null);
+      if (!form.dateOk || !form.endDate || !(form.endFixed || form.echeanceDone)) return Promise.resolve(null); // le parent dépend de l'échéance : rien tant qu'elle n'est pas confirmée
+      var key = rattKey() + '|' + form.endDate + '|' + (form.weeklyOn ? 'h' : 'p'); // le parent dépend aussi du niveau, du pôle et du secteur choisis
+      if (form.hintKey === key) return Promise.resolve(form.hintParent || null);
+      return api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { form.hintKey = key; form.hintParent = r && r.candidate ? { id: r.candidate.id, title: r.candidate.title } : null; return form.hintParent; }).catch(function () { return null; });
+    }
+    function refreshHints() { // propositions du parent : lecture seule (aucune écriture), une activité, un parent ; sinon aucun champ proposé (comme avant)
+      fetchParent().then(function (p) { return p ? api('GET', '/api/objectifs/' + p.id) : null; }).then(function (o) {
+        var next = o ? guideProposals(o.description || '') : {};
+        if (JSON.stringify(next) !== JSON.stringify(form.proposed || {})) { form.proposed = next; paintGuide(); }
+      }).catch(function () { if (form.proposed && Object.keys(form.proposed).length) { form.proposed = {}; paintGuide(); } });
+    }
+    form._hints = refreshHints;
+    paintGuide(); composeDesc(); refreshHints();
+    function actById(id) { return (ctx.activities || []).filter(function (a) { return a.id === id; })[0]; }
+    function noActivity() { return !form.acts.length; }
+    // Type (maquette approuvée) : Annuel | Périodique | Hebdomadaire, toujours visible, en haut de l'étape. Le type décide de la période (année ou tranche / période de 28 jours / semaine) ; le niveau du cadre (activité, pôle, secteur) se choisit en dessous.
+    // Combinaisons que le modèle de données porte : annuel = activité (tranche de 5 ans) ou pôle (année) ; périodique et hebdomadaire = pôle (avec ou sans secteurs, écrit sur le pôle) ou secteur (période ou semaine). Pas encore possible : périodique / hebdomadaire sur l'activité seule (aucun plan au niveau activité) ; annuel sur un secteur : message précis, Suivant grisé.
+    function typeDerived() { return form.level === 'secteur' ? 'periodique' : form.level === 'pole' ? 'annuel' : 'pluriannuel'; } // sans choix explicite : le type suit le niveau choisi dans l'arbre
+    function typeOf() { return form.type || typeDerived(); }
+    function isSmall(t) { return t === 'periodique' || t === 'hebdomadaire'; } // les « petits objectifs »
+    function lowestOf(act) { var ps = (act && act.poles) || []; return ps.some(function (p) { return (p.secteurs || []).length; }) ? 'secteur' : ps.length ? 'pole' : 'activite'; } // niveau le plus bas des catégories de l'ACTIVITÉ
+    // Chaque type a SON niveau parmi ceux que l'activité possède (Émilien) : pluriannuel → l'activité ; annuel → un pôle (sinon l'activité) ; périodique et hebdomadaire → le niveau le plus bas (secteur, sinon pôle, sinon l'activité). Aucun autre niveau n'est proposé.
+    function levelFor(t, act) { var low = lowestOf(act); return t === 'pluriannuel' ? 'activite' : t === 'annuel' ? (low === 'activite' ? 'activite' : 'pole') : low; }
+    function levelNow() { return levelFor(typeOf(), actById(form.activityId)); }
+    function cadenceNow() { var t = typeOf(); return isSmall(t) && (form.level === 'pole' || form.level === 'activite') ? t : undefined; } // petit objectif posé sur un PÔLE (sans secteur) ou sur l'ACTIVITÉ (sans catégorie) : écrit là, sans créer de secteur (serveur : cadence)
+    function syncKind() { var t = typeOf(); form.weeklyOn = t === 'hebdomadaire' && form.level === 'secteur'; form._switchShown = form.level === 'secteur' && !!form.categoryKey; } // le type et le cadre viennent de la case de l'arbre : rien à choisir, seul l'état se déduit
+    // Étape « Temps » (refaite le 9 nov. 2026, décision d'Émilien ; règles du standard design : R22 lignes de tableau d'un bord à l'autre, R11 violet #9C8CC8 = modifiable, R33 aucun pointillé ni cadre,
+    // R35 bouton du bas grisé tant que ce n'est pas valide, R21 flèches, choix = cartes de la page Activité). Des écrans qui se parcourent par balayage, sans point de pagination ; le suivant n'existe que si le précédent l'exige :
+    //  1. « Heures par semaine » : tableau Prévu / Passé (ligne du niveau DU DESSUS en lecture seule, ligne du niveau choisi : Prévu modifiable) ;
+    //  2. « D'où vient ce temps ? » : seulement si la valeur AUGMENTE (et qu'il y a plus d'une possibilité) ;
+    //  3. « Déplacer » : UN tableau Avant / Après équilibré ; ou « Ajouter » : effets en lecture seule.
+    // Le Prévu est un BUDGET hebdomadaire du niveau (serveur : server/lib/tempsbudget.js) ; rien n'est écrit avant « Terminer » de la création (tpApply).
+    // RÈGLE DE DURÉE (A) : à rebrancher plus tard (paintTermInto, utilisée par la modification d'un objectif) ; ses données par défaut restent ci-dessous, inchangées.
+    function daysLeft() { return form.endDate ? Math.max(0, Math.round((Date.parse(form.endDate + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000)) : null; }
+    if (form.weekly === undefined) form.weekly = true;
+    form.innerGoals = form.innerGoals || 'les_deux'; // objectifs inclus par défaut : périodiques ET hebdomadaires (sauf règle hebdomadaire de la page Activité, voir innerOf)
+    function multiPeriods() { return multiOf(daysLeft()); }
+    function syncTerm() { form.term = { activite: 'pluriannuel', pole: 'annee', secteur: 'periode' }[form.level || 'activite']; } // le terme se déduit du niveau (activité = long, pôle = moyen, secteur = court)
+    form.hoursBy = form.hoursBy || {};
+    function targets() { return form.acts.map(function (id) { return { key: 'a' + id, id: id, name: (actById(id) || {}).name || '' }; }); }
+    var tpBox = el('div'); boxes.temps.appendChild(tpBox);
+    var tp = form.tp = form.tp || { key: null, e: null, valueMin: null, mode: null, apres: {}, page: 0, loading: false };
+    function tpSpec() { return { activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, endDate: form.endDate || null, inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }; }
+    function tpKey() { var q = tpSpec(); return [q.activityId, q.level, q.poleKey || '', q.categoryKey || '', q.endDate || '', q.inner || '', (form.niv && form.niv.picks || []).join(''), (form.niv && form.niv.skip ? 's' : '')].join('|'); }
+    function tpQuery() { var q = tpSpec(); return 'activityId=' + encodeURIComponent(q.activityId) + '&level=' + q.level + (q.poleKey ? '&poleKey=' + encodeURIComponent(q.poleKey) : '') + (q.categoryKey ? '&categoryKey=' + encodeURIComponent(q.categoryKey) : '') + (q.endDate ? '&endDate=' + encodeURIComponent(q.endDate) : '') + (form.level === 'secteur' ? '&inner=' + (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : ''); }
+    function tpOld() { return tp.e ? (tp.e.valueMin || 0) : 0; }
+    function tpChanging() { return !!tp.e && tp.valueMin != null && tp.valueMin !== (tp.e.valueMin == null ? 0 : tp.e.valueMin); }
+    function tpIncrease() { return tpChanging() && tp.valueMin > tpOld(); }
+    function tpModes() { return tp.e ? tp.e.modes : []; }
+    function tpMode() { return tpModes().length === 1 && tpIncrease() ? tpModes()[0] : tp.mode; } // une seule possibilité : écran « d'où vient ce temps » sauté
+    function tpPages() { var p = ['s1']; if (tpIncrease()) { if (tpModes().length > 1) p.push('s2'); if (tpMode() === 'deplacer') p.push('s3'); } return p; } // le tableau Avant / Après n'existe que pour « Déplacer »
+    function tpLines() { return tp.e && tpMode() === 'deplacer' ? tp.e.takeLines.deplacer : []; } // UN seul tableau : les autres cases du niveau + « Sans pôle » / « Sans secteur »
+    function tpAfter(l) { return tp.apres[l.key] === undefined ? l.avantMin : tp.apres[l.key]; }
+    function tpTaken() { return tpLines().reduce(function (n, l) { return n + (l.avantMin - tpAfter(l)); }, 0); }
+    function tpBalanced() { var m = tpMode(); if (m === 'ajouter') return true; return tpLines().length > 0 && tpLines().every(function (l) { var a = tpAfter(l); return a >= 0 && a <= l.avantMin; }) && tpTaken() === tp.valueMin - tpOld(); }
+    function tpValid() { if (!tpChanging()) return true; if (!tpIncrease()) return true; return !!tpMode() && tpBalanced(); }
+    function tpSync() { // bouton du bas : toujours « Suivant » (« Terminer » à la dernière étape) ; grisé (R35) seulement si une répartition « Déplacer » n'est pas équilibrée
+      if (cur !== 'temps') return;
+      var q = tpSpec(); form.hoursBy['a' + q.activityId] = tp.valueMin != null && tp.valueMin > 0 ? Math.round(tp.valueMin / 60 * 100) / 100 : null; // hoursPerWeek de l'objectif = le Prévu du niveau choisi
+      var l = list(), i = l.indexOf('temps'), tot = l.length; stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = (i + 1) + '/' + tot; stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + (i + 1) + '/' + tot + ')');
+      var more = !tpValid() && tpIncrease() && tp.page < tpPages().length - 1;
+      stepBtn.disabled = !tpValid() && !more; advance = more ? function () { tpGo(tp.page + 1); } : (i < tot - 1 ? stepNext : finishAll);
+    }
+    // Appliqué au serveur seulement à « Terminer » (abandon = rien n'est modifié) : parent et cases voisines ; le niveau choisi part avec la création (hoursPerWeek).
+    function tpApply() {
+      if (!tp.e || !tpChanging() || !tpIncrease() || !tpValid()) return Promise.resolve();
+      return api('POST', '/api/objectifs/temps/plan', Object.assign(tpSpec(), { newMin: tp.valueMin, mode: tpMode(), apres: tp.apres, apply: true }));
+    }
+    function tpGo(i) { var n = tpPages().length; tp.page = Math.max(0, Math.min(n - 1, i)); tpPaint(); tpSync(); }
+    function tpLoad(force) {
+      if (!force && tp.key === tpKey() && tp.e) { tp.page = 0; tp.shown = 0; tpPaint(); tpSync(); return Promise.resolve(); } // ré-entrée dans Temps : on revient à la PREMIÈRE sous-page (valeurs saisies conservées)
+      tp.key = tpKey(); tp.loading = true; tp.e = null; tpPaint();
+      var key = tp.key, nb = nivBody(), sg = form.endDate && niv.qs ? api('POST', '/api/objectifs/temps/suggestion', { title: form.title, endDate: form.endDate, startDate: form.startDate, activityName: (targets()[0] || {}).name || '', niveau: nb }).then(function (r) { return r && r.suggestion && r.suggestion.perWeekMin && r.suggestion.perWeekMin.mid > 0 ? r.suggestion : null; }, function () { return null; }) : Promise.resolve(null);
+      return Promise.all([api('GET', '/api/objectifs/temps?' + tpQuery()), sg]).then(function (res) {
+        var e = res[0], g = res[1]; if (tp.key !== key) return;
+        tp.sugg = g; if (g) g.startMin = g.perWeekMin.mid;
+        tp.e = e; tp.loading = false; tp.valueMin = g ? g.perWeekMin.mid : (e.valueMin == null ? null : e.valueMin); tp.mode = null; tp.apres = {}; tp.page = 0; tp.shown = 0; tpPaint(); tpSync();
+      }).catch(function (err) { tp.loading = false; tp.key = null; tpPaint(); msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+    }
+    // Phrase de la suggestion : un calcul, des symboles. « Niveau : heures totales ÷ semaines = heures par semaine · Chrono (écart du milieu) »
+    function tpSentence() {
+      var g = tp.sugg, lv = { debutant: 'Débutant', intermediaire: 'Intermédiaire', avance: 'Avancé' }[g.level] || '', a = hh(g.totalMin.min), b = hh(g.totalMin.max), ch = tp.e && tp.e.me ? tp.e.me.passeMin : null;
+      var out = (lv ? tr(lv) + ' : ' : '') + a + '–' + b + ' ÷ ' + g.weeks + ' ' + tr('sem') + ' = ' + hh(g.perWeekMin.lo) + '–' + hh(g.perWeekMin.hi);
+      if (ch != null) { var d = g.perWeekMin.mid - ch; out += ' · ' + tr('Chrono') + ' ' + hh(ch) + ' (' + (d < 0 ? '−' : '+') + hh(Math.abs(d)) + ')'; }
+      return out;
+    }
+    function tpScreen1() {
+      var e = tp.e, page = el('div', 'objTPage'), rows = [];
+      page.appendChild(el('p', 'cmpBlockTitle', tr('Heures par semaine')));
+      rows.push({ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, ref: refOf(e, 'up'), chrono: e.up.passeMin, avant: e.up.prevuMin }); // niveau du dessus : lecture seule
+      rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin, edit: { label: tr('Prévu'), onPick: function (v) { tpCommit(v); } } }); // niveau choisi : l'après est modifiable (violet)
+      page.appendChild(objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows }).node);
+      if (tp.sugg) page.appendChild(el('p', 'hint objTNote', tpSentence()));
+      return page;
+    }
+    function tpCommit(min) { // ✓ du sélecteur : valeur inchangée = rien ; baisse = aucun glissement ; hausse = glissement vers « D'où vient ce temps ? » (ou l'effet si une seule possibilité) ; valeur remise au défaut = changement annulé
+      if (min === tp.valueMin) return;
+      tp.valueMin = min;
+      tp.mode = null; tp.apres = {};
+      tp.page = tpIncrease() ? 1 : 0;
+      tpSync(); tpPaint();
+    }
+    function modeLabel(m) { return tr(m === 'ajouter' ? 'Ajouter' : 'Déplacer'); }
+    function tpScreen2() {
+      var page = el('div', 'objTPage'), box = el('div', 'aiModeChoices objCenterChoices'); // deux cartes, texte centré
+      page.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?')));
+      tpModes().forEach(function (m) { box.appendChild(choice(modeLabel(m), '', tp.mode === m, null, function () { tp.mode = m; tp.apres = {}; tpSync(); if (m === 'ajouter') { if (advance && !stepBtn.disabled) advance(); } else { tp.shown = 1; tpPaint(); tpGo(tpPages().indexOf('s3')); } })); }); // « Ajouter » : étape suivante de la création, comme « Suivant » (même fonction d'avancement) ; « Déplacer » : tableau Avant / Après // toucher une carte glisse vers l'écran suivant
+      page.appendChild(box);
+      return page;
+    }
+    function tpScreen3() {
+      var e = tp.e, page = el('div', 'objTPage'), rows = [];
+      // « Déplacer » : la ligne augmentée (lecture seule, blanche) puis TOUTES les autres lignes du niveau (après modifiable, jamais au-dessus de leur avant effectif) et le « Reste … » s'il est > 0 ; « Total » : après = avant.
+      rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: tp.valueMin });
+      tpLines().forEach(function (l) {
+        rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, ref: refOf(e, 'line', l.key), chrono: l.chronoMin, avant: l.objMin, apres: tpAfter(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { tp.apres[l.key] = v; paintTotal(); tpSync(); } } });
+      });
+      var tbl = objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows, total: true }), note = el('p', 'hint objTNote');
+      function paintTotal() { // Total : Avant = Après quand c'est équilibré ; sinon une phrase (texte seul) dit pourquoi « Suivant » est grisé
+        var avant = tpOld() + tpLines().reduce(function (n, l) { return n + l.avantMin; }, 0), apres = tp.valueMin + tpLines().reduce(function (n, l) { return n + tpAfter(l); }, 0);
+        tbl.setTotal(avant, apres);
+        note.textContent = apres === avant ? '' : tr(apres > avant ? 'Le total doit rester à {t} : reprends encore {d} sur les lignes du dessus.' : 'Le total doit rester à {t} : remets {d} sur une ligne.', { t: hh(avant), d: hh(Math.abs(apres - avant)) });
+        note.classList.toggle('hidden', apres === avant);
+      }
+      paintTotal();
+      page.appendChild(tbl.node); page.appendChild(note);
+      return page;
+    }
+    function tpPaint() {
+      tpBox.textContent = '';
+      if (tp.loading || !tp.e) return;
+      var pages = tpPages(), n = pages.length, wrap = el('div', 'tasksPages objTPages'), track = el('div', 'tasksTrack'), build = { s1: tpScreen1, s2: tpScreen2, s3: tpScreen3 };
+      track.style.width = (n * 100) + '%';
+      pages.forEach(function (k) { var pg = el('div', 'tasksPage'); pg.style.flexBasis = (100 / n) + '%'; pg.appendChild(build[k]()); track.appendChild(pg); });
+      var from = Math.max(0, Math.min(n - 1, tp.shown || 0)), to = tp.page;
+      track.style.transform = 'translateX(' + (-from * 100 / n) + '%)';
+      wrap.appendChild(track); tpBox.appendChild(wrap);
+      tp.shown = to;
+      if (from !== to) window.requestAnimationFrame(function () { window.requestAnimationFrame(function () { track.style.transform = 'translateX(' + (-to * 100 / n) + '%)'; }); });
+      else track.style.transform = 'translateX(' + (-to * 100 / n) + '%)';
+      tpSwipe(wrap);
+    }
+    function tpSwipe(node) { // balayage de page existant (mêmes zones et seuils que les autres pages) : la page entière se décale d'un bloc
+      var x0 = 0, y0 = 0, on = false;
+      function done(dx, dy) { if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx) * 0.8) return; tpGo(tp.page + (dx < 0 ? 1 : -1)); }
+      node.addEventListener('touchstart', function (ev) { ev.stopPropagation(); var t = ev.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+      node.addEventListener('touchmove', function (ev) { ev.stopPropagation(); }, { passive: true });
+      node.addEventListener('touchend', function (ev) { var t = ev.changedTouches[0]; done(t.clientX - x0, t.clientY - y0); }, { passive: true });
+      node.addEventListener('pointerdown', function (ev) { if (ev.pointerType !== 'mouse' || ev.target.tagName === 'INPUT') return; x0 = ev.clientX; y0 = ev.clientY; on = true; });
+      node.addEventListener('pointerup', function (ev) { if (ev.pointerType !== 'mouse' || !on) return; on = false; done(ev.clientX - x0, ev.clientY - y0); });
+      node.addEventListener('pointercancel', function () { on = false; });
+    }
+    function refresh() { if (!form.typeTouched) form.type = null; syncKind(); syncTerm(); }
+    refresh();
+    // Étape « Niveau » (10 nov. 2026) : avant « Temps », SAUTÉE quand elle est inutile (objectif sans progression) ou que le niveau est déjà connu (objectif similaire récent) ; seules les questions manquantes sont posées (le Chrono répond à la régularité et à l'ancienneté) ; trois questions guidées (accompli, régularité, ancienneté), quatre choix chacun, aucun texte à taper.
+    // Les questions sont écrites par l'IA selon l'objectif (questions fixes si l'IA ne répond pas) ; le niveau se déduit côté serveur des trois réponses (objectifs-niveau.js).
+    var niv = form.niv = form.niv || { key: null, qs: null, picks: [], open: 0, known: [], skip: false, type: null };
+    var NIV_KEYS = ['accompli', 'regularite', 'anciennete'];
+    function nivKey() { return [form.title || '', form.activityId == null ? '' : form.activityId, form.level || 'activite', form.poleKey || '', form.categoryKey || '', form.endDate || '', form.description || ''].join('|'); }
+    function nivMain() { return niv.qs ? niv.qs.findIndex(function (q) { return q.key === 'accompli'; }) : -1; } // la question générale (« accompli ») : seule affichée en haut ; les autres sont sous « Avancé »
+    function nivDone() { if (!niv.qs) return false; var m = nivMain(); return m >= 0 ? niv.picks[m] != null : niv.picks.every(function (p) { return p != null; }); } // seule la question générale est obligatoire
+    function nivAdv() { // TOUTES les questions du bloc « Avancé » (sauf « accompli », en haut) : posées par le serveur, sinon déjà connues (Chrono, objectif similaire : valeur pré-sélectionnée), sinon questions fixes
+      var out = [];
+      NIV_KEYS.forEach(function (key) {
+        if (key === 'accompli') return;
+        var qi = niv.qs.findIndex(function (q) { return q.key === key; }), kn = niv.known.filter(function (k) { return k.key === key; })[0], fx = niv.fixed.filter(function (f) { return f.key === key; })[0];
+        if (qi >= 0) out.push({ key: key, q: niv.qs[qi].q, choices: niv.qs[qi].choices, get: function () { return niv.picks[qi]; }, set: function (i) { niv.picks[qi] = i; }, known: false });
+        else if (kn && (fx || kn.choices)) out.push({ key: key, q: kn.q, choices: (fx || kn).choices, get: function () { return niv.kp[key]; }, set: function (i) { niv.kp[key] = i; }, known: true });
+        else if (fx) out.push({ key: key, q: fx.q, choices: fx.choices, get: function () { return niv.kp[key]; }, set: function (i) { niv.kp[key] = i; }, known: false, extra: true });
+      });
+      niv.qs.forEach(function (q, qi) { if (q.key !== 'accompli' && NIV_KEYS.indexOf(q.key) < 0) out.push({ key: q.key, q: q.q, choices: q.choices, get: function () { return niv.picks[qi]; }, set: function (i) { niv.picks[qi] = i; }, known: false }); });
+      return out;
+    }
+    function nivBody() { // les trois réponses : connues (Chrono ou objectif similaire) + choisies ; rien si le niveau n'existe pas (objectif sans progression)
+      if (!nivDone()) return undefined;
+      var by = {}; niv.known.forEach(function (k) { var o = niv.kp[k.key], f = niv.fixed.filter(function (x) { return x.key === k.key; })[0]; by[k.key] = o != null && f ? { q: k.q, a: f.choices[o], i: o } : { q: k.q, a: k.a, i: k.i }; }); // valeur connue, sauf si modifiée dans « Avancé » niv.qs.forEach(function (q, qi) { var mi = niv.picks[nivMain()]; by[q.key] = niv.picks[qi] != null ? { q: q.q, a: q.choices[niv.picks[qi]], i: niv.picks[qi] } : { q: q.q, a: tr('Non précisé'), i: mi != null ? mi : 0 }; }); // question avancée sans réponse : le niveau général fait foi
+      NIV_KEYS.forEach(function (k) { if (by[k]) return; var f = niv.fixed.filter(function (x) { return x.key === k; })[0], mi2 = niv.picks[nivMain()], o = niv.kp[k], i2 = o != null ? o : (mi2 != null ? mi2 : 0); if (f) by[k] = { q: f.q, a: o != null ? f.choices[o] : tr('Non précisé'), i: i2 }; }); // question ni posée ni connue : question fixe, valeur = niveau général
+      var out = NIV_KEYS.map(function (k) { return by[k]; });
+      return out.every(Boolean) ? { answers: out } : undefined;
+    }
+    function nivSync() { stepBtn.disabled = !nivDone(); }
+    function nivPaint() {
+      boxes.niveau.textContent = ''; boxes.niveau.classList.add('objAdvBody');
+      if (!niv.qs) { if (niv.failed) boxes.niveau.appendChild(el('p', 'hint', tr('Impossible pour le moment.'))); return; } // zone qui charge : le voile unique (R49)
+      function grid(q, qi, after, getPick, setPick) { // les quatre réponses : deux sélecteurs standard (.cmpSeg) de deux cases l'un sous l'autre
+        var g = el('div', 'cmpGrid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', tr(q.q));
+        [0, 2].forEach(function (from) {
+          var sg = el('div', 'cmpSeg');
+          q.choices.slice(from, from + 2).forEach(function (c, k) {
+            var ci = from + k, on = (getPick ? getPick() : niv.picks[qi]) === ci, bt = btn(on ? 'active' : '', tr(c), function () { if (setPick) setPick(ci); else niv.picks[qi] = ci; after(); nivPaint(); nivSync(); });
+            bt.setAttribute('aria-pressed', on ? 'true' : 'false'); sg.appendChild(bt);
+          });
+          g.appendChild(sg);
+        });
+        return g;
+      }
+      var mi = nivMain();
+      if (mi >= 0) { boxes.niveau.appendChild(el('p', 'cmpBlockTitle', tr(niv.qs[mi].q))); boxes.niveau.appendChild(grid(niv.qs[mi], mi, function () {})); } // UNE question générale, écrite par l'IA, proportionnée à l'objectif
+      var adv = nivAdv();
+      if (mi >= 0 && adv.length) { // les autres questions : sous « Avancé » (même style que la Description : à droite, violet, sans trait)
+        var advWrap = el('div', 'objField objGuideRow' + (niv.advOpen ? ' open' : '')), advHead = btn('objGuideHead objAdvHead cmpToggle', '', function () { niv.advOpen = !niv.advOpen; nivPaint(); if (niv.advOpen) TMT.ui.revealOpened(boxes.niveau.querySelector('.objAdvHead')); });
+        advHead.setAttribute('aria-expanded', niv.advOpen ? 'true' : 'false');
+        var advTx = el('span', 'objGuideTxt'); advTx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+        advHead.appendChild(advTx); advHead.appendChild(el('span', 'cmpChev' + (niv.advOpen ? ' open' : ''))); advWrap.appendChild(advHead); boxes.niveau.appendChild(advWrap);
+      }
+      if (mi >= 0 && !niv.advOpen) return;
+      adv.forEach(function (x, xi) {
+        var open = niv.open === xi, cur = x.get(), wrap = el('div', 'objField objGuideRow' + (open ? ' open' : ''));
+        var head = btn('objGuideHead cmpToggle', '', function () { niv.open = open ? -1 : xi; nivPaint(); });
+        head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr(x.q)));
+        head.appendChild(tx);
+        head.appendChild(el('span', 'hint objGuideRight objNivAns', cur != null ? tr(x.choices[cur]) : '')); // à droite : la réponse choisie (violet) ; la flèche demeure à droite (R21)
+        head.appendChild(el('span', 'cmpChev' + (open ? ' open' : ''))); wrap.appendChild(head);
+        if (open) {
+          wrap.appendChild(grid({ q: x.q, choices: x.choices }, xi, function () {}, x.get, function (i) { x.set(i); niv.open = -1; }));
+        }
+        boxes.niveau.appendChild(wrap);
+      });
+    }
+    function nivFetch() { // une seule demande par objectif ; changer le titre, l'activité, le niveau de l'arbre, l'échéance ou la description repose les questions et efface les réponses
+      var key = nivKey();
+      if (niv.key === key && niv.qs) return Promise.resolve();
+      if (niv.key === key && niv.pending) return niv.pending; // demande déjà partie (préchargée pendant l'étape Activité) : on l'attend, on ne la refait pas
+      niv.key = key; niv.qs = null; niv.picks = []; niv.open = -1; niv.known = []; niv.skip = false; niv.type = null; niv.failed = false; niv.advOpen = false;
+      var t = targets()[0];
+      var pr = api('POST', '/api/objectifs/niveau/questions', { title: form.title, description: form.description || '', endDate: form.endDate, activityId: form.activityId, activityName: t ? t.name : '', level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null }).then(function (r) {
+        if (niv.key !== key || !r || !r.questions) return;
+        niv.qs = r.questions; niv.picks = r.questions.map(function () { return null; }); niv.known = r.known || []; niv.fixed = r.fixed || []; niv.source = r.source || null; niv.kp = {}; niv.skip = !!r.skip; niv.type = r.type || null;
+      }).catch(function () { if (niv.key === key) niv.key = null; }).then(function () { if (niv.pending === pr) niv.pending = null; });
+      niv.pending = pr; return pr;
+    }
+    function nivLoad() { // à l'arrivée sur la page (si la demande n'a pas déjà été faite avant d'y entrer)
+      if (niv.qs) { nivPaint(); nivSync(); return; }
+      nivPaint(); nivSync();
+      nivFetch().then(function () {
+        if (cur !== 'niveau') return;
+        if (niv.skip) { show('temps'); return; }
+        if (!niv.qs) { niv.failed = true; nivPaint(); return; }
+        nivPaint(); nivSync();
+      });
+    }
+    // Étape « Objectifs inférieurs » (10 nov. 2026) : après Temps, seulement pour un objectif d'activité (annuels) ou de pôle (périodiques) et si le serveur propose quelque chose ; sautée en silence sinon (objectifs-inferieurs.js).
+    // Le serveur calcule (cases, heures, chiffres) et l'IA rédige ; ici : cocher / refuser chaque ligne, changer les heures (les cases SUIVANTES suivent la nouvelle base) ; rien n'est écrit avant « Terminer ».
+    var inf = form.inf = form.inf || { key: null, plan: null, on: [], hrs: [], edited: [], open: -1 };
+    // Chaîne (Émilien) : pluriannuel => annuels ; annuel => périodiques ; périodique => hebdomadaires ; hebdomadaire => rien.
+    function infMode() { return typeOf() === 'hebdomadaire' ? null : 'trou'; } // plan proposé à la création : la règle du trou (serveur, objectifs-trou.js) ; rien en dessous d'un hebdomadaire
+    function infEligible() { return !!infMode() && !!form.endDate && tp.valueMin > 0; }
+    function infListed() { return infEligible() && !(inf.plan && inf.plan.skip); }
+    function infKey() { return [nivKey(), form.endDate || '', form.parentId || '', tp.valueMin, form.level || '', form.poleKey || '', form.categoryKey || '', infMode()].join('|'); }
+    function infFetch() {
+      if (!infEligible()) { inf.plan = { skip: true }; inf.key = null; return Promise.resolve(); }
+      var key = infKey(); if (inf.key === key && inf.plan) return Promise.resolve();
+      inf.key = key; inf.plan = null;
+      var nb = nivBody(), dep = nb && nb.answers[0] ? nb.answers[0].a : '';
+      return api('POST', '/api/objectifs/inferieurs/proposition', { title: form.title, description: form.description || '', activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, trou: true, parentId: form.parentId || undefined, type: typeOf(), startDate: form.startDate, endDate: form.endDate, rateMin: tp.valueMin, depart: dep }).then(function (p) {
+        if (inf.key !== key) return;
+        inf.plan = p && !p.skip ? p : { skip: true };
+        if (!inf.plan.skip) { inf.on = p.rows.map(function (r) { return r.checked; }); inf.hrs = p.rows.map(function (r) { return r.hoursMin; }); inf.edited = p.rows.map(function () { return false; }); inf.titles = p.rows.map(function (r) { return r.title || ''; }); inf.dates = p.rows.map(function (r) { return r.endDate; }); inf.open = -1; }
+      }).catch(function () { if (inf.key === key) inf.plan = { skip: true }; });
+    }
+    // Redessin des enfants (après Temps, avant les sous-objectifs) : seulement s'il y a quelque chose à redessiner ; « Appliquer » garde le choix, écrit à « Terminer » ; Annuler / ✕ = refus mémorisé
+    function rdKey() { return [form.parentId || '', form.endDate || '', typeOf(), form.activityId == null ? '' : form.activityId, form.level || '', form.poleKey || '', form.categoryKey || '', form.dateFixe === true].join('|'); }
+    function rdBody() { return { parentId: form.parentId || undefined, type: typeOf(), title: form.title, endDate: form.endDate, activityId: form.activityId, level: form.level || 'activite', poleKey: form.poleKey || null, categoryKey: form.categoryKey || null, dateFixe: form.dateFixe === true }; }
+    function redessinStep() {
+      if (!form.endDate || form.activityId == null || form._rdKey === rdKey()) return Promise.resolve();
+      form._rdKey = rdKey(); form.redessin = null; form.rdNeeded = false;
+      return api('POST', '/api/objectifs/redessin', rdBody()).then(function (d) {
+        if (!d || !d.needed) return;
+        form.rdNeeded = true; // des objectifs existants changent : la fenêtre « Modifications proposées » remplace l'étape des sous-objectifs (un seul chemin)
+        form.rdData = d; form.rdOn = (d.moves || []).map(function () { return true; }); // plus de fenêtre : les modifications s'affichent dans la dernière étape (frise Avant / Après + lignes cochables)
+      }).catch(function () {});
+    }
+    function rdApply() {
+      var d = form.rdData; if (!d || !form.rdNeeded) return Promise.resolve(); form.rdData = null;
+      var on = (d.moves || []).filter(function (m, i) { return form.rdOn[i] !== false; });
+      if (!on.length && (d.moves || []).length) return api('POST', '/api/objectifs/redessin', { action: 'refus', parentId: form.parentId, endDate: form.endDate, rows: d.rows }).catch(function () {});
+      var r = { parentId: form.parentId, rows: d.rows, moves: on };
+      return api('POST', '/api/objectifs/redessin', Object.assign(rdBody(), { moves: (r.moves || []).map(function (m) { return { id: m.id, startDate: m.apres.startDate, endDate: m.apres.endDate }; }) }, { action: 'appliquer', parentId: r.parentId, rows: r.rows.filter(function (x) { return x.kind === 'auto' && x.id; }).map(function (x) { return { id: x.id, p: x.p, hoursPerWeek: x.hrsEdited ? x.hoursPerWeek : undefined }; }) })).catch(function () { /* l'objectif existe déjà : jamais de blocage */ });
+    }
+    function infRq(m) { return Math.round(m / 15) * 15; }
+    function infEx(r) { return r.kind === 'existant' ? r.hoursMin : (r.kind === 'modifier' ? r.fromMin : null); } // heures de l'objectif existant de la case
+    function infKind(i) { var r = inf.plan.rows[i]; return r.kind === 'nouveau' ? 'nouveau' : (inf.hrs[i] > infEx(r) ? 'modifier' : 'existant'); }
+    function infSubs(r) { return r.subs.reduce(function (n, x) { return n + x.hoursMin; }, 0); }
+    function infRecalc(k) { // une case changée (ou plus haute) fixe la NOUVELLE BASE des cases SUIVANTES seulement, jamais des précédentes
+      var rows = inf.plan.rows, rate = inf.hrs[k] / rows[k].weeks;
+      for (var j = k + 1; j < rows.length; j++) {
+        var r = rows[j], ex = infEx(r);
+        if (inf.edited[j]) { rate = inf.hrs[j] / r.weeks; continue; }
+        var prop = infRq(rate * r.weeks), floor = Math.max(prop, infRq(infSubs(r)));
+        if (ex != null && ex >= floor) { inf.hrs[j] = ex; if (ex > prop) rate = ex / r.weeks; continue; }
+        inf.hrs[j] = floor; if (floor > prop) rate = floor / r.weeks;
+      }
+    }
+    function infNum(v) { return String(v).replace('.', ','); }
+    function infChild(r) { // description de l'objectif proposé : MÊME format que la Description de création ; seules Faire, Résultat, Avancement changent, les autres viennent du parent (GUIDE_FROM_PARENT)
+      var f = { guide: {}, guideRest: '' }, inh = guideProposals(form.description || '');
+      GUIDE_FROM_PARENT.forEach(function (k) { if (inh[k]) f.guide[k] = { picks: inh[k].picks.slice(), text: inh[k].text }; });
+      f.guide.faire = { picks: [], text: r.faire || '' }; f.guide.resultat = { picks: [], text: r.resultat || '' }; f.guide.avance = { picks: [], text: r.avancement || '' };
+      return guideCompose(f);
+    }
+    function datePick(txt, min, max, value, onPick) { // UN sélecteur de date borné (récapitulatif et lignes du plan) : texte violet touchable + champ date caché
+      var vb = el('button', 'objTEdit', txt), pick = el('input'); vb.type = 'button'; vb.style.textAlign = 'left'; vb.setAttribute('aria-label', tr('Date d’échéance'));
+      pick.type = 'date'; pick.min = min; pick.max = max; pick.value = value; pick.tabIndex = -1; pick.setAttribute('aria-hidden', 'true'); pick.style.cssText = 'position:absolute;opacity:0;width:1px;height:1px;pointer-events:none';
+      vb.addEventListener('click', function () { if (pick.showPicker) { try { pick.showPicker(); return; } catch (e) {} } pick.focus(); pick.click(); });
+      pick.addEventListener('change', function () { var v = pick.value; if (!v || v < min || v > max) { pick.value = value; return; } onPick(v); });
+      return { btn: vb, input: pick };
+    }
+    function infDateTxt(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }); }
+    function infRecap() { // en haut : seulement l'échéance de l'objectif créé (Faire, Résultat, Chiffre et Départ ne sont plus affichés ici : ils restent dans les lignes et les étapes précédentes)
+      var node = el('div', 'objGrid objRecap'), row = el('div', 'objGridRow');
+      if (form.endFixed && form.cellDefaultEnd) return node; // depuis une case : échéance et « Date fixe » sont sur le premier écran (S2)
+      var txt = form.endDate ? new Date(form.endDate + 'T12:00:00').toLocaleDateString(TMT.dateLocale || undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+      row.appendChild(el('span', 'objGridName', tr('Échéance')));
+      if (form.cellPeriodic) { // périodique créé depuis une case : la date se touche (sélecteur borné à la période de la case), violet comme les autres lignes modifiables
+        var dp = datePick(txt, (function (a) { var d = new Date(); d.setDate(d.getDate() + 1); var t1 = d.toLocaleDateString('en-CA'); return a > t1 ? a : t1; })(form.cellStart > form.startDate ? form.cellStart : form.startDate), form.cellEnd, form.endDate || form.cellEnd, function (v) {
+          var days = Math.round((Date.parse(v + 'T00:00:00Z') - Date.parse(form.startDate + 'T00:00:00Z')) / 86400000);
+          form.endDate = v; form.dateOk = true; form.amount = Math.max(1, Math.round(days / 7)); form.unit = 'semaines'; form.periodWeeks = days <= 28 ? '1' : form.periodWeeks;
+          loadRatt().then(function () { return infFetch(); }).then(infPaint); // la date change : parent et plan proposé recalculés
+        }), vb = dp.btn, pick = dp.input;
+        row.appendChild(vb); row.appendChild(pick);
+      } else row.appendChild(el('span', 'objRecapVal', txt));
+      node.appendChild(row);
+      var fx = el('label', 'objGridRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = !!form.dateFixe; // « Date fixe » (algorithme v46) : une date fixe devient un mur et peut être parent
+      cb.addEventListener('change', function () { form.dateFixe = cb.checked; });
+      fx.appendChild(el('span', 'objGridName', tr('Date fixe'))); fx.appendChild(cb); node.appendChild(fx); return node;
+    }
+    function infCreatedName() { return { pluriannuel: 'Objectif pluriannuel', annuel: 'Objectif annuel', periodique: 'Objectif périodique', hebdomadaire: 'Objectif hebdomadaire' }[typeOf()]; } // niveau RÉEL de l'objectif créé, libellés de l'arbre
+    // Lignes de sous-objectifs : UNE ligne avec UN trait dessous, comme les groupes de la Description (.objGuideRow / .objGuideHead cmpToggle) ; toucher la ligne la déplie (une seule à la fois) et elle forme alors une section.
+    // Ligne : case à cocher, période en petit gris au-dessus du titre, chiffre, petit trait, heures (violet, sélecteur standard), flèche à droite. Dépliée : Faire, Résultat, Avancement, puis les objectifs existants plus bas (gris, sans case).
+    function infLevelName(p, one) { var k = p.level === 'bloc' ? ['Objectifs pluriannuels', 'Objectif pluriannuel'] : p.level === 'pole' ? ['Objectifs annuels', 'Objectif annuel'] : p.level === 'secteur' ? ['Objectifs périodiques', 'Objectif périodique'] : ['Objectifs hebdomadaires', 'Objectif hebdomadaire']; return k[one ? 1 : 0]; } // UNE source : le niveau réel des LIGNES proposées (pôle = par année, secteur = par période, sinon par semaine) pour le titre du panneau et l'en-tête de colonne
+    // Ordre des sous-objectifs modifiable à la main : le CONTENU d'une ligne (titre, Faire, Résultat, Avancement, case cochée) change de période ; les dates, heures et chiffres restent à leur période.
+    function infMove(from, to) {
+      var rows = inf.plan && inf.plan.rows; if (!rows || from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) return;
+      var c = rows.map(function (r, k) { return { t: inf.titles[k], f: r.faire, r: r.resultat, a: r.avancement, on: inf.on[k] }; }), it = c.splice(from, 1)[0]; c.splice(to, 0, it);
+      rows.forEach(function (r, k) { inf.titles[k] = c[k].t; r.title = c[k].t; r.faire = c[k].f; r.resultat = c[k].r; r.avancement = c[k].a; inf.on[k] = c[k].on; });
+    }
+    function rdFrise() { // frise Avant / Après (barres sur une même échelle) + une ligne cochable par objectif déplacé
+      var d = form.rdData, mv = d.moves || [], node = el('div', 'objRdFrise'), t0 = Infinity, t1 = 0;
+      function ms(x) { return Date.parse(x + 'T00:00:00Z'); }
+      mv.forEach(function (m) { [m.avant, m.apres].forEach(function (z) { t0 = Math.min(t0, ms(z.startDate)); t1 = Math.max(t1, ms(z.endDate)); }); });
+      var span = Math.max(1, t1 - t0);
+      [['avant', 'Avant'], ['apres', 'Après']].forEach(function (k) {
+        node.appendChild(el('span', 'objRdLab', tr(k[1])));
+        var lane = el('div', 'objRdLane');
+        mv.forEach(function (m, i) { var z = m[k[0]], b = el('i', 'objRdBar' + (form.rdOn[i] === false ? ' off' : '')); b.style.left = ((ms(z.startDate) - t0) / span * 100) + '%'; b.style.width = Math.max(2, (ms(z.endDate) - ms(z.startDate)) / span * 100) + '%'; lane.appendChild(b); });
+        node.appendChild(lane);
+      });
+      mv.forEach(function (m, i) {
+        var rw = el('label', 'objGridRow objRdRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = form.rdOn[i] !== false; cb.setAttribute('aria-label', m.title);
+        cb.addEventListener('change', function () { form.rdOn[i] = cb.checked; infPaint(); });
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', m.title)); tx.appendChild(el('span', 'hint objInfSub', infDateTxt(m.avant.endDate) + ' → ' + infDateTxt(m.apres.endDate)));
+        rw.appendChild(cb); rw.appendChild(tx); node.appendChild(rw);
+      });
+      return node;
+    }
+    function infPaint() {
+      var box = boxes.inf; box.textContent = ''; var p = inf.plan; if (form.rdNeeded && form.rdData) { box.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr('Modifications proposées'))); box.appendChild(rdFrise()); } if (!p || p.skip) return;
+      box.appendChild(el('p', 'cmpBlockTitle objNivTitle', tr(infCreatedName()) + ' : ' + form.title)); box.appendChild(infRecap());
+      var wrap = el('div', 'objInf'), hasC = !!p.chiffre, totC, totH;
+      var hdr = el('div', 'objGridHead objInfHdr'); hdr.appendChild(el('span', 'objGridName', tr(infLevelName(p, true))));
+      if (hasC) hdr.appendChild(el('span', 'objGridChrono', tr('Chiffre'))); hdr.appendChild(el('span', 'objGridObj', tr('Heures'))); wrap.appendChild(hdr);
+      function counted(i) { return infKind(i) !== 'existant' && inf.on[i] !== false; }
+      function setTot() { // somme des lignes cochées : heures, et chiffre final (cumulatif : le plus haut jalon ; additif : la somme)
+        totH.textContent = hh(p.rows.reduce(function (n, r, i) { return n + (counted(i) ? inf.hrs[i] : 0); }, 0));
+        if (!hasC) return;
+        var vals = p.rows.filter(function (r, i) { return counted(i) && r.chiffre; }).map(function (r) { return r.chiffre.value; });
+        totC.textContent = vals.length ? infNum(p.chiffre.type === 'additif' ? Math.round(vals.reduce(function (a, b) { return a + b; }, 0) * 100) / 100 : Math.max.apply(null, vals)) + (p.chiffre.unite ? ' ' + p.chiffre.unite : '') : '';
+      }
+      p.rows.forEach(function (r, i) {
+        var kind = infKind(i), mute = kind === 'existant', open = inf.open === i, c = r.chiffre;
+        var rowEl = el('div', 'objField objGuideRow objInfRow' + (open ? ' open' : '') + (!mute && inf.on[i] === false ? ' objInfOff' : '') + (mute ? ' objInfMuted' : ''));
+        var head = el('div', 'objGuideHead cmpToggle'); head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (!mute) head.appendChild(el('span', 'objRdGrab', '≡')); // poignée ≡ (même que la fenêtre « Modifications proposées ») : appui long 500 ms puis glisser = changer l'ORDRE des sous-objectifs (le contenu change de période, les dates et les heures restent à leur période)
+        if (mute) head.appendChild(el('span', 'objInfCb'));
+        else { var cb = el('input'); cb.type = 'checkbox'; cb.checked = inf.on[i] !== false; cb.setAttribute('aria-label', inf.titles[i] || r.title || r.existingTitle || r.label); cb.addEventListener('change', function () { inf.on[i] = cb.checked; rowEl.classList.toggle('objInfOff', !cb.checked); setTot(); }); head.appendChild(cb); }
+        var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'hint objInfSub', r.label)); tx.appendChild(el('span', 'cmpBlockTitle', inf.titles[i] || r.title || r.existingTitle || r.label)); head.appendChild(tx);
+        if (hasC) { head.appendChild(el('span', 'objGridChrono', c ? infNum(c.value) + (c.unit ? ' ' + c.unit : '') : '')); head.appendChild(el('span', 'objInfBar')); }
+        var hrs = el('span', 'objGridObj');
+        if (kind === 'modifier') { hrs.appendChild(el('span', 'objGridAvant', hh(infEx(r)))); hrs.appendChild(el('span', 'objGridSlash', '→')); }
+        if (mute) hrs.appendChild(el('span', 'objGridApres', hh(inf.hrs[i]))); else hrs.appendChild(tbtn(inf.hrs[i], tr('Heures'), function (v) { inf.hrs[i] = v; inf.edited[i] = true; infRecalc(i); infPaint(); }));
+        head.appendChild(hrs); head.appendChild(el('span', 'cmpChev' + (open ? ' open' : '')));
+        function toggle() { inf.open = open ? -1 : i; infPaint(); }
+        head.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('input, .objTEdit')) return; toggle(); });
+        head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
+        rowEl.appendChild(head);
+        if (open) {
+          if (kind === 'nouveau' && r.lineType) { // validation ligne par ligne : titre et date modifiables (la date reste dans la case de la ligne, jamais au-delà de l'objectif créé)
+            var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = inf.titles[i] || ''; tIn.setAttribute('aria-label', tr('Titre'));
+            tIn.addEventListener('input', function () { inf.titles[i] = tIn.value; });
+            tIn.addEventListener('change', function () { infPaint(); });
+            rowEl.appendChild(field(tr('Titre'), tIn));
+            var mx = r.maxDate < form.endDate ? r.maxDate : form.endDate, dr = el('div', 'objDueRow'), dpk = datePick(infDateTxt(inf.dates[i]), r.minDate, mx, inf.dates[i], function (v) { inf.dates[i] = v; infPaint(); });
+            dr.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dr.appendChild(dpk.btn); dr.appendChild(dpk.input); rowEl.appendChild(dr);
+          }
+          var lines = [[tr('Faire'), r.faire], [tr('Résultat'), r.resultat], [tr('Avancement'), r.avancement]].filter(function (x) { return x[1]; });
+          if (lines.length) { var tb = el('div', 'objGrid objRecap objInfBody'); lines.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x[0])); rw.appendChild(el('span', 'objRecapVal', x[1])); tb.appendChild(rw); }); rowEl.appendChild(tb); }
+          if (r.subs.length) { var sb = el('div', 'objGrid objRecap objInfBody objInfSubs'); r.subs.forEach(function (x) { var rw = el('div', 'objGridRow'); rw.appendChild(el('span', 'objGridName', x.title)); rw.appendChild(el('span', 'objRecapVal', hh(x.hoursMin))); sb.appendChild(rw); }); rowEl.appendChild(sb); }
+        }
+        rowEl.setAttribute('data-i', String(i));
+        if (!mute && TMT.ui && TMT.ui.holdDrag) TMT.ui.holdDrag(rowEl, { holdMs: 500, list: function () { return wrap; }, scroller: function () { return panelBody; }, targetSel: '.objInfRow:not(.objInfMuted)', draggingClass: 'objRdDrag', targetClass: 'objRdDrop', onDrop: function (target) { infMove(i, Number(target.getAttribute('data-i'))); infPaint(); } });
+        wrap.appendChild(rowEl);
+      });
+      var tot = el('div', 'objGridTotal objInfTotal'); tot.appendChild(el('span', 'objGridName', tr('Total')));
+      if (hasC) { totC = el('span', 'objGridChrono'); tot.appendChild(totC); }
+      var th = el('span', 'objGridObj'); totH = el('span', 'objGridApres'); th.appendChild(totH); tot.appendChild(th); wrap.appendChild(tot);
+      setTot(); box.appendChild(wrap);
+    }
+    function infApply(parent) { // à « Terminer » : seulement les lignes cochées ; créées / modifiées par les fonctions existantes côté serveur
+      var p = inf.plan; if (!parent || !parent.id || !p || p.skip || cur !== 'inf') return Promise.resolve();
+      var rows = [];
+      p.rows.forEach(function (r, i) {
+        var kind = infKind(i); if (kind === 'existant' || inf.on[i] === false) return;
+        if (kind === 'modifier') { rows.push({ kind: 'modifier', existingId: r.existingId, weeks: r.weeks, hoursMin: inf.hrs[i] }); return; }
+        rows.push({ kind: 'nouveau', title: (inf.titles[i] || r.title || '').trim() || r.title, description: infChild(r), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: inf.dates[i] || r.endDate, weeks: r.weeks, hoursMin: inf.hrs[i], chiffre: r.chiffre, reason: hh(p.rateMin) + ' × ' + r.weeks + ' ' + tr('sem'), attachIds: r.subs.filter(function (x) { return x.attach; }).map(function (x) { return x.id; }) });
+      });
+      if (!rows.length) return Promise.resolve();
+      return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: parent.id, rateMin: p.rateMin, weekly: p.level === 'semaine' ? true : undefined, rows: rows }).catch(function () { /* l'objectif principal existe déjà : jamais de blocage */ });
+    }
+    // Étape « Tâches » : avec Expansion, Noèsis génère les tâches ; gratuit : aucune tâche, seulement l'offre.
+    if (ctx.canGenerateTasks) boxes.taches.appendChild(el('p', 'objPlain', tr('Tâches générées automatiquement')));
+    if (!ctx.canGenerateTasks && !window.TMT_NATIVE_SHELL) boxes.taches.appendChild(offerBtn());
+    var stepNames = { desc: 'Objectif', temps: 'Temps', heures: 'Heures', niveau: 'Niveau', inf: 'Objectifs', taches: 'Tâches' }, cur = form._step || 'desc';
+    function list() { /* création par le « + » d'une case : ni Emplacement ni Échéance (la fin de la case ; la date précise d'un périodique se touche dans le récapitulatif du dernier panneau) */ return ['desc'].concat(niv.skip ? [] : ['niveau']).concat(['temps']).concat(infListed() || form.rdNeeded ? ['inf'] : []).concat(TACHES_PAGE ? ['taches'] : []); }
+    function rattKey2() { return rattKey() + '|' + (form.endDate || ''); } // le rattachement dépend aussi de l'échéance (saisie après Activité)
+    function loadRatt() {
+      // proposition du rattachement (après la Description) : mémorisée tant que le titre et l'activité ne changent pas
+      var key = rattKey2();
+      if (form.ratt && form.ratt.key === key) return form.ratt.p || Promise.resolve(); // même titre, même activité et même niveau : la décision précédente reste
+      form.ratt = { key: key, cand: null, rel: 'apres', decided: null }; form.parentId = null; form.parentRel = null;
+      if (form.activityId == null) return Promise.resolve();
+      var rp = api('POST', '/api/objectifs/rattachement', rattBody()).then(function (r) { // une seule règle : le parent a une échéance au moins égale à celle du nouvel objectif ; niveau et pôle / secteur envoyés
+        if (r && r.candidate) { form.ratt.cand = r.candidate; form.ratt.rel = r.rel || 'apres'; form.ratt.decided = 'accept'; form.parentId = r.candidate.id; form.parentRel = form.ratt.rel; } // parent de la même activité choisi tout seul (8 nov. 2026), plus de page Rattachement ; les macros ne se font plus à la création (seulement depuis l'arbre)
+      }).catch(function () {}); form.ratt.p = rp; return rp;
+    }
+    function show(k) {
+      form._step = cur = k;
+      ['desc', 'temps', 'heures', 'niveau', 'inf', 'taches'].forEach(function (x) { boxes[x].classList.toggle('hidden', x !== k); });
+      if (k === 'inf') infPaint();
+      if (k === 'desc' && form._hints && form._shownOnce) form._hints();
+      if (k === 'desc') form._shownOnce = true;
+      if (k === 'niveau') nivLoad();
+      if (k === 'temps') tpLoad();
+      panelKicker.textContent = tr(k === 'inf' && inf.plan && !inf.plan.skip ? infLevelName(inf.plan) : stepNames[k]);
+      var l = list(), i = l.indexOf(k); seq = { base: 0, count: 1, i: 0 }; var n = i + 1, tot = l.length;
+      stepLabel.textContent = i < tot - 1 ? tr('Suivant') : tr('Terminer'); stepPos.textContent = n + '/' + tot; dock.classList.add('expSave', 'objDockBar');
+      stepBtn.setAttribute('aria-label', (i < tot - 1 ? tr('Suivant') + ' : ' + tr(stepNames[l[i + 1]]) : tr('Terminer')) + ' (' + n + '/' + tot + ')');
+      stepBtn.disabled = stepOff() || (k === 'niveau' && !nivDone()); // Suivant grisé tant que le rattachement n'est pas décidé
+      advance = i < tot - 1 ? stepNext : finishAll; setBack(i > 0 ? function () { show(l[i - 1]); } : null);
+      dock.classList.toggle('objTemps', k === 'temps' || k === 'niveau' || k === 'desc'); // bouton du bas gris (R35) quand il est désactivé, aux étapes Description, Niveau et Temps
+      if (k === 'temps') tpSync();
+    }
+    function stepNextFrom(from) { var l = list(), i = l.indexOf(from); if (i < l.length - 1) show(l[i + 1]); }
+    function stepNext() {
+      var l = list(), i = l.indexOf(cur); if (i >= l.length - 1) return; msg.textContent = '';
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; redessinStep().then(function () { stepBtn.disabled = false; stepNext(); }); return; } // les modifications proposées sont calculées ici, affichées dans la dernière étape
+      if (cur === 'temps' && l[i + 1] === 'inf') { stepBtn.disabled = true; infFetch().then(function () { stepBtn.disabled = false; if ((inf.plan && !inf.plan.skip) || form.rdNeeded) show('inf'); else finishAll(); }); return; }
+      if (cur === 'desc') { if (!validDesc()) return; stepBtn.disabled = true; loadRatt().then(nivFetch).then(function () { stepBtn.disabled = false; stepNextFrom('desc'); }); return; } // créé depuis une case : activité et échéance imposées
+      show(l[i + 1]);
+    }
+    function validDesc(final) {
+      form.title = titleIn.value.trim();
+      if (!form.title) { msg.textContent = tr('Écris ton objectif.'); return false; }
+      if (final && noActivity()) { msg.textContent = tr('Choisis une activité.'); return false; }
+      return true;
+    }
+    function innerOf() { if (weeklyPossible(form)) return form.weeklyOn ? 'hebdomadaires' : 'periodiques'; return multiPeriods() ? form.innerGoals : 'hebdomadaires'; }
+    function finishAll() { // Terminer : proposition par règles (ou IA gratuite du mois) puis création ; rien n'est créé avant ce geste
+      if (!validDesc(true)) return;
+      if (cur === 'temps' && form.parentId && form._rdKey !== rdKey()) { stepBtn.disabled = true; redessinStep().then(function () { stepBtn.disabled = false; if (form.rdNeeded) { show('inf'); } else finishAll(); }); return; } // dernier écran (hebdomadaire) : les modifications proposées passent avant la création
+      if (form.ratt && form.ratt.key !== rattKey2()) { form.parentId = null; form.parentRel = null; } // l'activité a changé après la proposition de rattachement : plus de parent
+      if (!form.dateOk || !form.endDate) { msg.textContent = tr('Indique la date de l’échéance.'); return; }
+      if (form.endDate <= todayLocal()) { msg.textContent = MSG_ECH; return; }
+      stepBtn.disabled = true; msg.textContent = '';
+      var t = targets()[0], actName = t ? t.name : '', first = null, fin = function (p) { return p; }; // (voile retiré le 20 nov. 2026) de confirmation qui attend l'utilisateur
+      // Sans réseau (20 nov. 2026) : l'objectif entre dans la file hors ligne (même voie que les tâches, une clé d'idempotence) ; le panneau se ferme comme après une création, l'objectif s'affiche en attente dans l'arbre, et le serveur applique ses règles au retour du réseau (refus = visible avec son message).
+      function queueOffline() {
+        if (!TMT.offlineObjectifs) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
+        return Promise.resolve(t.id).then(function (aid) {
+          var body = { term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, description: form.description, resume: String(form.resume || '').trim() || undefined, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, dateFixe: form.dateFixe === true, title: form.title, activityId: aid, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', parentId: form.parentId };
+          return TMT.offlineObjectifs.add(aid, form.title, body);
+        }).then(function () { endFlow(); });
+      }
+      function go(replaceId) { return tpApply().then(function () { return api('POST', '/api/objectifs/proposition', { level: form.level || 'activite', cadence: cadenceNow(), inner: form.level === 'secteur' ? innerOf() : undefined, title: form.title, startDate: form.startDate, endDate: form.endDate, amount: form.amount, unit: form.unit, periodWeeks: form.periodWeeks, weekly: innerOf() !== 'periodiques', activityId: form.activityId, activityName: actName }); })
+        .then(function (P) { // UNE seule activité, qui existe déjà (elle se crée dans Réglages) ; les macros se font seulement depuis l'arbre
+          return Promise.resolve(t.id)
+            .then(function (activityId) {
+              return api('POST', '/api/objectifs', { replaceId: replaceId || undefined, term: form.term, cadence: cadenceNow(), inner: innerOf(), level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, hoursPerWeek: form.hoursBy[t.key] || null, niveau: nivBody(), niveauType: niv.type || undefined, nature: form.natureIdx === 0 ? 'maintenance' : form.natureIdx === 1 ? 'developpement' : undefined, suggestion: tp.sugg ? { range: tp.sugg.range, perWeekMin: { mid: tp.sugg.perWeekMin.mid }, factor: tp.sugg.factor, weeks: tp.sugg.weeks, reason: tp.sugg.reason } : undefined, description: form.description, resume: String(form.resume || '').trim() || undefined, parentRel: form.parentRel, refus: form.refused, proposedEnd: form.proposedEnd, dateFixe: form.dateFixe === true, title: P.title, activityId: activityId, startDate: P.startDate, endDate: P.endDate, amount: form.amount, unit: form.unit, periodWeeks: P.periodWeeks, weekly: P.weekly, parentId: form.parentId, periods: P.periods.map(function (p) { return { title: p.title, weeks: p.weeks.map(function (w) { return { text: w.text }; }) }; }), weekTasks: P.weekTasks });
+            })
+            .then(function (cr) { if (cr && cr.id) first = cr; });
+        })
+        .then(function () { return infApply(first); })
+        .then(function () { return rdApply(); })
+        .then(function () { var created = first; if (TMT.refreshActivities) TMT.refreshActivities().then(function () { if (TMT.renderGoalsCaptureActivities) TMT.renderGoalsCaptureActivities(); }, function () {}); if (TMT.loadGoalsCaptureBadges) TMT.loadGoalsCaptureBadges(); load(); endFlow(); })
+        .catch(function (err) { if (err && err.offline && !first) return queueOffline().catch(function (e2) { stepBtn.disabled = false; msg.textContent = (e2 && e2.message) || tr('Impossible pour le moment.'); }); stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); });
+      }
+      // Case déjà occupée (même colonne, même ligne du temps) : avertissement (R28) ; « Remplacer » (rouge : suppression définitive) supprime l'ancien objectif avec la suppression existante, SEULEMENT une fois le nouveau enregistré (côté serveur) ; Annuler (violet) ne touche à rien
+      fin(api('POST', '/api/objectifs/case', { activityId: form.activityId, level: form.level, poleKey: form.poleKey, categoryKey: form.categoryKey, endDate: form.endDate, cadence: cadenceNow(), inner: form.level === 'secteur' ? (form.weeklyOn ? 'hebdomadaires' : 'periodiques') : undefined }).then(function (r) { return r && r.occupant ? r.occupant : null; }, function () { return null; }))
+        .then(function (occ) {
+          if (!occ) return navigator.onLine === false ? queueOffline().catch(function (err) { stepBtn.disabled = false; msg.textContent = (err && err.message) || tr('Impossible pour le moment.'); }) : fin(go(null));
+          return TMT.ui.confirm(tr('Un objectif existe déjà à cette date. Le remplacer le supprimera définitivement.'), { choices: [{ value: true, label: tr('Remplacer'), danger: true }, { value: false, label: tr('Annuler') }] })
+            .then(function (yes) { if (!yes) { stepBtn.disabled = false; return null; } return fin(go(occ.id)); });
+        });
+    }
+
+    form._show = show; show(cur);
+
+  }
+  // ---------- Fenêtre « Modifications proposées » (14 nov. 2026, décision d'Émilien : un simple Oui / Non) ----------
+  // Après l'étape Temps, seulement s'il y a quelque chose à décaler : Oui applique le calcul proposé par le serveur (POST /api/objectifs/redessin), Non le refuse (refus mémorisé). Rien n'est écrit avant « Terminer ».
+  function openRedessin(d) {
+    var lines = (d.moves || []).map(function (m) { return m.title + ' : ' + m.avant.startDate + ' → ' + m.avant.endDate + '  ⇒  ' + m.apres.startDate + ' → ' + m.apres.endDate; });
+    return TMT.ui.confirm(tr('Modifications proposées') + (lines.length ? '\n' + lines.join('\n') : ''), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] })
+      .then(function (yes) { return yes ? { applied: true, rows: d.rows } : { refused: true, rows: d.rows }; });
+  }
+  // HAUSSE DES HEURES À LA MODIFICATION (20 nov. 2026, Émilien : la modification a les mêmes fonctionnalités que la création) : mêmes règles que l'étape Temps de la création,
+  // « D'où vient ce temps ? » (Ajouter / Déplacer) puis tableau Avant / Après équilibré (POST /api/objectifs/temps/plan, apply au moment d'Enregistrer). Résout { mode, apres } ou null (abandon).
+  function openTempsAjuster(spec, query, oldMin, newMin) {
+    return new Promise(function (resolve) {
+      var tApres = null, done = false, m = openModal(tr('Ajuster le temps'), { dirty: function () { return !!tApres && Object.keys(tApres).length > 0; }, onClose: function () { if (!done) { done = true; resolve(null); } } });
+      function finish(v) { if (done) return; done = true; m.close(); resolve(v); }
+      var closeOrig = m.close; m.close = function () { closeOrig(); if (!done) { done = true; resolve(null); } };
+      api('GET', '/api/objectifs/temps?' + query).then(function (e) {
+        var modes = (e && e.modes) || []; if (!modes.length) modes = ['ajouter'];
+        function table() {
+          var apres = tApres = {}, lines = (e.takeLines && e.takeLines.deplacer) || [], rows = [], tbl, note = el('p', 'hint objTNote'), ok = btn('objFootBtn', tr('Valider'), function () { finish({ mode: 'deplacer', apres: apres }); });
+          function after(l) { return apres[l.key] === undefined ? l.avantMin : apres[l.key]; }
+          function taken() { return lines.reduce(function (n, l) { return n + (l.avantMin - after(l)); }, 0); }
+          function paint() { var bal = lines.length > 0 && taken() === newMin - oldMin; ok.disabled = !bal; var avant = oldMin + lines.reduce(function (n, l) { return n + l.avantMin; }, 0), ap = newMin + lines.reduce(function (n, l) { return n + after(l); }, 0); if (tbl) tbl.setTotal(avant, ap); note.textContent = ap === avant ? '' : tr(ap > avant ? 'Le total doit rester à {t} : reprends encore {d} sur les lignes du dessus.' : 'Le total doit rester à {t} : remets {d} sur une ligne.', { t: hh(avant), d: hh(Math.abs(ap - avant)) }); note.classList.toggle('hidden', ap === avant); }
+          rows.push({ label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: e.me.prevuMin, apres: newMin });
+          lines.forEach(function (l) { rows.push({ label: l.key === 'reste' ? tr(l.label) : l.label, ref: refOf(e, 'line', l.key), chrono: l.chronoMin, avant: l.objMin, apres: after(l), edit: { label: tr('Après') + ' : ' + (l.key === 'reste' ? tr(l.label) : l.label), maxMin: l.avantMin, onPick: function (v) { apres[l.key] = v; paint(); } } }); });
+          tbl = objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows, total: true });
+          m.body.textContent = ''; m.body.appendChild(tbl.node); m.body.appendChild(note); m.foot.textContent = ''; m.foot.appendChild(ok); paint(); TMT.ui.dockEnregistrer(ok, m.overlay); /* R50 : bouton décollé, à la place de la barre des volets */
+        }
+        function choose() {
+          m.body.textContent = ''; m.body.appendChild(el('p', 'cmpBlockTitle', tr('D’où vient ce temps ?'))); var box = el('div', 'aiModeChoices objCenterChoices');
+          modes.forEach(function (k) { box.appendChild(choice(tr(k === 'ajouter' ? 'Ajouter' : 'Déplacer'), '', false, null, function () { if (k === 'ajouter') finish({ mode: 'ajouter', apres: {} }); else table(); })); });
+          m.body.appendChild(box);
+        }
+        if (modes.length === 1) { if (modes[0] === 'ajouter') finish({ mode: 'ajouter', apres: {} }); else table(); } else choose();
+      }).catch(function () { finish({ mode: 'ajouter', apres: {} }); });
+    });
+  }
+  // POP-UP DES HEURES d'une ligne (maquette v4, 14 nov. 2026) : lecture seule, l'arbre ne change jamais ; le tableau `objTable` du dépassement (colonnes « Chrono » puis « Objectif », seulement des traits).
+  // S1 : une ligne par catégorie de la ligne touchée + Total ; toucher une catégorie = S2 dans le même pop-up : les membres qui ont du Chrono dans cette catégorie (fil « 2027 › TiMeTracker », ✕ ferme).
+  // Données : POST /api/objectifs/allocation/repartition. Les responsables existent par activité mais aucun lien « membre sous son responsable » : liste simple de membres (marqués resp.).
+  function openHeures(spec, row, label) {
+    var m = null, res = null; // le pop-up ne s'ouvre que s'il y a des données (19 nov. 2026, Émilien)
+    function sum(rows, k) { var n = 0, any = false; rows.forEach(function (r) { if (r[k] != null) { n += r[k]; any = true; } }); return any ? n : null; }
+    // Tableau commun aux deux écrans (mêmes classes que objTable) : nom | Chrono (objectif en cours seulement) | Objectif ; r.avant = texte déjà formaté, r.sub = petite ligne sous le nom
+    function table(rows, onTap, totalTxt, chrono, canTap) {
+      var node = el('div', 'objGrid'), body = el('div', 'objGridBody'), head = el('div', 'objGridHead');
+      head.appendChild(el('span', 'objGridName', '')); if (chrono) head.appendChild(el('span', 'objGridChrono', tr('Chrono'))); head.appendChild(el('span', 'objGridObj', tr('Objectif'))); body.appendChild(head);
+      var tints = [];
+      rows.forEach(function (r, i) {
+        var rowEl = el('div', 'objGridRow'), name = el('span', 'objGridName', r.label), obj = el('span', 'objGridObj'); if (r.ref) tints.push({ el: name, a: r.ref.a, p: r.ref.p }); /* R53 */
+        if (r.sub) { name.appendChild(document.createElement('br')); name.appendChild(el('small', 'objGridSub', r.sub)); }
+        rowEl.appendChild(name); if (chrono) rowEl.appendChild(el('span', 'objGridChrono', r.chrono == null ? '' : TMT.ui.heures(r.chrono)));
+        obj.appendChild(el('span', 'objGridAvant', r.avant)); rowEl.appendChild(obj);
+        if (onTap && canTap && !canTap(i)) rowEl.addEventListener('click', function () { m.foot.textContent = tr('Aucun membre pour cette catégorie.'); setTimeout(function () { m.foot.textContent = ''; }, 3200); });
+        if (onTap && (!canTap || canTap(i))) { rowEl.style.cursor = 'pointer'; rowEl.setAttribute('role', 'button'); rowEl.tabIndex = 0; rowEl.addEventListener('click', function () { onTap(i); }); rowEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(i); } }); }
+        body.appendChild(rowEl);
+      });
+      node.appendChild(body); if (tints.length) TMT.ui.colorer(tints);
+      if (totalTxt) { var tot = el('div', 'objGridTotal'), to = el('span', 'objGridObj'); to.appendChild(el('span', 'objGridApres', totalTxt)); tot.appendChild(el('span', 'objGridName', tr('Total'))); if (chrono) tot.appendChild(el('span', 'objGridChrono', '')); tot.appendChild(to); node.appendChild(tot); }
+      return node;
+    }
+    function s1() { // 19 nov. 2026 (Émilien) : heures + part en % par catégorie ; Chrono par catégorie seulement pour un objectif en cours (sinon non pertinent)
+      m.head.textContent = ''; m.head.appendChild(el('p', 'sectionTitle', tr('Heures par semaine') + ' · ' + label));
+      m.body.textContent = '';
+      var cats = res.categories, total = sum(cats.map(function (c) { return { v: c.heuresMin }; }), 'v');
+      m.body.appendChild(table(cats.map(function (c) { return { label: c.label, ref: { a: c.activityId, p: c.poleKey }, chrono: c.chronoMin, avant: TMT.ui.heures(c.heuresMin) + (total && c.heuresMin != null ? ' · ' + Math.round(c.heuresMin * 100 / total) + ' %' : '') }; }), function (i) { s2(cats[i]); }, TMT.ui.heures(total), !!res.enCours, function (i) { return (cats[i].membres || []).length > 0; }));
+    }
+    function s2(c) { // membres : réel (Chrono) contre prévu, et nombre de tâches attribuées, seulement pour un objectif en cours
+      m.head.textContent = ''; var crumbs = el('nav', 'arCrumbs'), back = el('button', 'arCrumb', label); back.type = 'button'; back.addEventListener('click', s1);
+      crumbs.appendChild(back); crumbs.appendChild(el('span', 'arCrumbSep', '›')); crumbs.appendChild(el('b', 'arCrumbNow', c.label)); m.head.appendChild(crumbs);
+      m.body.textContent = '';
+      var rows = (c.membres || []).map(function (x) { return { label: (x.name || '') + (x.isResponsable ? ' · ' + tr('resp.') : ''), sub: res.enCours && x.tasks ? x.tasks + ' ' + tr(x.tasks > 1 ? 'tâches' : 'tâche') : '', chrono: x.chronoMin, avant: TMT.ui.heures(x.plannedMin) }; });
+      m.body.appendChild(table(rows, null, null, !!res.enCours));
+    }
+    return api('POST', '/api/objectifs/allocation/repartition', { level: spec.level, activityId: spec.activityId, poleKey: spec.poleKey, row: { start: row.start, end: row.end } }).then(function (r) { res = r; var any = (r.categories || []).some(function (c) { return c.heuresMin != null || c.chronoMin != null || (c.membres || []).length; }); if (!any) return false; m = openModal(tr('Heures par semaine') + ' · ' + label); s1(); return true; }).catch(function () { if (m) m.close(); return false; });
+  }
+  // POP-UP DES 4 SEMAINES d'une période (19 nov. 2026, Émilien) : le dernier niveau de l'arbre, la semaine la plus ancienne EN BAS. Une ligne = un TITRE (touchée, elle se déplie : le titre s'écrit sur place) ;
+  // dessous, trois questions à puces (Que faire ? Avec quoi ? Quel résultat ?) qui composent le descriptif « Libellé : réponse · … » lu par l'IA (même format que la création, GUIDE_GROUPS). « + » = ajouter, ✕ = supprimer
+  // (confirmation habituelle). « Génère tes objectifs hebdomadaires avec Noèsis » : l'IA écrit les semaines vides à partir de l'objectif périodique (aucune validation ligne par ligne : ✕ pour retirer).
+  // spec : { label, ctx, parentId, weeks: [{ i, start, end, obj }] } ; rien d'autre n'est écrit avant « Enregistrer » (la génération et la suppression, elles, s'appliquent tout de suite).
+  var SEM_Q = [['faire', 'Que faire ?'], ['quoi', 'Avec quoi ?'], ['resultat', 'Quel résultat ?']];
+  function semGuide(k) { var g = null; GUIDE_GROUPS.forEach(function (x) { x.qs.forEach(function (q) { if (q.k === k) g = q; }); }); return g; }
+  function semParse(d) { return String(d || '').split(' · ').map(function (s) { var i = s.indexOf(' : '); return i < 0 ? { label: '', ans: s.trim() } : { label: s.slice(0, i).trim(), ans: s.slice(i + 3).trim() }; }).filter(function (x) { return x.ans; }); }
+  function semCompose(parts) { return parts.map(function (x) { return x.label ? x.label + ' : ' + x.ans : x.ans; }).join(' · '); }
+  function openSemaines(spec, onEnd) {
+    var c = spec.ctx || {}, msg = el('p', 'tasksMsg objMsg'), openI = -1, rows = [], todayIso = new Date().toLocaleDateString('en-CA');
+    function past(x) { return x.w.end < todayIso; } // une semaine déjà passée est grisée : on n'y crée rien (le serveur refuse une échéance dans le passé)
+    function mk(w) { var t = w.obj ? w.obj.title || '' : '', d = w.obj ? w.obj.description || '' : ''; return { w: w, t: t, d: d, t0: t, d0: d }; }
+    rows = spec.weeks.map(mk);
+    panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.label; panelForm = { edit: true }; setBack(null);
+    var genBtn = null, genBox = el('div', 'objSemGen'), list = el('div', 'objSemList'); panelBody.appendChild(genBox); panelBody.appendChild(list);
+    function changed(r) { return r.t.trim() !== r.t0.trim() || r.d.trim() !== r.d0.trim(); }
+    function valid(r) { return !changed(r) || !!r.w.obj || !!r.t.trim(); } // une nouvelle semaine ne s'enregistre pas sans titre
+    function ready(r) { return changed(r) && valid(r); }
+    function sync() { stepBtn.disabled = !rows.some(ready); } // une ligne incomplète (ex. puces sans titre) est ignorée : elle n'empêche jamais d'enregistrer les autres
+    function fresh() { // relit les objectifs : la génération ou une suppression vient de changer les semaines (une saisie non enregistrée d'une semaine qui existe encore est gardée)
+      return api('GET', '/api/objectifs?filtre=en_cours').then(function (r) {
+        var all = (r && r.objectifs) || [], days = function (a, b) { return (Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000; };
+        rows.forEach(function (x) {
+          var dirty = changed(x) && x.w.obj;
+          x.w.obj = all.filter(function (o) { return !o.isMacro && o.activity && o.activity.id === c.activityId && o.level === c.level && (o.poleKey || null) === (c.poleKey || null) && (o.categoryKey || null) === (c.categoryKey || null) && days(o.startDate, o.endDate) <= 7 && o.endDate >= x.w.start && o.endDate <= x.w.end; })[0] || null;
+          if (!dirty || !x.w.obj) { var n = mk(x.w); x.t = n.t; x.d = n.d; x.t0 = n.t0; x.d0 = n.d0; } else { x.t0 = x.w.obj.title || ''; x.d0 = x.w.obj.description || ''; }
+        });
+        load(); paint();
+      });
+    }
+    function genWeeks() { return rows.filter(function (x) { return !x.w.obj && !past(x) && (!spec.parentEnd || x.w.start <= spec.parentEnd) && (!spec.parentStart || x.w.end >= spec.parentStart); }); } // semaines vides, à venir, dans la durée de l'objectif périodique
+    function generate() {
+      msg.textContent = ''; genBtn.disabled = true;
+      api('POST', '/api/objectifs/' + spec.parentId + '/inferieurs/generer').then(function (pl) {
+        var src = pl && !pl.skip && pl.rows ? pl.rows.filter(function (r) { return r.kind === 'nouveau'; }) : [], free = genWeeks();
+        if (!src.length || !free.length) { msg.textContent = tr((pl && pl.skip && pl.reason) || 'Rien à proposer pour le moment.'); return null; }
+        var body = free.slice(0, src.length).map(function (x, i) { var r = src[i], end = spec.parentEnd && x.w.end > spec.parentEnd ? spec.parentEnd : x.w.end; return { kind: 'nouveau', title: String(r.title || '').replace(/^S\d+ · /, 'S' + x.w.i + ' · '), description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, start: x.w.start, endDate: end, weeks: 1, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
+        return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: spec.parentId, rateMin: pl.rateMin, weekly: true, rows: body }).then(fresh);
+      }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }).then(function () { paint(); });
+    }
+    function paint() {
+      genBox.textContent = '';
+      genBtn = null;
+      if (spec.parentId && genWeeks().length) { genBtn = btn('objSemGenBtn', tr('Générer avec Noèsis'), generate); genBox.appendChild(genBtn); }
+      list.textContent = '';
+      rows.map(function (r, k) { return { r: r, k: k }; }).reverse().forEach(function (x) { // la semaine la plus ancienne en BAS (l'arbre monte)
+        var r = x.r, k = x.k, gone = past(r), isOpen = k === openI && !gone, row = el('div', 'objSemRow' + (gone ? ' past' : '') + (isOpen ? ' weekOpen' : '')), head = el('div', 'objSemHead' + (isOpen ? ' open' : '')), tEl;
+        if (!gone) {
+          head.setAttribute('role', 'button'); head.tabIndex = 0; head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          var toggle = function () { openI = isOpen ? -1 : k; paint(); };
+          head.addEventListener('click', toggle); head.addEventListener('keydown', function (e) { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(); } });
+        }
+        head.appendChild(el('span', 'objSemNo', 'S' + r.w.i)); // pastille de semaine, comme la liste hebdomadaire du calendrier
+        if (isOpen) {
+          tEl = el('input', 'objSemTitleIn'); tEl.type = 'text'; tEl.maxLength = 140; tEl.value = r.t; tEl.placeholder = tr('Titre'); tEl.setAttribute('aria-label', tr('Titre'));
+          tEl.addEventListener('click', function (e) { e.stopPropagation(); }); tEl.addEventListener('input', function () { r.t = tEl.value; sync(); });
+        } else tEl = el('span', 'objSemTitle' + (r.t.trim() ? '' : ' empty'), r.t.trim() || tr('Ajouter un titre'));
+        head.appendChild(tEl);
+        if (gone) head.appendChild(el('span', 'cmpRemove cmpRemove--add'));
+        else if (r.w.obj) { var del = btn('cmpRemove', '', function (e) { e.stopPropagation(); confirmDelete(r.w.obj.id, r.w.obj.title, function () { fresh(); }, function (er) { msg.textContent = (er && er.message) || tr('Impossible pour le moment.'); }, false); }); del.setAttribute('aria-label', tr('Supprimer')); head.appendChild(del); }
+        else head.appendChild(el('span', 'cmpRemove cmpRemove--add'));
+        if (isOpen && spec.color) { row.style.setProperty('--poleColor', spec.color); row.style.setProperty('--poleText', TMT.readableTextOn ? TMT.readableTextOn(spec.color) : '#15111C'); } // la semaine choisie prend la couleur du pôle (format du calendrier)
+        row.appendChild(head);
+        if (isOpen) {
+          var body = el('div', 'objSemBody'), parts = semParse(r.d);
+          SEM_Q.forEach(function (q) {
+            var g = semGuide(q[0]), pi = -1;
+            parts.forEach(function (y, n) { if (y.label === g.label) pi = n; });
+            var cur = pi >= 0 ? parts[pi].ans : '', opts = g.opts.slice(); if (cur && opts.indexOf(cur) < 0) opts.unshift(cur);
+            body.appendChild(el('p', 'objSemQ', tr(q[1])));
+            var chips = el('div', 'objSemChips');
+            opts.forEach(function (o) {
+              var b = btn('objSemChip' + (o === cur ? ' on' : ''), tr(o), function () {
+                var j = -1; parts.forEach(function (y, n) { if (y.label === g.label) j = n; });
+                var was = j >= 0 && parts[j].ans === o;
+                if (was) parts.splice(j, 1); else if (j >= 0) parts[j].ans = o; else parts.push({ label: g.label, ans: o });
+                r.d = semCompose(parts); Array.prototype.forEach.call(chips.children, function (cb) { cb.classList.remove('on'); cb.setAttribute('aria-pressed', 'false'); });
+                if (!was) { b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); } sync();
+              });
+              b.setAttribute('aria-pressed', o === cur ? 'true' : 'false'); chips.appendChild(b);
+            });
+            body.appendChild(chips);
+          });
+          row.appendChild(body);
+        }
+        list.appendChild(row);
+        if (isOpen) window.setTimeout(function () { row.scrollIntoView({ block: 'nearest' }); }, 0); // la ligne dépliée et ses questions restent visibles dans le panneau qui défile
+      });
+      sync();
+    }
+    function save() {
+      if (stepBtn.disabled) return;
+      stepBtn.disabled = true; msg.textContent = '';
+      var chain = rows.reduce(function (p, r) {
+        if (!ready(r)) return p;
+        return p.then(function () {
+          if (r.w.obj) return (r.t.trim() && r.t.trim() !== r.t0.trim() ? api('PUT', '/api/objectifs/' + r.w.obj.id + '/titre', { title: r.t.trim() }) : Promise.resolve()).then(function () { return r.d.trim() !== r.d0.trim() ? api('PUT', '/api/objectifs/' + r.w.obj.id + '/description', { description: r.d.trim() }) : null; });
+          return api('POST', '/api/objectifs', { activityId: c.activityId, level: c.level, poleKey: c.poleKey || null, categoryKey: c.categoryKey || null, title: r.t.trim(), startDate: r.w.start, endDate: r.w.end, amount: 1, unit: 'semaines', inner: 'hebdomadaires', weekly: true })
+            .then(function (o) { return r.d.trim() ? api('PUT', '/api/objectifs/' + o.id + '/description', { description: r.d.trim() }) : null; });
+        });
+      }, Promise.resolve());
+      chain.then(function () { load(); endFlow(); }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); load(); sync(); });
+    }
+    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null; closeGuard = function () { return !stepBtn.disabled; };
+    paint();
+  }
+  function offerBtn() { return btn('cmpBtn cmpBtnIdle objOffer', tr('Génère automatiquement tes tâches avec Noèsis'), function () { if (TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); }); }
+  // MODE ÉTENDRE (arbre) : le panneau porte le titre commun du macro (modifiable, jamais en silence) ; la barre devient « Enregistrer » pleine largeur (grisée tant que rien n'a changé, violette ensuite) ; ✕ annule.
+  // cfg : { title (null = pas de champ), hint, canSave(), onTitle(t), onSave(), onCancel() } -> { setTitle, setHint, setEnabled }
+  function openExtend(cfg) { // plus de panneau : seule la barre « Nouvel objectif… » devient le bouton Enregistrer (Séparer sur une fusion existante), gris tant que rien n'a changé (R35)
+    panel.classList.add('hidden'); panelForm = { extend: true }; setBack(null);
+    dock.classList.add('expSave', 'expExtend', 'objDockBar'); stepLabel.textContent = cfg.label; stepPos.textContent = ''; stepBtn.setAttribute('aria-label', cfg.label); stepBtn.disabled = !cfg.canSave();
+    advance = function () { var s = cfg.onSave; extendCancel = null; s(); }; extendCancel = cfg.onCancel;
+    return { setLabel: function (t) { stepLabel.textContent = t; stepBtn.setAttribute('aria-label', t); }, setEnabled: function (b) { stepBtn.disabled = !b; } };
+  }
+  function closeExtend() { extendCancel = null; endFlow(); }
+  var closeGuard = null; // vrai quand le panneau (fiche ou Modifier) a un changement non enregistré : le ✕ demande alors « Quitter sans enregistrer ? » (TMT.ui.confirm)
+  function closePanel() { TMT.ui.fermerAvecConfirmation(endFlow, closeGuard); } // ✕ : annule, la barre redevient normale (l'objectif tapé y reste)
+
+
+  // Carte fusionnée de l’arbre : la liste des objectifs qu’elle contient ; chaque ligne choisit un objectif.
+  // opts.title / opts.onPick (choix d’un objectif du groupe) / opts.skip (ids exclus).
+  // Suppression : confirmation rouge ; les objectifs rattachés sont listés puis détachés, jamais supprimés (croix rouge du mode édition de l'arbre et du détail).
+  function confirmDelete(id, title, done, fail, isMacro) {
+    api('GET', '/api/objectifs?filtre=tous').then(function (r) {
+      var kids = ((r && r.objectifs) || []).filter(function (x) { return x.parentId === id; });
+      var msg = tr(isMacro ? 'Êtes-vous sûr de vouloir supprimer ce macro ?' : 'Êtes-vous sûr de vouloir supprimer cet objectif ?') + ' « ' + title + ' »' + (isMacro ? '\n' + tr('Les objectifs reliés sont conservés.') : kids.length ? '\n' + tr('Ses objectifs rattachés ne sont pas supprimés, ils deviennent des objectifs séparés :') + '\n' + kids.map(function (k) { return '• ' + k.title; }).join('\n') : '');
+      return TMT.ui.confirm(msg, { ok: tr('Supprimer'), danger: true }).then(function (yes) {
+        if (!yes) return;
+        return api('DELETE', '/api/objectifs/' + id + '?confirm=1').then(function () { if (done) done(); });
+      });
+    }).catch(function (e) { if (fail) fail(e); });
+  }
+  // ---------- Panneau de MODIFICATION d'un objectif (mode édition de l'arbre : crayon, puis toucher une carte) ----------
+  // Même format que la création : un panneau juste au-dessus de la barre, UN seul bouton « Enregistrer » (R35 : gris tant que rien n'a changé, violet ensuite). Mêmes blocs que la création
+  // (description guidée, date d'échéance, terme et objectifs inclus). L'activité ne se modifie pas (supprimer puis recréer) ; la fusion se fait par l'appui long dans l'arbre, jamais d'ici.
+  // ---------- FICHE d'un titre de colonne (activité, pôle, secteur) : même panneau que « Modifier l'objectif » (au-dessus de la barre du bas, ✕, Enregistrer grisé tant que rien n'a changé) ----------
+  // Contenu : responsables de la catégorie (premier paramètre), temps prévu, stratégie, répartition, part des tâches. Le temps dépensé est dans le Bilan, les objectifs en cours n'ont plus de place ici (18 nov. 2026).
+  // Accès : seulement les responsables de la catégorie (ou d'un niveau supérieur) et le propriétaire (contrôle dans l'arbre et côté serveur).
+  function openFiche(spec, onEnd) {
+    var act = spec.activity, msg = el('p', 'tasksMsg objMsg');
+    panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = spec.title; panelForm = { edit: true }; setBack(null);
+    // 1. Responsables (premier paramètre) : TMT.responsables.categoryBlock (js/responsables-ui.js), droits décidés par le serveur ; la fiche ne s'ouvre que pour un responsable (arbre).
+    var catKey = spec.level === 'activite' ? '_' : spec.level === 'pole' ? spec.poleKey : spec.categoryKey;
+    if (catKey && TMT.responsables && TMT.responsables.categoryBlock) panelBody.appendChild(TMT.responsables.categoryBlock(act.id, catKey, function (m) { msg.textContent = m || ''; }));
+    // Le temps prévu : retiré de la fiche (19 nov. 2026), absorbé par la Répartition des tâches (heures par membre ; au niveau pôle, le temps prévu déjà saisi les initialise).
+    var repBlock = null; /* Répartition des tâches (bloc de app.js) : ses heures modifiées rejoignent le bouton Enregistrer du bas (R50, R35), enregistrable seulement si le total d'heures est > 0 */
+    function repOn() { return !!(repBlock && repBlock.rep && repBlock.rep.changed()); }
+    var stratOn = false; /* la Stratégie s'enregistre toute seule à chaque changement : Enregistrer s'active pour fermer la fiche */
+    function sync() { stepBtn.disabled = !(stratOn || (repOn() && repBlock.rep.valid())); }
+    // 4. Stratégie et Répartition des tâches de CETTE catégorie (18 nov. 2026, Émilien : réglages de la catégorie, plus de Réglages > activité) : mêmes blocs que partout (app.js), la ligne se déroule sur place ; Répartition : activité à plusieurs membres seulement.
+    if (TMT.buildStrategieBlock) { if (catKey) { panelBody.appendChild(TMT.buildStrategieBlock(act.id, catKey, false, function () { stratOn = true; sync(); })); repBlock = TMT.buildRepartitionBlock(act.id, catKey, false, sync); panelBody.appendChild(repBlock); } }
+    function save() {
+      if (stepBtn.disabled) return;
+      stepBtn.disabled = true; msg.textContent = '';
+      if (!repOn()) { endFlow(); return; } /* seule la Stratégie a changé : déjà enregistrée, on ferme */
+      var proposal = false, chain = repBlock.rep.save().then(function (p) { proposal = p; });
+      chain.then(function () { load(); if (!proposal) { endFlow(); return; } sync(); /* l'app propose d'ajuster des niveaux inférieurs : la fiche reste ouverte pour les valider ou les refuser */ }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+    }
+    dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; ficheEnd = onEnd || null; closeGuard = repOn;
+  }
+  // À la fin d'une MODIFICATION : l'app PROPOSE (fenêtre « Modifications proposées », jamais écrit seul) de réordonner ce qui suit l'objectif modifié ; Non = rien ne change.
+  function proposeReorg(id) {
+    return api('GET', '/api/objectifs/' + id + '/reorganisation').then(function (d) {
+      var moves = (d && d.moves) || []; if (!moves.length) return;
+      return openRedessin({ moves: moves, rows: [] }).then(function (res) {
+        if (!res.applied) return;
+        return api('POST', '/api/objectifs/' + id + '/reorganisation', { moves: moves.map(function (m) { return { id: m.id, startDate: m.apres.startDate, endDate: m.apres.endDate }; }) });
+      });
+    }).catch(function () { /* jamais de blocage : l'objectif est déjà enregistré */ });
+  }
+  function openEdit(id) {
+    api('GET', '/api/objectifs/' + id).then(function (o) {
+      var daysOf = function (end) { return Math.max(0, Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(o.startDate + 'T00:00:00Z')) / 86400000)); };
+      var form = { title: o.title, endDate: o.endDate, startDate: o.startDate, periodWeeks: o.periodWeeks, term: o.term || null, innerGoals: o.innerGoals || 'les_deux', hours: o.hoursPerWeek != null ? o.hoursPerWeek : null, skill: o.skill || '', guideOpen: -1, dateFixe: o.dateFixe === true, resume: o.resume || '' };
+      guideParse(form, o.description || '');
+      var okInit = termsFor(daysOf(o.endDate)); if (okInit.indexOf(form.term) < 0) form.term = okInit[okInit.length - 1];
+      if (!multiOf(daysOf(o.endDate))) form.innerGoals = 'hebdomadaires';
+      var orig = { resume: String(o.resume || '').trim(), title: o.title, endDate: o.endDate, desc: guideCompose(form), term: form.term, inner: form.innerGoals, hours: form.hours, skill: String(form.skill).trim(), dateFixe: form.dateFixe };
+      function inner() { return multiOf(daysOf(form.endDate)) ? form.innerGoals : 'hebdomadaires'; }
+      // Réglage « jour par jour » (volet « Avancé » sous les heures par semaine) : visible seulement si le Prévu diffère du Passé ; Σ des jours = heures par semaine, sinon « Enregistrer » reste grisé.
+      var bd = o.byDay || null, byOrig = o.hoursByDay ? o.hoursByDay.slice() : null, byBase = bd ? (byOrig || bd.default.slice()) : null, byTimer = 0, byDirtyFlag = false, byLoading = false;
+      form.byDay = byBase ? byBase.slice() : null;
+      function hoursMin() { return form.hours > 0 ? Math.round(form.hours * 60) : 0; }
+      function byShow() { return !!bd && hoursMin() > 0 && hoursMin() !== (bd.passeWeekMin || 0); }
+      function bySum() { return form.byDay ? form.byDay.reduce(function (a, b) { return a + b; }, 0) : 0; }
+      function byOk() { return !byShow() || (!byLoading && bySum() === hoursMin()); }
+      function byChanged() { return byShow() && JSON.stringify(form.byDay) !== JSON.stringify(byBase); }
+      function dirty() { return byChanged() || form.title.trim() !== orig.title || form.endDate !== orig.endDate || form.dateFixe !== orig.dateFixe || guideCompose(form) !== orig.desc || form.term !== orig.term || inner() !== orig.inner || form.hours !== orig.hours || String(form.skill).trim() !== orig.skill || String(form.resume || '').trim() !== orig.resume || partDirty(); }
+      var msg = el('p', 'tasksMsg objMsg');
+      var accRefresh = [];
+      function accRow(label, sum, body) { // ligne qui se déroule sur place (R36) : libellé + résumé à droite + flèche R21
+        var open = false, wrap = el('div', 'objField objGuideRow'), head = btn('objGuideHead cmpToggle', '', function () { open = !open; paint(); if (open) TMT.ui.revealOpened(head); }), tx = el('span', 'objGuideTxt'), sm = el('span', 'hint objGuideRight'), ch = el('span', 'cmpChev');
+        tx.appendChild(el('span', 'cmpBlockTitle', label)); head.appendChild(tx); head.appendChild(sm); head.appendChild(ch); wrap.appendChild(head); wrap.appendChild(body);
+        function paint() { wrap.classList.toggle('open', open); ch.classList.toggle('open', open); body.classList.toggle('hidden', !open); head.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        function refresh() { sm.textContent = sum(); } accRefresh.push(refresh); refresh(); paint(); return wrap;
+      }
+      function sync() { accRefresh.forEach(function (f) { f(); }); stepBtn.disabled = !dirty() || !form.endDate || !byOk(); }
+      panelBody.textContent = ''; panelFoot.textContent = ''; panelFoot.appendChild(msg); panel.classList.remove('hidden'); panelKicker.textContent = tr('Modifier l’objectif'); panelForm = { edit: true }; setBack(null);
+      { // tous les paramètres de la création se modifient : titre (4 champs en haut : titre, description, date, heures)
+        var tIn = el('input'); tIn.type = 'text'; tIn.maxLength = 140; tIn.value = form.title; tIn.setAttribute('aria-label', tr('Titre'));
+        tIn.addEventListener('input', function () { form.title = tIn.value; sync(); }); panelBody.appendChild(field(tr('Titre'), tIn));
+      }
+      var guideBox = el('div', 'objGuide'); var descBody = el('div'); descBody.appendChild(el('p', 'hint', tr('Sert à ranger tes tâches et à proposer des objectifs'))); descBody.appendChild(guideBox);
+      var restBox = el('div', 'objGuide'); // les six autres questions : sous « Avancé » (comme à la création)
+      function paintG(f) { paintGuideInto(guideBox, form, function () { sync(); }, f, 'main'); }
+      paintG();
+      var dueRow = el('div', 'objDueRow'), dateIn = el('input', 'objDueInput'), tBox = el('div');
+      dateIn.type = 'date'; dateIn.min = o.startDate; dateIn.value = form.endDate; dateIn.setAttribute('aria-label', tr('Date d’échéance'));
+      dueRow.appendChild(el('span', 'objDueLabel', tr('Date d’échéance') + ' :')); dueRow.appendChild(dateIn); var dueBody = el('div'); dueBody.appendChild(dueRow);
+      function paintT() {} // plus de Terme ni d'« Objectifs inclus » : le serveur garde leurs valeurs
+      dateIn.addEventListener('change', function () {
+        if (!dateIn.value || dateIn.value <= o.startDate) { form.endDate = null; msg.textContent = dateIn.value ? tr('L’échéance ne peut pas être dans le passé.') : ''; sync(); return; }
+        msg.textContent = ''; form.endDate = dateIn.value; paintT(); sync();
+      });
+      dueRow.classList.toggle('hidden', form.dateFixe !== true); // la date n'apparaît que pour « Fixe »
+      var fxPick = el('div'); 
+      fxPick.appendChild(seg([[false, tr('Souple')], [true, tr('Fixe')]], form.dateFixe === true, function (v) { form.dateFixe = v; dueRow.classList.toggle('hidden', !v); if (!v && form.endDate !== orig.endDate) { form.endDate = orig.endDate; dateIn.value = orig.endDate; paintT(); } sync(); }, tr('Date de fin')));
+      dueBody.insertBefore(fxPick, dueRow);
+      panelBody.appendChild(accRow(tr('Échéance'), function () { return form.endDate || '—'; }, dueBody)); panelBody.appendChild(accRow(tr('Description pour Noèsis'), function () { return GUIDE.filter(function (g) { return guideFilled(guideAns(form, g)); }).length + '/' + GUIDE.length; }, descBody));
+      var hRow = el('div', 'objTimeRow'), hVal = el('span', 'objHoursVal'), hIn = el('input');
+      hIn.type = 'text'; hIn.inputMode = 'decimal'; hIn.maxLength = 4; hIn.value = form.hours != null ? String(form.hours) : ''; hIn.setAttribute('aria-label', tr('Heures par semaine'));
+      hIn.addEventListener('input', function () { var v = parseFloat(String(hIn.value).replace(',', '.')); form.hours = v > 0 ? Math.round(v * 10) / 10 : null; byRefresh(true); sync(); });
+      hVal.appendChild(hIn); hVal.appendChild(el('span', null, 'h')); hRow.appendChild(el('span', null, tr('Heures par semaine'))); hRow.appendChild(hVal); var hBody = el('div'), hTab = el('div'); hBody.appendChild(hTab); hTab.appendChild(hRow);
+      api('GET', '/api/objectifs/temps?activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate)).then(function (e) {
+        if (!e || !e.up || !e.me) return;
+        var rows = [{ label: e.up.kind === 'total' ? tr('Toutes tes activités') : e.up.label, ref: refOf(e, 'up'), chrono: e.up.passeMin, avant: e.up.prevuMin }, { label: e.me.label, ref: refOf(e, 'me', e.me.key), chrono: e.me.passeMin, avant: o.hoursPerWeek != null ? Math.round(o.hoursPerWeek * 60) : 0, apres: hoursMin(), edit: { label: tr('Prévu'), onPick: function (v) { form.hours = v > 0 ? Math.round(v / 6) / 10 : null; hIn.value = form.hours != null ? String(form.hours) : ''; byRefresh(true); sync(); } } }];
+        hTab.textContent = ''; hTab.appendChild(objTable({ levelLabel: tr(e.level === 'activite' ? 'Activité' : e.level === 'pole' ? 'Pôle' : 'Secteur'), rows: rows }).node);
+      }).catch(function () {});
+      panelBody.appendChild(accRow(tr('Temps'), function () { return form.hours != null ? form.hours + ' h' : '—'; }, hBody));
+      // Tout le reste sous « Avancé » (replié par défaut ; même composant que l'« Avancé » de la Description) : jours, niveau, parts.
+      var advBox = el('div', 'objGuide'), advInner = el('div'), advOpenE = false; panelBody.appendChild(advBox);
+      function paintAdvE() {
+        advBox.textContent = '';
+        var wrapA = el('div', 'objField objGuideRow' + (advOpenE ? ' open' : '')), headA = btn('objGuideHead objAdvHead cmpToggle', '', function () { advOpenE = !advOpenE; paintAdvE(); if (advOpenE) TMT.ui.revealOpened(advBox.querySelector('.objAdvHead')); });
+        headA.setAttribute('aria-expanded', advOpenE ? 'true' : 'false');
+        var txA = el('span', 'objGuideTxt'); txA.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+        headA.appendChild(txA); headA.appendChild(el('span', 'cmpChev' + (advOpenE ? ' open' : ''))); wrapA.appendChild(headA); advBox.appendChild(wrapA);
+        if (advOpenE) { advBox.appendChild(advInner); paintGuideInto(restBox, form, function () { sync(); }, undefined, 'rest'); }
+      }
+      advInner.appendChild(restBox); var dayBox = el('div'), daysRow = accRow(tr('Jours'), function () { return ''; }, dayBox); daysRow.classList.add('hidden'); advInner.appendChild(daysRow);
+      function durSentence(m) { return hh(m); }
+      function byRefresh(hoursChanged) { // les heures par semaine ont changé : les jours reprennent la répartition par défaut (ou suivent proportionnellement les jours déjà réglés)
+        window.clearTimeout(byTimer);
+        if (hoursChanged && byShow()) {
+          byLoading = true;
+          byTimer = window.setTimeout(function () {
+            var want = hoursMin();
+            api('GET', '/api/objectifs/' + id + '/jours?minutes=' + want).then(function (r) { if (want !== hoursMin()) return; form.byDay = r.default.slice(); byBase = r.default.slice(); byLoading = false; paintDays(); sync(); }).catch(function () { byLoading = false; paintDays(); sync(); });
+          }, 350);
+        } else if (!byShow()) byLoading = false;
+        paintDays();
+      }
+      function paintDays() {
+        dayBox.textContent = ''; daysRow.classList.toggle('hidden', !(byShow() && form.byDay));
+        if (!byShow() || !form.byDay) return;
+        var wrap = el('div', 'objField');
+        {
+          var tbl = el('div', 'cmpList objDayTbl'), names = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+          function row(cls, cells) { var r = el('div', 'objDayRow ' + cls); cells.forEach(function (c) { r.appendChild(c); }); return r; }
+          function cell(text, cls) { return el('span', 'objDayCell' + (cls ? ' ' + cls : ''), text); }
+          tbl.appendChild(row('objDayHead', [cell('')].concat(names.map(function (n) { return cell(n); })).concat([cell(tr('Total'))])));
+          var passe = bd.passe || [0, 0, 0, 0, 0, 0, 0];
+          tbl.appendChild(row('objDayPast', [cell(tr('Passé'))].concat(passe.map(function (m) { return cell(hh(m)); })).concat([cell(hh(passe.reduce(function (a, b) { return a + b; }, 0)), 'objDayTotal')])));
+          var totalCell = cell(hh(bySum()), 'objDayTotal'), note = el('p', 'hint objTNote');
+          function paintNote() {
+            var sum = bySum(), want = hoursMin(); totalCell.textContent = hh(sum);
+            note.textContent = sum === want ? '' : tr(sum > want ? 'Le total doit rester à {t} : retire {d} sur un jour.' : 'Le total doit rester à {t} : ajoute {d} sur un jour.', { t: hh(want), d: durSentence(Math.abs(sum - want)) });
+            note.classList.toggle('hidden', sum === want);
+          }
+          var cells = [cell(tr('Prévu'))];
+          form.byDay.forEach(function (m, d) { var c = cell(''); c.appendChild(tbtn(m, tr('Prévu') + ' : ' + names[d], function (v, b) { form.byDay[d] = v; b.textContent = hh(v); paintNote(); sync(); }, 1440)); cells.push(c); });
+          cells.push(totalCell); tbl.appendChild(row('objDayPlan', cells)); paintNote();
+          wrap.appendChild(tbl); wrap.appendChild(note);
+        }
+        dayBox.appendChild(wrap);
+      }
+      paintDays();
+      var sIn = el('input'); sIn.type = 'text'; sIn.maxLength = 200; sIn.value = form.skill; sIn.setAttribute('aria-label', tr('Ton niveau actuel'));
+      sIn.addEventListener('input', function () { form.skill = sIn.value; sync(); }); /* « Ton niveau actuel » retiré de l'écran (le niveau vit dans Stratégie > Personne > Niveau) ; l'ancien texte reste en base */ advInner.appendChild(accRow(tr('Résumé pour les membres'), function () { return String(form.resume || '').trim() ? '✓' : '—'; }, resumeField(form, sync)));
+      // Parts d'un grand objectif (proportionnelles au temps prévu) : MODIFIABLES. Changer une part change le temps du sous-objectif et rééquilibre les autres (total constant) ; l'avant / après est montré
+      // sous chaque ligne avant d'enregistrer ; « Enregistrer » applique le tout (serveur : une seule transaction).
+      var partsBox = el('div', 'objField'), partRows = {}, partEdit = null, partPreview = null, partTimer = 0, partSeq = 0;
+      paintAdvE();
+      function partDirty() { return !!(partEdit && partPreview && o.parts && o.parts.items.some(function (it) { return it.id === partEdit.id && it.percent !== partEdit.percent; })); }
+      function fmtHh(h) { return h == null ? '—' : TMT.ui.heures(h * 60); }
+      function noteOf(it) {
+        var t = [];
+        if (it.hoursAfter != null && it.hoursBefore !== it.hoursAfter) t.push(fmtHh(it.hoursBefore) + ' → ' + fmtHh(it.hoursAfter) + ' ' + tr('par semaine'));
+        if (it.activityName) t.push(it.activityName);
+        if (it.belowHabit) t.push('⚠ ' + tr('moins que ton temps habituel') + ' (' + fmtHh(it.habit) + ')');
+        return t.join(' · ');
+      }
+      function applyPreview() {
+        if (!partPreview) return;
+        partPreview.items.forEach(function (it) { var r = partRows[it.id]; if (!r) return; if (!partEdit || it.id !== partEdit.id) r.inp.value = String(it.percent); r.note.textContent = noteOf(it); });
+      }
+      function askPreview() {
+        window.clearTimeout(partTimer); var mine = ++partSeq;
+        partTimer = window.setTimeout(function () {
+          if (!partEdit) return;
+          api('POST', '/api/objectifs/' + id + '/parts/apercu', { childId: partEdit.id, percent: partEdit.percent }).then(function (r) { if (mine !== partSeq) return; partPreview = r; msg.textContent = ''; applyPreview(); sync(); })
+            .catch(function (e) { if (mine !== partSeq) return; partPreview = null; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+        }, 250);
+      }
+      if (false && o.parts && o.parts.items.length) { // « Part de chaque objectif » retiré de l'écran (demande d'Émilien)
+        partsBox.appendChild(el('p', 'cmpBlockTitle', tr('Part de chaque objectif')));
+        o.parts.items.forEach(function (it) {
+          var row = el('div', 'objTimeRow'), left = el('span', 'objGuideTxt'), val = el('span', 'objHoursVal'), inp = el('input'), note = el('small', 'hint');
+          left.appendChild(el('span', null, it.title)); left.appendChild(note);
+          inp.type = 'text'; inp.inputMode = 'numeric'; inp.maxLength = 3; inp.value = String(it.percent); inp.setAttribute('aria-label', tr('Part de') + ' ' + it.title); inp.disabled = o.parts.items.length < 2;
+          inp.addEventListener('input', function () {
+            var s = String(inp.value).trim(), n = /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
+            if (!(n >= 0 && n <= 100)) { partEdit = null; partPreview = null; msg.textContent = tr('Part : un nombre entre 0 et 100.'); sync(); return; }
+            msg.textContent = ''; partEdit = { id: it.id, percent: n }; askPreview(); sync();
+          });
+          val.appendChild(inp); val.appendChild(el('span', null, '%')); row.appendChild(left); row.appendChild(val); partsBox.appendChild(row); partRows[it.id] = { inp: inp, note: note };
+        });
+        partsBox.appendChild(el('p', 'hint', tr(o.parts.mode === 'temps' ? 'Selon le temps prévu de chaque objectif. Changer une part change le temps des autres, le total reste le même.' : 'Parts égales : les heures ne sont pas toutes prévues.')));
+      }
+      var gen = btn('cmpBtn', tr('Générer'), function () { // 8 au plus, règle du trou ; titres et heures par l'IA dans le plafond du compte ; rien n'est écrit avant ton Oui
+        msg.textContent = '';
+        api('POST', '/api/objectifs/' + id + '/inferieurs/generer').then(function (pl) {
+          if (!pl || pl.skip || !pl.rows || !pl.rows.length) { msg.textContent = tr((pl && pl.reason) || 'Rien à proposer pour le moment.'); return; }
+          var lines = pl.rows.map(function (r) { return r.title + ' : ' + r.endDate + ' · ' + hh(r.hoursMin); });
+          return TMT.ui.confirm(tr('Objectifs proposés') + '\n' + lines.join('\n'), { choices: [{ value: true, label: tr('Oui') }, { value: false, label: tr('Non') }] }).then(function (yes) {
+            if (!yes) return;
+            var rows = pl.rows.map(function (r) { return { kind: 'nouveau', title: r.title, description: [r.faire, r.resultat, r.avancement].filter(Boolean).join(' · '), poleKey: r.poleKey, categoryKey: r.categoryKey, lineType: r.lineType, column: r.column, link: r.link, endDate: r.endDate, weeks: r.weeks, hoursMin: r.hoursMin, chiffre: r.chiffre }; });
+            return api('POST', '/api/objectifs/inferieurs/appliquer', { parentId: id, rateMin: pl.rateMin, weekly: pl.level === 'semaine' ? true : undefined, rows: rows }).then(function () { load(); endFlow(); });
+          });
+        }).catch(function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); });
+      });
+      if (!o.isMacro) { var genBody = el('div'); genBody.appendChild(el('p', 'hint', tr('Noèsis propose jusqu’à 8 objectifs plus petits sous celui-ci. Rien n’est créé avant ton Oui.'))); genBody.appendChild(gen); panelBody.insertBefore(accRow(tr('Générer les inférieurs'), function () { return ''; }, genBody), advBox); }
+      var del = btn('cmpBtn cmpBtnDanger', tr('Supprimer'), function () { confirmDelete(id, o.title, function () { load(); endFlow(); }, function (e) { msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); }, !!o.isMacro); }); /* suppression existante (confirmation TMT.ui.confirm), dans la fiche : rouge, tout en bas (R4, R28) */
+      var rare = el('div', 'objRare'); rare.appendChild(del); panelBody.appendChild(rare); // action rare, tout en bas, rouge (R4, R28) ; un objectif se supprime seulement
+      function save() {
+        var calls = [];
+        if (partDirty()) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/parts', { childId: partEdit.id, percent: partEdit.percent }); });
+        if (form.title.trim() !== orig.title) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/titre', { title: form.title.trim() }); });
+        if (guideCompose(form) !== orig.desc) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/description', { description: guideCompose(form) }); });
+        if (String(form.resume || '').trim() !== orig.resume) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/resume', { resume: String(form.resume || '').trim() }); });
+        if (form.endDate !== orig.endDate) calls.push(function () { return api('PUT', '/api/objectifs/' + id + '/echeance', { endDate: form.endDate }); });
+        calls.push(function () { var b = { term: form.term, inner: inner(), skill: String(form.skill).trim(), dateFixe: form.dateFixe }; if (form.hours !== orig.hours) b.hoursPerWeek = form.hours; if (byChanged()) b.hoursByDay = form.byDay; else if (!byShow() && byOrig && form.hours !== orig.hours) b.hoursByDay = null; return api('PUT', '/api/objectifs/' + id + '/parametres', b); }); // les heures ne sont envoyées que si elles ont changé (0 h = part à 0 %, jamais effacée en silence) // après l'échéance : le terme dépend de la date
+        var fin = Promise.resolve(false), oldH = Math.round((orig.hours || 0) * 60), newH = form.hours > 0 ? Math.round(form.hours * 60) : 0;
+        if (newH > oldH && o.activity) { var tq = 'activityId=' + encodeURIComponent(o.activity.id) + '&level=' + (o.level || 'activite') + (o.poleKey ? '&poleKey=' + encodeURIComponent(o.poleKey) : '') + (o.categoryKey ? '&categoryKey=' + encodeURIComponent(o.categoryKey) : '') + '&endDate=' + encodeURIComponent(o.endDate); fin = openTempsAjuster({ activityId: o.activity.id, level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, endDate: o.endDate }, tq, oldH, newH); } // une hausse se finance, comme à la création
+        stepBtn.disabled = true; msg.textContent = '';
+        fin.then(function (r) {
+          if (r === null) { stepBtn.disabled = false; sync(); return null; }
+          if (r) calls.unshift(function () { return api('POST', '/api/objectifs/temps/plan', { activityId: o.activity.id, level: o.level || 'activite', poleKey: o.poleKey || null, categoryKey: o.categoryKey || null, endDate: o.endDate, newMin: newH, mode: r.mode, apres: r.apres, apply: true }); });
+          var chain = Promise.resolve(); calls.forEach(function (c) { chain = chain.then(c); });
+          return chain.then(function () { return proposeReorg(id); }).then(function () { load(); endFlow(); });
+        }).catch(function (e) { stepBtn.disabled = false; msg.textContent = (e && e.message) || tr('Impossible pour le moment.'); sync(); });
+      }
+      dock.classList.add('expSave', 'objDockBar'); stepLabel.textContent = tr('Enregistrer'); stepPos.textContent = ''; stepBtn.setAttribute('aria-label', tr('Enregistrer')); stepBtn.disabled = true; advance = save; closeGuard = dirty;
+    }).catch(function (e) { say((e && e.message) || tr('Impossible pour le moment.')); });
+  }
+
+  buildView();
+  // Réglages (Loi 25) : données anonymes agrégées des objectifs atteints, actives par défaut, case à décocher.
+  (function () {
+    var box = document.getElementById('settingsObjectifsAnon');
+    if (!box) return;
+    function loadAnon() { api('GET', '/api/objectifs/reglage').then(function (r) { box.checked = !r || r.anon !== false; }).catch(function () {}); }
+    box.addEventListener('change', function () { var on = box.checked; api('PUT', '/api/objectifs/reglage', { anon: on }).catch(function () { box.checked = !on; }); });
+    document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#profileSettingsBtn')) window.setTimeout(loadAnon, 200); });
+    loadAnon();
+  })();
+  // Gestion Expansion (abonnements actifs, Résilier, « J'ai un code ») : déplacée dans Réglages > Mon IA (même éléments, mêmes id). La carte promo n'est plus affichée.
+  (function () {
+    var card = document.getElementById('settingsExpansionCard'), offer = document.getElementById('offer1Section');
+    if (!card) return;
+    ['offer1SubscribedList', 'offer1SubscribedEmptyHint', 'offer1CancelBtn', 'offer1CodeLink'].forEach(function (id) { var n = document.getElementById(id); if (n) card.appendChild(n); });
+    if (offer) offer.classList.add('hidden');
+    function sync() { var code = document.getElementById('offer1CodeLink'), subs = document.getElementById('offer1SubscribedList'); card.classList.toggle('hidden', !((subs && subs.children.length) || (code && !code.classList.contains('hidden')))); }
+    if (window.MutationObserver) new MutationObserver(sync).observe(card, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    sync();
+  })();
+  TMT.objectifsView = {
+    show: function () { state.shown = true; TMT.objectifsViewShown = true; syncDock(); if (TMT.objectifsRetard && TMT.objectifsRetard.check) TMT.objectifsRetard.check(); if (TMT.objectifsArbre) TMT.objectifsArbre.showBase(); load(); },
+    hide: function () { state.shown = false; TMT.objectifsViewShown = false; syncDock(); if (TMT.objectifsArbre && TMT.objectifsArbre.hide) TMT.objectifsArbre.hide(); },
+    confirmDelete: function (id, title, isMacro) { confirmDelete(id, title, load, function (e) { if (TMT.objectifsArbre && TMT.objectifsArbre.say) TMT.objectifsArbre.say((e && e.message) || tr('Impossible pour le moment.')); }, isMacro); }, // un refus du serveur (ex. « Fusion passée : impossible de délier. ») s'affiche en message court
+    openExtend: function (cfg) { return openExtend(cfg); }, closeExtend: function () { closeExtend(); },
+    createAt: function (o) { createAt(o); },
+    openHeures: function (spec, row, label) { return openHeures(spec, row, label); },
+    dock: function () { return dock; },
+    openFiche: function (spec, onEnd) { openFiche(spec, onEnd); },
+    openSemaines: function (spec, onEnd) { openSemaines(spec, onEnd); },
+    guideProposals: guideProposals,
+    openEdit: function (id) { openEdit(id); } // mode édition de l'arbre : panneau de modification (même format que la création)
+  };
+  // Si la vue Objectifs est déjà celle affichée au chargement (page1 se monte avant ce fichier).
+  if (!host.classList.contains('hidden')) TMT.objectifsView.show();
+})();

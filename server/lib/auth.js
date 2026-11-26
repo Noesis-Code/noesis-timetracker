@@ -43,20 +43,18 @@ function isValidPinFormat(pin) {
 }
 
 // ===== Mot de passe fort (demande d'Émilien, 26 oct. 2026) =====
-// Remplace le code à 4-6 chiffres : au moins 10 caractères avec une minuscule, une majuscule, un chiffre et un caractère spécial,
+// Remplace le code à 4-6 chiffres : 10 caractères ou plus (plus d'exigence de majuscule/chiffre/symbole, 23 nov. 2026),
 // pas un mot de passe courant, sans le nom ni le courriel de la personne. 128 caractères au plus (le hachage scrypt coûte cher).
 // Les comptes créés avec l'ancien code (users.passwordStrong = 0) s'y connectent une dernière fois puis DOIVENT en choisir un nouveau
 // (garde dans lib/session.js). isValidPinFormat ne sert plus qu'à reconnaître un ancien code.
 const PASSWORD_MIN = 10;
 const PASSWORD_MAX = 128;
+const Saisie = require('../../public/js/saisie');
 const COMMON_PARTS = ['password', 'motdepasse', 'azerty', 'qwerty', '123456', 'abc123', 'noesis', 'timetracker', 'bienvenue', 'welcome', 'admin', 'letmein', 'iloveyou', 'soleil'];
 function checkPasswordStrength(pw, who) {
   if (typeof pw !== 'string') return { ok: false, error: 'Choisis un mot de passe.' };
-  if (pw.length > PASSWORD_MAX) return { ok: false, error: 'Le mot de passe est trop long (128 caractères au plus).' };
-  if (pw.length < PASSWORD_MIN) return { ok: false, error: 'Le mot de passe doit comporter au moins 10 caractères.' };
-  if (!/[a-zà-ÿ]/.test(pw) || !/[A-ZÀ-Ý]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9À-ÿ]/.test(pw)) {
-    return { ok: false, error: 'Le mot de passe doit contenir une minuscule, une majuscule, un chiffre et un caractère spécial.' };
-  }
+  const problem = Saisie.passwordProblem(pw); // règle unique : 10 caractères ou plus (public/js/saisie.js), aucune autre exigence de composition
+  if (problem) return { ok: false, error: problem };
   const low = pw.toLowerCase();
   if (COMMON_PARTS.some((c) => low.includes(c))) return { ok: false, error: 'Ce mot de passe est trop courant. Choisis-en un autre.' };
   const bits = [];

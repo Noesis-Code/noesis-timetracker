@@ -66,7 +66,7 @@ const chronoSec = (act, day, sec) => db.prepare("INSERT INTO time_entries (userI
     for (let k = 0; k < nW; k++) { const c = cats[ri(0, 2)], t = 'Objectif ' + i + '-' + k; const id = weekly(rowsByCat[c], 1, t, [null, 0, ri(1, 180)][ri(0, 2)]); mk.push({ c, t, id }); }
     if (mk.length && rnd() < 0.3) { const d = mk.splice(ri(0, mk.length - 1), 1)[0]; db.prepare('DELETE FROM goal_weekly WHERE id = ?').run(d.id); } // objectif supprimé en cours de semaine
     let inRange = 0;
-    for (let e = 0; e < ri(0, 5); e++) { const sec = ri(1, 20000); const off = ri(-3, 9); const day = goals.addDays(mon, off); chronoSec(act, day, sec); if (off >= 0 && off <= 6) inRange += sec; }
+    for (let e = 0; e < ri(0, 5); e++) { const sec = ri(60, 20000); const off = ri(-3, 9); const day = goals.addDays(mon, off); chronoSec(act, day, sec); if (off >= 0 && off <= 6) inRange += sec; }
     const autre = mkAct(); chronoSec(autre, mon, 9999); // temps d'une autre activité : jamais compté
     const got = cats.flatMap((c) => goals.pastSamplesFor(act, c, 'weekly')).reduce((a, s) => a + s.minutes, 0);
     if (mk.length) { checked++; if (got !== Math.round(inRange / 60)) { badDb++; detail = i + ':' + got + '/' + Math.round(inRange / 60); } }

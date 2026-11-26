@@ -26,7 +26,7 @@ const keys = Object.values(r.emilien.keys);
   assert(s && s.members.length === d.members.length && s.members.length >= 2, scope + ' : une série par membre');
   assert(s.members.every((m) => m.values.length === s.labels.length), scope + ' : valeurs alignées sur les étiquettes');
   assert(s.members.every((m) => m.values.every((v, i, a) => v == null || i === 0 || a[i - 1] == null || v >= a[i - 1])), scope + ' : courbes cumulées croissantes');
-  assert(s.members.every((m) => Object.keys(m).sort().join() === 'color,lastName,name,userId,values'), scope + ' : aucun titre de tâche dans les séries');
+  assert(s.members.every((m) => Object.keys(m).sort().join() === 'color,hours,lastName,name,tasks,userId,values'), scope + ' : aucun titre de tâche dans les séries');
 });
 const all = insights.memberStats(aid, 'all', null, null);
 const tot = all.series.members.reduce((a, m) => a + m.values[all.series.todayIndex], 0);
@@ -35,6 +35,17 @@ const pole = insights.memberStats(aid, 'all', null, keys[0] || 'zzz');
 const sumLast = (d) => d.series.members.reduce((a, m) => a + (m.values[d.series.todayIndex] || 0), 0);
 assert(sumLast(pole) <= sumLast(all), 'filtre pôle : ne dépasse pas le total');
 assert(sumLast(insights.memberStats(aid, 'all', null, 'none')) === 0, 'clé inconnue : aucune tâche');
+
+// Grille « Contribution » (page Groupe) : tâches FAITES par membre x pôle/secteur, comptes seulement
+const g = all.grid;
+assert(g && Array.isArray(g.poles) && g.poles.length > 0, 'grille : pôles (et secteurs) de l’activité');
+assert(all.members.every((m) => g.cells[m.userId] && typeof g.cells[m.userId] === 'object'), 'grille : une ligne de comptes par membre');
+const keysOf = new Set(); g.poles.forEach((p) => { keysOf.add(p.key); (p.sectors || []).forEach((s) => keysOf.add(s.key)); });
+assert(all.members.every((m) => Object.keys(g.cells[m.userId]).every((k) => keysOf.has(k) && Number.isInteger(g.cells[m.userId][k]) && g.cells[m.userId][k] > 0)), 'grille : clés connues, entiers positifs seulement (pas de titre)');
+const poleTotal = g.poles.reduce((s, p) => s + all.members.reduce((x, m) => x + (g.cells[m.userId][p.key] || 0), 0), 0);
+assert(poleTotal <= all.total.done, 'grille : total des pôles <= tâches faites');
+const ui = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'activite-stats-taches.js'), 'utf8');
+assert(/Qui fait quoi/.test(ui) && /Tâches récurrentes/.test(ui) && /Partager les tâches/.test(ui) && !/function contribution\(/.test(ui) && !/caTaskRank|caTaskBar/.test(ui), 'UI : Qui fait quoi, Tâches faites, Tâches récurrentes, Partager les tâches (maquettes du 8 nov. 2026 : la grille Contribution sort de la page), ni classement ni barres');
 
 // Bilans automatiques (balayage réel exécuté après le seed)
 require('../server/lib/goals').runGoalsSweepAll();

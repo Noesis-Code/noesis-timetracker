@@ -23,7 +23,7 @@ function keyStats(activityId, key) {
   const out = { cells: new Array(PERIODS).fill(null).map(() => ({ done: 0, total: 0 })), current: null, fraction: 0 };
   if (!plan) return out;
   const localToday = require('./dates').userToday();
-  const cur = goals.periodNumberForDate(plan.startDate, localToday);
+  const cur = goals.periodNumberFor(activityId, key, plan.startDate, localToday);
   const cycle = Math.floor((cur - 1) / PERIODS) + 1;
   out.current = ((cur - 1) % PERIODS) + 1;
   const days = goals.daysBetween(plan.startDate, localToday) || 0;

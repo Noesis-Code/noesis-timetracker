@@ -1,12 +1,5 @@
-/* Statistiques — page 2 « tâches réalisées ». Voir public/js/stats-avance.js. */
+/* Statistiques : cartes d'information (Bilan, profil visité). Voir public/js/stats-avance.js. */
 #statsPages { position: relative; }
-#statsPageDots {
-  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
-  bottom: var(--tabbar-h, 64px); display: flex; gap: 0;
-}
-#statsPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
-#statsPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
-#statsAvancePage, #statsSharedPage { padding-bottom: calc(var(--tabbar-h, 64px) + 40px); }
 .saChips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .saChips::-webkit-scrollbar { display: none; }
 .saChip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 13px; color: var(--text); background: var(--glass-bg); border: 1px solid var(--glass-border); }
@@ -55,10 +48,6 @@
 .saDays i { flex: 1; border-radius: 3px 3px 0 0; }
 .saDl { display: flex; gap: 5px; font-size: 10px; opacity: .6; margin-top: 2px; }
 .saDl span { flex: 1; text-align: center; }
-.saTiles { display: grid; gap: 8px; }
-.saTile { padding: 8px 6px; display: flex; flex-direction: column; align-items: center; border: 2px solid var(--glass-border); border-radius: var(--radius-lg); }
-.saTile small { font-size: 11px; opacity: .7; }
-.saTile b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .saLst { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
 .saLst li { display: flex; justify-content: space-between; gap: 8px; }
 .saLst b { color: var(--text); font-weight: 500; white-space: nowrap; }
@@ -71,8 +60,6 @@
 .saCancel { border: 1px solid var(--glass-border); background: rgba(255, 255, 255, .05); }
 .saApply { border: 1px solid var(--purple); background: transparent; color: var(--text); font-weight: 600; }
 
-/* zone tactile au-dessus de la barre d'onglets (ne la recouvre pas), point visuel au même endroit qu'avant. */
-#statsPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 /* bouton ⋮ sans fond (comme dans .statsSection, verre-calme.css : seul le liseré le distingue). */
 :root .saGlass .menuBtn { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
@@ -83,13 +70,6 @@
 .saDl28 span { font-size: 7px; }
 /* Feuille du bas « charge restante par secteur » (rétablie : classes d'origine). */
 .saRwTap { cursor: pointer; }
-.saPoleRow { display: block; width: 100%; text-align: left; padding: 8px 0; background: none; border: 0; color: var(--text); font: inherit; }
-.saPoleTop { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
-.saBar { height: 6px; border-radius: 3px; background: var(--glass-border); overflow: hidden; }
-.saBarFill { height: 100%; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14); }
-.saModalHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-.saModalTitle { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
-.saModalSub { margin: 0 0 12px; }
 /* jours travaillés = tâches faites (barre) contre tâches prévues (contour pointillé). */
 .saDays { height: 56px; }
 .saDayCol { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
@@ -106,7 +86,7 @@
 
 /* statistiques d'un profil visité — deux pages horizontales + points de pagination. */
 #viewProfileStatsPages { position: relative; }
-/* points fixes au premier plan (même technique que #statsPageDots), ne bougent pas au défilement. */
+/* points fixes au premier plan, ne bougent pas au défilement. */
 .vpsDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 200; bottom: env(safe-area-inset-bottom, 0px); display: flex; gap: 0; }
 .vpsDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
 .vpsDots .goalsDot { box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
@@ -117,9 +97,6 @@
 #viewProfileStatsPage2 .saChips { padding-top: 0; }
 
 /* détail au clic d'une bulle « Où ça glisse » (feuille du bas). */
-.saTileBtn { font: inherit; color: var(--text); cursor: pointer; }
-.saTileBtn:disabled { cursor: default; }
-.saGexp { font-size: 11.5px; opacity: .7; margin: 8px 0; line-height: 1.4; }
 .saGsec { margin-top: 12px; }
 .saGsec h4 { margin: 0 0 4px; font-size: 13px; display: flex; justify-content: space-between; align-items: baseline; }
 .saGsec h4 em { font-style: normal; font-size: 12px; opacity: .8; }
@@ -128,13 +105,69 @@
 .saGmore { background: none; border: 0; padding: 6px 0 0; color: var(--text); opacity: .6; font: inherit; font-size: 12px; }
 
 /* feuille du bas à en-tête FIXE (titre, ✕, chiffre, explication, barre, bulles) ; seules les listes défilent. */
-.communityMembersModalCard.saSheetCard { display: flex; flex-direction: column; overflow: hidden; }
-.saSheetCard .saModalFixed { flex: 0 0 auto; }
-.saSheetCard .saModalScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-.saSheetCard .saModalScroll > .saCard { margin-bottom: 0; }
-/* Pages Temps | Tâches | Objectifs glissantes : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
-#statsAvancePage, #statsSharedPage, #viewProfileStatsPage2 { position: relative; }
+/* Pages Temps | Tâches | Objectifs du profil visité : la page hôte sert de repère aux voisines posées en absolu pendant le glissement. */
+#viewProfileStatsPage2 { position: relative; }
 
 /* sélecteur d'année sous les pastilles d'activité, au-dessus des informations. */
 /* Haut du bouton d'année = haut de la 1re carte de la page Temps (mesuré : 126 px) ; les infos dessous ne bougent pas. */
 .saChips + .caSubProjectFilter { margin: -1px 0 13px; }
+
+.saTodayBtn { align-self: flex-end; }
+
+/* Carte « Avancement » : barre avec repère (temps nécessaire) ; la bascule Tâches | Objectifs est dans le menu ⋮ du graphique. */
+.saHeadLeft { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.saHeadLeft .sectionTitle { margin: 0; }
+
+
+/* Avancement : une ligne par objectif (nom, pourcentage), barre fine à la couleur de l'activité liée. */
+.saTl { padding: 0 0 2px; }
+.saTlRow { margin: 0 0 14px; }
+.saTlRow:last-child { margin-bottom: 0; }
+.saTlTop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.saTlName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }
+.saTlPct { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-light); }
+.saTlBar { height: 4px; border-radius: 2px; background: var(--track-bg); overflow: hidden; }
+.saTlFill { display: block; height: 100%; border-radius: 2px; }
+/* Capacité : jauge graduée, repère central = temps estimé (cible) ; aiguille = temps passé ÷ temps estimé. */
+.saGauge { position: relative; height: 14px; margin: 8px 0 12px; border-radius: 7px; background: var(--card); overflow: visible; }
+.saGaugeZone { position: absolute; top: 0; bottom: 0; }
+.saGaugeTarget { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--text-light); }
+.saGaugeNeedle { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--text); }
+.saGaugeMeta { margin: 0; color: var(--text-light); }
+/* Volet Bilan : toutes les pages de statistiques dans UNE colonne qui défile (aucun glissement, aucun point) */
+#statsPages.bilanStack { display: block; }
+#statsPages.bilanStack > div { position: static; transform: none; margin-bottom: 24px; }
+/* Bilan : nouveaux blocs (sélecteur, tableaux de traits) : jetons existants seulement */
+.bilanBlocs { margin-bottom: 24px; }
+/* Sélecteur « Tous » : même position que sur la page Tâches (haut du bouton à 72 px), contenu juste dessous. */
+#bilanBlocs { margin: -10px 0 0; }
+#bilanBlocs .saChips { padding: 0; }
+#bilanBlocs .tasksFilterRow { margin: 0 0 12px; }
+/* tableaux de temps du Chrono dans le Bilan : la croix rouge de retrait se pose dans leur coin */
+#statsPage1 .statsSection, #categoryStatsScroll .statsSection { position: relative; }
+/* aperçu d'un tableau de temps dans « Ajouter une information » : même largeur que les autres aperçus, sans déborder */
+.saGh > .saGin > .statsSection { flex: 1; min-width: 0; margin: 0; overflow: hidden; }
+/* Informations ajoutées : espacées les unes des autres. */
+.bbBody > div { margin-bottom: 16px; }
+.bilanBlocs.hidden { display: none; }
+.bbCard { margin: 8px 0 20px; }
+.bbHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bbChrono > .bbHead { margin-bottom: 8px; }
+.bbNav { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: 4px 0 8px; border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep); }
+.bbNavLabel { font-size: 14px; color: var(--text); }
+.bbTable { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; font-variant-numeric: tabular-nums; }
+.bbTable th, .bbTable td { border: 1px solid var(--sep); padding: 8px 6px; text-align: center; overflow-wrap: anywhere; }
+.bbTable th { font-weight: 500; font-size: 13px; color: var(--text-light); }
+.bbTable .bbN { width: 76px; text-align: left; color: var(--text); }
+.bbTable td.bbC { color: var(--text); }
+.bbTable td.bbMax { color: var(--good); font-weight: 600; }
+.bbTable td.bbMin { color: var(--danger); font-weight: 600; }
+/* Bilan, vue d'une activité : le contenu de la fenêtre Chrono est posé dans la page (aucune fenêtre, aucun défilement propre) */
+#bilanBlocs #categoryStatsScroll { overflow: visible; padding: 0; }
+
+/* Retrait des informations : croix cachées ; appui long = toutes les informations tremblent et montrent leur croix, un toucher ailleurs quitte le mode */
+@keyframes bbJiggle { from { transform: rotate(-.5deg); } to { transform: rotate(.5deg); } }
+#bilanInfo .cmpRemove, #statsPage1 .bbX, #categoryStatsScroll .bbX { visibility: hidden; pointer-events: none; }
+.bbEditing #bilanInfo .cmpRemove, .bbEditing #statsPage1 .bbX, .bbEditing #categoryStatsScroll .bbX { visibility: visible; pointer-events: auto; }
+.bbEditing #bilanInfo .saCard, .bbEditing #statsPage1 .statsSection, .bbEditing #categoryStatsScroll .statsSection { animation: bbJiggle .26s ease-in-out infinite alternate; }
+#bilanInfo .saCard, #statsPage1 .statsSection, #categoryStatsScroll .statsSection { -webkit-touch-callout: none; }

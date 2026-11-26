@@ -1,0 +1,24 @@
+// Étape « Échéance » (11 nov. 2026) : la date n'est plus demandée à la Description ; ordre Description → Activité → Niveau → Échéance → Temps → objectifs inférieurs. Usage : node test/echeance-etape-test.js
+const fs = require('fs'), path = require('path');
+let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/objectifs-creer.js'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', 'public/css/objectifs-creer.css'), 'utf8');
+assert(js.includes(".concat(niv.skip ? [] : ['niveau']).concat(fromCell ? [] : ['echeance']).concat(['temps'])"), 'ordre : Description, Activité, Niveau, Échéance, Temps (Échéance et Emplacement restent présentes depuis une case, déjà remplies)');
+assert(js.includes("var dueBox = el('div'); boxes.echeance.appendChild(dueBox);") && !js.includes('boxes.desc.appendChild(dueBox)'), 'le champ « Date d’échéance » est sur l’étape Échéance, plus sur la Description');
+const i = js.indexOf('    function stepOff()'), fn = js.slice(i, js.indexOf('\n', i));
+const off = (cur, form) => new Function('cur', 'form', fn + '\nreturn stepOff();')(cur, form);
+assert(off('desc', { title: 'x', dateOk: false, endDate: null }) === false && off('desc', { title: '' }) === true, 'Description : Suivant gris sans titre, actif avec titre, sans exiger la date');
+assert(off('echeance', { dateOk: true, endDate: null }) === true && off('echeance', { dateOk: true, endDate: '2027-03-01' }) === false, 'Échéance : Suivant gris tant que la date est vide (R35)');
+assert(js.includes("if (cur === 'echeance') {") && js.includes('refreshHints(); loadRatt()'), 'à « Suivant » de l’Échéance : parent (rattachement) et propositions recalculés');
+assert(js.includes('function rattKey2()') && js.includes("form.ratt.key !== rattKey2()"), 'le rattachement dépend aussi de l’échéance (clé)');
+assert(js.includes("if (form.endFixed) loadRatt().then(nivFetch); else nivFetch();") && js.includes('(form.endFixed ? loadRatt().then(nivFetch) : nivFetch())'), 'Activité → suite : seules les questions du Niveau avant l’échéance (rattachement après)');
+assert(!/if \(!form\.dateOk \|\| !form\.endDate\) \{ msg\.textContent = tr\('Indique la date de l’échéance\.'\); return false; \}/.test(js), 'validDesc n’exige plus la date');
+assert(js.includes("form.endFixed || form.echeanceDone") && js.includes("echeance: 'Échéance'"), '« sous X / sans parent » seulement une fois l’échéance confirmée ; libellé de l’étape');
+assert(css.includes('.objAdvBody .objGuideRow.open > .objGuideHead { border-bottom-color: transparent; }') && js.includes("el('div', 'objAdvBody')") && js.includes("classList.add('objAdvBody')"), 'sous « Avancé » (Description, Niveau) : pas de trait sous une question dépliée (une seule règle CSS)');
+assert(js.includes("if (!force && tp.key === tpKey() && tp.e) { tp.page = 0; tp.shown = 0; tpPaint(); tpSync();"), 'étape Temps : à chaque ré-entrée on revient à la première sous-page (valeurs conservées)');
+assert(js.includes("var GUIDE_MAIN = ['faire', 'qui', 'quoi'];") && js.includes("paintGuideInto(mainBox, form, composeDesc, undefined, 'main'); if (advOpen) paintGuideInto(guideBox, form, composeDesc, f, 'rest');") && js.includes("part === 'rest' ? GUIDE_REST_GROUPS.map(") && js.includes("{ g: 'Précisions', ks: ['ou', 'resultat', 'avance'] }, { g: 'Limites', ks: ['obstacle', 'horssujet', 'nom'] }"), 'Description : « Que faire ? », « Avec qui ? », « Avec quoi ? » visibles à plat ; sous « Avancé » deux groupes de trois : Précisions (Où ?, résultat, avancement) et Limites (obstacle, hors sujet, autre nom)');
+assert(js.includes("titleIn.placeholder = tr('Titre'); titleIn.setAttribute('aria-label', tr('Titre'));") && js.includes("field(tr('Titre'), titleIn)") && js.includes("panelKicker.textContent = tr('Objectif');"), 'premier panneau : le champ du titre porte « Titre » (libellé, placeholder, aria-label) ; l’en-tête reste « Objectif »');
+assert(!js.includes("el('p', 'cmpBlockTitle', tr('Description'))"), 'premier panneau : plus de sous-titre « Description » au-dessus des questions visibles');
+const cm = fs.readFileSync(path.join(__dirname, '..', 'public/js/composants.js'), 'utf8').split('\r\n').join('\n');
+assert(cm.includes('revealOpened: function (target)') && cm.includes("prefers-reduced-motion: reduce") && cm.includes("block: 'start'") && js.split('TMT.ui.revealOpened(').length - 1 >= 3 && js.includes('if (advOpen) TMT.ui.revealOpened(') && js.includes('if (niv.advOpen) TMT.ui.revealOpened('), '« Avancé » déplié : un seul code partagé fait défiler le panneau (en douceur, prefers-reduced-motion respecté), jamais au repli');
+if (failed) { console.log('\n' + failed + ' échec(s)'); process.exit(1); } console.log('\ntout passe');

@@ -3,12 +3,8 @@
 // l'utilisateur n'a pas validé — règle produit « les suggestions informent,
 // ne décident jamais »).
 //
-// Report des tâches en retard (point 2) : le mécanisme existant
-// goalscaptureplace.js#redispatchOverdue replace déjà les tâches non cochées
-// dont la date a été POSÉE PAR LE MOTEUR (dueDateAuto=1). Une date SAISIE par
-// l'utilisateur n'est jamais écrasée d'office : si elle est en retard, la tâche
-// reste visible (l'écran Tâches montre toutes les non cochées) et n'est déplacée
-// que par le plan proposé ci-dessous, après validation.
+// Report des tâches en retard (point 2) : goalscaptureplace.js#redispatchOverdue replace les tâches non cochées dont le jour est passé.
+// ORDRE D'ÉMILIEN (10 nov. 2026) : seule l'importance compte (classement unique taskkind.comparePlacement) ; une date saisie à la main n'est pas protégée.
 //
 // Surcharge (point 3) : charge d'aujourd'hui = tâches non cochées dont la date
 // est <= aujourd'hui (reportées + du jour), estimation goals.estimateForGoal ou
@@ -22,9 +18,9 @@ const goals = require('./goals');
 const goalsauto = require('./goalsauto');
 const captureplace = require('./goalscaptureplace');
 const goalsimportance = require('./goalsimportance');
-const timecaps = require('./timecaps');
 
-const DEFAULT_TASK_MINUTES = captureplace.DEFAULT_TASK_MINUTES;
+const taskminutes = require('./taskminutes');
+const DEFAULT_TASK_MINUTES = taskminutes.DEFAULT_TASK_MINUTES;
 const LOOKAHEAD_DAYS = captureplace.LOOKAHEAD_DAYS;
 const MIN_BUDGET_MINUTES = 60;
 
@@ -55,13 +51,21 @@ function todayLocal() {
 // les MOINS importantes sont décalées au prochain créneau libre. Seules les dates posées par le
 // moteur (dueDateAuto) bougent : une date saisie par l'utilisateur est épinglée, jamais déplacée.
 // Renvoie null si rien à déplacer, sinon { loadMinutes (charge du 1er jour surchargé), budgetMinutes, moves }.
-function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS, horizon = 7 }) {
+function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DAYS, horizon = Infinity }) {
   const budget = Math.max(1, budgetMinutes);
   const eff = (t) => (t.dueDate < today ? today : t.dueDate);
+  // Jours couverts (20 nov. 2026, « 87 tâches / 20 h un même jour ») : d'aujourd'hui jusqu'à la dernière échéance, plus de quoi absorber tout le surplus ;
+  // avant, seuls les 7 premiers jours étaient équilibrés et rien au-delà de lookahead : une journée lointaine surchargée restait telle quelle.
+  let lastDue = goals.addDays(today, lookahead), totalMin = 0;
+  tasks.forEach((t) => { if (t.dueDate && t.dueDate > lastDue) lastDue = t.dueDate; totalMin += t.minutes || 0; });
+  const spanDays = Math.min(730, goals.daysBetween(today, lastDue) + Math.ceil(totalMin / budget) + 1);
   const days = [];
-  for (let i = 0; i <= lookahead; i += 1) days.push(goals.addDays(today, i));
+  for (let i = 0; i <= spanDays; i += 1) days.push(goals.addDays(today, i));
   const isLong = (t) => !!t.long;
-  const movable = (t) => !isLong(t) && !!t.dueDateAuto;
+  const movable = (t) => !isLong(t); // ordre d'Émilien (10 nov. 2026) : seule l'importance compte (plus de protection d'une date saisie, d'une réforme ni d'une urgente : elles passent en premier du classement)
+  const taskkind = require('./taskkind');
+  const rk = (t) => ({ ...(t.rank || { tier: t.pinned ? 0 : 3 }), score: t.importance.score, dueDate: t.dueDate, id: t.id });
+  const byRank = (a, b) => taskkind.comparePlacement(rk(a), rk(b)); // UN classement, du plus urgent au moins urgent
   const cur = new Map();
   tasks.forEach((t) => { if (t.dueDate && !isLong(t)) cur.set(t.id, eff(t)); });
   const load = {};
@@ -83,14 +87,15 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
     if (load[d] <= budget) continue;
     if (firstLoad === null) firstLoad = load[d];
     const cands = tasks.filter((t) => movable(t) && cur.get(t.id) === d)
-      .sort((a, b) => (b.importance.score - a.importance.score)
-        || (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id));
+      .sort(byRank);
     let kept = load[d] - cands.reduce((s, t) => s + t.minutes, 0);
     cands.forEach((t) => {
       if (kept === 0 || kept + t.minutes <= budget) { kept += t.minutes; return; }
       const after = days.slice(di + 1);
-      let to = after.find((e) => load[e] + t.minutes <= budget);
-      if (!to && after.length) to = after.reduce((b, e) => (load[e] < load[b] ? e : b), after[0]);
+      const okDay = (e) => !t.deadline || e <= t.deadline; // jamais au-delà de l'échéance de la période
+      let to = after.find((e) => okDay(e) && load[e] + t.minutes <= budget);
+      const pool = after.filter(okDay);
+      if (!to && pool.length) to = pool.reduce((b, e) => (load[e] < load[b] ? e : b), pool[0]);
       if (!to) { kept += t.minutes; return; }
       load[d] -= t.minutes;
       load[to] += t.minutes;
@@ -110,29 +115,70 @@ function computeProposal({ today, budgetMinutes, tasks, lookahead = LOOKAHEAD_DA
 
 // poleKey (optionnel) : capacité de CE pôle seulement (le temps se calcule par pôle).
 function budgetFor(activityId, userId, poleKey) {
-  let total = 0;
+  let total = 0, nb = 0, zeros = 0;
   goals.categoriesForActivity(activityId).forEach((pole) => {
     if (poleKey && pole.key !== poleKey) return;
-    total += goalsauto.capacityMinutesForMember(activityId, pole.key, userId) / 7;
+    const c = goalsauto.capacityMinutesForMember(activityId, pole.key, userId);
+    nb += 1; if (c === 0) zeros += 1;
+    total += c / 7;
   });
+  const zeroExplicite = nb > 0 && zeros === nb;
+  if (zeroExplicite) return 0; // part explicitement à 0 % dans la Répartition : aucune tâche planifiable (pas de plancher)
   // Plancher 60 min : sans historique chronométré la capacité calculée est quasi nulle (fausses alertes).
   return Math.max(MIN_BUDGET_MINUTES, Math.round(total));
 }
 
+// RÈGLE DE CHARGE (Émilien) : une journée peut dépasser LÉGÈREMENT et en silence la référence (TOLERANCE = 20 %), sans rien décaler ; au-delà, une marque discrète (la même que « cible irréaliste »)
+// se pose sur le secteur et l'objectif concernés. La RÉFÉRENCE s'adapte au rythme réellement tenu : médiane des minutes terminées par jour ouvré sur 28 jours (7 jours de données au moins),
+// sinon la capacité calculée (budgetFor). Une seule fonction de calcul : referenceFor.
+const TOLERANCE = 0.2, MIN_OBSERVED_DAYS = 7;
+function minutesOfRow(activityId) { return (r) => { try { return taskminutes.taskMinutes(r, () => { const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null; return est && est.minutes; }); } catch (e) { return DEFAULT_TASK_MINUTES; } }; }
+function referenceFor(activityId, userId, poleKey, nowMs) {
+  const budget = budgetFor(activityId, userId, poleKey);
+  let obs = null; try { obs = require('./efficiencyprofile').observedDailyMinutes(activityId, userId, minutesOfRow(activityId), nowMs); } catch (e) { obs = null; }
+  if (require('./objectifs-capacite').aDesHeures(activityId, userId, poleKey)) return budget; // 20 nov. 2026 : la part d'heures des objectifs en cours est LA limite ; la médiane observée ne sert qu'en repli
+  return obs && obs.days >= MIN_OBSERVED_DAYS && obs.median > 0 ? Math.max(MIN_BUDGET_MINUTES, Math.round(obs.median)) : budget;
+}
+function isOverloaded(load, reference, tolerance) { return load > reference * (1 + (tolerance != null ? tolerance : TOLERANCE)); }
+// Tolérance du jour de la catégorie (règle « surcharge-jour » de la stratégie) ; sans stratégie posée : TOLERANCE (20 %). Règle désactivée : défaut de Noèsis.
+function toleranceFor(activityId, key) { const r = require('./categorie-strategie').regleActive(activityId, key || '_', 'surcharge-jour'); return r.actif ? r.seuil / 100 : TOLERANCE; }
+// Secteurs/pôles dont la charge d'AUJOURD'HUI dépasse encore la tolérance (après rééquilibrage) : { clé: true }.
+function overloadMarks(userId, activityId) {
+  const today = todayLocal(), marks = {};
+  goals.categoriesForActivity(activityId).forEach((pole) => {
+    const ref = referenceFor(activityId, userId, pole.key);
+    const todays = loadTasks(activityId, ref, today, pole.key).filter((t) => !t.long && (t.dueDate < today ? today : t.dueDate) === today);
+    if (!isOverloaded(todays.reduce((s, t) => s + (t.maxMinutes || t.minutes), 0), ref, toleranceFor(activityId, pole.key))) return; // alerte : borne haute des durées
+    marks[pole.key] = true; todays.forEach((t) => { if (t.category) marks[t.category] = true; });
+  });
+  return marks;
+}
+const marksCache = new Map();
+function getMarks(userId, activityId) { return marksCache.get(userId + '|' + activityId) || {}; }
+
 function loadTasks(activityId, budget, today, poleKey) {
   const rows = db.prepare(`
-    SELECT i.id, i.label, i.dueDate, i.dueDateAuto, sp.goalCategory AS category
+    SELECT i.id, i.label, i.dueDate, i.dueDateAuto, i.medianMinutes, i.maxMinutes, sp.goalCategory AS category
     FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND i.done = 0 AND i.dueDate IS NOT NULL AND i.dueDate != ''
   `).all(activityId);
   const kept = !poleKey ? rows : rows.filter((r) => r.category && goals.resolveToPole(activityId, r.category) === poleKey);
   const ctx = goalsimportance.loadGoalContexts(kept.map((r) => r.id));
   const tasks = kept.map((r) => {
-    const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null;
-    const total = (est && est.minutes) || DEFAULT_TASK_MINUTES;
+    const hist = () => { const est = r.category ? goals.estimateForGoal(activityId, r.category, 'weekly', r.label) : null; return est && est.minutes; };
+    const total = taskminutes.taskMinutes(r, hist);
+    const high = taskminutes.taskMaxMinutes(r, hist); // borne haute : alertes de surcharge
     const span = captureplace.longSpan(total, budget);
-    if (!span) return { ...r, minutes: total };
-    return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total };
+    if (!span) return { ...r, minutes: total, maxMinutes: high };
+    return { ...r, long: true, spanDays: span.days, rest: span.rest, minutes: total, maxMinutes: high };
+  });
+  const reforms = require('./reform').readMany(kept.map((r) => r.id)), kinds = require('./taskkind').readMany(kept.map((r) => r.id));
+  const ranks = require('./taskkind').rankInfoMany(kept.map((r) => r.id), budget, (id) => (tasks.find((x) => x.id === id) || {}).minutes);
+  tasks.forEach((t) => {
+    t.rank = ranks[t.id];
+    const k = kinds[t.id] || {};
+    t.pinned = !!reforms[t.id] || (k.kind === 'maintenance' && !!k.urgent);
+    if (t.category) { try { const g = goalsAt(activityId, t.category, t.dueDate); t.deadline = g && g.period ? g.period.endDate : null; } catch (e) { t.deadline = null; } }
   });
   // Charge de chaque jour (même règle que computeProposal) pour le critère « journée chargée ».
   const dayLoad = {};
@@ -155,7 +201,7 @@ function loadTasks(activityId, budget, today, poleKey) {
 function goalsAt(activityId, category, day) {
   const plan = db.prepare('SELECT startDate FROM activity_goal_plans WHERE activityId = ? AND category = ?').get(activityId, category);
   if (!plan) return null;
-  const n = goals.periodNumberForDate(plan.startDate, day);
+  const n = goals.periodNumberFor(activityId, category, plan.startDate, day);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, n);
   if (!period) return null;
   const weekIndex = Math.floor(goals.daysBetween(period.startDate, day) / 7) + 1;
@@ -163,116 +209,60 @@ function goalsAt(activityId, category, day) {
   return { period, weekly };
 }
 
-// Changements d'objectifs induits par les déplacements : on transfère le temps
-// estimé des tâches de l'objectif hebdo (et période) de la date d'origine vers
-// celui de la date cible. Aperçu avant→après ; rien d'écrit ici.
-function objectiveChanges(activityId, moves) {
-  const weekly = new Map();
-  const period = new Map();
-  const bump = (map, row, key, delta, extra) => {
-    const e = map.get(row.id) || { id: row.id, ...extra, before: row.__before, delta: 0 };
-    e.delta += delta;
-    map.set(row.id, e);
-  };
-  moves.forEach((m) => {
-    if (!m.category) return;
-    const a = goalsAt(activityId, m.category, m.from);
-    const b = goalsAt(activityId, m.category, m.to);
-    [[a, -m.minutes], [b, m.minutes]].forEach(([g, d]) => {
-      if (!g) return;
-      if (g.weekly) {
-        g.weekly.__before = g.weekly.estimateMinutes || 0;
-        bump(weekly, g.weekly, 'wk', d, { category: m.category, text: g.weekly.text, weekIndex: g.weekly.weekIndex });
-      }
-    });
-    if (a && b && a.period.id !== b.period.id) {
-      [[a, -m.minutes], [b, m.minutes]].forEach(([g, d]) => {
-        g.period.__before = g.period.mainGoalEstimateMinutes || 0;
-        bump(period, g.period, 'p', d, { category: m.category, text: g.period.mainGoalText, periodNumber: g.period.periodNumber });
-      });
-    }
-  });
-  const fin = (map) => [...map.values()].map((e) => ({ ...e, after: Math.max(0, e.before + e.delta) }))
-    .filter((e) => e.after !== e.before);
-  return { weekly: fin(weekly), period: fin(period) };
-}
 
-function signatureOf(moves) {
-  return moves.map((m) => m.id + '>' + m.to).join(',');
-}
 
 // poleKey (optionnel) : ne garde que les déplacements de CE pôle (le secteur remonte au pôle).
 // Avec poleKey, charge ET capacité ET tâches sont celles de CE pôle (secteurs remontés au pôle) ; sans poleKey, toute l'activité.
-function getProposal(userId, activityId, poleKey) {
+function buildProposal(userId, activityId, poleKey) {
   const today = todayLocal();
   try { captureplace.redispatchOverdue(userId, activityId); } catch (e) { /* non bloquant */ }
-  if (db.prepare("SELECT 1 FROM goal_overload_dismissals WHERE userId = ? AND activityId = ? AND day = ? AND (poleKey = '' OR poleKey = ?)").get(userId, activityId, today, poleKey || '')) {
-    return { overloaded: false, dismissed: true };
-  }
-  const budget = budgetFor(activityId, userId, poleKey);
+  const budget = referenceFor(activityId, userId, poleKey); // référence adaptative au rythme tenu
   const tasks = loadTasks(activityId, budget, today, poleKey);
-  const p = computeProposal({ today, budgetMinutes: budget, tasks });
-  // Plafonds de temps : appliqués APRÈS le plan de surcharge, mêmes règles
-  // (proposé seulement, dates posées par le moteur uniquement).
-  const afterOverload = new Map();
-  if (p) p.moves.forEach((m) => afterOverload.set(m.id, m.to));
-  const caps = timecaps.listCaps(userId, activityId).map((c) => ({
-    ...c, weekCaps: timecaps.weekCapsFor(activityId, c.key), isPole: goals.isValidCategoryForActivity(activityId, c.key),
-    label: goals.categoryLabelFor(activityId, goals.resolveToPole(activityId, c.key)),
-  }));
-  const capTasks = tasks.map((t) => ({
-    ...t, dueDate: afterOverload.get(t.id) || t.dueDate, poleOf: t.category ? goals.resolveToPole(activityId, t.category) : null,
-  }));
-  const capMoves = timecaps.computeCapMoves({ today, caps, tasks: capTasks });
-  const byId = new Map();
-  if (p) p.moves.forEach((m) => byId.set(m.id, { ...m }));
-  capMoves.forEach((cm) => {
-    const t = tasks.find((x) => x.id === cm.id);
-    const prev = byId.get(cm.id);
-    byId.set(cm.id, { ...(prev || { id: t.id, label: t.label, category: t.category, minutes: t.minutes, from: t.dueDate, auto: true,
-      importance: t.importance.level, importanceScore: t.importance.score, reasons: t.importance.reasons }), to: cm.to, capLabel: cm.capLabel });
-  });
-  const allMoves = [...byId.values()].filter((m) => m.to !== m.from);
+  const p = computeProposal({ today, budgetMinutes: Math.round(budget * (1 + toleranceFor(activityId, poleKey))), tasks }); // dépassement léger (20 % par défaut, stratégie de la catégorie) toléré, rien décalé en dessous
+  const allMoves = (p ? p.moves : []).map((m) => ({ ...m })).filter((m) => m.to !== m.from);
   if (!allMoves.length) return { overloaded: false };
   const moves = allMoves.map((m) => ({ ...m, poleKey: m.category ? goals.resolveToPole(activityId, m.category) : null }))
     .filter((m) => !poleKey || m.poleKey === poleKey);
   if (!moves.length) return { overloaded: false };
-  const capOnly = !p || !moves.some((m) => !m.capLabel);
-  const capLabel = (moves.find((m) => m.capLabel) || {}).capLabel || null;
   return {
     overloaded: true,
     loadMinutes: p ? p.loadMinutes : null,
     budgetMinutes: p ? p.budgetMinutes : budget,
-    capLabel: capOnly ? capLabel : null,
-    capExceeded: !!capLabel,
     moves,
-    objectives: objectiveChanges(activityId, moves),
-    signature: signatureOf(moves),
   };
 }
 
 // Applique le plan APRÈS validation. `signature` = celle de l'aperçu vu par
 // l'utilisateur ; si le plan a changé entre-temps (409), rien n'est écrit.
-function applyProposal(userId, activityId, signature, poleKey) {
-  const p = getProposal(userId, activityId, poleKey);
-  if (!p.overloaded) return { applied: 0 };
-  if (signature && signature !== p.signature) {
-    throw Object.assign(new Error('Le plan a changé depuis son affichage.'), { statusCode: 409 });
-  }
+// Écrit les déplacements du plan. (plus de transfert de temps estimé : les estimations ne bougent qu'au recalcul silencieux).
+function applyMoves(p) {
   db.exec('BEGIN');
   try {
     const upd = db.prepare('UPDATE sub_project_items SET dueDate = ? WHERE id = ?');
     p.moves.forEach((m) => upd.run(m.to, m.id));
-    p.objectives.weekly.forEach((e) => db.prepare("UPDATE goal_weekly SET estimateMinutes = ?, estimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
-    p.objectives.period.forEach((e) => db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'plan-surcharge' WHERE id = ?").run(e.after, e.id));
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
-  return { applied: p.moves.length };
 }
 
-function dismissProposal(userId, activityId, poleKey) {
-  db.prepare('INSERT OR IGNORE INTO goal_overload_dismissals (userId, activityId, day, poleKey) VALUES (?, ?, ?, ?)').run(userId, activityId, todayLocal(), poleKey || '');
-  return { dismissed: true };
+
+// UNE SEULE fonction de rééquilibrage, en silence (plus de carte ni de proposition) : (1) tâches en retard posées par le moteur replacées selon leur urgence
+// (captureplace.redispatchOverdue), (2) journée au-delà de la capacité : les moins importantes du classement passent au prochain jour libre, dans la limite de l'échéance de leur période,
+// en cascade si des retards urgents ont pris la place. Aucune protection : une date saisie à la main bouge comme les autres ; réforme et maintenance urgente passent en premier du classement.
+// Déclenchée à l'ouverture de la liste du jour et du calendrier (au plus une fois par 30 s et par activité).
+const lastRebalance = new Map();
+function rebalance(userId, activityId, opts) {  const res = rebalanceMoves(userId, activityId, opts);  if (!res.skipped) { try { marksCache.set(userId + '|' + activityId, overloadMarks(userId, activityId)); } catch (e) { /* non bloquant */ } }  return res;}function rebalanceMoves(userId, activityId, opts) {
+  const key = userId + '|' + activityId, now = Date.now();
+  if (!(opts && opts.force) && now - (lastRebalance.get(key) || 0) < 30000) return { applied: 0, skipped: true };
+  lastRebalance.set(key, now);
+  try { require('./goalscarryover').repriseUnmet(activityId); } catch (e) { /* non bloquant */ } // objectifs hebdomadaires non atteints repris sur les semaines à venir de la période (silencieux, idempotent)
+  const p = buildProposal(userId, activityId, undefined, true);
+  if (!p.overloaded) return { applied: 0 };
+  const deadlineOf = (m) => { try { const g = m.category ? goalsAt(activityId, m.category, m.from) : null; return g && g.period ? g.period.endDate : null; } catch (e) { return null; } };
+  const moves = p.moves.filter((m) => !deadlineOf(m) || m.to <= deadlineOf(m));
+  if (!moves.length) return { applied: 0 };
+  applyMoves({ moves });
+  return { applied: moves.length };
 }
 
-module.exports = { budgetFor, loadTasks, computeProposal, getProposal, applyProposal, dismissProposal };
+
+module.exports = { budgetFor, referenceFor, isOverloaded, overloadMarks, getMarks, loadTasks, computeProposal, rebalance, TOLERANCE };

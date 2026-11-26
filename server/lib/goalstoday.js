@@ -10,6 +10,10 @@ function dayOf(d) {
   const p = (n) => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
+// Historique des jours (20 nov. 2026, Émilien) : une tâche à faire un jour donné COMPTE ce jour-là même si elle est ensuite déplacée sans avoir été faite ; elle peut donc compter plusieurs jours de suite tant qu'elle n'est pas faite.
+// Une ligne par (utilisateur, tâche, jour), posée à chaque ouverture de la liste du jour courant ; sert au « faites / prévues » d'un jour passé.
+db.exec('CREATE TABLE IF NOT EXISTS task_day_plan (userId TEXT NOT NULL, taskId INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (userId, taskId, day))');
+const insPlan = db.prepare('INSERT OR IGNORE INTO task_day_plan (userId, taskId, day) VALUES (?, ?, ?)');
 function validToday(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : dayOf(new Date()); }
 
 // dayParam (facultatif) : un autre jour à consulter (demain, après-demain, hier…). Jour courant : à faire = échéance aujourd'hui, en retard ou sans date.
@@ -17,36 +21,115 @@ function validToday(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.t
 function tasksToday(userId, todayParam, dayParam) {
   const realToday = validToday(todayParam);
   const day = typeof dayParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : realToday;
-  const other = day !== realToday;
+  const all = dayParam === 'all'; // vue par défaut : TOUTES les tâches à faire, quelle que soit l'échéance (les faites sont dans l'Archive)
+  const other = !all && day !== realToday;
   const today = day;
   const acts = db.prepare(`SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id
-    WHERE m.userId = ? AND a.active = 1 ORDER BY a.name`).all(userId);
-  const todo = [], done = [];
+    WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id`).all(userId); // ordre des activités dans l'application (même ordre que la liste des activités)
+  if (!other) acts.forEach((a) => { try { require('./goalsoverload').rebalance(userId, a.id); } catch (e) { /* non bloquant */ } try { require('./goalsperiodlate').verifier(userId, a.id); } catch (e) { /* non bloquant */ } }); // rééquilibrage silencieux à l'ouverture de la liste (au plus 1 fois / 30 s / activité)
+  const actIndex = new Map(acts.map((a, i) => [a.id, i])); const sharedActs = new Set(acts.filter((a) => db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1).map((a) => a.id)); // activités partagées : le panneau de modification propose alors « Responsable »
+  const todo = [], done = [], others = []; // others : tâches à faire confiées à un autre membre (tri « Responsable » seulement ; jamais comptées)
   // Les durées estimées ne se calculent que pour les tâches affichées (et un calcul par catégorie : mémo le temps de la requête).
   const memo = goals.beginEstimateMemo();
   try {
-    acts.forEach((a) => {
-      goalstasks.allTasksWithGroup(a.id).forEach((t) => {
-        if (t.plannedUserId && t.plannedUserId !== userId) return;
+    acts.forEach((a) => { const poleLabels = {}, poleIdx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { poleLabels[p.key] = p.label; poleIdx[p.key] = i; }); // poleIdx : rang du pôle, pour sa nuance (comme les objectifs)
+      const marks = require('./goalsoverload').getMarks(userId, a.id); // charge au-delà de +20 % du rythme tenu : marque sur le secteur
+      const memberNames = {}; if (sharedActs.has(a.id)) goals.membersForActivity(a.id).forEach((m) => { memberNames[m.id] = m.name; });
+      goalstasks.allTasksWithGroup(a.id, false, userId).forEach((t) => {
+        const foreign = !!(t.plannedUserId && t.plannedUserId !== userId);
+        if (foreign && (other || t.done)) return;
         const due = t.dueDate || today;
         let list = null;
         if (other) {
           if (!t.done && t.dueDate === today) list = todo;
           else if (t.done && ((t.doneAt && dayOf(new Date(t.doneAt)) === today) || (today > realToday && t.dueDate === today))) list = done;
-        } else if (!t.done && due <= today) list = todo;
+        } else if (all) { if (!t.done) list = todo; else if (t.doneAt && dayOf(new Date(t.doneAt)) === realToday) list = done; } // « toutes » : à faire (toutes échéances) + faites AUJOURD'HUI, pour que le compteur « faites / total » soit juste
+        else if (!t.done && due <= today) list = todo;
         else if (t.done && t.doneAt && dayOf(new Date(t.doneAt)) === today) list = done;
+        if (foreign) list = list === todo ? others : null;
         if (!list) return;
         list.push({
           id: t.id, label: t.label, done: !!t.done, activityId: a.id, activityName: a.name, activityColor: a.color || null,
-          sector: t.key === t.poleKey ? null : t.groupLabel, pole: t.poleKey, dueDate: due,
-          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label),
+          sector: t.key === t.poleKey ? null : t.groupLabel, sectorKey: t.key === t.poleKey ? null : t.key, pole: t.poleKey, catKey: t.key, dueDate: due, dueNow: due <= today, overloaded: !other && !t.done && !!(marks[t.key] || marks[t.poleKey]) && due <= today,
+          minutes: goalscapacity.taskMinutes(userId, a.id, t.poleKey, t.label, t), plannedUserId: t.plannedUserId || null, shared: sharedActs.has(a.id), canEdit: require('./portee').peutEcrireTache(userId, a.id, t.key), poleName: poleLabels[t.poleKey] || t.poleKey, poleIndex: poleIdx[t.poleKey], plannedUserName: memberNames[t.plannedUserId] || '',
         });
       });
     });
   } finally { goals.endEstimateMemo(memo); }
-  todo.sort((x, y) => (x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : x.id - y.id));
+  // Tâches À VENIR (vue « Activité » repliée) : même complément que l'onglet Tâches de la page 2 (goalstasks.dailyListForActivity) : au moins 5 tâches par pôle,
+  // les prochaines tâches datées du même pôle (échéance croissante) complètent. Marquées upcoming : jamais comptées, jamais dans « Faites aujourd'hui ».
+  const upc = [];
+  if (!other && !all) acts.forEach((a) => {
+    const daily = goalstasks.dailyListForActivity(a.id, today, userId);
+    const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
+    // Règle d'Émilien, par secteur (ou par pôle sans secteur) : la base (à faire aujourd'hui, en retard, sans date) est montrée en entier ; si elle compte moins de
+    // minLines tâches, les prochaines tâches À VENIR du même secteur (échéance croissante) complètent jusqu'à minLines au total, jamais plus.
+    const room = {};
+    daily.upcoming.filter((u) => !(u.plannedUserId && u.plannedUserId !== userId)).forEach((u) => {
+      if (!(u.key in room)) room[u.key] = Math.max(0, goalstasks.DAILY_MIN_LINES - todo.filter((t) => t.activityId === a.id && t.catKey === u.key).length);
+      if (room[u.key] <= 0) return;
+      room[u.key] -= 1;
+      upc.push({ id: u.id, label: u.label, done: false, upcoming: true, activityId: a.id, activityName: a.name, activityColor: a.color || null, sector: u.key === u.poleKey ? null : u.groupLabel, sectorKey: u.key === u.poleKey ? null : u.key, pole: u.poleKey, poleName: names[u.poleKey] || u.poleKey, poleIndex: idx[u.poleKey], dueDate: u.dueDate, minutes: 0, plannedUserId: u.plannedUserId || null, shared: sharedActs.has(a.id), canEdit: require('./portee').peutEcrireTache(userId, a.id, u.key) });
+    });
+  });
+  // Ordre : activité par activité (ordre de l'application), puis dans chaque activité les paliers maintenance/développement
+  // (taskkind.compareTasks), puis l'échéance et l'ordre de création comme avant. Sans type calculé, une tâche reste au palier 3 : ordre d'avant.
+  const taskkind = require('./taskkind');
+  const kinds = taskkind.readMany(todo.map((t) => t.id));
+  const weekly = {};
+  if (todo.length) db.prepare('SELECT id, goalWeeklyId FROM sub_project_items WHERE id IN (' + todo.map(() => '?').join(',') + ')').all(...todo.map((t) => t.id)).forEach((r) => { weekly[r.id] = r.goalWeeklyId; });
+  const reforms = require('./reform').readMany(todo.map((t) => t.id));
+  const phases = taskkind.readPhaseMany(todo.map((t) => t.id));
+  // Objectif périodique (fin, numéro) puis hebdomadaire (semaine) de chaque tâche liée : tri de la continuité.
+  const objInfo = {};
+  const wids = Array.from(new Set(Object.values(weekly).filter((w) => w != null)));
+  if (wids.length) db.prepare('SELECT w.id, w.weekIndex, w.text, p.startDate, p.endDate, p.periodNumber FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id IN (' + wids.map(() => '?').join(',') + ')').all(...wids).forEach((r) => { objInfo[r.id] = r; });
+  const capacity = {};
+  todo.forEach((t) => {
+    if (!(t.activityId in capacity)) { try { capacity[t.activityId] = require('./goalsoverload').budgetFor(t.activityId, userId); } catch (e) { capacity[t.activityId] = 0; } }
+    const k = kinds[t.id] || {};
+    t.rank = { taskKind: k.kind, maintType: k.maintType, maintUrgent: k.urgent, estimatedMinutes: t.minutes || 0, hasObjective: weekly[t.id] != null, reform: reforms[t.id],
+      periodEnd: (objInfo[weekly[t.id]] || {}).endDate, periodNumber: (objInfo[weekly[t.id]] || {}).periodNumber, weekIndex: (objInfo[weekly[t.id]] || {}).weekIndex };
+    t.rank.tier = taskkind.tierOf(t.rank, capacity[t.activityId]);
+    Object.assign(t.rank, { phase: phases[t.id], dueDate: t.dueDate, objectiveDays: weekly[t.id] != null ? 7 : null }); // ordre du jour : rang 1 à 4 et usure (taskkind.dayRank)
+    t.rank.dayRank = taskkind.dayRank(t.rank, today);
+  });
+  const dayWork = (a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id - b.id);
+  todo.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || taskkind.compareDay(x.rank, y.rank) || dayWork(x, y));
+  // Réformes (reform.js) : en tête de leur pôle/secteur, ou de l'activité si elles en touchent au moins deux.
+  const ordered = require('./reform').placeReforms(todo);
+  todo.length = 0; ordered.forEach((t) => todo.push(t));
+  todo.forEach((t) => { t.objectiveEnd = t.rank.periodEnd || null; t.objectiveNumber = t.rank.periodNumber || 0; t.objectiveWeek = t.rank.weekIndex || 0; const oi = objInfo[weekly[t.id]]; t.objectiveId = oi ? weekly[t.id] : null; t.objectiveText = oi ? oi.text : ''; t.objectiveCurrentWeek = !!oi && goals.weekBoundsIn(oi, oi.weekIndex).start <= today && today <= goals.weekBoundsIn(oi, oi.weekIndex).end; }); // tri « Objectif » côté client (même logique que compareContinuity) : fin de période, puis semaine ; sans objectif : null
+  todo.concat(others, done).forEach((t) => { delete t.rank; delete t.catKey; });
+  others.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || (x.dueDate < y.dueDate ? -1 : x.dueDate > y.dueDate ? 1 : x.id - y.id));
+  done.sort((x, y) => ((actIndex.get(x.activityId) || 0) - (actIndex.get(y.activityId) || 0)) || x.id - y.id);
   const sum = (l) => l.reduce((s, t) => s + (t.minutes || 0), 0);
-  return { today, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(done) };
+  if (!other) { try { todo.forEach((t) => { if (!t.upcoming && t.dueDate <= realToday) insPlan.run(String(userId), t.id, realToday); }); } catch (e) { /* non bloquant */ } } // jour courant : ce qui est à faire aujourd'hui compte aujourd'hui
+  let plannedCount = null;
+  if (other && day < realToday) { // jour passé : prévues ce jour-là = lignes de l'historique ; sans historique (avant ce suivi) : faites + à faire dont l'échéance était ce jour-là
+    const rows = db.prepare('SELECT COUNT(*) AS c FROM task_day_plan WHERE userId = ? AND day = ?').get(String(userId), day).c;
+    plannedCount = rows || (done.length + todo.length);
+  }
+  return { today, plannedCount, doneCount: done.length, todoCount: todo.length, doneMinutes: sum(done), todoMinutes: sum(todo), tasks: todo.concat(upc, others, done) };
 }
 
-module.exports = { tasksToday };
+// Archive de la vue Aujourd'hui : tâches faites des 7 derniers jours, TOUTES les activités de l'utilisateur (la liste de l'onglet Tâches, goalstasks.archivesForActivity, pour chaque activité),
+// la plus récente d'abord. Passé 7 jours, une tâche n'apparaît plus (verrouillée) mais reste en base : export des données, outil MCP lister_taches (statut terminees/toutes).
+function archiveAll(userId) {
+  const acts = db.prepare('SELECT a.id, a.name, m.color FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY m.position, a.id').all(userId);
+  const out = [];
+  acts.forEach((a) => {
+    const shared = db.prepare('SELECT COUNT(*) AS c FROM activity_members WHERE activityId = ?').get(a.id).c > 1;
+    const names = {}, idx = {}; goals.categoriesForActivity(a.id).forEach((p, i) => { names[p.key] = p.label; idx[p.key] = i; });
+    goalstasks.archivesForActivity(a.id, userId).tasks.forEach((t) => {
+      if (t.plannedUserId && t.plannedUserId !== userId) return;
+      // Mêmes champs que les tâches faites de GET /api/goals/today : la ligne d'Archive est celle de la liste du jour.
+      out.push({ id: t.id, label: t.label, done: true, doneAt: t.doneAt, dueDate: t.dueDate, activityId: a.id, activityName: a.name, activityColor: a.color || null,
+        sector: t.key === t.poleKey ? null : t.groupLabel, sectorKey: t.key === t.poleKey ? null : t.key, pole: t.poleKey, poleName: names[t.poleKey] || t.poleKey, poleIndex: idx[t.poleKey], minutes: 0, plannedUserId: t.plannedUserId || null, shared, canEdit: require('./portee').peutEcrireTache(userId, a.id, t.key), locked: !!t.locked });
+    });
+  });
+  out.sort((x, y) => (x.doneAt < y.doneAt ? 1 : x.doneAt > y.doneAt ? -1 : y.id - x.id));
+  return { tasks: out };
+}
+
+module.exports = { tasksToday, archiveAll };

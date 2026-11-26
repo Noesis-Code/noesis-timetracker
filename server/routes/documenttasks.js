@@ -23,7 +23,7 @@ router.post('/activities/:id/document-tasks/propose', requireAuth, requireOffer1
 });
 
 router.post('/activities/:id/document-tasks/apply', requireAuth, requireOffer1Access, guard, (req, res) => {
-  try { res.json(documenttasks.apply(req.userId, Number(req.params.id), (req.body || {}).tasks)); } catch (e) { fail(res, e); }
+  try { res.json(documenttasks.apply(req.userId, Number(req.params.id), (req.body || {}).tasks, (req.body || {}).refused)); } catch (e) { fail(res, e); }
 });
 
 module.exports = router;

@@ -1,0 +1,61 @@
+// « Objectif atteint ? » (20 nov. 2026) : atteint seulement quand la PERSONNE le confirme ; Oui libère les heures, Pas encore ne change rien, question non répétée, responsable vs simple membre, export. Usage : node test/objectif-atteint-test.js
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-atteint-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+delete process.env.ANTHROPIC_API_KEY;
+let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db'), categories = require('../server/lib/categories'), sub = require('../server/lib/subprojects');
+const O = require('../server/lib/objectifs'), A = require('../server/lib/objectifs-atteint'), cap = require('../server/lib/objectifs-capacite');
+const { buildUserExport } = require('../server/lib/dataexport');
+['toi', 'gas'].forEach((u) => db.prepare("INSERT INTO users (id, name, createdAt) VALUES (?, ?, datetime('now'))").run(u, u));
+const mkAct = (name, members) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?, 'toi', '')").run(name).lastInsertRowid); members.forEach((u) => db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#fff','')").run(id, u)); return id; };
+const today = require('../server/lib/dates').userToday();
+const add = (d) => new Date(Date.parse(today + 'T00:00:00Z') + d * 86400000).toISOString().slice(0, 10);
+const solo = mkAct('Solo', ['toi']); const P = categories.addCategory(solo, 'Pôle').slice(-1)[0].key;
+const sp = sub.createSubProject(solo, 'toi', 'P', '', null, false), section = sub.createSection(sp.id, 'toi', 'tasks', 'S');
+const task = (l) => sub.createItem(section, l, { noSpellfix: true }).id;
+const ins = (userId, act, ids, meta, pole) => Number(db.prepare("INSERT INTO user_objectives (userId, activityId, title, amount, unit, startDate, endDate, stepsJson, taskIdsJson, metaJson, createdAt, level, poleKey) VALUES (?, ?, 'Objectif T', 1, 'x', ?, ?, ?, ?, ?, '', 'pole', ?)").run(userId, act, add(-5), add(60), JSON.stringify([{ n: 1, title: 'P', startDate: add(-5), endDate: add(60), weeks: [{ i: 1, startDate: add(-5), endDate: add(60), text: '', done: false }] }]), JSON.stringify(ids), JSON.stringify(meta), pole).lastInsertRowid);
+const check = (id, done) => { db.prepare('UPDATE sub_project_items SET done = ? WHERE id = ?').run(done ? 1 : 0, id); return A.apresCoche('toi', id, done); };
+const meta = (id) => JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id).metaJson);
+const status = (id) => db.prepare('SELECT * FROM user_objectives WHERE id = ?').get(id);
+
+const t1 = task('a'), t2 = task('b'), o = ins('toi', solo, [t1, t2], { hoursPerWeek: 10 }, P);
+assert(cap.weeklyShareMinutes(solo, P, 'toi') === 600, 'objectif en cours : 10 h comptent dans la capacité');
+assert(check(t1, true) === null, 'une tâche ouverte reste : pas de question');
+const q = check(t2, true);
+assert(q && q.type === 'atteint' && q.id === o, 'dernière tâche cochée : « Objectif atteint ? » proposé');
+assert(meta(o).atteintConfirme === undefined && O.get('toi', o).status === 'en_cours', 'la question seule ne change rien : toujours en cours');
+A.repondre('toi', o, 'pas_encore');
+assert(O.get('toi', o).status === 'en_cours' && cap.weeklyShareMinutes(solo, P, 'toi') === 600, 'Pas encore : reste en cours, heures conservées');
+check(t2, false);
+assert(check(t2, true) === null, 'question non répétée tant qu\'aucune tâche n\'est ajoutée');
+const t3 = task('c'); db.prepare('UPDATE user_objectives SET taskIdsJson = ? WHERE id = ?').run(JSON.stringify([t1, t2, t3]), o);
+const q3 = check(t3, true);
+assert(q3 && q3.type === 'atteint', 'tâche ajoutée puis terminée : la question revient');
+const r = A.repondre('toi', o, 'oui');
+assert(r.atteint === true && r.atteintConfirme === today, 'Oui : atteint, daté');
+assert(O.get('toi', o).status === 'atteint', 'statut atteint lu par l\'arbre (aucun nouveau visuel)');
+assert(cap.weeklyShareMinutes(solo, P, 'toi') === null, 'Oui : les heures sont libérées (plus dans la capacité des tâches)');
+assert(!!status(o), 'rien n\'est supprimé');
+const ex = buildUserExport('toi').objectives.find((x) => x.id === o);
+assert(ex && ex.etat === 'realise' && ex.atteintLe === today && ex.meta.atteintConfirme === today, 'export : état atteint avec date');
+const rq = check(t3, false);
+assert(rq && rq.type === 'rouvrir' && meta(o).atteintConfirme === today, 'décochage : « Rouvrir l\'objectif ? » proposé, rien de rouvert en silence');
+A.repondre('toi', o, 'rouvrir');
+assert(meta(o).atteintConfirme === undefined && O.get('toi', o).status === 'en_cours' && cap.weeklyShareMinutes(solo, P, 'toi') === 600, 'Rouvrir : de nouveau en cours, heures reprises');
+const t4 = task('d'); ins('toi', solo, [t4], { hoursPerWeek: 5, abandoned: true }, P);
+assert(check(t4, true) === null, 'ancien objectif abandonné : pas de question');
+// Responsable vs simple membre (activité partagée)
+const duo = mkAct('Duo', ['toi', 'gas']); const D = categories.addCategory(duo, 'Pôle D').slice(-1)[0].key;
+const spd = sub.createSubProject(duo, 'toi', 'PD', '', null, false), secd = sub.createSection(spd.id, 'toi', 'tasks', 'S'), td = sub.createItem(secd, 'x', { noSpellfix: true }).id;
+db.prepare('UPDATE sub_project_items SET done = 1 WHERE id = ?').run(td);
+const od = ins('toi', duo, [td], {}, D);
+const qd = A.apresCoche('toi', td, true);
+assert(qd && qd.id === od, 'responsable (propriétaire) : voit la question');
+assert(A.apresCoche('gas', td, true) === null, 'simple membre : coche sans voir la question');
+let code = null; try { A.repondre('gas', od, 'oui'); } catch (e) { code = e.statusCode; }
+assert(code === 404, 'simple membre : ne peut pas confirmer l\'objectif d\'un autre (serveur)');
+db.prepare('UPDATE user_objectives SET userId = ? WHERE id = ?').run('gas', od);
+assert(A.apresCoche('gas', td, true) === null, 'objectif hors de sa portée : aucune question');
+code = null; try { A.repondre('gas', od, 'oui'); } catch (e) { code = e.statusCode; }
+assert(code === 403, 'simple membre : portée refusée côté serveur (403)');
+console.log(failed ? '\n' + failed + ' échec(s)' : '\nTous les tests passent'); process.exit(failed ? 1 : 0);

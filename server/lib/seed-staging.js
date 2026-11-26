@@ -60,7 +60,7 @@
 const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('node:crypto');
-const { makePinRecord } = require('./auth');
+const { makePinRecord, verifyPinRecord } = require('./auth');
 const { DARK_PALETTE } = require('../../public/theme-palette.js');
 const { isoDateOf, dayNameOf } = require('./dates');
 
@@ -360,4 +360,212 @@ function recreateEmilienAccount(db) {
   return { created: true, id: emilienId, follows, activities: joined };
 }
 
-module.exports = { seedStagingData, shouldSeed, recreateEmilienAccount };
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// OBJECTIFS DE DÉMONSTRATION (arbre des objectifs de la page 1) — STAGING UNIQUEMENT (shouldSeed : RAILWAY_ENVIRONMENT_NAME défini et différent de « production »).
+// Pour Emilien Staging et deux profils fictifs : jusqu'à 4 activités chacun, 2 à 4 objectifs finaux par activité, étapes sur 2 à 3 niveaux (parentId), des objectifs RÉALISÉS (passé),
+// EN COURS, FUTURS (échéances jusqu'en 2031) et un ABANDONNÉ (meta.abandoned). Chaque objectif porte meta.demo = true (« donnée de démonstration »). Idempotent : un utilisateur qui a
+// déjà un objectif de démonstration n'est pas retouché ; aucun objectif réel n'est modifié. Désactivation : SEED_OBJECTIFS_DEMO=0.
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+const DEMO_TREES = [
+  [ // activité 1
+    { t: 'Lancer la version 2', s: -70, e: 260, kids: [
+      { t: 'Concevoir les nouveaux écrans', s: -70, e: -10, done: true, kids: [{ t: 'Prototype cliquable', s: -70, e: -30, done: true }, { t: 'Tests avec dix utilisateurs', s: -30, e: -10, done: true }] },
+      { t: 'Développer les modules', s: -10, e: 170, kids: [{ t: 'Module des objectifs', s: -10, e: 60 }, { t: 'Bêta fermée', s: 110, e: 170 }] },
+      { t: 'Lancement public', s: 170, e: 260 }] },
+    { t: 'Atteindre mille utilisateurs', s: 260, e: 1000, kids: [{ t: 'Cent premiers utilisateurs', s: 260, e: 420, kids: [{ t: 'Programme de parrainage', s: 260, e: 330 }] }, { t: 'Équipe de cinq personnes', s: 420, e: 1000 }] },
+    { t: 'Version 1 publiée', s: -520, e: -90, done: true, kids: [{ t: 'Première maquette', s: -520, e: -400, done: true }, { t: 'Fonctions de base', s: -400, e: -90, done: true }] },
+    { t: 'Ancien prototype papier', s: -400, e: -300, dropped: true },
+  ],
+  [ // activité 2
+    { t: 'Obtenir ma certification', s: -40, e: 220, kids: [
+      { t: 'Réussir l’examen théorique', s: -40, e: 100, kids: [{ t: 'Cours en ligne', s: -40, e: 30, done: true }, { t: 'Examen blanc', s: 30, e: 100 }] },
+      { t: 'Réussir l’examen pratique', s: 100, e: 220, kids: [{ t: 'Stage de préparation', s: 100, e: 160 }] }] },
+    { t: 'Parler anglais couramment', s: 220, e: 1500, kids: [{ t: 'Niveau intermédiaire', s: 220, e: 600, kids: [{ t: 'Cours du soir', s: 220, e: 400 }] }, { t: 'Séjour à l’étranger', s: 900, e: 1500 }] },
+    { t: 'Lire douze livres techniques', s: -330, e: -20, done: true, kids: [{ t: 'Six premiers livres', s: -330, e: -170, done: true }] },
+  ],
+  [ // activité 3
+    { t: 'Signer dix clients', s: -90, e: 120, kids: [
+      { t: 'Offre claire et tarifs', s: -90, e: -20, done: true },
+      { t: 'Cinq rendez-vous par mois', s: -20, e: 60, kids: [{ t: 'Liste de prospects', s: -20, e: 10, done: true }, { t: 'Relance des devis', s: 10, e: 60 }] },
+      { t: 'Contrats signés', s: 60, e: 120 }] },
+    { t: 'Cinquante clients actifs', s: 120, e: 1700, kids: [{ t: 'Trente clients actifs', s: 120, e: 800, kids: [{ t: 'Équipe commerciale', s: 400, e: 800 }] }] },
+    { t: 'Refonte de l’offre', s: -260, e: -60, done: true },
+  ],
+  [ // activité 4
+    { t: 'Courir un semi-marathon', s: -50, e: 140, kids: [{ t: 'Courir 10 km sans arrêt', s: -50, e: 20, done: true }, { t: 'Courir 15 km', s: 20, e: 80 }, { t: 'Course officielle', s: 140, e: 150 }] },
+    { t: 'Courir un marathon', s: 150, e: 800, kids: [{ t: 'Plan de seize semaines', s: 330, e: 520, kids: [{ t: 'Sorties longues', s: 400, e: 520 }] }] },
+    { t: 'Ultra-trail de montagne', s: 900, e: 1900 },
+  ],
+];
+function seedDemoObjectives(db) {
+  if (!shouldSeed() || process.env.SEED_OBJECTIFS_DEMO === '0') return { skipped: 'hors staging' };
+  const objectifs = require('./objectifs');
+  const today = new Date();
+  const iso = (off) => { const d = new Date(today.getTime() + off * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const people = [{ name: EMILIEN_SEED_ACCOUNT.name, lastName: EMILIEN_SEED_ACCOUNT.lastName }].concat(FAKE_USERS.slice(0, 2).map((u) => ({ name: u.name, lastName: u.lastName })));
+  const out = { users: 0, objectives: 0 };
+  people.forEach((p) => {
+    const u = db.prepare('SELECT id FROM users WHERE name = ? AND lastName = ?').get(p.name, p.lastName);
+    if (!u) return;
+    if (db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND metaJson LIKE ? LIMIT 1').get(u.id, '%"demo":true%')) return; // déjà fait
+    const acts = db.prepare('SELECT a.id FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND a.active = 1 ORDER BY a.id LIMIT 4').all(u.id);
+    acts.forEach((a, ai) => {
+      (function make(list, activityId, parentId) {
+        list.forEach((n) => {
+          try {
+            const days = n.e - n.s, unit = days > 400 ? 'mois' : 'semaines';
+            const r = objectifs.creer(u.id, { title: n.t, activityId, startDate: iso(n.s), endDate: iso(n.e), unit, amount: unit === 'mois' ? Math.max(1, Math.round(days / 30)) : Math.max(1, Math.round(days / 7)), periodWeeks: days > 400 ? 'mois' : (days > 120 ? 4 : 1), weekly: false, parentId, parentRel: parentId ? 'apres' : undefined, description: 'Donnée de démonstration', noBridge: true });
+            if (n.done) r.periods.forEach((pp) => pp.weeks.forEach((w) => objectifs.semaine(u.id, r.id, pp.n, w.i, true)));
+            const row = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(r.id), meta = JSON.parse(row.metaJson || '{}');
+            meta.demo = true; if (n.dropped) meta.abandoned = true;
+            db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), r.id);
+            out.objectives += 1;
+            if (n.kids) make(n.kids, activityId, r.id);
+          } catch (e) { console.error('[objectifs-demo] ' + n.t + ' :', e && e.message); }
+        });
+      })(DEMO_TREES[ai % DEMO_TREES.length], a.id, null);
+    });
+    out.users += 1;
+  });
+  return out;
+}
+// Renommage idempotent : les titres de période générés « Étape N » / « Objectif N » (objectifs de démonstration) deviennent « P N » (« P N sur M ») : ce sont des périodes, pas de vrais objectifs.
+function renameDemoSteps(db) {
+  try {
+    const rows = db.prepare("SELECT id, stepsJson FROM user_objectives WHERE metaJson LIKE '%\"demo\":true%' AND (stepsJson LIKE '%\"title\":\"Étape %' OR stepsJson LIKE '%\"title\":\"Objectif %')").all();
+    rows.forEach((r) => {
+      let changed = false; const steps = JSON.parse(r.stepsJson);
+      steps.forEach((p) => { const m = /^(?:Étape|Objectif) (\d+)( sur \d+)?$/.exec(p.title || ''); if (m) { p.title = 'P ' + m[1] + (m[2] || ''); changed = true; } });
+      if (changed) db.prepare('UPDATE user_objectives SET stepsJson = ? WHERE id = ?').run(JSON.stringify(steps), r.id);
+    });
+  } catch (e) { console.error('[objectifs-demo] renommage :', e && e.message); }
+}
+// Niveaux de démonstration (activité > pôle > secteur) : chaque activité de démo reçoit deux pôles et leurs secteurs (si elle n'en a aucun) ; les objectifs de démo prennent le niveau de leur
+// profondeur (racine = activité, étapes directes = pôle, au-delà = secteur). Idempotent : seuls les objectifs de démo encore au niveau « activité » ET rattachés à un parent sont touchés.
+const DEMO_POLES = [
+  [['Produit', ['Interface', 'Serveur']], ['Croissance', ['Marketing', 'Ventes']]],
+  [['Théorie', ['Cours', 'Lectures']], ['Pratique', ['Examens', 'Stages']]],
+  [['Prospection', ['Contacts', 'Offres']], ['Fidélisation', ['Suivi', 'Contrats']]],
+  [['Endurance', ['Sorties longues', 'Fractionné']], ['Santé', ['Sommeil', 'Nutrition']]],
+];
+function levelDemo(db) {
+  try {
+    const goals = require('./goals');
+    const like = '%"demo":true%';
+    db.prepare('SELECT DISTINCT userId FROM user_objectives WHERE metaJson LIKE ? AND parentId IS NOT NULL AND level = ?').all(like, 'activite').forEach(({ userId }) => {
+      const acts = db.prepare('SELECT a.id FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND a.active = 1 ORDER BY a.id LIMIT 4').all(userId);
+      acts.forEach((a, ai) => {
+        if (!db.prepare('SELECT 1 FROM user_objectives WHERE userId = ? AND activityId = ? AND metaJson LIKE ? AND parentId IS NOT NULL AND level = ? LIMIT 1').get(userId, a.id, like, 'activite')) return;
+        if (!goals.categoriesForActivity(a.id).length) {
+          DEMO_POLES[ai % DEMO_POLES.length].forEach(([pl]) => goals.addCategory(a.id, pl));
+          goals.categoriesForActivity(a.id).forEach((p, pi) => (DEMO_POLES[ai % DEMO_POLES.length][pi] || [null, []])[1].forEach((sl) => goals.addCategory(a.id, sl, p.key)));
+        }
+        const poles = goals.categoriesForActivity(a.id); if (!poles.length) return;
+        const rows = db.prepare('SELECT id, parentId FROM user_objectives WHERE userId = ? AND activityId = ? AND metaJson LIKE ? ORDER BY id').all(userId, a.id, like);
+        const byId = {}; rows.forEach((r) => { byId[r.id] = r; });
+        const depth = (r) => { let d = 0; for (let c = r; c && c.parentId != null && byId[c.parentId]; c = byId[c.parentId]) d += 1; return d; };
+        const key = {}; let kp = 0; const ks = {};
+        rows.map((r) => ({ r, d: depth(r) })).sort((x, y) => x.d - y.d || x.r.id - y.r.id).forEach(({ r, d }) => {
+          if (d === 0) { key[r.id] = { level: 'activite' }; return; }
+          if (d === 1) { const p = poles[kp % poles.length]; kp += 1; key[r.id] = { level: 'pole', poleKey: p.key }; return; }
+          const par = key[r.parentId] || {}, pk = par.poleKey || poles[0].key, sect = goals.secteursForPole(a.id, pk);
+          if (!sect.length) { key[r.id] = { level: 'pole', poleKey: pk }; return; }
+          ks[pk] = (ks[pk] || 0); const x = sect[ks[pk] % sect.length]; ks[pk] += 1; key[r.id] = { level: 'secteur', poleKey: pk, categoryKey: x.key };
+        });
+        rows.forEach((r) => { const k = key[r.id]; if (k && k.level !== 'activite') db.prepare('UPDATE user_objectives SET level = ?, poleKey = ?, categoryKey = ? WHERE id = ?').run(k.level, k.poleKey || null, k.categoryKey || null, r.id); });
+      });
+    });
+  } catch (e) { console.error('[objectifs-demo] niveaux :', e && e.message); }
+}
+function seedDemoObjectivesOnStaging(db) {
+  try { renameDemoSteps(db || require('../db')); const r = seedDemoObjectives(db || require('../db')); levelDemo(db || require('../db')); if (r && r.objectives) console.log('[objectifs-demo]', JSON.stringify(r)); return r; } catch (e) { console.error('[objectifs-demo]', e && e.message); return null; }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// COMPTE A (10 nov. 2026) — compte de test persistant pour Gaspard (création d'objectifs sur staging). STAGING UNIQUEMENT (shouldSeed : RAILWAY_ENVIRONMENT_NAME défini
+// et différent de « production »), jamais en production ni en local. Idempotent : s'il existe déjà (même prénom/nom), rien n'est recréé ni écrasé (seul un ancien mot de passe est remplacé).
+// Contenu : UNE activité « Course à pied », 2 pôles (Entraînement, Santé), 1 secteur par pôle (Endurance, Récupération), et du temps Chrono sur le seul secteur Endurance :
+// 6 semaines consécutives se terminant cette semaine, 3 séances d'environ 1 h par semaine. Aucun objectif (Gaspard les crée en testant). Identité fictive, aucune donnée réelle.
+// Connexion : écran de connexion, Prénom « Compte », Nom « A » et le mot de passe posé dans la variable d'environnement COMPTE_A_PASSWORD (Railway, environnement staging) : jamais écrit dans le dépôt.
+// Variable absente ou vide : le compte n'est pas créé et, s'il existe, il n'est pas touché. Variable changée : seul le hachage du mot de passe est remplacé (compteur d'échecs et verrou remis à zéro).
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+const COMPTE_A_SEED_ACCOUNT = { name: 'Compte', lastName: 'A' };
+const COMPTE_A_WEEKS = 6;
+// Séances par semaine (de la plus ancienne à la plus récente) : [jour (0 = lundi), minutes] — 3 séances d'environ 1 h, légèrement variées.
+const COMPTE_A_SESSIONS = [[[0, 55], [2, 65], [5, 60]], [[1, 60], [3, 50], [5, 70]], [[0, 60], [2, 60], [4, 55]], [[1, 65], [3, 60], [6, 50]], [[0, 50], [3, 65], [5, 60]], [[0, 60], [1, 55], [2, 65]]];
+function seedCompteAOnStaging(db) {
+  if (!shouldSeed()) return null;
+  const password = process.env.COMPTE_A_PASSWORD;
+  if (!password) { console.log('[compte-a] COMPTE_A_PASSWORD absent, Compte A non créé.'); return null; }
+  try {
+    db = db || require('../db');
+    const existing = db.prepare('SELECT id, pin FROM users WHERE name = ? AND lastName = ?').get(COMPTE_A_SEED_ACCOUNT.name, COMPTE_A_SEED_ACCOUNT.lastName);
+    if (existing) {
+      // Déjà créé : seul le hachage du mot de passe est remis à jour s'il ne correspond plus (ancien mot de passe) ; rien d'autre n'est touché.
+      let ok = false; try { ok = verifyPinRecord(password, existing.pin); } catch (e) { ok = false; }
+      if (ok) return { created: false };
+      db.prepare('UPDATE users SET pin = ?, pinFailCount = 0, pinLockedUntil = NULL WHERE id = ?').run(makePinRecord(password), existing.id);
+      console.log('[compte-a] Mot de passe du Compte A mis à jour.');
+      return { created: false, passwordUpdated: true };
+    }
+    const goals = require('./goals');
+    const now = new Date(), nowIso = now.toISOString();
+    const userId = randomUUID();
+    const color = DARK_PALETTE[1] || DARK_PALETTE[0];
+    db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'compte-a@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)")
+      .run(userId, COMPTE_A_SEED_ACCOUNT.name, COMPTE_A_SEED_ACCOUNT.lastName, color, nowIso, makePinRecord(password));
+    const aid = Number(db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)').run('Course à pied', userId, randomUUID(), nowIso).lastInsertRowid);
+    db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)').run(aid, userId, color, nowIso);
+    goals.addCategory(aid, 'Entraînement');
+    goals.addCategory(aid, 'Santé');
+    const poles = goals.categoriesForActivity(aid);
+    const poleOf = (label) => poles.find((p) => p.label === label);
+    goals.addCategory(aid, 'Endurance', poleOf('Entraînement').key);
+    goals.addCategory(aid, 'Récupération', poleOf('Santé').key);
+    const endurance = goals.secteursForPole(aid, poleOf('Entraînement').key).find((x) => x.label === 'Endurance');
+    const insertEntry = db.prepare('INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, goalCategory) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const mondayOff = (now.getDay() + 6) % 7; // jours écoulés depuis le lundi de cette semaine
+    for (let w = 0; w < COMPTE_A_WEEKS; w++) { // w = 0 : cette semaine
+      COMPTE_A_SESSIONS[COMPTE_A_WEEKS - 1 - w].forEach(([dow, minutes], i) => {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOff - 7 * w + dow, 7 + (i % 2) * 10, 15 * i);
+        if (start.getTime() + minutes * 60000 > now.getTime()) return; // jamais de séance dans le futur (semaine en cours)
+        const end = new Date(start.getTime() + minutes * 60000);
+        insertEntry.run(userId, aid, '', start.toISOString(), end.toISOString(), minutes * 60, isoDateOf(start), dayNameOf(start), endurance.key);
+      });
+    }
+    console.log('[compte-a] Compte A créé (activité « Course à pied », 2 pôles, 2 secteurs, ' + COMPTE_A_WEEKS + ' semaines de Chrono sur Endurance).');
+    return { created: true, id: userId, activityId: aid };
+  } catch (e) { console.error('[compte-a]', e && e.message); return null; }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// COMPTE B (10 nov. 2026) — compte de test persistant pour Gaspard (règle de retard) : CINQ activités « S1 » à « S5 », une par scénario, données calculées par rapport au jour de création
+// (server/lib/seed-compte-b-scenarios.js, mode d'emploi : docs/objectifs/scenarios-retard.md). Même mécanisme que le Compte A : STAGING UNIQUEMENT, idempotent, mot de passe lu dans la
+// variable d'environnement COMPTE_B_PASSWORD (jamais dans le dépôt). Variable absente ou vide : compte non créé (et intact s'il existe) ; variable changée : seul le hachage est remplacé.
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+const COMPTE_B_SEED_ACCOUNT = { name: 'Compte', lastName: 'B' };
+function seedCompteBOnStaging(db) {
+  if (!shouldSeed()) return null;
+  const password = process.env.COMPTE_B_PASSWORD;
+  if (!password) { console.log('[compte-b] COMPTE_B_PASSWORD absent, Compte B non créé.'); return null; }
+  try {
+    db = db || require('../db');
+    const existing = db.prepare('SELECT id, pin FROM users WHERE name = ? AND lastName = ?').get(COMPTE_B_SEED_ACCOUNT.name, COMPTE_B_SEED_ACCOUNT.lastName);
+    if (existing) {
+      let ok = false; try { ok = verifyPinRecord(password, existing.pin); } catch (e) { ok = false; }
+      if (ok) return { created: false };
+      db.prepare('UPDATE users SET pin = ?, pinFailCount = 0, pinLockedUntil = NULL WHERE id = ?').run(makePinRecord(password), existing.id);
+      console.log('[compte-b] Mot de passe du Compte B mis à jour.');
+      return { created: false, passwordUpdated: true };
+    }
+    const now = new Date(), userId = randomUUID();
+    const color = DARK_PALETTE[2] || DARK_PALETTE[0];
+    db.prepare("INSERT INTO users (id, name, lastName, phone, email, color, createdAt, pin, theme, shareProfile, lang, passwordStrong) VALUES (?, ?, ?, '', 'compte-b@exemple.test', ?, ?, ?, 'dark', 1, 'fr', 1)")
+      .run(userId, COMPTE_B_SEED_ACCOUNT.name, COMPTE_B_SEED_ACCOUNT.lastName, color, now.toISOString(), makePinRecord(password));
+    const scenarios = require('./seed-compte-b-scenarios').creerScenarios(db, userId, color, now);
+    console.log('[compte-b] Compte B créé (' + scenarios.length + ' activités de scénario S1 à S5).');
+    return { created: true, id: userId, scenarios };
+  } catch (e) { console.error('[compte-b]', e && e.message); return null; }
+}
+
+module.exports = { seedCompteAOnStaging, COMPTE_A_SEED_ACCOUNT, seedCompteBOnStaging, COMPTE_B_SEED_ACCOUNT, seedStagingData, shouldSeed, recreateEmilienAccount, seedDemoObjectives, seedDemoObjectivesOnStaging };

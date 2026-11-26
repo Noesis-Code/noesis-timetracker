@@ -13,6 +13,20 @@ const { mondayOf, isoDateOf, dayNameOf, pad2, MONTH_NAMES_FR, zonedMidnight, cal
 // toujours avec le même libellé partout dans l'app.
 const goals = require('./goals');
 
+// Grille des périodes (13 x 4 semaines, semaine 1 = premier lundi de janvier ;
+// même grille que les objectifs, goals.yearAnchor). Numéro de semaine (1 à 52)
+// et de période (1 à 13) d'un jour ; les jours après la semaine 52 comptent
+// pour la semaine 52.
+function gridInfo(iso) {
+  const gs = goals.yearGridStart(iso);
+  const t = (s) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
+  let week = Math.floor(Math.round((t(iso) - t(gs)) / 86400000) / 7) + 1;
+  if (week > 52) week = 52;
+  if (week < 1) week = 1;
+  const period = Math.ceil(week / 4);
+  return { year: Number(gs.slice(0, 4)), week, period, periodStart: goals.addDays(gs, (period - 1) * 28) };
+}
+
 // Note (1er septembre 2026) : `breakdownForUser` vivait ici — la répartition
 // par activité sur une PÉRIODE nommée ('week'/'month'/'year' via periodRange).
 // Retirée sur confirmation d'Emilien après que la Répartition est passée sur
@@ -91,7 +105,7 @@ function breakdownForRange(userId, startIso, endIso, excludeActivityIds, clipEnd
     FROM time_entries t
     JOIN activities a ON a.id = t.activityId
     LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
   `).all(userId, startIso, endIso);
 
   const excluded = new Set(excludeActivityIds || []);
@@ -219,10 +233,10 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
              t.goalCategory AS category,
              SUM(t.durationSeconds) AS seconds
       FROM time_entries t
-      WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+      WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
       GROUP BY t.isoDate, t.goalCategory
       ORDER BY t.isoDate ASC, seconds DESC
-    `).all(userId, activityId, start, end)
+    `).all(userId, activityId, start, end).filter((r) => !(o.viewScope && !o.viewScope.all && !o.viewScope.has(r.category))) // regard d'un responsable sur un autre membre : sa portée seulement
     : db.prepare(`
       SELECT t.isoDate AS isoDate, t.dayOfWeek AS dayOfWeek, a.id AS activityId,
              a.name AS activity, COALESCE(am.color, '#3498db') AS color, SUM(t.durationSeconds) AS seconds,
@@ -230,7 +244,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
       FROM time_entries t
       JOIN activities a ON a.id = t.activityId
       LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-      WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+      WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
       GROUP BY t.isoDate, a.id
       ORDER BY t.isoDate ASC, seconds DESC
     `).all(userId, start, end);
@@ -275,7 +289,7 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
     ? { category: r.category === null ? null : r.category, name: r.category === null ? null : goals.categoryLabelFor(activityId, r.category), seconds: r.seconds }
     : { activityId: r.activityId, name: r.activity, color: r.color, deleted: r.deleted === 1, seconds: r.seconds });
 
-  if (granularity !== 'week' && granularity !== 'month') {
+  if (granularity !== 'week' && granularity !== 'month' && granularity !== 'period') {
     // Historique totalement vide (aucune entrée jamais enregistrée) : tableau
     // vide, pour que #statsChartEmptyHint s'affiche comme avant — ne pas
     // dessiner une ligne à plat de start (= todayIso, voir totalRangeForUser)
@@ -311,7 +325,9 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
   const order = [];
   rows.forEach((r) => {
     const dayDate = new Date(r.isoDate + 'T00:00:00');
-    const bucketStart = granularity === 'week' ? mondayOf(dayDate) : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1);
+    const bucketStart = granularity === 'week' ? mondayOf(dayDate)
+      : granularity === 'period' ? new Date(gridInfo(r.isoDate).periodStart + 'T00:00:00')
+      : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1);
     const key = isoDateOf(bucketStart);
     if (!byBucket[key]) { byBucket[key] = { isoDate: key, totalSeconds: 0, entriesById: {} }; order.push(key); }
     const bucket = byBucket[key];
@@ -325,7 +341,15 @@ function chartBreakdownForUser(userId, granularity, refDate, opts) {
     const b = byBucket[key];
     const bucketStart = new Date(key + 'T00:00:00');
     let shortLabel, fullLabel;
-    if (granularity === 'week') {
+    if (granularity === 'period') {
+      const gi = gridInfo(key);
+      shortLabel = 'P' + gi.period;
+      fullLabel = 'P' + gi.period + ' ' + gi.year;
+    } else if (granularity === 'week' && o.gridLabels) {
+      const gi = gridInfo(key);
+      shortLabel = 'S' + gi.week;
+      fullLabel = 'S' + gi.week + ' ' + gi.year;
+    } else if (granularity === 'week') {
       const bucketEnd = new Date(bucketStart);
       bucketEnd.setDate(bucketEnd.getDate() + 6);
       shortLabel = `${pad2(bucketStart.getDate())}/${pad2(bucketStart.getMonth() + 1)}`;
@@ -409,15 +433,15 @@ function computeSlotsForDays(userId, days, slotMinutes, opts) {
     ? db.prepare(`
         SELECT t.startTime, t.endTime, t.goalCategory AS category
         FROM time_entries t
-        WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
-      `).all(userId, onlyActivityId, start, end)
+        WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
+      `).all(userId, onlyActivityId, start, end).filter((r) => !(opts.viewScope && !opts.viewScope.all && !opts.viewScope.has(r.category)))
     : db.prepare(`
     SELECT t.startTime, t.endTime, a.id AS activityId, a.name AS activity,
            COALESCE(am.color, '#3498db') AS color
     FROM time_entries t
     JOIN activities a ON a.id = t.activityId
     LEFT JOIN activity_members am ON am.activityId = a.id AND am.userId = t.userId
-    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.userId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
   `).all(userId, start, end);
 
   if (!byCategory && opts && opts.excludeActivityIds && opts.excludeActivityIds.length) {
@@ -585,7 +609,8 @@ function timesheetForUser(userId, weekOffset, opts) {
 
   const label = `Semaine du ${pad2(days[0].getDate())}/${pad2(days[0].getMonth() + 1)} au ${pad2(days[6].getDate())}/${pad2(days[6].getMonth() + 1)}`;
 
-  return { weekOffset: offset, isCurrentWeek: offset === 0, start, end, label, hasMoreBefore, days: grid };
+  const gi = gridInfo(end);
+  return { weekOffset: offset, isCurrentWeek: offset === 0, start, end, label, weekNumber: gi.week, weekYear: gi.year, hasMoreBefore, days: grid };
 }
 
 // ===================== FEUILLE DE TEMPS — VUE "MOIS" (calendrier) =====================
@@ -645,6 +670,33 @@ function timesheetMonthForUser(userId, monthOffset, opts) {
   return { monthOffset: offset, isCurrentMonth: offset === 0, start, end, label, hasMoreBefore, weeks };
 }
 
+// Feuille de temps, vue PÉRIODE : un bloc de 4 semaines de la grille (P1 à P13),
+// même forme de réponse que la vue Mois (4 lignes de semaines, numéros S1...).
+// periodOffset : 0 = période en cours, 1 = précédente, etc.
+function timesheetPeriodForUser(userId, periodOffset, opts) {
+  const offset = Math.max(0, Math.floor(Number(periodOffset)) || 0);
+  const todayIso = isoDateOf(calendarNow(opts && opts.tz));
+  const gi = gridInfo(todayIso);
+  let p = gi.period - offset;
+  let year = gi.year;
+  while (p < 1) { p += 13; year -= 1; }
+  const start = goals.addDays(goals.yearAnchor(year), (p - 1) * 28);
+  const end = goals.addDays(start, 27);
+  const days = [];
+  for (let i = 0; i < 28; i++) days.push(new Date(goals.addDays(start, i) + 'T00:00:00'));
+  const grid = computeSlotsForDays(userId, days, MONTH_SLOT_MINUTES, opts);
+  grid.forEach((day) => { day.inMonth = true; });
+  const weeks = [];
+  for (let i = 0; i < grid.length; i += 7) weeks.push(grid.slice(i, i + 7));
+  const weekNumbers = [0, 1, 2, 3].map((k) => (p - 1) * 4 + k + 1);
+  const earliest = opts && opts.activityId
+    ? db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ? AND activityId = ?')
+        .get(userId, Number(opts.activityId))
+    : db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
+  const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
+  return { periodOffset: offset, isCurrentPeriod: offset === 0, start, end, label: 'P' + p + ' ' + year, hasMoreBefore, weeks, weekNumbers };
+}
+
 // Feuille de temps, vue Année : 12 colonnes (mois) x une ligne par activité
 // (pôle ; les secteurs remontent au pôle, jamais affichés). yearOffset (>= 0) :
 // 0 = année en cours, 1 = précédente. Les durées viennent de breakdownForRange
@@ -669,18 +721,51 @@ function timesheetYearForUser(userId, yearOffset, opts) {
     });
   }
   // Jours (1 à 31) de chaque mois où l'activité a au moins un enregistrement chrono : un point coloré par jour dans la vue Année.
-  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ?')
+  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60')
     .all(userId, `${year}-01-01`, `${year}-12-31`)
     .forEach((r) => {
       const row = rowsById[r.activityId];
       if (row) row.days[Number(r.isoDate.slice(5, 7)) - 1].push(Number(r.isoDate.slice(8, 10)));
     });
+  // 13 périodes de 4 semaines de la même année (grille des objectifs) : durée et jours (1 à 28) avec enregistrement.
+  const anchor = goals.yearAnchor(year);
+  const utc = (s) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
+  const ensurePeriods = (row) => { if (!row.periods) { row.periods = new Array(13).fill(0); row.periodDays = Array.from({ length: 13 }, () => []); } };
+  const periodTotals = [];
+  for (let p = 0; p < 13; p++) {
+    const pStart = goals.addDays(anchor, p * 28);
+    const b = breakdownForRange(userId, pStart, goals.addDays(pStart, 27), excl, goals.addDays(anchor, 363), opts && opts.tz);
+    periodTotals.push(b.totalSeconds);
+    b.activities.forEach((a) => {
+      if (!rowsById[a.activityId]) {
+        rowsById[a.activityId] = { activityId: a.activityId, name: a.name, color: a.color, months: new Array(12).fill(0), days: Array.from({ length: 12 }, () => []), totalSeconds: 0 };
+      }
+      ensurePeriods(rowsById[a.activityId]);
+      rowsById[a.activityId].periods[p] = a.seconds;
+    });
+  }
+  db.prepare('SELECT DISTINCT activityId, isoDate FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60')
+    .all(userId, anchor, goals.addDays(anchor, 363))
+    .forEach((r) => {
+      const row = rowsById[r.activityId];
+      if (!row) return;
+      ensurePeriods(row);
+      const idx = Math.round((utc(r.isoDate) - utc(anchor)) / 86400000);
+      row.periodDays[Math.floor(idx / 28)].push((idx % 28) + 1);
+    });
+  Object.keys(rowsById).forEach((k) => ensurePeriods(rowsById[k]));
   const rows = Object.keys(rowsById).map((k) => rowsById[k]).sort((a, b) => b.totalSeconds - a.totalSeconds);
   const start = `${year}-01-01`;
   const end = `${year}-12-31`;
   const earliest = db.prepare('SELECT MIN(isoDate) AS d FROM time_entries WHERE userId = ?').get(userId);
   const hasMoreBefore = !!(earliest && earliest.d && earliest.d < start);
-  return { yearOffset: offset, isCurrentYear: offset === 0, start, end, label: String(year), hasMoreBefore, monthTotals, rows };
+  return { yearOffset: offset, isCurrentYear: offset === 0, start, end, label: String(year), hasMoreBefore, monthTotals, periodTotals, currentPeriod: offset === 0 ? gridInfo(isoDateOf(calendarNow(opts && opts.tz))).period : 0, rows };
 }
 
-module.exports = { ownVisibilityExcludedIds, hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetYearForUser };
+// Bornes de la période en cours (4 semaines de la grille), pour la section Statistiques d'une activité solo.
+function currentGridPeriodRange(tz) {
+  const gi = gridInfo(isoDateOf(calendarNow(tz)));
+  return { start: gi.periodStart, end: goals.addDays(gi.periodStart, 27), label: 'P' + gi.period + ' ' + gi.year };
+}
+
+module.exports = { currentGridPeriodRange, gridInfo, ownVisibilityExcludedIds, hiddenActivityIdsFor, breakdownForRange, chartBreakdownForUser, timesheetForUser, timesheetMonthForUser, timesheetPeriodForUser, timesheetYearForUser };

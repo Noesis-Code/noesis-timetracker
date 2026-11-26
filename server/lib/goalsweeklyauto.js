@@ -108,13 +108,15 @@ function aiConfigured() {
 // l'utilisateur ou composée par goalsauto.js, peu importe : dans les deux cas
 // la semaine n'est pas vide et ne doit jamais être proposée par l'IA.
 function emptyWeekIndexes(periodId) {
+  const per = require('../db').prepare('SELECT startDate, endDate FROM goal_periods WHERE id = ?').get(periodId);
+  const nWeeks = goals.weeksInPeriod(per);
   const filled = new Set(
     goals.weeklyForPeriod(periodId)
       .filter((w) => w.carriedOverFromId == null)
       .map((w) => w.weekIndex)
   );
   const empty = [];
-  for (let w = 1; w <= goals.WEEKS_PER_PERIOD; w += 1) {
+  for (let w = 1; w <= nWeeks; w += 1) {
     if (!filled.has(w)) empty.push(w);
   }
   return empty;
@@ -266,6 +268,7 @@ async function generateForPeriod(activityId, userId, category, periodNumber, opt
   // pour corréler avec un double envoi éventuel côté client (voir le
   // correctif du même jour sur public/app.js#commitMainGoalText).
   const logCtx = 'activité ' + activityId + ' / ' + category + ' / période ' + periodNumber;
+  if (aibudget.isAbsent(userId)) return { skipped: 'ia-absente' }; // mode IA « Absent » : aucun appel
   console.log('[objectifs][remplissage IA hebdomadaire] appelé (' + logCtx + ')');
   try {
     if (!aiConfigured()) {

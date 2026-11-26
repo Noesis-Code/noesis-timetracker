@@ -54,6 +54,13 @@
       try { (field || picks[0] || ok).focus({ preventScroll: true }); } catch (e) {}
     });
   }
+  var colorMap = null; // fonction (activité, pôle, nom du pôle) → couleur, une fois la structure chargée
+  function charger() {
+    var now = Date.now(); if (!colorCache || now - colorCache.t > 30000) colorCache = { t: now, p: window.TMT.api('GET', '/api/objectifs/structure').then(function (st) { var by = {}; ((st && st.activities) || []).forEach(function (a) { by[a.id] = a; }); colorMap = function (aid, pk, label) { var a = by[aid]; if (!a) return ''; var po = (pk || label) && (a.poles || []).filter(function (x) { return pk ? x.key === pk : x.label === label; })[0]; return window.TMT.ui.etiquette({ activityName: a.name, activityColor: a.color, poleLabel: po && po.label, poleIndex: po && po.shadeRank }).color; }; return colorMap; }).catch(function () { colorCache = null; colorMap = null; return function () { return ''; }; }) };
+    return colorCache.p;
+  }
+  var colorCache = null; // structure des couleurs de catégories (R53), rafraîchie toutes les 30 s
+  window.TMT = window.TMT || {};
   function btn(cls, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = cls;
@@ -64,7 +71,34 @@
   var ui = {
     editIcon: function () { return EDIT_SVG; },
     closeBtn: function (onClick, label) { var b = btn('cmpClose', label || 'Fermer', onClick); b.textContent = '✕'; return b; },
+    // « Avancé » déplié (11 nov. 2026, Émilien) : le panneau défile en douceur pour que la ligne « Avancé » monte en haut de la zone visible et que le contenu qui vient de s'ouvrir se voie (sinon il s'ouvre sous le bas de l'écran). Après l'ouverture seulement ; au repli on ne défile pas ; respecte prefers-reduced-motion. UN code pour tous les « Avancé » (R29).
+    revealOpened: function (target) {
+      if (!target || !target.scrollIntoView) return;
+      window.requestAnimationFrame(function () {
+        var calme = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'start', behavior: calme ? 'auto' : 'smooth' });
+      });
+    },
+    // Étiquette d'un objectif ou d'une tâche (11 nov. 2026, Émilien) : le NOM de l'élément du niveau le plus bas (secteur, sinon pôle, sinon l'activité), dans le MÊME format à tous les niveaux ; la couleur est celle du pôle (secteur = nuance de son pôle, un pôle = sa propre nuance), celle de l'activité sans catégorie.
+    // UNE seule définition (R29) : o = { activityName, activityColor, poleLabel, secteurLabel, poleIndex } ; rend { name, color, level }. Le dessin (rond + nom) reste celui de chaque écran.
+    etiquette: function (o) {
+      o = o || {}; var cat = !!(o.poleLabel || o.secteurLabel || o.poleIndex != null), color = o.activityColor || '';
+      if (cat && color && o.poleIndex != null && window.TMT && typeof window.TMT.poleColor === 'function') color = window.TMT.poleColor(color, o.poleIndex) || color;
+      return { name: o.secteurLabel || o.poleLabel || o.activityName || '', color: color, level: o.secteurLabel ? 'secteur' : o.poleLabel ? 'pole' : 'activite' };
+    },
+    // R53 (19 nov. 2026, Émilien) : dans TOUS les tableaux, le nom d'une catégorie prend sa couleur (activité = sa couleur, pôle = sa nuance, secteur = la nuance de son pôle ; plusieurs lignes peuvent donc porter la même). UNE seule définition : ce composant, jamais recopié.
+    // colorer([{ el, a: id de l'activité, p: clé du pôle (aussi pour un secteur) }]) : colore chaque élément dès que la structure est connue ; sans référence (ex. « Total », « Reste ») le nom garde sa couleur normale.
+    colorer: function (pairs) {
+      return charger().then(function (f) { pairs.forEach(function (x) { var c = x.a != null ? f(Number(x.a), x.p || null) : ''; if (c && x.el) x.el.style.color = c; }); });
+    },
+    // Couleur standard d'une catégorie (19-20 nov. 2026, Émilien) : activité = sa couleur (point à gauche), pôle = sa nuance attitrée (rang dans les Réglages et l'arbre), secteur = la nuance de son pôle.
+    // UNE seule source (la structure des objectifs, remise à zéro dès qu'un pôle change : couleursReset) ; jamais recalculée à part. pk = clé du pôle, ou label = nom du pôle quand la clé n'est pas connue.
+    // couleur() rend une promesse ; couleurSync() rend tout de suite la couleur si la structure est déjà chargée (sinon '').
+    couleur: function (aid, pk, label) { return charger().then(function (f) { return f(Number(aid), pk || null, label || null); }); },
+    couleurSync: function (aid, pk, label) { return colorMap ? colorMap(Number(aid), pk || null, label || null) : ''; },
+    couleursReset: function () { colorCache = null; colorMap = null; },
     removeBtn: function (onClick, label) { return btn('cmpRemove', label || 'Retirer', onClick); },
+    heures: function (min) { if (min == null) return '—'; var t = Math.max(0, Math.round(min)), h = Math.floor(t / 60), r = t % 60; return h ? h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '') : r + ' min'; }, // UN SEUL format d'heures NORMALES (« 6 h », « 2 h 30 », « 45 min »), jamais de décimales : colonne de droite de l'arbre ET détail par catégorie (R29)
     editBtn: function (onClick, label) { var b = btn('cmpEdit', label || 'Modifier', onClick); b.innerHTML = EDIT_SVG; return b; },
     addBtn: function (label, onClick) {
       var b = btn('cmpAdd', '', onClick);
@@ -72,10 +106,53 @@
       b.appendChild(p); b.appendChild(document.createTextNode(label));
       return b;
     },
+    // Menu « ⋯ » (8 nov. 2026, demande d'Émilien) : petit bouton à trois points et son menu en verre (.statsPeriodMenu, posé sur la page par le mécanisme ci-dessous).
+    // items : [{ label, danger, onClick }]. Un seul composant pour tout ce qui se règle sur une ligne (membres d'une activité…).
+    dotsMenu: function (label, items) {
+      var wrap = document.createElement('div'); wrap.className = 'statsPeriodMenuWrap cmpDots';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'menuBtn'; b.textContent = '⋯'; b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-label', label || 'Paramètres');
+      var menu = document.createElement('div'); menu.className = 'statsPeriodMenu hidden';
+      items.forEach(function (it) {
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'statsPeriodMenuItem' + (it.danger ? ' danger' : ''); x.textContent = it.label;
+        x.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.add('hidden'); it.onClick(); });
+        menu.appendChild(x);
+      });
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); var open = menu.classList.contains('hidden');
+        document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+        if (open) menu.classList.remove('hidden');
+      });
+      wrap.appendChild(b); wrap.appendChild(menu);
+      return wrap;
+    },
     chev: function (open) { var s = document.createElement('span'); s.className = 'cmpChev' + (open ? ' open' : ''); s.setAttribute('aria-hidden', 'true'); return s; },
+    // Petit bouton de statut (S46, P12…) à 3 états colorés : vert (atteint) / jaune (partiel) / rouge (non atteint) ; `state` null = transparent (à venir ou sans tâche, aucun fond, jamais de gris plein).
+    // Un clic fait tourner vert -> jaune -> rouge -> vert (onClick reçoit l'état suivant) ; sans état il ne fait rien. Composant unique (.cmpStatus) pour les périodes ET les semaines.
+    statusBtn: function (label, state, onClick) {
+      var cls = { atteint: 'ok', partiel: 'mid', non_atteint: 'bad' }, order = ['atteint', 'partiel', 'non_atteint'];
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'cmpStatus' + (cls[state] ? ' cmpStatus--' + cls[state] : ''); b.textContent = label;
+      if (!cls[state] || !onClick) b.setAttribute('aria-disabled', 'true'); // sans état ou sans action : affichage seul
+      b.addEventListener('click', function (e) { e.stopPropagation(); if (cls[state] && onClick) onClick(order[(order.indexOf(state) + 1) % 3]); });
+      return b;
+    },
     toggleLabel: function (btn, label, open) { btn.textContent = ''; btn.classList.add('cmpToggle'); var s = document.createElement('span'); s.textContent = label; btn.appendChild(s); btn.appendChild(ui.chev(open)); },
     setChev: function (el, open) { if (el) el.classList.toggle('open', !!open); },
-    confirm: confirmBox
+    confirm: confirmBox,
+    // « Objectif atteint ? » / « Rouvrir l'objectif ? » (20 nov. 2026) : la réponse d'une tâche cochée porte objectifQuestion quand le serveur propose la question (responsable seulement) ; la fenêtre standard la pose, la réponse est enregistrée.
+    objectifQuestion: function (res) {
+      var q = res && res.objectifQuestion; if (!q) return Promise.resolve(null);
+      var rouvrir = q.type === 'rouvrir';
+      return confirmBox(tr(rouvrir ? 'Rouvrir l’objectif ?' : 'Objectif atteint ?') + '\n' + q.title, { choices: [{ value: 'oui', label: tr(rouvrir ? 'Rouvrir' : 'Oui') }, { value: 'non', label: tr(rouvrir ? 'Non' : 'Pas encore'), quiet: true }] }).then(function (v) {
+        var action = v === 'oui' ? (rouvrir ? 'rouvrir' : 'oui') : (rouvrir ? null : 'pas_encore'); // ✕ sur « Objectif atteint ? » vaut « Pas encore » : la question ne se repose pas
+        return action ? window.TMT.api('POST', '/api/objectifs/' + q.id + '/atteint', { action: action }).catch(function () { return null; }) : null;
+      });
+    },
+    // « Quitter sans enregistrer ? » (20 nov. 2026) : UN utilitaire pour tout ✕ de fenêtre qui a un bouton Enregistrer / Terminer. aChange() vrai => confirmation (TMT.ui.confirm), sinon fermeture directe.
+    fermerAvecConfirmation: function (fermer, aChange) {
+      var dirty = false; try { dirty = !!(aChange && aChange()); } catch (e) { dirty = false; }
+      if (!dirty) { fermer(); return Promise.resolve(true); }
+      return confirmBox(tr('Quitter sans enregistrer ?'), { ok: tr('Quitter') }).then(function (yes) { if (yes) fermer(); return !!yes; });
+    }
   };
   // Glisser-déposer d'une ligne dans son groupe OU vers un autre groupe (R27/R29 ; extrait de bindCatSecteurDrag d'app.js, 28 oct. 2026).
   // Pointer events + setPointerCapture sur la poignée ; la ligne tirée n'est jamais déplacée dans le DOM pendant le geste (transform
@@ -195,13 +272,108 @@
       handle.addEventListener('pointercancel', onCancel);
     });
   }
+  // Appui long + glisser-déposer SUR une cible (R27/R29 ; même technique que groupDrag : pointer events, ligne tirée en transform seulement, défilement automatique en bord de zone).
+  // Appui long (o.holdMs, 500 ms par défaut) sans bouger -> la ligne se détache et suit le doigt ; un mouvement avant la fin de l'appui = défilement normal, rien ne se passe.
+  // Relâché sur une ligne cible (o.targetSel, hors la ligne tirée) -> o.onDrop(ligneCible) ; sur o.zone() (zone « Délier » transitoire) -> o.onZone() ; ailleurs = annulé.
+  // o : { onHoldRelease (appui long relâché sans déplacement), list, scroller, hscroller, insets() -> {top, bottom}, onHold (appui long sans glisser), targetSel, isInvalid(ligneCible) -> bool, onStart, onEnd, onDrop, onInvalid, zone() -> élément ou null, onZone, holdMs, draggingClass, targetClass, badClass, zoneOverClass }.
+  function holdDrag(row, o) {
+    var maxScroll = 0, timer = 0, active = false, sx = 0, sy = 0, lastX = 0, lastY = 0, pid = null, startScroll = 0, raf = 0, target = null, overZone = false, scroller = null, justDragged = 0;
+    row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    // Glisser actif : le geste appartient à la carte tirée, jamais au balayage de page (pagers : stats-avance.js, page 2) ni au défilement natif.
+    row.addEventListener('touchmove', function (e) { if (active) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
+    row.addEventListener('click', function (e) { if (Date.now() - justDragged < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+    var val = function (x) { return typeof x === 'function' ? x() : x; };
+    function targets() { var l = val(o.list); return Array.prototype.slice.call(l.querySelectorAll(o.targetSel)).filter(function (el) { return el !== row; }); }
+    function compute() {
+      var z = val(o.zone), zr = z && z.getBoundingClientRect();
+      overZone = !!(zr && lastX >= zr.left && lastX <= zr.right && lastY >= zr.top && lastY <= zr.bottom);
+      if (z && o.zoneOverClass) z.classList.toggle(o.zoneOverClass, overZone);
+      var hit = null;
+      if (!overZone) targets().forEach(function (el) { var r = el.getBoundingClientRect(); if (lastY >= r.top && lastY <= r.bottom && lastX >= r.left && lastX <= r.right) hit = el; }); // les deux axes : les cibles peuvent être en colonnes
+      targets().forEach(function (el) { el.classList.toggle(o.targetClass, el === hit && !(o.isInvalid && o.isInvalid(el))); });
+      target = hit;
+    }
+    var hs = null, startLeft = 0, maxLeft = 0;
+    function place() { row.style.transform = 'translate(' + (lastX - sx + (hs ? hs.scrollLeft - startLeft : 0)) + 'px,' + (lastY - sy + scroller.scrollTop - startScroll) + 'px)'; compute(); }
+    function tick() {
+      // Défilement automatique : fenêtre visible (page entière = le viewport, pas la hauteur du document), réduite des bandeaux fixes (o.insets() -> {top, bottom}) ; o.hscroller : défilement horizontal.
+      var isDoc = scroller === document.documentElement || scroller === document.scrollingElement, r = isDoc ? { top: 0, bottom: window.innerHeight } : scroller.getBoundingClientRect(), ins = (o.insets && o.insets()) || {}, zone = 60, speed = 0, hspeed = 0;
+      var top = r.top + (ins.top || 0), bottom = r.bottom - (ins.bottom || 0);
+      if (lastY < top + zone) speed = -Math.ceil((top + zone - lastY) / 5); else if (lastY > bottom - zone) speed = Math.ceil((lastY - (bottom - zone)) / 5);
+      if (hs && !overZone) { var hr = hs.getBoundingClientRect(); if (lastX < hr.left + 40) hspeed = -Math.ceil((hr.left + 40 - lastX) / 3); else if (lastX > hr.right - 40) hspeed = Math.ceil((lastX - (hr.right - 40)) / 3); }
+      if (hspeed) { hs.scrollLeft = Math.max(0, Math.min(maxLeft, hs.scrollLeft + Math.max(-20, Math.min(20, hspeed)))); place(); }
+      if (speed && !overZone) { scroller.scrollTop = Math.max(0, Math.min(maxScroll, scroller.scrollTop + Math.max(-20, Math.min(20, speed)))); place(); } // jamais au-delà de la fin réelle de la liste (la ligne tirée allonge la zone défilante) // pas de défilement quand le doigt est sur la zone de dépôt
+      raf = requestAnimationFrame(tick);
+    }
+    function start() {
+      active = true; scroller = val(o.scroller) || val(o.list); startScroll = scroller.scrollTop; maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      hs = val(o.hscroller) || null; startLeft = hs ? hs.scrollLeft : 0; maxLeft = hs ? Math.max(0, hs.scrollWidth - hs.clientWidth) : 0;
+      try { row.setPointerCapture(pid); } catch (e) { /* le geste continue sans capture */ }
+      row.classList.add(o.draggingClass); if (o.onStart) o.onStart();
+      if (o.isInvalid) targets().forEach(function (el) { el.classList.toggle(o.badClass, !!o.isInvalid(el)); });
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) { /* sans vibration */ } }
+      raf = requestAnimationFrame(tick);
+    }
+    function finish(commit) {
+      clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel);
+      if (!active) return;
+      cancelAnimationFrame(raf); active = false; justDragged = Date.now();
+      var t0 = target, z0 = overZone, bad = t0 && o.isInvalid && o.isInvalid(t0);
+      row.style.transform = ''; row.classList.remove(o.draggingClass);
+      targets().forEach(function (el) { el.classList.remove(o.targetClass); el.classList.remove(o.badClass); });
+      var z = val(o.zone); if (z && o.zoneOverClass) z.classList.remove(o.zoneOverClass);
+      target = null; overZone = false;
+      if (o.onEnd) o.onEnd();
+      if (!commit) return;
+      if (z0 && o.onZone) o.onZone(); else if (t0 && bad) { if (o.onInvalid) o.onInvalid(t0); } else if (t0 && o.onDrop) o.onDrop(t0);
+      else if (!t0 && !z0 && o.onHoldRelease && Math.hypot(lastX - sx, lastY - sy) < 14) o.onHoldRelease(); // appui long relâché sur place : l'action « détail » (le glisser reste le geste de maintien puis déplacement)
+    }
+    function onMove(e) {
+      if (e.pointerId !== pid) return;
+      if (!active) { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) { clearTimeout(timer); document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); } return; }
+      lastX = e.clientX; lastY = e.clientY; place();
+    }
+    function onUp(e) { if (e.pointerId === pid) finish(true); }
+    function onCancel(e) { if (e.pointerId === pid) finish(false); }
+    row.addEventListener('pointerdown', function (e) {
+      if (e.button > 0 || active || (o.ignoreSel && e.target.closest(o.ignoreSel))) return;
+      pid = e.pointerId; sx = lastX = e.clientX; sy = lastY = e.clientY;
+      document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onCancel);
+      clearTimeout(timer); timer = setTimeout(o.onHold ? function () { // appui long SANS glisser (carte fusionnée) : o.onHold() à la place du glisser
+        document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); document.removeEventListener('pointercancel', onCancel); justDragged = Date.now(); o.onHold();
+      } : start, o.holdMs || 500);
+    });
+  }
   // Épingle (trombone) commune (R39, 28 oct. 2026) : même icône que les discussions (.chatAttachBtn), sans cadre (R37), zone de toucher
   // 44 px ; ouvre le sélecteur du système (ordinateur ; téléphone : fichiers, photos, appareil photo) avec les mêmes types partout.
   // onFiles(Array<File>) reçoit le choix ; opts.multiple, opts.label.
   var ATTACH_ACCEPT = '.txt,.md,.markdown,.csv,.tsv,.xlsx,.docx,.pdf,text/*,image/*';
   var CLIP_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+  // opts.choices (4 nov. 2026) : l'épingle ouvre un petit menu — Photothèque, Prendre une photo (appareil), Choisir un fichier (documents) — au lieu d'un seul sélecteur.
+  function attachMenu(onFiles, opts) {
+    var wrap = document.createElement('span'); wrap.className = 'statsPeriodMenuWrap attachMenuWrap';
+    var b = document.createElement('button'); b.type = 'button'; b.className = opts.className || 'chatAttachBtn'; b.innerHTML = CLIP_SVG;
+    b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', opts.label || 'Joindre un fichier'); b.title = opts.label || 'Joindre un fichier';
+    var menu = document.createElement('div'); menu.className = 'statsPeriodMenu hidden';
+    var L = opts.labels || {};
+    [[L.library || 'Photothèque', 'image/*', false], [L.camera || 'Prendre une photo', 'image/*', true], [L.file || 'Choisir un fichier', '.txt,.md,.markdown,.csv,.docx,.pdf', false]].forEach(function (c) {
+      var input = document.createElement('input'); input.type = 'file'; input.className = 'hidden'; input.accept = c[1]; input.multiple = !!opts.multiple; if (c[2]) input.setAttribute('capture', 'environment');
+      input.addEventListener('change', function () { var files = Array.prototype.slice.call(input.files || []); input.value = ''; if (files.length) onFiles(files); });
+      var it = document.createElement('button'); it.type = 'button'; it.className = 'statsPeriodMenuItem'; it.textContent = c[0];
+      it.addEventListener('click', function () { menu.classList.add('hidden'); b.setAttribute('aria-expanded', 'false'); input.click(); });
+      menu.appendChild(it); menu.appendChild(input);
+    });
+    b.addEventListener('click', function (e) {
+      e.stopPropagation(); var open = menu.classList.contains('hidden');
+      document.querySelectorAll('.statsPeriodMenu').forEach(function (m) { m.classList.add('hidden'); });
+      if (open) menu.classList.remove('hidden'); b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    wrap.appendChild(b); wrap.appendChild(menu);
+    return wrap;
+  }
   function attachBtn(onFiles, opts) {
     opts = opts || {};
+    if (opts.choices) return attachMenu(onFiles, opts);
     var lab = document.createElement('label');
     lab.className = 'chatAttachBtn';
     lab.setAttribute('aria-label', opts.label || 'Joindre un fichier'); lab.title = opts.label || 'Joindre un fichier';
@@ -216,9 +388,55 @@
     lab.appendChild(input);
     return lab;
   }
+  // Barre d'écriture fixée en bas (.tasksDock : « Nouvelle tâche… », « Nouvel objectif… ») : clavier ouvert (classe kbOpen), elle se pose juste au-dessus du clavier
+  // (visualViewport), et revient à sa place normale, au-dessus des volets, à la fermeture. UN seul code pour toutes les barres de ce type.
+  function dockKeyboard(dock, field) {
+    var raf = null, stop = 0;
+    function sync() {
+      var vv = root.visualViewport;
+      if (!dock || !vv) return;
+      dock.style.setProperty('--dock-vh', Math.round(vv.height) + 'px'); // hauteur réellement visible : borne le panneau posé au-dessus de la barre
+      if (document.documentElement.classList.contains('kbOpen')) dock.style.bottom = (Math.max(0, root.innerHeight - (vv.offsetTop + vv.height)) + 8) + 'px';
+      else dock.style.bottom = '';
+    }
+    function loop() { sync(); if (Date.now() < stop || dock.contains(document.activeElement) || document.documentElement.classList.contains('kbOpen')) raf = root.requestAnimationFrame(loop); else raf = null; }
+    function watch() { stop = Date.now() + 800; if (!raf) raf = root.requestAnimationFrame(loop); }
+    if (root.visualViewport) { root.visualViewport.addEventListener('resize', watch); root.visualViewport.addEventListener('scroll', watch); }
+    // Toucher un bouton de la barre (Enregistrer, ✕…) ne retire pas le focus du champ : sinon le clavier se ferme, la barre redescend avant le clic et le clic est perdu.
+    function keepFocus(e) { if (e.target && e.target.closest && e.target.closest('button')) e.preventDefault(); }
+    dock.addEventListener('mousedown', keepFocus); dock.addEventListener('pointerdown', keepFocus);
+    dock.addEventListener('focusin', watch); dock.addEventListener('focusout', watch); field.addEventListener('focus', watch); field.addEventListener('blur', watch);
+  }
+  ui.dockKeyboard = dockKeyboard;
+  // R50 : dans un pop-up (ou une page de premier plan), le bouton « Enregistrer » est DÉCOLLÉ du corps et REMPLACE la barre des volets (même gabarit que le bouton du bas d'Objectifs/Tâches, css/composants.css .cmpDockSave).
+  // `btn` garde ses écouteurs et son état (disabled / .cmpBtnIdle, R35) ; `host` = la fenêtre qui porte le dock (il disparaît avec elle). Un repère invisible (.cmpDockSlot) reste à la place du bouton : le dock se montre
+  // seulement quand ce repère est affiché (fenêtre ouverte, bonne sous-page) et la barre des volets est masquée (classe dockSaveOn sur <html>) ; fenêtre retirée du DOM, le dock s'en va et la barre revient.
+  var docks = [], dockRO = null;
+  function dockSync() {
+    var any = false;
+    docks = docks.filter(function (d) {
+      if (!d.slot.isConnected) { d.dock.remove(); if (dockRO) dockRO.unobserve(d.slot); return false; }
+      var on = d.slot.offsetWidth > 0;
+      d.dock.classList.toggle('hidden', !on); if (on) any = true; return true;
+    });
+    document.documentElement.classList.toggle('dockSaveOn', any);
+  }
+  ui.dockEnregistrer = function (btn, host) {
+    var slot = document.createElement('span'); slot.className = 'cmpDockSlot'; slot.setAttribute('aria-hidden', 'true');
+    if (btn.parentNode) btn.parentNode.replaceChild(slot, btn); else host.appendChild(slot);
+    var dock = document.createElement('div'); dock.className = 'cmpDockSave hidden';
+    btn.classList.remove('iconBtn', 'btnBrique', 'cmpBtn'); btn.classList.add('tasksSaveBtn'); btn.style.margin = '0';
+    host.classList.add('cmpDockHost'); dock.appendChild(btn); host.appendChild(dock);
+    docks.push({ dock: dock, slot: slot });
+    if (root.ResizeObserver) { if (!dockRO) dockRO = new root.ResizeObserver(dockSync); dockRO.observe(slot); }
+    if (root.MutationObserver && !ui.dockBodyWatch) { ui.dockBodyWatch = true; new root.MutationObserver(dockSync).observe(document.body, { childList: true }); } // un pop-up retiré du <body> libère aussitôt la barre
+    dockSync();
+    return dock;
+  };
   ui.attachBtn = attachBtn;
   ui.ATTACH_ACCEPT = ATTACH_ACCEPT;
   ui.groupDrag = groupDrag;
+  ui.holdDrag = holdDrag;
   // Repère de couleur du module Horaire (30 oct. 2026) : dans Paramètres | Création des horaires (.horaireCats), l'option de droite
   // active passe le violet et le halo au bleu roi (classe modeCreation sur <html>, jetons dans composants.css) ; l'option de gauche les remet en violet.
   function syncModeClair() {
@@ -246,6 +464,74 @@
     // Un seul observateur sur toute la page (les fenêtres peuvent être créées après le chargement) : toute ouverture ou fermeture de l'une d'elles est vue.
     var startWin = function () { new MutationObserver(function () { clearTimeout(winTimer); winTimer = setTimeout(syncWin, 30); }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }); syncWin(); };
     if (document.body) startWin(); else document.addEventListener('DOMContentLoaded', startWin);
+  }
+  // Balayage des navigations par flèches (R46) : un balayage horizontal d'un .cmpNav (≥ 60 px, plus horizontal que vertical) actionne sa flèche › (vers la gauche)
+  // ou ‹ (vers la droite), donc la MÊME fonction que le clic ; une flèche désactivée ne fait rien. Un seul écouteur pour tous les .cmpNav, présents ou futurs.
+  if (root.document && !root.TMT.cmpNavSwipe) {
+    root.TMT.cmpNavSwipe = true;
+    var sx = null, sy = null, snav = null;
+    document.addEventListener('touchstart', function (e) {
+      snav = null;
+      if (e.touches.length === 1 && e.target.closest) {
+        var zn = e.target.closest('.cmpNav, [data-cmpnav-for]');
+        snav = zn && (zn.classList.contains('cmpNav') ? zn : document.querySelector(zn.getAttribute('data-cmpnav-for')));
+      }
+      if (snav) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; e.stopPropagation(); } // le balayage de page ne reçoit pas ce toucher
+    }, { passive: true, capture: true });
+    document.addEventListener('touchend', function (e) {
+      var nav = snav; snav = null;
+      if (!nav || sx == null) return;
+      var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      sx = sy = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+      var arrows = nav.querySelectorAll('.cmpNavArrow');
+      if (arrows.length < 2) return;
+      arrows[dx < 0 ? arrows.length - 1 : 0].click();
+    }, { passive: true, capture: true });
+  }
+  // Menus ⋮ (.statsPeriodMenu, 8 nov. 2026, demande d'Émilien) : à l'ouverture, le menu est posé sur la page (position fixe, au même
+  // endroit) pour passer au-dessus de toutes les sections et que son verre floute vraiment ce qu'il recouvre (dans une carte en verre, le
+  // flou ne voit que la carte) ; il suit son bouton au défilement et revient à sa place à la fermeture. Un seul mécanisme pour toute l'app.
+  var floating = [];
+  function liftMenu(m) {
+    var r = m.getBoundingClientRect();
+    if (!r.width || !m.parentNode) return;
+    var a = m.parentNode.getBoundingClientRect();
+    m._home = { parent: m.parentNode, prev: m.previousSibling, next: m.nextSibling, top: r.top, left: r.left, aTop: a.top, aLeft: a.left };
+    m.classList.add('cmpMenuFloat');
+    m.style.top = r.top + 'px'; m.style.left = r.left + 'px'; m.style.width = r.width + 'px';
+    document.body.appendChild(m);
+    floating.push(m);
+  }
+  function landMenu(m) {
+    var h = m._home; m._home = null;
+    floating = floating.filter(function (x) { return x !== m; });
+    m.classList.remove('cmpMenuFloat'); m.style.top = ''; m.style.left = ''; m.style.width = '';
+    if (h.prev && h.prev.parentNode === h.parent) h.parent.insertBefore(m, h.prev.nextSibling);
+    else if (h.next && h.next.parentNode === h.parent) h.parent.insertBefore(m, h.next);
+    else if (!h.prev && !h.next && h.parent.isConnected) h.parent.appendChild(m);
+    else m.remove();
+  }
+  function followMenus() {
+    floating.forEach(function (m) {
+      var h = m._home, a = h.parent.getBoundingClientRect();
+      m.style.top = (h.top + a.top - h.aTop) + 'px'; m.style.left = (h.left + a.left - h.aLeft) + 'px';
+    });
+  }
+  // Vrai si `box` contient un menu ⋮ ouvert, à sa place ou posé sur la page.
+  ui.menuOpenIn = function (box) {
+    return !!(box && (box.querySelector('.statsPeriodMenu:not(.hidden)') || floating.some(function (m) { return box.contains(m._home.parent); })));
+  };
+  if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(function (list) {
+      list.forEach(function (mu) {
+        var m = mu.target;
+        if (!m.classList || !m.classList.contains('statsPeriodMenu')) return;
+        if (m.classList.contains('hidden')) { if (m._home) landMenu(m); } else if (!m._home) liftMenu(m);
+      });
+    }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('scroll', function () { if (floating.length) followMenus(); }, true);
+    window.addEventListener('resize', function () { if (floating.length) followMenus(); });
   }
   root.TMT.ui = Object.assign(root.TMT.ui || {}, ui);
 })();

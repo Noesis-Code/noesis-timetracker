@@ -112,9 +112,9 @@ function busyMinutesForTexts(texts, isoDate) {
 
 // Va chercher le flux ICS de l'utilisateur et calcule ses minutes occupées
 // pour isoDate. Retourne null si aucun abonnement n'est configuré (signal
-// ABSENT, jamais zéro — pour que goalsdailypriority.js sache distinguer
+// ABSENT, jamais zéro — pour que l'appelant sache distinguer
 // « pas de calendrier externe » de « journée libre »). Lève une erreur si le
-// flux est injoignable — laissée à l'appelant (goalsdailypriority.js) de
+// flux est injoignable — laissée à l'appelant de
 // décider comment se replier (jamais bloquant pour le reste du calcul).
 async function busyMinutesTodayForUser(userId, isoDate) {
   const urls = listUrls(userId);
@@ -337,7 +337,19 @@ async function dayCapacities(userId, days, tz) {
   } catch (e) { return {}; }
 }
 
+// Même calcul, SYNCHRONE, à partir du cache (jamais de réseau) : { jour: minutes } ; {} si le cache est vide ou périmé.
+function cachedDayCapacities(userId, days, tz) {
+  try {
+    const hit = textCache.get(userId);
+    if (!hit || Date.now() - hit.at >= BUSY_TTL_MS) return {};
+    const settings = getSettings(userId), out = {};
+    days.forEach((d) => { const c = dayCapacityFromTexts(hit.texts, d, settings, tz); if (c != null) out[d] = c; });
+    return out;
+  } catch (e) { return {}; }
+}
+
 module.exports = {
+  cachedDayCapacities,
   getSettings, setSettings, migrateLegacySettings, parseIcsEvents, dayCapacityFromTexts, dayCapacities, DEFAULT_VACATION_WORDS,
   cachedBusyMinutes,
   refreshBusy,

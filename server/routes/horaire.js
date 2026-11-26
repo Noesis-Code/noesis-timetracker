@@ -413,7 +413,7 @@ router.put('/horaire/inbound', (req, res) => {
   const f = (req.body || {}).forwardFrom;
   if (f !== undefined) {
     const v = typeof f === 'string' ? f.trim() : null;
-    if (v === null || v.length > 254 || (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))) return bad(res, 'Adresse courriel invalide.');
+    if (v === null || v.length > 254 || (v && !require('../../public/js/saisie').isValidEmail(v))) return bad(res, 'Adresse courriel invalide.');
     return res.json(h.setForwardFrom(req.userId, v));
   }
   const n = (req.body || {}).groupMin;

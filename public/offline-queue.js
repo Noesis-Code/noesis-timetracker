@@ -21,6 +21,13 @@
  * POST /api/activities/:id/goals/categories/auto-task (userId lu depuis le
  * témoin de session, comme pour une capture en ligne).
  *
+ * 20 nov. 2026 (Émilien) : la CRÉATION D'UN OBJECTIF sans réseau passe par la
+ * même file (entrée kind:'objectif', corps complet dans `body`) et la même voie
+ * d'envoi, vers POST /api/objectifs avec la même clé d'idempotence. Le serveur
+ * applique ses règles à la synchronisation (échéance, une case, parent…) ; s'il
+ * refuse, l'objectif RESTE dans la file, marqué `failed` + message du serveur
+ * (jamais rejoué, jamais perdu), et reste affiché dans la zone « À classer ».
+ *
  * Une seule voie d'envoi à la fois, pour ne jamais créer une tâche en double :
  * si Background Sync est disponible, SEUL le service worker vide la file ;
  * sinon, SEULE la page le fait (voir app.js, flushOfflineAutoTasks).
@@ -82,9 +89,12 @@
       createdAt: Date.now(),
       key: newKey(),
     };
+    // Date (AAAA-MM-JJ) et exécutant choisis dans la barre « Nouvelle tâche… » : gardés tels quels, rejoués à la synchronisation (20 nov. 2026).
+    if (entry.dueDate) record.dueDate = String(entry.dueDate);
+    if (entry.plannedUserId) record.plannedUserId = String(entry.plannedUserId);
     return list().then(function (items) {
       var twin = items.filter(function (it) {
-        return it.activityId === record.activityId && it.label === record.label && record.createdAt - it.createdAt < DEDUPE_MS;
+        return it.kind !== 'objectif' && it.activityId === record.activityId && it.label === record.label && (it.dueDate || '') === (record.dueDate || '') && (it.plannedUserId || '') === (record.plannedUserId || '') && record.createdAt - it.createdAt < DEDUPE_MS;
       })[0];
       if (twin) return twin;
       return withStore('readwrite', function (store) {
@@ -93,6 +103,38 @@
         return record;
       }).then(function () { return record; });
     });
+  }
+
+  // Objectif créé sans réseau : body = corps de POST /api/objectifs. Même
+  // anti-doublon (double appui) que pour les tâches.
+  function addObjectif(entry) {
+    var label = String(entry.label == null ? '' : entry.label).trim();
+    if (!label || !entry.body) return Promise.reject(new Error('Libellé vide'));
+    var record = {
+      kind: 'objectif',
+      activityId: String(entry.activityId),
+      label: label,
+      body: entry.body,
+      tz: entry.tz || null,
+      createdAt: Date.now(),
+      key: newKey(),
+    };
+    return list().then(function (items) {
+      var twin = items.filter(function (it) {
+        return it.kind === 'objectif' && it.activityId === record.activityId && it.label === record.label && record.createdAt - it.createdAt < DEDUPE_MS;
+      })[0];
+      if (twin) return twin;
+      return withStore('readwrite', function (store) {
+        var req = store.add(record);
+        req.onsuccess = function () { record.id = req.result; };
+        return record;
+      }).then(function () { return record; });
+    });
+  }
+
+  function markFailed(it, error) {
+    it.failed = true; it.error = error;
+    return withStore('readwrite', function (store) { store.put(it); });
   }
 
   function list() {
@@ -120,13 +162,22 @@
   //   - autre 4xx (activité quittée ou supprimée, libellé refusé…) → retirée
   //     de la file et signalée, sinon elle bloquerait toutes les suivantes
   //     indéfiniment.
+  // Corps d'une tâche : libellé + date et exécutant choisis hors ligne, s'il y en a.
+  function taskBody(it) {
+    var b = { label: it.label };
+    if (it.dueDate) b.dueDate = it.dueDate;
+    if (it.plannedUserId) b.plannedUserId = it.plannedUserId;
+    return b;
+  }
   var FLUSH_TIMEOUT_MS = 60000; // classement par IA : plus long qu'une requête ordinaire
   var flushing = null;
   function flush() {
     if (flushing) return flushing;
     var out = { synced: [], failed: [], remaining: 0, stopped: false };
     flushing = list().then(function (items) {
-      items.sort(function (a, b) { return a.id - b.id; });
+      // Un objectif refusé par le serveur est gardé 7 jours (visible), puis purgé.
+      items.forEach(function (it) { if (it.failed && Date.now() - it.createdAt > 7 * 86400000) remove(it.id); });
+      items = items.filter(function (it) { return !it.failed; }).sort(function (a, b) { return a.id - b.id; });
       var i = 0;
       function next() {
         if (i >= items.length) return out;
@@ -137,17 +188,19 @@
         // Délai maximal (20 oct. 2026) : un lien qui ne répond jamais ne bloque plus toute la file ; la clé d'idempotence rend le rejeu sans doublon.
         var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
         var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, FLUSH_TIMEOUT_MS) : null;
-        return fetch('/api/activities/' + encodeURIComponent(it.activityId) + '/goals/categories/auto-task', {
+        var isObj = it.kind === 'objectif';
+        return fetch(isObj ? '/api/objectifs' : '/api/activities/' + encodeURIComponent(it.activityId) + '/goals/categories/auto-task', {
           method: 'POST',
           headers: headers,
           credentials: 'same-origin',
-          body: JSON.stringify({ label: it.label }),
+          body: JSON.stringify(isObj ? it.body : taskBody(it)),
           signal: ctrl ? ctrl.signal : undefined,
         }).then(function (r) {
           if (timer) clearTimeout(timer);
           return r.json().catch(function () { return {}; }).then(function (data) {
             if (r.ok) {
               out.synced.push({
+                kind: it.kind || 'tache',
                 activityId: it.activityId,
                 label: it.label,
                 categoryLabel: (data && (data.categoryLabel || data.categoryKey)) || '',
@@ -159,8 +212,11 @@
               out.remaining = items.length - i + 1;
               return out;
             }
-            out.failed.push({ activityId: it.activityId, label: it.label, error: (data && data.error) || ('HTTP ' + r.status) });
-            return remove(it.id).then(next);
+            var msg = (data && data.error) || ('HTTP ' + r.status);
+            // Un objectif, ou une tâche qui porte une date / un exécutant (ex. date devenue passée : « Pas de date dans le passé. »), refusé n'est jamais effacé : il reste dans la file, marqué en échec avec le message du serveur.
+            var keep = isObj || !!(it.dueDate || it.plannedUserId);
+            out.failed.push({ kind: it.kind || 'tache', activityId: it.activityId, label: it.label, error: msg, kept: keep });
+            return (keep ? markFailed(it, msg) : remove(it.id)).then(next);
           });
         }, function () {
           if (timer) clearTimeout(timer);
@@ -177,6 +233,7 @@
   root.NoesisAutoTaskQueue = {
     SYNC_TAG: SYNC_TAG,
     add: add,
+    addObjectif: addObjectif,
     list: list,
     remove: remove,
     flush: flush,

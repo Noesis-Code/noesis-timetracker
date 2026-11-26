@@ -1,0 +1,46 @@
+/* Noèsis TimeTracker — Feuille de route : coque de la fenêtre d'une activité (js/fenetre-activite.js).
+ * Fenêtre plein écran, même montage que #activityPage (styles.css) : fond opaque, carte en colonne pleine hauteur sans coins arrondis,
+ * zone défilante #goalsActivitySwitcherScroll sous la barre habituelle de l'application. */
+#goalsActivitySwitcher.communityMembersModal { align-items: stretch; background: var(--bg); }
+
+#goalsActivitySwitcher .communityMembersModalCard {
+  display: flex; flex-direction: column; padding: var(--topbar-h, 60px) 0 0; box-sizing: border-box; overflow: hidden; /* la barre habituelle de l'application reste visible en haut */
+  height: 100%; max-height: 100%;
+  border-radius: 0; box-shadow: none;
+}
+
+#goalsActivitySwitcherScroll {
+  position: relative;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px;
+  overscroll-behavior: none; /* plus d'effet élastique */
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+:root.goalsActOpen .topbar { z-index: 102; } /* page de l'activité (z-index 101) : la barre du haut et la barre des volets restent au-dessus */
+:root.goalsActOpen .tabbar { z-index: 102; }
+:root.goalsActOpen .tabbar { padding-right: 76px; transition: padding-right .5s cubic-bezier(.22, .8, .3, 1); } /* la barre rétrécit en 0,5 s (seulement à l'ouverture d'une activité : au retour elle reprend sa largeur sans animation) /* le « + » d'Expansion prend la place à droite de la barre des volets */
+@keyframes goalsPlusIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+:root.goalsActOpen #goalsPage2AddBtn { animation: goalsPlusIn .5s cubic-bezier(.22, .8, .3, 1) .5s both; } /* le « + » apparaît (fondu + agrandissement) une fois la barre rétrécie : 0,5 s + 0,5 s */
+@media (prefers-reduced-motion: reduce) { :root.goalsActOpen .tabbar { transition: none; } :root.goalsActOpen #goalsPage2AddBtn { animation: none; } }
+
+/* page figée en haut quand tout tient à l'écran (posé par lockPage2Scroll, fenetre-activite.js). */
+#goalsActivitySwitcherScroll.noScroll { overflow-y: hidden; touch-action: pan-x; }
+
+/* clavier ouvert => « + » masqué. */
+:root.kbOpen #goalsPage2AddBtn { display: none !important; }
+
+/* Activité sans pôle : état vide à la place des 3 pages. */
+.goalsNoPoleState { padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
+.goalsNoPoleTitle { font-weight: 600; font-size: 1.05rem; margin: 0; }
+.goalsNoPoleForm { display: flex; flex-direction: column; gap: 12px; }
+.goalsNoPoleForm input { width: 100%; box-sizing: border-box; }
+.goalsActivitySwitcher.goalsNoPole #goalsActivitySwitcherScroll,
+.goalsNoPoleForm input { padding: 12px; font-size: 1rem; }
+.goalsNoPoleForm button { width: 100%; height: auto; min-height: 44px; padding: 12px 12px; white-space: normal; }
+
+/* bouton « Ajouter » (Essor) à la place de la bulle Discussion ; le ＋ ouvre directement la page « Ajouter des tâches ». */
+#goalsPage2AddBtn .notifDot { display: none; }
+
+/* « + » d'Expansion (page de l'activité) : fixé à droite de la barre des volets ; masqué tant que « Expansion ? » n'est pas connu et sans pôle. */
+#goalsPage2AddBtn { display: flex; position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 120; margin: 0; }
+#goalsPage2AddBtn.hidden, .goalsActivitySwitcher.goalsNoPole #goalsPage2AddBtn { display: none; }

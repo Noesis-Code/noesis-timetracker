@@ -53,6 +53,7 @@ function clipSeconds(startTime, endTime, rangeStart, rangeEnd) {
 // contrôle d'accès générique (activity_members), jamais spécifique aux
 // sous-projets — laissé à sa place actuelle plutôt que dupliqué ici.
 function checkAccess(callerId, activityId, memberId) {
+  const portee = require('./portee');
   if (!callerId) return { error: { status: 400, body: { error: 'userId requis.' } } };
   const activity = db.prepare('SELECT id, name FROM activities WHERE id = ?').get(activityId);
   if (!activity) return { error: { status: 404, body: { error: 'Activité introuvable.' } } };
@@ -63,7 +64,14 @@ function checkAccess(callerId, activityId, memberId) {
   if (targetId !== callerId && !isActivityMember(targetId, activityId)) {
     return { error: { status: 403, body: { error: "Cette personne n'est pas membre de cette activité." } } };
   }
-  return { activity, targetId };
+  // Confidentialité (19 nov. 2026) : un simple membre ne voit que SES données ; un responsable voit celles des autres dans la portée qu'il gère seulement (viewScope).
+  let viewScope = null;
+  if (targetId !== callerId) {
+    const mg = portee.managed(callerId, activityId);
+    if (!mg.all && !mg.roots.length) return { error: { status: 403, body: { error: 'Seuls les responsables voient les données des autres membres.', code: 'DONNEES_RESERVEES_RESPONSABLES' } } };
+    viewScope = mg;
+  }
+  return { activity, targetId, viewScope };
 }
 
 // Le rang de nuance de chaque catégorie, calculé ICI plutôt que côté client.
@@ -88,18 +96,26 @@ function checkAccess(callerId, activityId, memberId) {
 // (« part de camembert séparée MAIS de la MÊME couleur que son pôle » —
 // seul un petit espace physique les distingue, affichage réservé au
 // chantier frontend séparé).
+// RÈGLE DES NUANCES (25 nov. 2026, Émilien) : 5 nuances par activité (0 = la plus claire … 4 = la plus foncée), TOUJOURS étalées sur les extrêmes selon le nombre de pôles actifs :
+// 1 pôle = [0] ; 2 = [0,4] ; 3 = [0,2,4] ; 4 = [0,1,3,4] ; 5 = [0..4]. Au-delà de 5 : le rang cyclique d'avant. Le rang est DÉRIVÉ (rien n'est stocké) : il se réajuste seul quand le nombre de pôles change.
+const SPREAD = { 1: [0], 2: [0, 4], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4] };
+function spreadRank(i, activeCount) { return SPREAD[activeCount] && i < activeCount ? SPREAD[activeCount][i] : i; }
 function shadeRanks(activityId) {
   const rows = db.prepare(
-    'SELECT key, parentKey FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
+    'SELECT key, parentKey, removedAt FROM activity_goal_categories WHERE activityId = ? ORDER BY position ASC, id ASC'
   ).all(activityId);
-  const poleRows = rows.filter((r) => !r.parentKey);
+  // 9 nov. 2026 : les rangs se comptent sur les pôles ACTIFS seulement (ceux que les écrans affichent : categoriesForActivity, removedAt NULL), dans le même ordre ;
+  // avant, un pôle retiré (gelé) gardait un rang et décalait les suivants : rang 5 → retour au plus clair (« clair, foncé, puis clair à nouveau »). Un pôle retiré (temps passé encore visible
+  // dans les statistiques) reçoit un rang APRÈS les actifs : il n'en décale aucun.
+  const poleRows = rows.filter((r) => !r.parentKey).sort((a, b) => (a.removedAt ? 1 : 0) - (b.removedAt ? 1 : 0));
+  const activeCount = poleRows.filter((r) => !r.removedAt).length;
   if (poleRows.length) {
     const ranks = new Map();
-    poleRows.forEach((r, i) => ranks.set(r.key, i));
+    poleRows.forEach((r, i) => ranks.set(r.key, spreadRank(i, activeCount)));
     rows.filter((r) => r.parentKey).forEach((r) => {
       if (ranks.has(r.parentKey)) ranks.set(r.key, ranks.get(r.parentKey));
     });
-    return { ranks, count: poleRows.length };
+    return { ranks, count: activeCount };
   }
   // 21 septembre 2026 (Statistiques — Pôles & secteurs) : corrigé de
   // `goals.polesForActivity`, jamais exporté par server/lib/goals.js (nom
@@ -124,7 +140,7 @@ function shadeRanks(activityId) {
 // `category: null`. C'est le cas NORMAL (le rattachement à une catégorie est
 // optionnel) et le masquer donnerait un camembert dont les parts ne font pas
 // le total affiché juste au-dessus par la Répartition.
-function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz) {
+function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz, viewScope) {
   // Bornes = minuits du fuseau de la personne (tz optionnel), comme `isoDate` des entrées.
   const rangeStart = zonedMidnight(startIso, tz);
   const nextDay = new Date(endIso + 'T12:00:00');
@@ -134,13 +150,14 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz) {
   const rows = db.prepare(`
     SELECT t.startTime, t.endTime, t.goalCategory AS category
     FROM time_entries t
-    WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ?
+    WHERE t.userId = ? AND t.activityId = ? AND t.isoDate BETWEEN ? AND ? AND t.durationSeconds >= 60
   `).all(userId, Number(activityId), startIso, endIso);
 
   const buckets = new Map();
   rows.forEach((r) => {
     const seconds = clipSeconds(r.startTime, r.endTime, rangeStart, rangeEnd);
     if (seconds <= 0) return;
+    if (viewScope && !viewScope.all && !viewScope.has(r.category)) return; // regard d'un responsable : sa portée seulement
     const key = r.category === null || r.category === undefined ? 'none' : String(r.category);
     if (!buckets.has(key)) {
       buckets.set(key, {
@@ -232,13 +249,15 @@ function categoryBreakdownForRange(userId, activityId, startIso, endIso, tz) {
 // diverger : même règle de semaine glissante, même calendrier du mois, mêmes
 // libellés, même départage des créneaux. Une copie aurait divergé au premier
 // ajustement.
-const { timesheetForUser, timesheetMonthForUser, chartBreakdownForUser } = require('./stats');
+const { timesheetForUser, timesheetMonthForUser, timesheetPeriodForUser, chartBreakdownForUser } = require('./stats');
 
-function categoryTimesheet(userId, activityId, period, offset, tz) {
-  const opts = { activityId: Number(activityId), groupByCategory: true, tz };
-  const grid = period === 'month'
-    ? timesheetMonthForUser(userId, offset, opts)
-    : timesheetForUser(userId, offset, opts);
+function categoryTimesheet(userId, activityId, period, offset, tz, viewScope) {
+  const opts = { activityId: Number(activityId), groupByCategory: true, tz, viewScope };
+  const grid = period === 'period'
+    ? timesheetPeriodForUser(userId, offset, opts)
+    : period === 'month'
+      ? timesheetMonthForUser(userId, offset, opts)
+      : timesheetForUser(userId, offset, opts);
 
   // Rangs de nuance, joints à la grille : le client colore chaque case à
   // partir de la couleur de l'activité, sans jamais recalculer un rang.
@@ -246,7 +265,7 @@ function categoryTimesheet(userId, activityId, period, offset, tz) {
   const shadeByCategory = {};
   ranks.forEach((rank, key) => { shadeByCategory[key] = rank; });
 
-  return Object.assign({ period: period === 'month' ? 'month' : 'week' }, grid, {
+  return Object.assign({ period: period === 'period' ? 'period' : period === 'month' ? 'month' : 'week' }, grid, {
     shadeCount: count,
     shadeByCategory,
   });
@@ -289,12 +308,14 @@ function activitiesWithCategoryTime(userId, startIso, endIso) {
 // pas la période, qui se choisit. La Répartition, elle, reste synchronisée
 // sur la Feuille de temps — les deux comportements sont ceux du volet
 // Statistiques, dont Emilien demande la reprise.
-function categoryChart(userId, activityId, granularity, tz) {
-  const g = granularity === 'week' || granularity === 'month' ? granularity : 'day';
+function categoryChart(userId, activityId, granularity, tz, viewScope) {
+  const g = granularity === 'week' || granularity === 'month' || granularity === 'period' ? granularity : 'day';
   const points = chartBreakdownForUser(userId, g, null, {
     activityId: Number(activityId),
     groupByCategory: true,
     tz,
+    viewScope,
+    gridLabels: true,
   });
 
   const { ranks, count } = shadeRanks(Number(activityId));
@@ -305,6 +326,8 @@ function categoryChart(userId, activityId, granularity, tz) {
 }
 
 module.exports = {
+  shadeRanks,
+  spreadRank,
   categoryBreakdownForRange,
   categoryTimesheet,
   categoryChart,

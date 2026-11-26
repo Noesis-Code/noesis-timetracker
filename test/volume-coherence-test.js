@@ -129,6 +129,7 @@ function cpuMs(pid) {
       const y = await newUser(s.base, 'del2' + (keep ? 'k' : 'p'));
       const AD = x.activityId;
       raw.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?,?,'#8b5cf6',?)").run(AD, y.id, new Date().toISOString());
+      raw.prepare('INSERT INTO activity_managers (activityId, userId, addedAt) VALUES (?,?,?)').run(AD, y.id, new Date().toISOString()); // le propriétaire qui part a besoin d'un responsable d'activité pour reprendre (portee.exigerSuccesseur)
       const other2 = (await x.c.post('/api/activities', { name: 'Autre' })).body.id;
       await post(x.c, AD, at(3, 3, 9), at(3, 3, 11));      // 2 h sur l'activité supprimée
       await post(x.c, other2, at(3, 3, 13), at(3, 3, 14)); // 1 h ailleurs

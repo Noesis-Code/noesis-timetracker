@@ -1,23 +1,30 @@
 /* Barre des volets (chantier B, 20 oct. 2026 ; R14, R17, R18). Chargé en dernier. Jetons var(--...) existants, valeurs des maquettes en repli.
    Barre fixe, toujours visible ; icônes seules, 4 au plus, centrées et réparties ; « + » séparé. */
 .tabbar {
+  --bar-h: 52px; --bar-gap: 4px; /* jetons communs : hauteur de la barre, espacement interne ; bulle de l'actif = rayon de la barre moins cet espacement */
+  --bar-move: .4s cubic-bezier(.4, 0, .2, 1); /* mouvement de la barre (même durée et même courbe que le glissement de la bulle) */
   justify-content: space-between; align-items: flex-end;
   padding: 0 16px max(16px, env(safe-area-inset-bottom));
 }
 .tabbar::before { display: none; }
 .tabbarPill {
   display: flex; pointer-events: auto; box-sizing: border-box;
-  flex: 1 1 auto; min-width: 0; height: 52px; padding: 0 4px;
+  flex: 1 1 auto; min-width: 0; height: var(--bar-h); padding: 0 var(--bar-gap);
   align-items: center; justify-content: space-evenly;
   border-radius: 999px; /* verre : .cmpGlass (composants.css) */
 }
-.tabbar .tabBtnAdd:not(.barNoAdd) { display: flex; }
+/* Plus de 5 volets (18 nov. 2026, F1) : 5 visibles, le reste défile à l'horizontale, sans barre de défilement ; l'actif est ramené en vue avec la même marge que la bulle. */
+.tabbarPill.barScroll { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding-inline: var(--bar-gap); touch-action: pan-x; }
+.tabbarPill.barScroll::-webkit-scrollbar { display: none; }
+:root[data-theme] .tabbar .tabbarPill.barScroll .tabBtn { flex: 0 0 calc((100% - 2 * var(--bar-gap)) / 5); }
+:root[data-theme] .tabbar .tabbarPill.barScroll.barHasAction .tabBtn { flex-basis: calc((100% - 2 * var(--bar-gap)) / 4); } /* le « + » occupe le 5e emplacement */
+.tabbar .tabBtnAdd { display: flex; transition: width var(--bar-move), margin-left var(--bar-move), border-width var(--bar-move), opacity .25s ease .15s, background .3s ease, color .3s ease; }
 
 /* Icônes seules : pas de titre, pas de carré de verre propre (la bulle de verre est celle de l'onglet actif). */
 :root[data-theme] .tabbar .tabBtn {
   flex: 1 1 0; min-width: 0; width: auto; height: 100%; padding: 0; gap: 0; border-radius: 999px;
   border: 0 solid transparent; box-sizing: border-box;
-  color: var(--text-light, #A59E96); touch-action: none;
+  color: var(--text-light, #A59E96); touch-action: pan-x; /* le balayage horizontal fait défiler la barre */
   background: none; box-shadow: none;
 }
 :root[data-theme] .tabbar .tabBtn .tabLabel { display: none; }
@@ -27,15 +34,18 @@
   -webkit-backdrop-filter: none; backdrop-filter: none; /* plus de carré flou derrière l'icône */
 }
 :root[data-theme] .tabbar .tabBtn .tabIcon svg { width: 22px; height: 22px; }
-:root[data-theme] .tabbar .tabBtn[data-tab="goals"] .tabIcon svg { width: 21px; height: 25px; }
+:root[data-theme] .tabbar .tabBtn[data-tab="objectives"] .tabIcon svg { width: 21px; height: 25px; }
 /* Onglet actif (demande d'Émilien, 25 oct. 2026, d'après la recherche de la bibliothèque d'apps de l'iPhone) : pilule de la forme de la barre qui remplit la zone de son volet (elle s'arrête au milieu de l'écart avec le voisin), verre sans couleur de même opacité que les pop-up, contour fin ; elle déforme ce qui passe derrière (filtre #tabLens, navigateurs qui le permettent). */
 :root[data-theme] .tabbar .tabBtn { transition: background .3s ease, box-shadow .3s ease, color .3s ease, flex-grow .4s cubic-bezier(.4, 0, .2, 1), flex-basis .4s cubic-bezier(.4, 0, .2, 1), border-color .3s ease; }
+/* Le « + » prend la place du volet affiché (Tâches ou Objectifs) : celui-ci se rétracte et s'efface avec le mouvement de la barre ; 4 volets + le « + » = 5 emplacements au plus. */
+:root[data-theme] .tabbar .tabBtn { overflow: hidden; transition: background .3s ease, box-shadow .3s ease, color .3s ease, flex-grow var(--bar-move), flex-basis var(--bar-move), border-color .3s ease, opacity .25s ease, visibility 0s; }
+:root[data-theme] .tabbar .tabBtn.barSwap, :root[data-theme] .tabbar .tabbarPill.barScroll .tabBtn.barSwap { flex: 0 0 0; width: 0; opacity: 0; visibility: hidden; pointer-events: none; transition: background .3s ease, box-shadow .3s ease, color .3s ease, flex-grow var(--bar-move), flex-basis var(--bar-move), opacity .2s ease, visibility 0s linear var(--bar-move); }
 :root[data-theme] .tabbar .tabBtn.active { color: var(--text, #F3EEE8); background: none; box-shadow: none; border-radius: 0; }
 :root[data-theme] .tabbar .tabBtn.active .tabIcon { position: relative; z-index: 1; }
 :root[data-theme] .tabbar .tabBtn.active::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 4px; bottom: 4px; pointer-events: none; box-sizing: border-box;
+  content: ''; position: absolute; left: 0; right: 0; top: var(--bar-gap); bottom: var(--bar-gap); pointer-events: none; box-sizing: border-box;
   transition: top .4s cubic-bezier(.4, 0, .2, 1), bottom .4s cubic-bezier(.4, 0, .2, 1), background-color .4s ease, border-color .4s ease;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: calc(var(--bar-h) / 2 - var(--bar-gap)); /* concentrique à la barre, quel que soit l'onglet */
   background: var(--glass-bg); /* sans couleur : même verre que les pop-up, posé sur le verre de la barre (demande d'Émilien, 25 oct. 2026) */
   border: 1px solid var(--glass-border);
   -webkit-backdrop-filter: blur(.4px) saturate(1.1); backdrop-filter: blur(.4px) saturate(1.1);
@@ -43,66 +53,32 @@
 @supports (backdrop-filter: url(#tabLens)) {
   :root[data-theme] .tabbar .tabBtn.active::before { backdrop-filter: url(#tabLens) blur(.4px) saturate(1.1); }
 }
-/* Ajout direct (demande d'Émilien, 25 oct. 2026) : le « + » déploie dans la barre les volets pas encore installés, en cercles pointillés ; un « + » vert (le vert « atteint ») remplace la croix rouge ; un tap installe le volet. */
-:root[data-theme] .tabbar .tabBtn.barGhost { display: flex; flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; border: 1.5px dashed var(--cmp-dash); }
-.tabbar.barSolo.barAdding .tabbarPill { display: flex; }
-:root[data-theme] .tabbar.barEdit .tabBtn.barGhost { border-style: dashed; } /* en mode ajout, les volets absents restent en pointillés */
-.tabbar .barPlus { position: absolute; top: -2px; right: -2px; }
-.cmpAddBadge {
-  flex-shrink: 0; width: 13px; height: 13px; box-sizing: border-box; border-radius: 50%; pointer-events: none;
-  background-color: var(--good); background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M6.5 3.2v6.6M3.2 6.5h6.6' stroke='%2315111C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-}
 /* Retirés de la barre : Stats et Activité (leurs contenus migrent, chantier B) ; onglets non ajoutés. */
 .tabbar .tabBtn[data-tab="stats"], .tabbar .tabBtn[data-tab="activity"], .tabbar .tabBtn.barOut { display: none; }
 
 /* « + » pointillé violet cendré : bouton séparé, à côté de la pilule. */
-.tabbar .tabBtnAdd, .barAddBtn {
-  display: none; pointer-events: auto; margin-left: 8px; cursor: pointer; flex: none; width: 52px; height: 52px; padding: 0; border-radius: 50%; box-sizing: border-box;
+.tabbar .tabBtnAdd, .barAddBtn, .arAddSlot {
+  display: flex; pointer-events: auto; margin-left: 8px; cursor: pointer; flex: none; width: var(--bar-h, 52px); height: var(--bar-h, 52px); padding: 0; border-radius: 50%; box-sizing: border-box;
   align-items: center; justify-content: center;
-  border: 1.5px dashed var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
+  border: var(--cmp-dashed-lg) var(--cmp-dash); background: none; color: var(--purple, #9C8CC8);
 }
-/* Un seul volet restant (règle Q1) : la barre ne montre que le « + », même cercle pointillé gris, calé à droite. */
+/* « + » de l'arbre, sous la colonne des heures (64 px) : seulement quand la barre est masquée (téléphone tourné), jamais en même temps que le « + » de la barre. */
+.arAddSlot { display: none; position: absolute; right: 6px; bottom: 8px; margin: 0; z-index: 3; } /* LE MÊME bouton que celui de la barre (52×52, aucune taille propre au paysage) : c'est la rangée des titres qui s'agrandit pour lui (objectifs-arbre.css), centré sous la colonne des heures de 64 px */
+@media (orientation: landscape) and (max-height: 500px) { html.arbreOn .arAddSlot { display: flex; } }
 /* Profil : seulement avec le volet Communauté dans la barre. */
 html.noCommunityBar #whoami { display: none; }
-.tabbar.barSolo .tabbarPill { display: none; }
-.tabbar.barSolo .tabBtnAdd { margin-left: auto; }
-/* Variante « extension payée » : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
-.tabbar .tabBtnAdd.barPaid, .barAddBtn.barPaid {
+/* Variante « extension payée » (« + » d'Expansion de la page d'une activité) : même composant, verre fort de l'icône sélectionnée (exception assumée à R17, voir docs/regles/regles-rangement.md). */
+.barAddBtn.barPaid {
   border: 1px solid rgba(243, 238, 232, .2); color: var(--text, #F3EEE8);
   background: linear-gradient(180deg, rgba(243, 238, 232, .16), rgba(243, 238, 232, .07));
   box-shadow: inset 0 1px 0 rgba(243, 238, 232, .25);
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
 }
-.tabbar .tabBtnAdd svg, .barAddBtn svg { width: 22px; height: 22px; }
+.tabbar .tabBtnAdd svg, .barAddBtn svg, .arAddSlot svg { width: 22px; height: 22px; }
+/* Bouton d'action enfoncé (zone d'écriture ouverte, mode édition de l'arbre actif) : EXACTEMENT le verre de la barre des volets (.cmpGlass : fond, liseré de 1 px, filet intérieur de 1 px = contour apparent de 2 px, flou), mêmes jetons --glass-*, sans nouvelle couleur. */
+.tabbar .tabBtnAdd[aria-pressed="true"], .arAddSlot[aria-pressed="true"] { border: 1px solid var(--glass-border); background: var(--glass-bg); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--text, #F3EEE8); }
 
-/* Mode édition (appui long ; demande d'Émilien, 25 oct. 2026) : chaque volet, même l'actif, dans un cercle plein de la taille du « + » pointillé (52 px), sans ovale ; ils tremblent et la petite croix rouge apparaît en haut à droite (R12, R18). */
-.tabbar.barEdit .tabbarPill { justify-content: space-evenly; padding: 0; }
-:root[data-theme] .tabbar.barEdit .tabBtn,
-:root[data-theme] .tabbar.barEdit .tabBtn.active {
-  flex: 0 0 52px; width: auto; height: 52px; border-radius: 50%; background: none; box-shadow: none;
-  border: 1.5px solid var(--cmp-dash);
-  -webkit-backdrop-filter: none; backdrop-filter: none;
-}
-/* L'ovale du volet actif rétrécit et se referme en rond : il devient lui-même le cercle de ce volet. */
-:root[data-theme] .tabbar.barEdit .tabBtn.active { border-color: transparent; }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::before { top: 0; bottom: 0; background-color: transparent; border: 1.5px solid var(--cmp-dash); }
-:root[data-theme] .tabbar.barEdit .tabBtn.active::after { display: none; }
-.tabbar.barEdit .tabBtn { transform: rotate(2deg); animation: tabJiggle .26s ease-in-out infinite alternate; }
-.tabbar.barEdit .tabBtn:nth-child(even) { transform: rotate(-2deg); animation-delay: -.13s; }
 @keyframes tabJiggle { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg); } }
-.tabbar.barEdit .tabBtn.dragging { z-index: 2; transition: none; animation: none; scale: 1.08; box-shadow: none; }
-.tabbar .barX {
-  position: absolute; top: -2px; right: -2px; /* croix rouge R25 : le composant .cmpRemove fait le reste */
-}
-/* Zone de toucher de la croix : 44 px (R25, composant .cmpRemove). Elle recouvre l'icône : un glisser qui commence sur la croix déplace l'icône (barre-volets.js), seul un tap court retire. */
-.tabbar .tabBtn.dragging .barX { display: none; }
-.barHint {
-  position: fixed; left: 16px; right: 16px; z-index: 51; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-light, #A59E96);
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 52px + 12px); pointer-events: none;
-}
-
-
 /* Pages de statistiques à gauche de Chrono / de la Feuille de route : le geste de glissement doit marcher aussi dans la zone vide sous le contenu. */
 #tab-chrono, #tab-stats, #tab-goals { min-height: 70vh; }
 
@@ -112,3 +88,9 @@ html.noCommunityBar #whoami { display: none; }
 /* La page d'une activité s'ouvre par-dessus Réglages (même z-index 90, Réglages est plus bas dans le document). */
 #activityPage { z-index: 91; }
 #settingsActivitiesBlock { scroll-snap-align: start; }
+
+/* Apparition du « + » d'action (18 nov. 2026, rétablie) : la barre se rétracte en largeur pour lui faire place, puis le « + » apparaît en fondu avec un petit délai ; l'inverse à la disparition. */
+.tabbar .tabBtnAdd.barNoAdd { width: 0; margin-left: 0; border-width: 0; opacity: 0; visibility: hidden; pointer-events: none; transition: width var(--bar-move), margin-left var(--bar-move), border-width var(--bar-move), opacity .15s ease, visibility 0s linear var(--bar-move); }
+@media (prefers-reduced-motion: reduce) {
+  .tabbar .tabBtnAdd, .tabbar .tabBtnAdd.barNoAdd, :root[data-theme] .tabbar .tabBtn, :root[data-theme] .tabbar .tabBtn.active::before { transition: none; }
+}

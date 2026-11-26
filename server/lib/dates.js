@@ -148,6 +148,9 @@ function userToday(now) {
   return isoDateOf(now instanceof Date ? now : new Date(), tz);
 }
 
+// Jour LOCAL d'un instant donné (ex. doneAt, horodatage UTC) dans le fuseau de la requête en cours (celui du téléphone) ; sans requête : fuseau du processus.
+function userDayOf(d) { return isoDateOf(d, tzStore.getStore()); }
+
 function formatElapsed(ms) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -162,7 +165,19 @@ function formatHM(decimalHours) {
   return `${h}:${pad2(m)}`;
 }
 
+// Date calendaire réelle AAAA-MM-JJ (20 nov. 2026, décision d'Émilien) : UN SEUL validateur pour tout le serveur.
+// Refuse le texte, le 31 février, le mois 13, une année absurde (hors 2000-2200). Ne juge jamais passé/futur (autres règles).
+function isRealDay(s) {
+  if (typeof s !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s)) return false;
+  const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), d = Number(s.slice(8, 10));
+  if (y < 2000 || y > 2200) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+const DATE_INVALIDE = 'Date invalide.';
+
 module.exports = {
+  isRealDay, DATE_INVALIDE,
   DAY_NAMES, MONTH_NAMES_FR, isoDateOf, dayNameOf, mondayOf, formatElapsed, formatHM, pad2,
-  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow, runWithTimezone, userToday,
+  DEFAULT_TIMEZONE, isValidTimezone, localPartsOf, zonedMidnight, calendarNow, runWithTimezone, userToday, userDayOf,
 };

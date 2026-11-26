@@ -33,7 +33,7 @@ const lastPrompt = () => prompts[prompts.length - 1];
   const pA = lastPrompt();
   const n = (pA.match(/Libellé secret du compte A/g) || []).length;
   assert(n >= 1 && n <= ex.INJECT_COUNT && pA.includes(SECRET + '4'), 'prompt d\'A : ses corrections récentes (' + n + ' <= ' + ex.INJECT_COUNT + ')');
-  const base = (cls.buildPrompt('Nouvelle tâche pour A', cands, [], { allowUncertain: true, confidence: true })).length;
+  const base = (cls.buildPrompt('Nouvelle tâche pour A', cands, [], { allowUncertain: true, confidence: true, duration: true })).length;
   assert(pA.length - base <= ex.MAX_BLOCK_CHARS + 120, 'bloc d\'exemples borné (' + (pA.length - base) + ' caractères ajoutés)');
   // Prompt de B : même activité, aucun exemple de A.
   await cls.classifyCategory(act, 'Nouvelle tâche pour B', { userId: 'uB', strict: true });

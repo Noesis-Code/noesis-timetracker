@@ -69,6 +69,7 @@
   var currentTimesheetOffset = 0; // décalage en semaines calendaires ; repart à 0 à chaque ouverture de l'onglet Statistiques
   var currentTimesheetMonthOffset = 0; // décalage en mois (vue calendrier) ; repart à 0 lui aussi
   var currentTimesheetYearOffset = 0; // décalage en années (vue Année)
+  var currentTimesheetPeriodOffset = 0; // décalage en périodes de 4 semaines (vue Période)
   var currentHistoryWeekOffset = 0; // idem, pour l'historique modifiable du Chrono (#chronoHistoryPanel)
   var lastDailyBreakdown = []; // dernier détail journalier chargé, pour redessiner le Graphique sans refetch (ex : couleur de la courbe Total après un changement de thème)
   // Ni la Feuille de temps (retiré le 1er septembre 2026) ni le Graphique
@@ -88,30 +89,6 @@
   // `.chartScroll`. Historique complet des trois tentatives : voir
   // noesis-timetracker-journal-statistiques.md.
   var CHART_DAY_SPACING = 56; // espacement fixe entre deux points, en pixels
-  // ----- Statistiques d'UNE activité partagée (section Communauté > Membres)
-  // — pendants exacts des 5 variables Statistiques ci-dessus, jamais
-  // partagés avec elles (deux jeux d'état totalement indépendants). -----
-  // ⚠️ 3 septembre 2026 (Activité — général) : une seule période partagée
-  // par les trois blocs jusqu'ici (currentActivityStatsPeriod). Emilien a
-  // demandé que Répartition et Graphique aient chacun la leur — elles sont
-  // donc devenues DEUX variables indépendantes. La Répartition accepte en
-  // plus 'day' ("Aujourd'hui") ; le Graphique non, il tracerait un point.
-  var currentActivityPiePeriod = 'week';
-  // Filtre par catégorie de la section Statistiques d'une activité
-  // (4 septembre 2026, « Chrono — sous-projets » ; converti le 17 septembre
-  // 2026 à la catégorie Objectifs). '' = tout le temps de l'activité —
-  // valeur de départ, donc comportement d'avant ce chantier ; 'none' = temps
-  // non rattaché ; sinon la clé d'une catégorie.
-  var currentActivityCategory = '';
-  // ⚠️ Second passage du 3 septembre : ce n'est plus une période mais une
-  // GRANULARITÉ (jour / semaine / mois), le graphique couvrant toujours toute
-  // l'histoire de l'activité — alignement sur le Graphique de l'onglet
-  // Statistiques, dont 'day' est aussi la valeur par défaut.
-  var currentActivityChartGranularity = 'day';
-  var lastActivityDailyBreakdown = [];
-  // activityTimesheetFullscreenActive / activityChartFullscreenActive ont été
-  // retirées le 3 septembre 2026 avec le plein écran de cette page — voir le
-  // commentaire juste avant la section "FEUILLE DE TEMPS D'UNE ACTIVITÉ".
   var currentTheme = 'dark';
   var currentLang = 'fr'; // 'fr' par défaut depuis le 9 sept. 2026 (nouveaux comptes) ; voir applyLang plus bas
   // Langue appliquée dès le chargement du script (avant tout rendu construit au niveau racine avec t()) :
@@ -207,10 +184,14 @@
   function $(id) { return document.getElementById(id); }
   function pad(n) { return n < 10 ? '0' + n : String(n); }
 
+  // Stats / camembert : sous 1 min = 0 ; ensuite à la minute, 30 s et moins vers le bas, 31 s et plus vers le haut (1 min 30 s -> 1 min, 1 min 31 s -> 2 min).
+  function formatHMStats(seconds) {
+    return TMT.ui.heures(seconds < 60 ? 0 : Math.ceil((seconds - 30) / 60));
+  }
+
+  // Partout (sauf la confirmation d'arrêt) : même arrondi que formatHMStats ; sous 1 min rien ne s'affiche (la donnée reste en base).
   function formatHM(seconds) {
-    var totalMinutes = Math.round(seconds / 60);
-    var h = Math.floor(totalMinutes / 60), m = totalMinutes % 60;
-    return h + 'h' + pad(m);
+    return formatHMStats(seconds);
   }
 
   // Déconnexion forcée par le serveur (7 septembre 2026 — correctif du
@@ -260,14 +241,22 @@
     clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
   } catch (e) { /* ignore — repli serveur sur le fuseau par défaut */ }
 
+  // Portée d'appartenance (19 nov. 2026) : ce que je gère par activité, lu dans GET .../goals/categories (champ managed) ; sert à ne montrer que les actions permises (rien de grisé).
+  var porteeCache = {};
+  function notePortee(url, data) {
+    var m = /^\/api\/activities\/(\d+)\/goals\/categories(\?|$)/.exec(url);
+    if (m && data && data.managed) porteeCache[m[1]] = data.managed;
+  }
+
   // 19 oct. 2026 (anti-rebond IA) : 4e argument facultatif `opts.signal` (AbortController) pour annuler une requête IA devenue obsolète.
-  function api(method, url, body, opts) {
+  function apiRaw(method, url, body, opts) {
     // 25 septembre 2026 (consultation et modifications hors ligne) : voir le
     // bloc « DONNÉES HORS LIGNE » juste en dessous. Toutes les lectures (GET)
     // passent par une copie locale ; certaines écritures (pôles/secteurs)
     // sont mises en file d'attente sans réseau.
     if (method === 'GET') {
       return apiNetwork(method, url, body).then(function (data) {
+        notePortee(url, data);
         offlineCachePut(url, data);
         setOfflineDataBanner(null);
         return data;
@@ -291,6 +280,12 @@
       });
     }
     return apiNetwork(method, url, body, opts);
+  }
+  // Une écriture sur les pôles, secteurs ou objectifs remet à zéro les couleurs standard (TMT.ui.couleur) : l'ordre et les nuances suivent aussitôt les Réglages et l'arbre.
+  function api(method, url, body, opts) {
+    var p = apiRaw(method, url, body, opts);
+    if (method !== 'GET' && /\/goals\/categories|\/objectifs\b/.test(String(url))) { var reset = function () { if (window.TMT.ui && window.TMT.ui.couleursReset) window.TMT.ui.couleursReset(); }; p.then(reset, reset); }
+    return p;
   }
 
   // ===================== DONNÉES HORS LIGNE (25 septembre 2026) =====================
@@ -699,7 +694,7 @@
   // les mécanismes de rejeu existants s'appliquent (file hors ligne, chrono hors ligne, détection des doublons).
   // Appels lents par nature (IA, Drive, fichiers) : délai long, sinon une réponse en cours de calcul serait coupée puis redemandée.
   var API_TIMEOUT_MS = 20000, API_SLOW_TIMEOUT_MS = 120000;
-  var API_SLOW_RE = /\/(auto-task|rewrite|weekly-proposals|document-tasks|change-proposals|drive|goals\/capture|import|attachments|activity-messages|daily-suggestion|feedback|offer|strategy|recalc|overload|unfinished|realism)(\/|\?|$)/;
+  var API_SLOW_RE = /\/(auto-task|rewrite|weekly-proposals|document-tasks|change-proposals|drive|goals\/capture|import|attachments|activity-messages|feedback|offer|strategy|recalc|overload|unfinished|realism)(\/|\?|$)/;
   function apiTimeoutFor(url, body) {
     if (API_SLOW_RE.test(String(url).split('?')[0])) return API_SLOW_TIMEOUT_MS;
     return body !== undefined && JSON.stringify(body).length > 200000 ? API_SLOW_TIMEOUT_MS : API_TIMEOUT_MS;
@@ -749,6 +744,7 @@
           // Code technique (« offer1_required ») renvoyé par une route réservée : jamais montré tel quel.
           var apiErr = new Error(t(!data.error ? 'Erreur serveur' : /^[a-z0-9_]+$/.test(data.error) ? 'Accès refusé.' : data.error));
           apiErr.status = r.status;
+          if (data.code) apiErr.code = data.code;
           if (data.offline) apiErr.offline = true;
           throw apiErr;
         }
@@ -931,7 +927,7 @@
       if (deleteApiPath === null) { onRemoved(att.id); return; }
       api('DELETE', (deleteApiPath || '/api/attachments/') + att.id + '?userId=' + profile.id)
         .then(function () { onRemoved(att.id); })
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     row.appendChild(removeBtn);
@@ -1097,6 +1093,7 @@
     if (current !== selected) onSelect(current);
     return current;
   }
+  window.TMT = window.TMT || {}; window.TMT.renderColorSwatches = renderColorSwatches; // réutilisé par la création d'objectif (nouvelle activité)
 
   // ===================== ONBOARDING =====================
   // Efface l'écran de chargement animé de public/index.html (#bootSplash).
@@ -1123,95 +1120,14 @@
   // message d'installation reste tant que l'app n'a pas été relancée
   // depuis son icône, et disparaît définitivement dès que c'est le cas.
   function isStandaloneMode() {
+    try { if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) return true; } catch (e) { /* hors coque native */ } // application des boutiques (Android/iOS) : déjà installée
     return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
       window.navigator.standalone === true;
-  }
-
-  // Détecte la plateforme pour afficher les bonnes étapes ("Ajouter à
-  // l'écran d'accueil" diffère radicalement entre Safari iOS, Chrome
-  // Android et un navigateur de bureau). iPadOS 13+ se fait passer pour un
-  // Mac dans le user-agent — on le distingue via maxTouchPoints, seul
-  // signal fiable dans ce cas.
-  function detectInstallPlatform() {
-    var ua = window.navigator.userAgent || '';
-    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-    var isIPadOSAsMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-    if (isIOS || isIPadOSAsMac) return 'ios';
-    if (/Android/.test(ua)) return 'android';
-    return 'desktop';
-  }
-
-  // 11 septembre 2026 (précision d'Emilien après un premier test réel sur
-  // son iPhone) : la première consigne — ouvrir le lien dans le navigateur
-  // natif de l'appareil, pas depuis une appli tierce (Messenger, Instagram,
-  // etc. ouvrent les liens dans leur propre navigateur intégré, qui ne
-  // propose pas l'installation) — s'applique à toutes les plateformes, en
-  // tête de liste. Les étapes iOS elles-mêmes ont aussi été corrigées
-  // d'après ce qu'Emilien voit réellement sur Safari (passage par le menu
-  // ⋯ avant que le bouton Partager n'apparaisse).
-  var ONB_INSTALL_COMMON_FIRST_STEP = "Ouvre ce lien directement dans le navigateur de ton appareil (Safari sur iPhone, Chrome sur Android, ton navigateur habituel sur ordinateur) — pas depuis une application comme Messenger ou Instagram, qui n'offre pas l'option d'installation.";
-  var ONB_INSTALL_STEPS = {
-    ios: [
-      ONB_INSTALL_COMMON_FIRST_STEP,
-      'Touche les trois petits points (⋯) pour faire apparaître le bouton Partager.',
-      'Touche le bouton Partager.',
-      "Fais défiler les options et touche « Ajouter à l'écran d'accueil ».",
-      'Touche « Ajouter » en haut à droite.'
-    ],
-    android: [
-      ONB_INSTALL_COMMON_FIRST_STEP,
-      'Touche le menu ⋮ (trois points) en haut à droite du navigateur.',
-      "Touche « Ajouter à l'écran d'accueil » (ou « Installer l'application »).",
-      'Confirme en touchant « Ajouter » ou « Installer ».'
-    ],
-    desktop: [
-      ONB_INSTALL_COMMON_FIRST_STEP,
-      "Clique sur l'icône d'installation (⊕) dans la barre d'adresse, à droite.",
-      "Clique sur « Installer ».",
-      "Noèsis s'ouvre dans sa propre fenêtre, accessible depuis ton bureau ou ton menu de démarrage."
-    ]
-  };
-
-  function renderOnbInstallSteps() {
-    var list = $('onbInstallSteps');
-    if (!list) return;
-    var platform = detectInstallPlatform();
-    var steps = ONB_INSTALL_STEPS[platform] || ONB_INSTALL_STEPS.desktop;
-    list.innerHTML = '';
-    steps.forEach(function (step) {
-      var li = document.createElement('li');
-      li.textContent = t(step);
-      list.appendChild(li);
-    });
-  }
-
-  // Bascule l'écran d'onboarding sur les étapes d'installation du
-  // raccourci, en masquant toutes les autres étapes (création de profil,
-  // recherche d'un profil existant, code PIN, activités) — voir
-  // isStandaloneMode() ci-dessus pour le contexte de cette demande.
-  // 29 oct. 2026 (demande d'Émilien) : sur ordinateur, on entre directement, sans installer ; le gate ne vaut que pour téléphone et tablette.
-  function installGateApplies() {
-    return !isStandaloneMode() && detectInstallPlatform() !== 'desktop';
-  }
-
-  function showOnbInstallPwa() {
-    $('onbCreate').classList.add('hidden');
-    $('onbExisting').classList.add('hidden');
-    $('onbPinStep').classList.add('hidden');
-    $('onbMsg').textContent = '';
-    renderOnbInstallSteps();
-    $('onbInstallPwa').classList.remove('hidden');
   }
 
   function showOnboarding() {
     $('onboarding').classList.remove('hidden');
     $('app').classList.add('hidden');
-    if (installGateApplies()) {
-      showOnbInstallPwa();
-      dismissBootSplash();
-      return;
-    }
-    $('onbInstallPwa').classList.add('hidden');
     // Premier lancement (aucun profil connu) : c'est l'affichage de
     // l'onboarding, et non showApp(), qui marque la fin du "chargement" —
     // il n'y a rien d'autre à attendre à ce stade.
@@ -1323,6 +1239,8 @@
       if (!_isTextInputEl(active)) return;
       var target = e.target;
       if (target === active || (active.contains && active.contains(target))) return;
+      // Un bouton / une croix touchés : le champ GARDE le focus jusqu'au clic (le clavier ne se ferme qu'après l'action, voir plus bas) ; sinon le clavier se ferme au toucher, la page bouge et le clic de la ✕ est perdu (retour testeur, 23 nov. 2026).
+      if (target && target.closest && target.closest('button, .btn, .iconBtn, [data-keep-kb], .chatComposerRow, label, a, select')) return;
       active.blur();
     }, { capture: true, passive: true });
   }
@@ -1737,6 +1655,7 @@
   }
   document.addEventListener('touchmove', function (e) {
     if (!isStandaloneMode()) return;
+    if (_isTextInputEl(e.target)) return; // jamais dans un champ : sinon le geste de sélection/collage (poignées, loupe) est annulé
     // 10 oct. 2026 : l'écran d'inscription/connexion doit toujours pouvoir défiler (petits écrans).
     if ($('onboarding') && !$('onboarding').classList.contains('hidden')) return;
     if (_documentNeedsScroll()) return;
@@ -1761,6 +1680,7 @@
     // commentaire sur #settingsContactShareEmail dans index.html.
     $('settingsContactShareEmail').checked = !!profile.contactShareEmail;
     $('settingsContactSharePhone').checked = !!profile.contactSharePhone;
+    $('settingsScoreShared').checked = !!profile.scoreShared;
     syncIdentitySaveState(true);
     renderIdentityHeader();
     // Vérifie tout de suite s'il y a des invitations/demandes de suivi en
@@ -1852,7 +1772,7 @@
     $('onbNewActivitySave').disabled = true;
     api('POST', '/api/activities', { name: name, color: onbNewActivityColor, userId: profile.id })
       .then(function () { showApp(); })
-      .catch(function (err) { $('onbMsg').textContent = err.message; $('onbNewActivitySave').disabled = false; });
+      .catch(function (err) { showMsg($('onbMsg'), err.message); $('onbNewActivitySave').disabled = false; });
   });
 
   // Règles du mot de passe (création individu ou entreprise) : visibles seulement pendant la saisie d'un des deux champs.
@@ -1880,8 +1800,15 @@
   // d'Emilien) — même validation légère de format que côté serveur (voir
   // EMAIL_RE/PHONE_RE dans server/routes/profile.js), le serveur revalide de
   // toute façon en dernier recours.
-  var ONB_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  var ONB_PHONE_RE = /^[0-9+()\-\s]{6,30}$/;
+  // Contrôles de saisie : règle unique dans public/js/saisie.js (objet Saisie), partagée avec le serveur.
+  var MSG_EMAIL = 'Indique une adresse courriel valide (ex. nom@domaine.com).';
+  var MSG_PHONE = 'Indique un numéro de téléphone avec au moins 7 chiffres.';
+  // Message d'erreur sous le champ : rouge du système, amené à l'écran (jamais caché sous la barre Enregistrer fixe).
+  function showMsg(el, text, isError) {
+    if (isError === undefined) isError = true;
+    el.textContent = text; el.style.color = isError ? 'var(--danger)' : '';
+    if (text && isError && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
 
   // 11 septembre 2026, demande directe d'Emilien : le simple lien de lecture
   // des CGU (#onbLegalTermsLink, 7 septembre 2026) ne formalisait aucun
@@ -1956,11 +1883,11 @@
     var name = $('onbName').value.trim();
     if (!name) { $('onbMsg').textContent = t(onbAccountType === 'entreprise' ? "Indique le nom de l'entreprise." : 'Indique un prénom ou un pseudo.'); return false; }
     if (!$('onbLastName').value.trim()) { $('onbMsg').textContent = t(onbAccountType === 'entreprise' ? 'Indique le nom du responsable.' : 'Indique ton nom de famille.'); return false; }
-    if (!ONB_PHONE_RE.test($('onbPhone').value.trim())) { $('onbMsg').textContent = t('Indique un numéro de téléphone valide.'); return false; }
-    if (!ONB_EMAIL_RE.test($('onbEmail').value.trim())) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return false; }
+    if (!Saisie.isValidPhone($('onbPhone').value.trim())) { showMsg($('onbMsg'), t(MSG_PHONE)); return false; }
+    if (!Saisie.isValidEmail($('onbEmail').value.trim())) { showMsg($('onbMsg'), t(MSG_EMAIL)); return false; }
     var pinProblem = passwordProblem($('onbPin').value.trim());
-    if (pinProblem) { $('onbMsg').textContent = pinProblem; return false; }
-    if ($('onbPin').value.trim() !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return false; }
+    if (pinProblem) { showMsg($('onbMsg'), pinProblem); return false; }
+    if ($('onbPin').value.trim() !== $('onbPinConfirm').value.trim()) { showMsg($('onbMsg'), t('Les deux mots de passe ne correspondent pas.')); return false; }
     return true;
   }
 
@@ -1970,17 +1897,17 @@
       return;
     }
     var name = $('onbName').value.trim();
-    if (!name) { $('onbMsg').textContent = t('Indique un prénom ou un pseudo.'); return; }
+    if (!name) { showMsg($('onbMsg'), t('Indique un prénom ou un pseudo.')); return; }
     var lastName = $('onbLastName').value.trim();
-    if (!lastName) { $('onbMsg').textContent = t('Indique ton nom de famille.'); return; }
+    if (!lastName) { showMsg($('onbMsg'), t('Indique ton nom de famille.')); return; }
     var phone = $('onbPhone').value.trim();
-    if (!ONB_PHONE_RE.test(phone)) { $('onbMsg').textContent = t('Indique un numéro de téléphone valide.'); return; }
+    if (!Saisie.isValidPhone(phone)) { showMsg($('onbMsg'), t(MSG_PHONE)); return; }
     var email = $('onbEmail').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
+    if (!Saisie.isValidEmail(email)) { showMsg($('onbMsg'), t(MSG_EMAIL)); return; }
     var pin = $('onbPin').value.trim();
     var pinProblem = passwordProblem(pin);
-    if (pinProblem) { $('onbMsg').textContent = pinProblem; return; }
-    if (pin !== $('onbPinConfirm').value.trim()) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (pinProblem) { showMsg($('onbMsg'), pinProblem); return; }
+    if (pin !== $('onbPinConfirm').value.trim()) { showMsg($('onbMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
     if (onbModules && !onbModules.valid()) { $('onbMsg').textContent = t('Choisis au moins un module.'); return; }
     $('onbCreateBtn').disabled = true;
     api('POST', '/api/profile', { name: name, lastName: lastName, phone: phone, email: email, pin: pin, accountType: onbAccountType, termsAccepted: true, marketingConsent: $('onbMarketingCheckbox').checked, directoryConsent: $('onbDirectoryCheckbox').checked })
@@ -2091,13 +2018,8 @@
   // un s'il n'en a pas encore — comptes créés avant cette protection) -----
   var pendingPinUser = null;
 
-  // Mot de passe fort (26 oct. 2026) : mêmes règles que le serveur (server/lib/auth.js, checkPasswordStrength), qui reste l'autorité.
-  function passwordProblem(pw) {
-    if (!pw) return t('Choisis un mot de passe.');
-    if (pw.length < 10) return t('Le mot de passe doit comporter au moins 10 caractères.');
-    if (!/[a-zà-ÿ]/.test(pw) || !/[A-ZÀ-Ý]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9À-ÿ]/.test(pw)) return t('Le mot de passe doit contenir une minuscule, une majuscule, un chiffre et un caractère spécial.');
-    return '';
-  }
+  // Mot de passe fort (26 oct. 2026) : règle unique dans public/js/saisie.js (10 caractères ou plus), le serveur reste l'autorité.
+  function passwordProblem(pw) { var p = Saisie.passwordProblem(pw); return p ? t(p) : ''; }
   // Les comptes qui ont encore l'ancien code à 4 chiffres choisissent un mot de passe fort avant d'aller plus loin (le serveur bloque le reste : lib/session.js).
   var forceKnownPin = '', forceAfter = null;
   function showForcePassword(knownPin, after) {
@@ -2113,8 +2035,8 @@
     var cur = forceKnownPin || $('forcePwdCurrent').value.trim();
     var pw = $('forcePwdNew').value.trim();
     var problem = passwordProblem(pw);
-    if (problem) { $('forcePwdMsg').textContent = problem; return; }
-    if (pw !== $('forcePwdConfirm').value.trim()) { $('forcePwdMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (problem) { showMsg($('forcePwdMsg'), problem); return; }
+    if (pw !== $('forcePwdConfirm').value.trim()) { showMsg($('forcePwdMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
     var p = profile || loadProfile();
     if (!p) return;
     $('forcePwdSave').disabled = true;
@@ -2123,7 +2045,7 @@
         $('forcePwd').classList.add('hidden');
         if (forceAfter) forceAfter(); else window.location.reload();
       })
-      .catch(function (err) { $('forcePwdMsg').textContent = err.message; })
+      .catch(function (err) { showMsg($('forcePwdMsg'), err.message); })
       .finally(function () { $('forcePwdSave').disabled = false; });
   });
   // ----- Œil « voir le mot de passe » sur chaque champ mot de passe (26 oct. 2026, demande d'Émilien) : un appui montre les caractères, un second les masque -----
@@ -2151,7 +2073,7 @@
   function showForceEmail() { $('forceEmailMsg').textContent = ''; $('forceEmail').classList.remove('hidden'); }
   $('forceEmailSave').addEventListener('click', function () {
     var email = $('forceEmailInput').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('forceEmailMsg').textContent = t('Indique une adresse email valide.'); return; }
+    if (!Saisie.isValidEmail(email)) { showMsg($('forceEmailMsg'), t(MSG_EMAIL)); return; }
     var p = profile || loadProfile();
     if (!p) return;
     $('forceEmailSave').disabled = true;
@@ -2171,8 +2093,8 @@
   $('onbEmailLoginBtn').addEventListener('click', function () {
     var email = $('onbEmailLoginEmail').value.trim();
     var pw = $('onbEmailLoginPwd').value.trim();
-    if (!ONB_EMAIL_RE.test(email)) { $('onbMsg').textContent = t('Indique une adresse email valide.'); return; }
-    if (!pw) { $('onbMsg').textContent = t('Indique ton mot de passe.'); return; }
+    if (!Saisie.isValidEmail(email)) { showMsg($('onbMsg'), t(MSG_EMAIL)); return; }
+    if (!pw) { showMsg($('onbMsg'), t('Indique ton mot de passe.')); return; }
     $('onbMsg').textContent = '';
     $('onbEmailLoginBtn').disabled = true;
     api('POST', '/api/login-email', { email: email, password: pw })
@@ -2185,19 +2107,35 @@
       .finally(function () { $('onbEmailLoginBtn').disabled = false; });
   });
 
+  // « Mot de passe oublié ? » : le bloc courriel REMPLACE le bloc du mot de passe (champ, Valider, Face ID, lien) ; Retour ramène à l'écran du mot de passe, remis à zéro.
+  function setForgotMode(on) {
+    ['onbPinInput', 'onbPinConfirmInput', 'onbPinSubmit', 'onbFaceIdRow', 'onbForgotLink'].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      var box = (id === 'onbForgotLink' || el.parentNode.classList.contains('cmpPwdWrap')) ? el.parentNode : el; // l'œil est dans le même habillage que le champ
+      box.style.display = on ? 'none' : '';
+    });
+    $('onbForgot').classList.toggle('hidden', !on);
+    $('onbForgotMsg').textContent = '';
+    $('onbForgotEmail').value = '';
+    $('onbMsg').textContent = '';
+    $('onbPinInput').value = '';
+    $('onbPinConfirmInput').value = '';
+    pendingForgot = on;
+  }
+  var pendingForgot = false;
+
   // Même bloc sur l'écran du mot de passe (suffixe vide) et sur la recherche de profil (suffixe « S »).
   ['', 'S'].filter(function (sfx) { return $('onbForgotLink' + sfx); }).forEach(function (sfx) {
     $('onbForgotLink' + sfx).addEventListener('click', function (e) {
       e.preventDefault();
-      $('onbForgot' + sfx).classList.toggle('hidden');
-      $('onbForgotMsg' + sfx).textContent = '';
+      setForgotMode(true);
     });
     $('onbForgotSend' + sfx).addEventListener('click', function () {
       var email = $('onbForgotEmail' + sfx).value.trim();
-      if (!ONB_EMAIL_RE.test(email)) { $('onbForgotMsg' + sfx).textContent = t('Indique une adresse email valide.'); return; }
+      if (!Saisie.isValidEmail(email)) { showMsg($('onbForgotMsg' + sfx), t(MSG_EMAIL)); return; }
       $('onbForgotSend' + sfx).disabled = true;
       api('POST', '/api/password/forgot', { email: email })
-        .then(function (r) { $('onbForgotMsg' + sfx).textContent = t((r && r.message) || 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.'); })
+        .then(function (r) { $('onbForgotMsg' + sfx).textContent = t((r && r.message) || 'Un lien vient d’être envoyé.'); })
         .catch(function (err) { $('onbForgotMsg' + sfx).textContent = err.message; })
         .finally(function () { $('onbForgotSend' + sfx).disabled = false; });
     });
@@ -2219,15 +2157,8 @@
       $('resetPwdSave').disabled = true;
       api('POST', '/api/password/reset', { token: tok, password: pw })
         .then(function (r) {
-          // Tous les autres appareils sont déconnectés ; celui-ci est connecté (dans l'app installée, on entre directement).
-          if (!installGateApplies()) {
-            return api('GET', '/api/profile/' + r.id).then(function (p) { saveProfile(p); leave(); });
-          }
-          $('resetPwdMsg').textContent = t('Mot de passe changé. Ouvre l’app depuis ton écran d’accueil et connecte-toi avec ton nouveau mot de passe.');
-          $('resetPwdSave').classList.add('hidden');
-          $('resetPwdNew').classList.add('hidden');
-          $('resetPwdConfirm').classList.add('hidden');
-          $('resetPwdHint').classList.add('hidden');
+          // Tous les autres appareils sont déconnectés ; celui-ci est connecté.
+          return api('GET', '/api/profile/' + r.id).then(function (p) { saveProfile(p); leave(); });
         })
         .catch(function (err) { $('resetPwdMsg').textContent = err.message; })
         .finally(function () { $('resetPwdSave').disabled = false; });
@@ -2245,12 +2176,12 @@
     // `showOnboarding(); showOnbPinStep(match);`. Si l'app n'est pas
     // encore en mode autonome (raccourci), l'écran d'installation doit
     // rester affiché plutôt que de laisser passer l'étape code PIN.
-    if (installGateApplies()) { showOnbInstallPwa(); return; }
     pendingPinUser = user;
     $('onbCreate').classList.add('hidden');
     $('onbExisting').classList.add('hidden');
     $('onbPinStep').classList.remove('hidden');
     $('onbMsg').textContent = '';
+    setForgotMode(false);
     $('onbPinInput').value = '';
     $('onbPinConfirmInput').value = '';
     // 8 septembre 2026, puis 10 septembre 2026 (Connexion / Création de
@@ -2305,6 +2236,7 @@
 
   $('onbPinCancel').addEventListener('click', function (e) {
     e.preventDefault();
+    if (pendingForgot) { setForgotMode(false); return; }
     pendingPinUser = null;
     $('onbPinStep').classList.add('hidden');
     $('onbExisting').classList.remove('hidden');
@@ -2318,8 +2250,8 @@
     if (!pendingPinUser.hasPin) {
       var confirmPin = $('onbPinConfirmInput').value.trim();
       var setProblem = passwordProblem(pin);
-      if (setProblem) { $('onbMsg').textContent = setProblem; return; }
-      if (pin !== confirmPin) { $('onbMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+      if (setProblem) { showMsg($('onbMsg'), setProblem); return; }
+      if (pin !== confirmPin) { showMsg($('onbMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
       $('onbPinSubmit').disabled = true;
       api('POST', '/api/profile/' + pendingPinUser.id + '/set-pin', { pin: pin })
         .then(function () {
@@ -2351,13 +2283,11 @@
 
   // Modules désactivés (js/modules.js) : un onglet masqué se replie sur Chrono ; sans modules.js, tout est actif.
   function tabAllowed(tab) { return !(window.TMT && TMT.modules && TMT.modules.tabOn) || TMT.modules.tabOn(tab); }
-  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('goals') ? 'goals' : (tabAllowed('horaire') ? 'horaire' : 'community')); }
+  function firstTab() { return tabAllowed('chrono') ? 'chrono' : (tabAllowed('tasks') ? 'tasks' : (tabAllowed('horaire') ? 'horaire' : 'community')); }
   function modOn(id) { return !(window.TMT && TMT.modules) || TMT.modules.isOn(id); }
-  // Page de statistiques (ancien onglet Stats, chantier B 20 oct. 2026) : ctx = 'chrono' (temps : feuille de temps, répartition, graphique)
-  // ou 'goals' (tâches et objectifs, public/js/stats-avance.js). Ne touche pas aux autres onglets : le glissement les gère.
-  function enterStats(ctx) {
-    if (TMT.setStatsContext) TMT.setStatsContext(ctx);
-    if (ctx !== 'chrono' || !modOn('stats')) return;
+  // Page de statistiques du volet Bilan (temps : feuille de temps, répartition, graphique) : on repart d'une Feuille de temps sur la semaine en cours.
+  function enterStats() {
+    if (!modOn('stats')) return;
     loadStats();
     // La Feuille de temps repart toujours sur "Semaine, semaine en cours"
     // à chaque ouverture de l'onglet (comportement déjà établi le 29 août
@@ -2367,6 +2297,7 @@
     currentTimesheetOffset = 0;
     currentTimesheetMonthOffset = 0;
     currentTimesheetYearOffset = 0;
+    currentTimesheetPeriodOffset = 0;
     syncPeriodMenuActive($('tsPeriodMenu'), 'week');
     // La Répartition repart toujours SYNCHRONISÉE sur la Feuille de temps
     // (3 septembre 2026, demande d'Emilien : « je souhaite que la
@@ -2380,27 +2311,20 @@
     syncPieTodayBtn();
     loadTimesheet();
   }
-  // Ouvre la page de statistiques sans glissement (points de pagination) ; n = 3 : onglet Objectifs de la page tâches/objectifs.
-  function openStats(ctx, n) {
-    enterStats(ctx);
-    switchTab('stats', { prepared: true });
-    if (ctx === 'goals' && n === 3 && TMT.setStatsPage) TMT.setStatsPage(3, { noAnim: true });
-    if (ctx === 'chrono' && n === 3 && TMT.setSharedPage) TMT.setSharedPage(true, { noAnim: true });
-    if (ctx === 'goals' && n === 4 && TMT.setGroupPage) TMT.setGroupPage(true, { noAnim: true });
-  }
 
-  function switchTab(tab, opts) {
+  // 18 nov. 2026 (Émilien) : Tâches et Objectifs sont deux volets distincts qui partagent la même section #tab-goals ; l'ancien identifiant « goals » (liens profonds, notifications) mène à Objectifs.
+  function switchTab(tab) {
+    if (tab === 'goals') tab = 'objectives';
     if (!tabAllowed(tab)) tab = firstTab();
+    var goalsView = tab === 'tasks' ? 'today' : tab === 'objectives' ? 'activities' : null;
+    if (goalsView) tab = 'goals';
+    var bilan = tab === 'bilan' || tab === 'stats'; if (bilan) tab = 'stats'; /* le volet Bilan = la page de statistiques, toutes les informations dans une seule colonne */
     // 5 oct. 2026 (Emilien) : Historique/Archives reviennent enroulés (et sans réserve d'espace) à chaque changement d'onglet.
     collapseChronoHistory();
     if (TMT.collapseGoalsHistory) TMT.collapseGoalsHistory();
-    if (TMT.collapseGoalsArchives) TMT.collapseGoalsArchives();
-    if (TMT.collapseGoalsAlerts) TMT.collapseGoalsAlerts();
     document.querySelectorAll('.tab').forEach(function (el) { el.classList.add('hidden'); });
     $('tab-' + tab).classList.remove('hidden');
-    // Chantier B (20 oct. 2026) : Stats n'est plus un onglet de la barre, c'est une page à gauche de Chrono (stats de temps) ou de la
-    // Feuille de route (tâches et objectifs) ; l'icône de la barre qui reste allumée est celle du volet d'où l'on vient.
-    var barTab = tab === 'stats' ? ((TMT.statsContext && TMT.statsContext()) === 'goals' ? 'goals' : 'chrono') : tab;
+    var barTab = bilan ? 'bilan' : goalsView === 'today' ? 'tasks' : goalsView === 'activities' ? 'objectives' : tab;
     tabButtons.forEach(function (b) {
       b.classList.toggle('active', b.dataset.tab === barTab);
       if (b.dataset.tab === barTab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); // onglet courant annoncé par les lecteurs d'écran
@@ -2426,13 +2350,13 @@
     $('profileSettingsBtn').classList.remove('active');
 
     if (tab === 'stats') {
-      // Page de statistiques à gauche de Chrono (stats de temps) ou de la Feuille de route (tâches/objectifs) : voir enterStats().
-      if (!(opts && opts.prepared)) enterStats('chrono');
+      enterStats(); if (TMT.bilanShow) TMT.bilanShow();
       refreshScrollLock();
     }
     else {
+      if (TMT.bilanHide) TMT.bilanHide();
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(); TMT.loadGoalsTab(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
+      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(goalsView); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
@@ -2804,6 +2728,14 @@
   // (server/lib/goals.js#categoriesForActivity), donc le sélecteur est
   // désormais TOUJOURS proposé (à la différence des sous-projets, absents
   // par défaut).
+  function chronoScopeList(list) {
+    var out = [];
+    (list || []).forEach(function (c) {
+      if (c.inScope === false) (c.secteurs || []).forEach(function (x) { out.push({ key: x.key, label: x.label, secteurs: [] }); });
+      else out.push(c);
+    });
+    return out;
+  }
   function fetchChronoCategories(activityId) {
     // Le .catch garantit qu'une panne d'Objectifs ne bloque jamais le
     // Chrono — même principe que le flux Suivi vis-à-vis des sondages.
@@ -2811,7 +2743,10 @@
     // par activité, pour pouvoir choisir un pôle/secteur sans réseau.
     return api('GET', '/api/activities/' + activityId + '/goals/categories?userId=' + profile.id)
       .then(function (data) {
-        var list = (data && data.categories) || [];
+        var list = (data && data.categories) || [], gone = {}, now = new Date(), iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        ((data && data.absorbed) || []).forEach(function (x) { if (x.fromDate <= iso) gone[x.key] = true; }); // fusion : le Chrono ne propose plus que la branche absorbante (le passé reste lisible)
+        list = chronoScopeList(list); // portée : un pôle hors portée (simple conteneur) n'est pas proposé, seuls ses secteurs le sont
+        list = list.filter(function (c) { return !gone[c.key]; }).map(function (c) { return c.secteurs && c.secteurs.some(function (x) { return gone[x.key]; }) ? Object.assign({}, c, { secteurs: c.secteurs.filter(function (x) { return !gone[x.key]; }) }) : c; });
         offlineStoreSet('cats:' + activityId, list);
         return list;
       })
@@ -3283,10 +3218,12 @@
     var end = stopDateOf('end');
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
       $('stopDurationLabel').textContent = t('Durée : —');
+      $('stopConfirmMsg').textContent = (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end <= start) ? t('La fin doit suivre le début.') : ''; // 11 : explique le bouton grisé
       $('stopConfirmBtn').disabled = true;
       return;
     }
     $('stopConfirmBtn').disabled = false;
+    $('stopConfirmMsg').textContent = '';
     var totalSeconds = Math.round((end - start) / 1000);
     var durationLabel;
     if (totalSeconds < 60) {
@@ -3360,6 +3297,7 @@
   $('stopEndDateInput').addEventListener('input', updateStopDurationLabel);
   $('stopEndTimeInput').addEventListener('input', updateStopDurationLabel);
   $('stopCancelBtn').addEventListener('click', closeStopConfirm);
+  $('stopCloseBtn').addEventListener('click', closeStopConfirm);
 
   $('stopConfirmBtn').addEventListener('click', function () {
     var startDate = stopDateOf('start');
@@ -3683,7 +3621,7 @@
 
     delBtn.addEventListener('click', function () {
       TMT.ui.confirm(t('Supprimer définitivement cet enregistrement ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
-      api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { alert(err.message); });
+      api('DELETE', '/api/history/' + entry.id + '?userId=' + profile.id).then(onChanged).catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
 
@@ -3728,6 +3666,7 @@
     box.innerHTML = '';
     var groups = [];
     var groupByDay = {};
+    entries = entries.filter(function (e) { return e.durationSeconds >= 60; }); // sous 1 min : jamais affiché
     entries.forEach(function (entry) {
       var key = entry.isoDate || '';
       if (!groupByDay[key]) {
@@ -3846,12 +3785,12 @@
   // Referme tout menu de période ouvert au clic n'importe où en dehors de
   // lui (ou de son bouton "⋮") — même mécanisme que .notifPanel en Profil.
   document.addEventListener('click', function (e) {
-    if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
+    if (!e.target.closest('.statsPeriodMenuWrap, .statsPeriodMenu')) closeAllStatsPeriodMenus();
   });
   // 1er oct. 2026 : un appui long sur le graphique (lecture des données) ne produit pas de « click » —
   // on referme donc aussi le menu dès le début du toucher en dehors de lui.
   document.addEventListener('pointerdown', function (e) {
-    if (!e.target.closest('.statsPeriodMenuWrap')) closeAllStatsPeriodMenus();
+    if (!e.target.closest('.statsPeriodMenuWrap, .statsPeriodMenu')) closeAllStatsPeriodMenus();
   }, true);
   // Aligne l'état visuel (option en surbrillance) d'un menu de période sur
   // une période donnée, sans déclencher onSelect — utilisé quand la période
@@ -3871,7 +3810,7 @@
   // camembert suit désormais la période de la Feuille de temps — voir
   // renderPieFromTimesheet plus bas.)
   setupStatsPeriodMenu($('chartPeriodBtn'), $('chartPeriodMenu'), function (period) {
-    currentChartGranularity = period; // 'day' | 'week' | 'month' (data-period du menu ⋮ du Graphique)
+    currentChartGranularity = period; // 'day' | 'week' | 'period' (data-period du menu ⋮ du Graphique)
     loadChartStats();
   });
   setupStatsPeriodMenu($('tsPeriodBtn'), $('tsPeriodMenu'), function (period) {
@@ -3879,7 +3818,8 @@
     // Reprend systématiquement "en cours" (semaine ou mois) au changement de
     // période, plutôt que de convertir un décalage semaine en décalage mois
     // (les deux ne correspondent à rien l'un pour l'autre).
-    if (period === 'month') currentTimesheetMonthOffset = 0;
+    if (period === 'period') currentTimesheetPeriodOffset = 0;
+    else if (period === 'month') currentTimesheetMonthOffset = 0;
     else if (period === 'year') currentTimesheetYearOffset = 0;
     else currentTimesheetOffset = 0;
     loadTimesheet();
@@ -3900,9 +3840,14 @@
   // sources ont volontairement la même forme : la réponse de
   // GET /stats/timesheet (mode synchronisé) et celle de GET /stats/today
   // (mode "Aujourd'hui") — un seul chemin de rendu, pas de code en double.
+  // 23 nov. 2026 : une semaine s'écrit « S47 » (numéro de la grille des périodes), jamais en dates ; les autres libellés (période, jour) restent tels quels.
+  function gridRangeLabel(data) {
+    if (data && data.weekNumber && /^Semaine du /.test(data.label || '')) return 'S' + data.weekNumber;
+    return t(data.label);
+  }
   function renderPieBreakdown(data) {
     var breakdown = (data && data.breakdown) || { totalSeconds: 0, activities: [] };
-    $('statsLabel').textContent = data && data.label ? t(data.label) : '';
+    $('statsLabel').textContent = data && data.label ? gridRangeLabel(data) : '';
     // Plus de total écrit au-dessus du camembert depuis le 6 septembre
     // 2026 (Emilien : « le temps total est marqué deux fois ») : renderPie
     // l'affiche déjà au centre du donut. Idem dans les quatre autres
@@ -3971,40 +3916,9 @@
     btn.textContent = pieTodayMode ? t('Semaine') : (pieWeekMode ? t('Synchroniser') : t("Aujourd'hui"));
   }
 
-  // 6 oct. 2026 (Emilien) : filtre Public / Confidentiel / Tous de l'onglet Statistiques (temps).
-  var statsVisibility = 'all';
-  function statsVisParam() { return statsVisibility === 'all' ? '' : '&visibility=' + statsVisibility; }
-  function syncStatsVisBtn() {
-    var labels = { all: t('Tous'), public: t('Public'), confidential: t('Confidentiel') };
-    $('statsVisBtnLabel').textContent = labels[statsVisibility];
-    $('statsVisMenu').querySelectorAll('.statsPeriodMenuItem').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-vis') === statsVisibility);
-    });
-  }
-  $('statsVisBtn').addEventListener('click', function (e) {
-    e.stopPropagation();
-    var menu = $('statsVisMenu');
-    var willOpen = menu.classList.contains('hidden');
-    closeAllStatsPeriodMenus();
-    if (willOpen) menu.classList.remove('hidden');
-  });
-  $('statsVisMenu').addEventListener('click', function (e) {
-    var item = e.target.closest('.statsPeriodMenuItem');
-    if (!item) return;
-    this.classList.add('hidden');
-    var v = item.getAttribute('data-vis') || 'all';
-    if (v === statsVisibility) return;
-    statsVisibility = v;
-    syncStatsVisBtn();
-    loadTimesheet();
-    loadChartStats();
-    if (pieTodayMode) loadPieToday(); else if (pieWeekMode) loadPieWeek();
-  });
-  syncStatsVisBtn();
-
   function loadPieToday() {
     if (!profile) return;
-    api('GET', '/api/stats/today?userId=' + profile.id + statsVisParam()).then(function (data) {
+    api('GET', '/api/stats/today?userId=' + profile.id).then(function (data) {
       // L'utilisateur a pu re-cliquer (ou quitter l'onglet) pendant la
       // requête : ne rien peindre si le mode n'est plus actif, sinon une
       // réponse tardive écraserait le camembert resynchronisé.
@@ -4015,7 +3929,7 @@
 
   function loadPieWeek() {
     if (!profile) return;
-    api('GET', '/api/stats/week-so-far?userId=' + profile.id + statsVisParam()).then(function (data) {
+    api('GET', '/api/stats/week-so-far?userId=' + profile.id).then(function (data) {
       if (!pieWeekMode) return;
       renderPieBreakdown(data);
     });
@@ -4038,7 +3952,7 @@
 
   function loadChartStats() {
     if (!profile) return;
-    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity + statsVisParam()).then(function (data) {
+    api('GET', '/api/stats?userId=' + profile.id + '&granularity=' + currentChartGranularity).then(function (data) {
       lastDailyBreakdown = data.dailyBreakdown || [];
       renderChart(lastDailyBreakdown);
     });
@@ -4099,6 +4013,7 @@
       ' A' + rInner + ',' + rInner + ' 0 ' + largeArc + ' 0 ' + x2i + ',' + y2i + ' Z';
   }
 
+  TMT.donutSlicePath = donutSlicePath; // réutilisé par la carte « Tâches faites à la date prévue » (js/stats-avance.js)
   // `ids` (optionnel, ajouté le 2 septembre 2026) : où dessiner. Sans lui,
   // le camembert de l'onglet Statistiques, exactement comme avant — la
   // Répartition (#statsPieBlock) n'a aucun changement de comportement. Avec
@@ -4138,8 +4053,8 @@
     svg.setAttribute('role', 'img');
     // Alternative texte : titre + chaque part (nom, durée, pourcentage) + total, pour qui ne voit pas le graphique.
     svg.setAttribute('aria-label', ((ids && ids.ariaLabel) || t('Répartition du temps par activité')) + ' : '
-      + activities.map(function (a) { return a.name + ' ' + formatHM(a.seconds) + ' (' + a.percent + ' %)'; }).join(', ')
-      + ' — ' + t('Total') + ' ' + formatHM(totalSeconds));
+      + activities.map(function (a) { return a.name + ' ' + formatHMStats(a.seconds) + ' (' + a.percent + ' %)'; }).join(', ')
+      + ' — ' + t('Total') + ' ' + formatHMStats(totalSeconds));
 
     // Centre du donut — total par défaut, ou `ids.centerOverride` ({ value,
     // label }, 22 septembre 2026 — voir `ids.onGroupTap` plus bas) affiché à
@@ -4152,7 +4067,7 @@
       centerVal.textContent = ids.centerOverride.value;
       centerLabel.textContent = ids.centerOverride.label || '';
     } else {
-      centerVal.textContent = formatHM(totalSeconds);
+      centerVal.textContent = formatHMStats(totalSeconds);
       centerLabel.textContent = 'total';
     }
 
@@ -4168,7 +4083,7 @@
       path.setAttribute('fill', a.color);
       path.setAttribute('class', 'pieSlice');
       var title = document.createElementNS(svgNS, 'title');
-      title.textContent = a.name + ' — ' + formatHM(a.seconds) + ' (' + a.percent + '%)';
+      title.textContent = a.name + ' — ' + formatHMStats(a.seconds) + ' (' + a.percent + '%)';
       path.appendChild(title);
       // `ids.canTap` est un filtre OPTIONNEL par activité (4 septembre 2026) :
       // absent, toutes les parts sont cliquables comme avant ; présent, seules
@@ -4221,7 +4136,7 @@
       label.textContent = a.name;
       var value = document.createElement('span');
       value.className = 'pieLegendValue';
-      value.textContent = formatHM(a.seconds) + ' · ' + a.percent + '%';
+      value.textContent = formatHMStats(a.seconds) + ' · ' + a.percent + '%';
       row.appendChild(dot); row.appendChild(label); row.appendChild(value);
       // ⚠️ 4 septembre 2026 (Chrono — sous-projets, débordement signalé) :
       // paramètre OPTIONNEL `ids.onActivityTap`. Absent — c'est le cas de tous
@@ -4273,120 +4188,24 @@
   // todolist (contrat R1-R6, figé) : les deux chiffres se lisent côte à côte,
   // jamais l'un dans l'autre.
 
-  // ----- Nuances : même teinte, même saturation, clarté échelonnée -----
-  // Les couleurs d'activité viennent d'une palette fermée de 8 teintes très
-  // écartées (public/theme-palette.js) : ne faire varier que la CLARTÉ garantit
-  // qu'un sous-projet d'une activité « rouge » reste reconnaissable comme du
-  // rouge, et qu'aucune nuance ne peut être confondue avec une autre activité.
-  function hexToHsl(hex) {
-    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
-    if (!m) return null;
-    var r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
-    var max = Math.max(r, g, b), min = Math.min(r, g, b);
-    var l = (max + min) / 2, h = 0, s = 0;
-    if (max !== min) {
-      var d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-      else if (max === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h /= 6;
-    }
-    return { h: h, s: s, l: l };
-  }
-
-  function hslToHex(h, s, l) {
-    function hue2rgb(p, q, tt) {
-      if (tt < 0) tt += 1;
-      if (tt > 1) tt -= 1;
-      if (tt < 1 / 6) return p + (q - p) * 6 * tt;
-      if (tt < 1 / 2) return q;
-      if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
-      return p;
-    }
-    var r, g, b;
-    if (s === 0) { r = g = b = l; }
-    else {
-      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      var p = 2 * l - q;
-      r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
-    }
-    function hx(v) { return ('0' + Math.round(v * 255).toString(16)).slice(-2); }
-    return '#' + hx(r) + hx(g) + hx(b);
-  }
-
-  // `index` est le rang du sous-projet dans l'ordre d'affichage de l'activité
-  // (calculé côté serveur sur TOUS ses sous-projets, clôturés compris, pour
-  // qu'une couleur ne change pas d'une semaine à l'autre). `index` null =
-  // temps NON rattaché : il garde exactement la couleur de l'activité, donc
-  // rien ne change à l'écran pour qui n'utilise pas les sous-projets.
-  //
-  // ⚠️ Réécrit le 5 septembre 2026 — Emilien, captures à l'appui : « je
-  // souhaite que le contraste entre les couleurs des sous-projets soit plus
-  // prononcé ».
-  //
-  // LA CAUSE, et c'est tout l'intérêt de la réécriture : la première version
-  // espaçait les nuances régulièrement en LUMINOSITÉ HSL. Or le contraste
-  // perçu entre deux couleurs suit un RAPPORT DE LUMINANCE, pas une différence
-  // de luminosité. Près du clair, deux luminosités écartées de 0.15 sont
-  // presque indiscernables ; près du foncé, le même écart saute aux yeux. Un
-  // espacement régulier en luminosité produit donc mécaniquement des paires
-  // collées d'un côté et écartées de l'autre — les trois violets identiques de
-  // la capture d'Emilien.
-  //
-  // Ce qui change, dans l'ordre de l'effet obtenu :
-  //   1. les rangs sont répartis régulièrement dans le LOGARITHME de la
-  //      luminance : chaque nuance a alors le même rapport de contraste avec
-  //      sa voisine, quelle que soit sa position dans la bande ;
-  //   2. la zone interdite autour de la couleur de base (réservée au temps
-  //      « Sans sous-projet ») est RETIRÉE de la bande avant répartition, au
-  //      lieu d'être corrigée après coup par un petit décalage — qui pouvait
-  //      rapprocher deux nuances voisines ;
-  //   3. la saturation alterne légèrement d'un rang à l'autre, pour que deux
-  //      nuances voisines diffèrent sur deux dimensions au lieu d'une.
-  //
-  // Gain mesuré sur les 8 couleurs des deux palettes, pire couple : ~1.2:1
-  // avant, ~1.5 à 1.9:1 après, sur trois sous-projets.
-  //
-  // La TEINTE, elle, ne bouge jamais (écart maximal mesuré : 0.9°) : c'est ce
-  // qui fait qu'on lit encore « une nuance de cette activité » et pas une
-  // autre couleur (demande d'origine d'Emilien du 4 septembre). Deux
-  // assertions le vérifient.
-
-  // Luminance relative (WCAG) d'une couleur #rrggbb. Sert à espacer les
-  // nuances par CONTRASTE PERÇU et non par luminosité HSL brute — voir
-  // subProjectShade juste en dessous pour la raison.
-  function relLuminance(hex) {
-    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
-    if (!m) return 0;
-    var c = [1, 2, 3].map(function (i) {
-      var v = parseInt(m[i], 16) / 255;
-      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-    });
-    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-  }
-
-  // Les nuances sont recalculées à chaque case de la Feuille de temps — 672 en
-  // vue Semaine — et le calcul ci-dessous fait une recherche par dichotomie.
-  // Une mémoïsation par (couleur, rang, nombre) rend le coût négligeable.
-  var subProjectShadeCache = {};
+  // ----- Clarté perçue (lisibilité du texte sur une couleur d'activité) -----
+  // Les couleurs des pôles ne se calculent plus ici : elles sont fixes dans public/theme-palette.js (TMT.poleColor, règle R47).
+  // Luminance relative (WCAG) d'une couleur #rrggbb.
+  function relLuminance(hex) { return window.NOESIS_THEME_PALETTES.relLuminance(hex); } // source unique : public/theme-palette.js (même fonction que la règle des couleurs de pôles)
 
   // Clarté CIE L* d'une couleur — l'axe perceptuellement uniforme de la
   // luminosité. Deux couleurs séparées de 12 unités de L* se distinguent
   // toujours autant, qu'on soit dans les tons clairs ou dans les tons foncés,
   // ce qui n'est vrai NI de la luminosité HSL NI du rapport de contraste WCAG.
-  function labLightness(hex) {
-    var y = relLuminance(hex);
-    return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
-  }
+  function labLightness(hex) { return window.NOESIS_THEME_PALETTES.labLightness(hex); } // source unique : public/theme-palette.js
 
   // 16 septembre 2026 (Objectifs — B, 8e passage) : couleur de texte lisible
-  // sur un fond de nuance calculée (subProjectShade() plus bas) — utilisée
+  // sur un fond de nuance calculée (TMT.poleColor() plus bas) — utilisée
   // pour les badges de catégorie de la grille d'Objectifs (renderGoalsGridHead()).
   // Différent de textColorForTheme (plus haut) : celle-ci suppose un fond
   // toujours issu de la palette contrainte par thème (8 couleurs, toujours
   // assez sombre en thème sombre / assez claire en thème clair pour un texte
-  // fixe). Les nuances de subProjectShade() couvrent au contraire une bande
+  // fixe). Les nuances de TMT.poleColor() couvrent au contraire une bande
   // de clarté volontairement large (L* 22 à 90, voir son commentaire) pour
   // rester distinguables entre elles — certaines sont donc bien plus claires
   // que ce que textColorForTheme suppose. Seuil à mi-bande (56) plutôt que
@@ -4404,7 +4223,7 @@
   // avant, où readableTextOn() ci-dessus choisissait le texte en fonction du
   // FOND rempli) : une nuance trop sombre en thème sombre, ou trop claire en
   // thème clair, devient difficile à lire en petit texte. Les 5 nuances de
-  // subProjectShade() couvrent volontairement L* 22 à 90 (voir son
+  // TMT.poleColor() couvrent volontairement L* 22 à 90 (voir son
   // commentaire plus bas) pour rester distinguables ENTRE ELLES — ça ne
   // suffit pas à garantir une bonne lisibilité en TEXTE. Corrige seulement
   // au-delà du même seuil L* 56 que readableTextOn() (mi-bande), et mélange
@@ -4426,102 +4245,9 @@
     b = Math.round(b + (b2 - b) * amount);
     return '#' + [r, g, b].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
+  // Nombre de couleurs de pôle standards par activité (theme-palette.js, TMT.poleColor) : sert à étaler les rangs des membres d'une activité partagée.
+  var POLE_TINT_COUNT = 5;
 
-  // ⚠️ 27 septembre 2026 : pastelActivityColor()/pastelActivityTextColor()
-  // (fond pastel clair au repos, option 2 choisie la veille) retirées le
-  // même jour — retour à la couleur pleine de l'activité sur demande directe
-  // d'Emilien, voir renderGoalsCaptureActivities() plus bas (état « au
-  // repos »). Avant elles, mutedActivityColor() (26 septembre, « plein
-  // assourdi ») avait déjà été retirée de la même façon — l'historique
-  // complet de ces 3 tentatives reste dans `noesis-timetracker-chantiers-
-  // en-cours.md`, encarts 63/67.
-
-  // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que tu crées pour
-  // chaque couleur d'activité 5 nuances distinguables à l'œil nu ».
-  //
-  // Deux changements par rapport à la veille :
-  //   · le nombre de nuances est FIXE (5) au lieu de dépendre du nombre de
-  //     sous-projets. Conséquence voulue et importante : ajouter un
-  //     sous-projet ne redistribue plus toutes les couleurs — celle d'un
-  //     sous-projet donné ne bouge plus jamais. `count` n'est donc plus lu ;
-  //     le paramètre reste dans la signature pour tous les appelants
-  //     existants, y compris le serveur qui envoie encore `shadeCount` ;
-  //   · les nuances sont espacées en CLARTÉ CIE L*, et non plus en logarithme
-  //     de luminance. Le rapport de contraste WCAG ne mesure que la luminance :
-  //     il ne voit pas la différence de teinte ou de saturation, et écrase les
-  //     écarts dans les tons clairs. L* est l'axe fait pour ça.
-  //
-  // Réglage choisi par balayage sur 12 couleurs (les 8 des deux palettes plus
-  // 4 cas extrêmes), en maximisant le PIRE écart perceptif (ΔE CIELAB) de
-  // toutes les paires, couleur de base comprise :
-  //   bande L* [22, 90], écart minimal de 11 avec la base, teinte et
-  //   saturation inchangées.
-  // Résultat : ΔE minimal de 12.3 (contre 6.4 la veille) — « nettement
-  // distinguable » commence vers 10. La nuance la plus claire reste à ΔE ≥ 13
-  // du blanc pur et la plus foncée à ΔE ≥ 18 d'un fond sombre : les cinq
-  // restent visibles sur les deux thèmes, ce qui interdisait d'élargir
-  // davantage la bande.
-  //
-  // ⚠️ Au-delà de 5 sous-projets, les nuances se répètent (index % 5). C'est
-  // volontaire et c'est la conséquence directe de la demande : cinq couleurs
-  // franches valent mieux que huit indistinctes. Si Emilien a un jour des
-  // activités à plus de cinq sous-projets et veut les distinguer toutes, il
-  // faudra parler de teinte — c'est la seule dimension qui reste.
-  var SUB_PROJECT_SHADE_COUNT = 5;
-
-  function subProjectShade(baseHex, index, count) {
-    if (index === null || index === undefined) return baseHex;
-    var hsl = hexToHsl(baseHex);
-    if (!hsl) return baseHex;
-
-    var rank = ((Number(index) % SUB_PROJECT_SHADE_COUNT) + SUB_PROJECT_SHADE_COUNT)
-      % SUB_PROJECT_SHADE_COUNT;
-    var cacheKey = baseHex + '|' + rank;
-    if (subProjectShadeCache[cacheKey]) return subProjectShadeCache[cacheKey];
-
-    // Bande de clarté : ni assez claire pour se confondre avec la carte en
-    // thème clair, ni assez foncée pour se confondre avec le fond en thème
-    // sombre. Vérifié : la nuance la plus claire reste à ΔE ≥ 13 du blanc pur,
-    // la plus foncée à ΔE ≥ 18 d'un fond sombre.
-    var LO = 22, HI = 90;      // en clarté CIE L*, pas en luminosité HSL
-    var GAP = 11;              // écart minimal, en L*, avec la couleur de base
-
-    // Teinte ET saturation sont conservées telles quelles : ce sont bien des
-    // nuances de la couleur de l'activité (demande d'Emilien du 4 septembre),
-    // et le balayage de réglages a montré qu'y toucher ne gagnait rien une
-    // fois l'espacement fait dans le bon espace.
-    var s = hsl.s;
-    var lBase = labLightness(baseHex);
-
-    // Deux segments : au-dessus et en dessous de la zone interdite autour de
-    // la base (réservée au temps « Sans sous-projet »). L'un des deux peut
-    // être vide si la couleur de l'activité est déjà à une extrémité. Les cinq
-    // rangs se répartissent régulièrement sur leur concaténation, du plus clair
-    // au plus foncé.
-    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
-    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
-    var total = upLen + loLen;
-
-    var target;
-    if (total <= 0) {
-      target = lBase >= (HI + LO) / 2 ? LO : HI;   // cas dégénéré
-    } else {
-      var d = (rank / (SUB_PROJECT_SHADE_COUNT - 1)) * total;
-      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
-    }
-
-    // Dichotomie sur la luminosité HSL pour atteindre la clarté L* visée :
-    // L* est monotone en l à teinte et saturation fixées. 28 itérations
-    // descendent bien en dessous du pas d'un entier de composante.
-    var lo = 0, hi = 1;
-    for (var k = 0; k < 28; k++) {
-      var mid = (lo + hi) / 2;
-      if (labLightness(hslToHex(hsl.h, s, mid)) < target) lo = mid; else hi = mid;
-    }
-    var out = hslToHex(hsl.h, s, (lo + hi) / 2);
-    subProjectShadeCache[cacheKey] = out;
-    return out;
-  }
 
   // ----- La fenêtre -----
   // Elle reprend la structure du volet Statistiques : une Feuille de temps,
@@ -4535,7 +4261,8 @@
   // lente peindre par-dessus la plus récente.
   var categoryStatsToken = 0;
   var csCtx = null;              // { activityId, memberId, name }
-  var csPeriod = 'week';         // 'week' | 'month'
+  var csPeriod = 'week';         // 'week' | 'period'
+  var csPeriodOffset = 0;
   var csWeekOffset = 0;
   var csMonthOffset = 0;
   var csTodayMode = false;       // Répartition désynchronisée sur la journée
@@ -4682,6 +4409,7 @@
     csPeriod = 'week';
     csWeekOffset = 0;
     csMonthOffset = 0;
+    csPeriodOffset = 0;
     csTodayMode = false;
     csLastData = null;
     csChartGranularity = 'day';
@@ -4717,6 +4445,32 @@
     loadCategoryChart();
   }
 
+  // BILAN (14 nov. 2026) : le contenu de cette fenêtre (Feuille de temps, Répartition, Graphique d'UNE activité par pôle et par secteur) est déplacé tel quel dans la page Bilan,
+  // sans fenêtre : on y réutilise la zone défilante (mêmes ids, mêmes fonctions) puis on la remet dans la fenêtre en quittant.
+  var bilanCsHome = null;
+  TMT.bilanCategoryStats = {
+    // memberId : activité à plusieurs membres, statistiques d'UN membre (mêmes routes, ?memberId=) ; absent = les siennes.
+    open: function (hostEl, activityId, name, memberId) {
+      var scroll = $('categoryStatsScroll');
+      if (!profile || !hostEl || !scroll || categoryStatsMarkupMissing().length) return;
+      if (!bilanCsHome) bilanCsHome = { parent: scroll.parentNode, next: scroll.nextSibling };
+      hostEl.appendChild(scroll);
+      csCtx = { activityId: Number(activityId), memberId: memberId && memberId !== profile.id ? memberId : null, name: name || '' };
+      csPeriod = 'week'; csWeekOffset = 0; csMonthOffset = 0; csPeriodOffset = 0; csTodayMode = false; csLastData = null; csChartGranularity = 'day';
+      syncCsTodayBtn();
+      syncPeriodMenuActive($('csTsPeriodMenu'), 'week');
+      syncPeriodMenuActive($('csChartPeriodMenu'), 'day');
+      loadCategoryStats();
+      loadCategoryChart();
+    },
+    close: function () {
+      var scroll = $('categoryStatsScroll');
+      categoryStatsToken++; categoryChartToken++; csCtx = null;
+      if (bilanCsHome && scroll && scroll.parentNode !== bilanCsHome.parent) bilanCsHome.parent.insertBefore(scroll, bilanCsHome.next && bilanCsHome.next.parentNode === bilanCsHome.parent ? bilanCsHome.next : null);
+      bilanCsHome = null;
+    }
+  };
+
   function closeCategoryStats() {
     categoryStatsToken++;   // toute réponse encore en vol devient périmée
     categoryChartToken++;
@@ -4727,12 +4481,12 @@
   function loadCategoryStats() {
     if (!profile || !csCtx) return;
     var token = ++categoryStatsToken;
-    $('categoryStatsMsg').textContent = t('Chargement...');
+    $('categoryStatsMsg').textContent = '';
 
     var url = '/api/category-timesheet?userId=' + profile.id
       + '&activityId=' + csCtx.activityId
       + '&period=' + csPeriod
-      + (csPeriod === 'month' ? '&monthOffset=' + csMonthOffset : '&weekOffset=' + csWeekOffset)
+      + (csPeriod === 'period' ? '&periodOffset=' + csPeriodOffset : '&weekOffset=' + csWeekOffset)
       + (csCtx.memberId ? '&memberId=' + encodeURIComponent(csCtx.memberId) : '');
 
     api('GET', url).then(function (data) {
@@ -4763,7 +4517,7 @@
   // doivent colorer des cases dont ils n'ont pas la part sous la main), tandis
   // que /category-stats — celle du mode « Aujourd'hui » et de la page solo —
   // met un `shadeIndex` sur CHAQUE part et pas de table. Sans ce repli, le rang
-  // était introuvable, `subProjectShade(base, null, ...)` renvoyait la couleur
+  // était introuvable, `TMT.poleColor(base, null, ...)` renvoyait la couleur
   // de base, et TOUTES les catégories ressortaient de la couleur de l'activité
   // — exactement ce qu'Emilien a vu en appuyant sur « Aujourd'hui ».
   //
@@ -4775,7 +4529,7 @@
     if (category === null || category === undefined) return data.baseColor;
     var rank = data.shadeByCategory ? data.shadeByCategory[category] : undefined;
     if (rank === undefined || rank === null) rank = fallbackRank;
-    return subProjectShade(data.baseColor, rank === undefined ? null : rank, data.shadeCount);
+    return TMT.poleColor(data.baseColor, rank === undefined ? null : rank);
   }
 
   // ⚠️ 6 septembre 2026, demande d'Emilien : « je souhaite que la barre
@@ -4823,11 +4577,11 @@
       colorOf: function (slot) { return categoryColorFor(data, slot.category); },
       tappable: false,
     };
-    if (data.period === 'month') renderTimesheetMonth(data, ids);
+    if (data.period === 'month' || data.period === 'period') renderTimesheetMonth(data, ids);
     else renderTimesheetWeek(data, ids);
 
     // ----- La répartition, synchronisée sur la grille ci-dessus -----
-    if (!csTodayMode) renderCategoryPie(data.breakdown, data.label, data);
+    if (!csTodayMode) renderCategoryPie(data.breakdown, gridRangeLabel(data), data);
   }
 
   // ===================== PÔLES & SECTEURS — CAMEMBERT/LÉGENDE =====================
@@ -4971,7 +4725,7 @@
       // « uniquement le temps du pôle sans le nom » : la valeur seule, le
       // libellé du centre (normalement « total ») est vidé plutôt que
       // remplacé par le nom du pôle.
-      centerOverride = { value: formatHM(selected.seconds), label: '' };
+      centerOverride = { value: formatHMStats(selected.seconds), label: '' };
     }
 
     renderPie(grouped.slices, totalSeconds, {
@@ -5057,22 +4811,23 @@
     csTodayMode = !csTodayMode;
     syncCsTodayBtn();
     if (csTodayMode) loadCsToday();
-    else if (csLastData) renderCategoryPie(csLastData.breakdown, csLastData.label, csLastData);
+    else if (csLastData) renderCategoryPie(csLastData.breakdown, gridRangeLabel(csLastData), csLastData);
   });
 
   $('csTsPrevWeek').addEventListener('click', function () {
-    if (csPeriod === 'month') csMonthOffset += 1; else csWeekOffset += 1;
+    if (csPeriod === 'period') csPeriodOffset += 1; else csWeekOffset += 1;
     loadCategoryStats();
   });
   $('csTsNextWeek').addEventListener('click', function () {
-    if (csPeriod === 'month') { if (csMonthOffset === 0) return; csMonthOffset -= 1; }
+    if (csPeriod === 'period') { if (csPeriodOffset === 0) return; csPeriodOffset -= 1; }
     else { if (csWeekOffset === 0) return; csWeekOffset -= 1; }
     loadCategoryStats();
   });
   setupStatsPeriodMenu($('csTsPeriodBtn'), $('csTsPeriodMenu'), function (period) {
-    csPeriod = period === 'month' ? 'month' : 'week';
+    csPeriod = period === 'period' ? 'period' : 'week';
     csWeekOffset = 0;
     csMonthOffset = 0;
+    csPeriodOffset = 0;
     loadCategoryStats();
   });
 
@@ -5095,7 +4850,7 @@
   // semaine) — s'y accrocher rendrait cette section dépendante d'un écran qui
   // bouge vite, et l'y faire entrer demanderait de le paramétrer de bout en
   // bout. Les deux écrans partagent ce qui est STABLE : la route,
-  // subProjectShade et renderPie. Rien d'autre.
+  // TMT.poleColor et renderPie. Rien d'autre.
   //
   // ⚠️ Le temps enregistré SANS catégorie forme sa propre part. Le
   // rattachement à une catégorie au démarrage du chrono est optionnel et
@@ -5144,7 +4899,7 @@
         name: p.parentKey ? ((p.parentName || t('Pôle')) + ' · ' + ownName) : ownName,
         seconds: p.seconds,
         percent: p.percent,
-        color: subProjectShade(data.baseColor, p.shadeIndex, data.shadeCount),
+        color: TMT.poleColor(data.baseColor, p.shadeIndex),
       };
     });
     // Nouvelle donnée (nouvelle période, nouvelle activité) : on repart de
@@ -5241,7 +4996,7 @@
   }
 
   setupStatsPeriodMenu($('csChartPeriodBtn'), $('csChartPeriodMenu'), function (g) {
-    csChartGranularity = g === 'week' || g === 'month' ? g : 'day';
+    csChartGranularity = g === 'week' || g === 'period' ? g : 'day';
     loadCategoryChart();
   });
 
@@ -5297,7 +5052,7 @@
   // (voir chartBreakdownForUser, server/lib/stats.js) — pas de calcul de date
   // ici pour ces deux cas.
   function dayChartLabel(d, shortForm) {
-    if (d.granularity === 'week' || d.granularity === 'month') {
+    if (d.granularity === 'week' || d.granularity === 'month' || d.granularity === 'period') {
       // Mois : en anglais, nom du mois formaté par le navigateur (le serveur envoie du français).
       if (d.granularity === 'month' && currentLang === 'en' && d.isoDate) {
         return new Date(d.isoDate + 'T00:00:00').toLocaleDateString(dateLocale(), { month: shortForm ? 'short' : 'long', year: 'numeric' });
@@ -5526,6 +5281,9 @@
       label.setAttribute('class', 'chartAxisLabel');
       label.setAttribute('text-anchor', 'middle');
       label.textContent = dayChartLabel(d, true);
+      var halfLabel = label.textContent.length * 2.7; // 02 : étiquette du premier/dernier point jamais coupée par le bord
+      if (x - halfLabel < 2) { label.setAttribute('x', 2); label.setAttribute('text-anchor', 'start'); }
+      else if (x + halfLabel > width - 2) { label.setAttribute('x', width - 2); label.setAttribute('text-anchor', 'end'); }
       svg.appendChild(label);
     });
 
@@ -5559,7 +5317,7 @@
 
       ordered.slice().reverse().forEach(function (s) {
         // Bulle : seulement les séries > 0 (activités supprimées incluses) + le Total.
-        if (!s.isTotal && !(s.values[i] > 0)) return;
+        if (!s.isTotal && !(s.values[i] >= 60)) return;
         var row = document.createElement('div');
         row.className = 'chartTooltipRow';
         var dot = document.createElement('span');
@@ -5699,15 +5457,15 @@
   // choisie dans le menu "⋮" (currentTimesheetPeriod) : mêmes boutons, mêmes
   // ids, comportement adapté à la vue affichée.
   $('tsPrevWeek').addEventListener('click', function () {
-    if (currentTimesheetPeriod === 'month') currentTimesheetMonthOffset += 1;
+    if (currentTimesheetPeriod === 'period') currentTimesheetPeriodOffset += 1;
     else if (currentTimesheetPeriod === 'year') currentTimesheetYearOffset += 1;
     else currentTimesheetOffset += 1;
     loadTimesheet();
   });
   $('tsNextWeek').addEventListener('click', function () {
-    if (currentTimesheetPeriod === 'month') {
-      if (currentTimesheetMonthOffset === 0) return;
-      currentTimesheetMonthOffset -= 1;
+    if (currentTimesheetPeriod === 'period') {
+      if (currentTimesheetPeriodOffset === 0) return;
+      currentTimesheetPeriodOffset -= 1;
     } else if (currentTimesheetPeriod === 'year') {
       if (currentTimesheetYearOffset === 0) return;
       currentTimesheetYearOffset -= 1;
@@ -5727,17 +5485,17 @@
   function loadTimesheet() {
     if (!profile) return;
     if (currentTimesheetPeriod === 'year') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=year&yearOffset=' + currentTimesheetYearOffset + statsVisParam()).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=year&yearOffset=' + currentTimesheetYearOffset).then(function (data) {
         renderTimesheetYear(data);
         renderPieFromTimesheet(data);
       });
-    } else if (currentTimesheetPeriod === 'month') {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=month&monthOffset=' + currentTimesheetMonthOffset + statsVisParam()).then(function (data) {
+    } else if (currentTimesheetPeriod === 'period') {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=period&periodOffset=' + currentTimesheetPeriodOffset).then(function (data) {
         renderTimesheetMonth(data);
         renderPieFromTimesheet(data);
       });
     } else {
-      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset + statsVisParam()).then(function (data) {
+      api('GET', '/api/stats/timesheet?userId=' + profile.id + '&period=week&weekOffset=' + currentTimesheetOffset).then(function (data) {
         renderTimesheetWeek(data);
         renderPieFromTimesheet(data);
       });
@@ -5795,8 +5553,8 @@
     $(I.frozen).classList.remove('tsFrozenCal');
 
     // 29 oct. 2026 (Émilien) : la semaine s'écrit « Du 26/10 au 01/11 » (sans le mot « Semaine ») et la semaine en cours « En cours » (sans dates) ; les dates ne se coupent jamais (espaces insécables).
-    var wm = /^Semaine du (\S+) au (\S+)$/.exec(data.label || '');
-    $(I.weekLabel).textContent = (wm && data.isCurrentWeek) ? t('En cours') : (wm ? t('Du') + ' ' + wm[1] + ' ' + t('au') + ' ' + wm[2] : t(data.label)) + (data.isCurrentWeek ? t(' (en cours)') : '');
+    // 23 nov. 2026 (Émilien) : la semaine s'écrit par son numéro (S1 à S52, même grille que les périodes) ; la semaine en cours reste « En cours ».
+    $(I.weekLabel).textContent = data.isCurrentWeek ? t('En cours') : (data.weekNumber ? 'S' + data.weekNumber : t(data.label));
     $(I.nextBtn).disabled = data.isCurrentWeek;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
@@ -5899,8 +5657,8 @@
     $(I.frozen).classList.remove('hidden');
     $(I.frozen).classList.add('tsFrozenCal');
 
-    $(I.weekLabel).textContent = monthShortLabel(t(data.label)); // seule la semaine en cours s'écrit « En cours » ; le mois et l'année gardent leur nom, sans « en cours » (Émilien, 29 oct. 2026)
-    $(I.nextBtn).disabled = data.isCurrentMonth;
+    $(I.weekLabel).textContent = data.weekNumbers ? data.label : monthShortLabel(t(data.label)); // seule la semaine en cours s'écrit « En cours » ; le mois et l'année gardent leur nom, sans « en cours » (Émilien, 29 oct. 2026)
+    $(I.nextBtn).disabled = data.isCurrentMonth || data.isCurrentPeriod;
     $(I.prevBtn).disabled = !data.hasMoreBefore;
 
     var hasAnyEntry = data.weeks.some(function (week) {
@@ -5918,11 +5676,11 @@
       html += '<div class="tsCalHeaderCell">' + t(name).slice(0, 3) + '</div>';
     });
 
-    data.weeks.forEach(function (week) {
+    data.weeks.forEach(function (week, wi) {
       var firstDate = new Date(week[0].isoDate + 'T00:00:00');
       var lastDate = new Date(week[6].isoDate + 'T00:00:00');
-      frozen += '<div class="tsCalWeekLabel">' + pad(firstDate.getDate()) + '/' + pad(firstDate.getMonth() + 1)
-        + ' - ' + pad(lastDate.getDate()) + '/' + pad(lastDate.getMonth() + 1) + '</div>';
+      frozen += '<div class="tsCalWeekLabel">' + (data.weekNumbers ? 'S' + escapeHtml(String(data.weekNumbers[wi])) : pad(firstDate.getDate()) + '/' + pad(firstDate.getMonth() + 1)
+        + ' - ' + pad(lastDate.getDate()) + '/' + pad(lastDate.getMonth() + 1)) + '</div>';
 
       week.forEach(function (day) {
         var dateObj = new Date(day.isoDate + 'T00:00:00');
@@ -5976,32 +5734,28 @@
     var year = parseInt(String(data.start).slice(0, 4), 10);
     var frozen = '<div class="tsCalCorner"></div>';
     var html = '';
-    for (var mi = 0; mi < 12; mi++) {
-      html += '<div class="tsCalHeaderCell">' + escapeHtml(monthNameLocal(mi).slice(0, 3)) + '</div>';
-    }
+    for (var pi = 1; pi <= 13; pi++) html += '<div class="tsCalHeaderCell">P' + escapeHtml(String(pi)) + '</div>';
     data.rows.forEach(function (r) {
       var rowName = r.name || t('Sans pôle');
       frozen += '<div class="tsCalWeekLabel" style="overflow:hidden;text-overflow:ellipsis;display:block;line-height:var(--cal-row)" title="' + escapeHtml(rowName) + '">' + escapeHtml(rowName) + '</div>';
-      r.months.forEach(function (sec, m) {
-        var lit = {};
-        ((r.days && r.days[m]) || []).forEach(function (d) { lit[d] = true; });
-        html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · ' + escapeHtml(monthNameLocal(m)) + '">';
-        html += '<div class="tsCalDayNum">' + (sec > 0 ? formatHM(sec) : '') + '</div>'; // ligne du total toujours réservée : points à la même hauteur dans une ligne
+      (r.periods || []).forEach(function (sec, p) {
+        var litP = {};
+        ((r.periodDays && r.periodDays[p]) || []).forEach(function (d) { litP[d] = true; });
+        html += '<div class="tsCalDay tsYearCell" title="' + escapeHtml(rowName) + ' · P' + (p + 1) + '">';
+        html += '<div class="tsCalDayNum">' + (sec >= 60 ? formatHM(sec) : '') + '</div>';
         html += '<div class="tsYearDots">';
-        for (var d = 1, n = new Date(year, m + 1, 0).getDate(); d <= n; d++) {
-          html += '<i class="tsYearDot"' + (lit[d] ? ' style="background:' + r.color + '"' : '') + '></i>';
-        }
+        for (var dp = 1; dp <= 28; dp++) html += '<i class="tsYearDot"' + (litP[dp] ? ' style="background:' + r.color + '"' : '') + '></i>';
         html += '</div></div>';
       });
     });
     $(I.frozen).innerHTML = frozen;
-    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(12,minmax(56px,1fr))">' + html + '</div>';
+    $(I.calendar).innerHTML = '<div class="tsCalendarGrid" style="grid-template-columns:repeat(13,minmax(56px,1fr))">' + html + '</div>';
 
     // Ouvre la vue sur le mois en cours (dernière colonne visible), pas sur janvier ; une année passée s'ouvre sur janvier.
     var yScroller = $(I.calendar).parentNode;
     if (yScroller && yScroller.clientWidth > 0) {
-      var cw = yScroller.scrollWidth / 12;
-      yScroller.scrollLeft = data.isCurrentYear ? Math.max(0, Math.round((new Date().getMonth() + 1) * cw - yScroller.clientWidth)) : 0;
+      var cw = yScroller.scrollWidth / 13;
+      yScroller.scrollLeft = data.isCurrentYear && data.currentPeriod ? Math.max(0, Math.round(data.currentPeriod * cw - yScroller.clientWidth)) : 0;
     }
   }
 
@@ -6097,7 +5851,7 @@
   // membres d'avoir choisi la même : ils devenaient alors indistinguables,
   // exactement le cas de la capture. On garde donc ici la couleur de
   // l'ACTIVITÉ, et chaque membre reçoit une de ses cinq nuances — même
-  // fonction (subProjectShade) et même palette que les sous-projets, pour que
+  // fonction (TMT.poleColor) et même palette que les sous-projets, pour que
   // les deux sections de cette page se lisent de la même façon.
   var currentActivityColor = '';
 
@@ -6109,7 +5863,6 @@
   // et l'ensemble ne fait que GRANDIR au fil des réponses reçues — un membre
   // absent d'une période donnée ne décale personne.
   var activityMemberIds = {};   // activityId -> tableau d'identifiants triés
-  var sharedStatsActivityId = ''; // activité affichée dans la 3e page du Chrono (statistiques des activités partagées)
 
   function rememberActivityMembers(activityId, lists) {
     var key = String(activityId);
@@ -6130,7 +5883,7 @@
   // (aucune régression possible : c'est le comportement d'avant).
   function activityMemberColor(userId, fallbackColor, activityId) {
     if (!currentActivityColor || !userId) return fallbackColor;
-    var known = activityMemberIds[String(activityId || sharedStatsActivityId)] || [];
+    var known = activityMemberIds[String(activityId)] || [];
     var index = known.indexOf(String(userId));
     if (index < 0) return fallbackColor;
     // Un seul membre : rien à distinguer, on garde sa couleur telle quelle.
@@ -6143,11 +5896,11 @@
     // À deux membres, prendre les rangs 0 et 1 donnait deux nuances claires
     // presque jumelles ; étalés, ils prennent les deux extrêmes de l'échelle.
     // Conséquence assumée : arriver à trois membres redistribue les nuances.
-    var last = SUB_PROJECT_SHADE_COUNT - 1;
-    var rank = known.length > SUB_PROJECT_SHADE_COUNT
-      ? index % SUB_PROJECT_SHADE_COUNT
+    var last = POLE_TINT_COUNT - 1;
+    var rank = known.length > POLE_TINT_COUNT
+      ? index % POLE_TINT_COUNT
       : Math.round((index * last) / (known.length - 1));
-    return subProjectShade(currentActivityColor, rank, known.length);
+    return TMT.poleColor(currentActivityColor, rank);
   }
 
   // Le bloc de détail est un élément unique, déplacé d'une ligne à l'autre au
@@ -6328,23 +6081,6 @@
       loadActivityGoalsCategories(currentCommunityActivityId);
     }
     catSyncComposer();
-
-    // « je souhaite que dans le graphique, les dernières données se
-    // réaffichent toujours par défaut, pas d'enregistrement de la dernière
-    // position quand je quitte et que je reviens » (Emilien, 3 septembre).
-    //
-    // Deux raisons rendent ce rappel nécessaire, et pas seulement confortable :
-    //  · le repositionnement fait dans renderActivityChart s'exécute pendant
-    //    que la section Statistiques est encore MASQUÉE à l'ouverture de la
-    //    page (la section par défaut est Sous-projets) — or un élément en
-    //    display:none a un scrollWidth de 0, donc il n'y a rien à cadrer.
-    //    Exactement le même piège que le défilement du fil juste au-dessus ;
-    //  · quand on revient sur Statistiques sans recharger les données, le
-    //    navigateur restitue la position laissée au départ.
-    if (name === 'stats') {
-      var chartScroll = document.querySelector('#communityActivityChartWrap .chartScroll');
-      if (chartScroll) requestAnimationFrame(function () { chartScroll.scrollLeft = chartScroll.scrollWidth; });
-    }
   }
 
   // ⚠️ 5 septembre 2026 (discussion « Activité solo ») — UNE PAGE DANS LES DEUX
@@ -6571,115 +6307,6 @@
   // uniquement possible pour la toute première catégorie d'une activité
   // neuve, jamais encore renommée/complétée d'une 2e) — le serveur absorbe
   // la différence, ce panneau n'a plus à la distinguer visuellement.
-  // 17 septembre 2026 (fusion sous-projet → catégorie, section Tâches) —
-  // demande d'Emilien : « on reprend les fonctionnalités qu'on avait créées
-  // pour les sous-projets, mais on les applique à la catégorie ». Reprend
-  // telle quelle la mécanique de buildTaskRow (checkbox, lien cliquable via
-  // appendLinkified, suppression) — jamais réimplémentée — mais SANS le
-  // badge « qui a coché » ni le sélecteur « membre prévu »
-  // (buildTaskPlannedMemberPicker) : ce dernier dépend de
-  // subProjectDetailMembers, chargé uniquement par loadSubProjectDetail()
-  // (vue détail d'UN sous-projet), pas disponible ici. Réduction de portée
-  // assumée pour cette passe, signalée à Emilien — affecter un membre prévu
-  // à une tâche créée depuis une catégorie reste possible en ouvrant son
-  // sous-projet "domicile" depuis Sous-projets.
-  // 17 septembre 2026 (3e correction, demande d'Emilien, citation directe) :
-  // « Je souhaite ajouter une option pour changer manuellement les tâches de
-  // catégorie. » — sélecteur compact à droite de chaque tâche, en plus du
-  // classement automatique par IA de la bulle : PUT
-  // .../goals/tasks/:itemId/category (server/lib/goalstasks.js#moveCategoryTask),
-  // qui déplace réellement la tâche vers le sous-projet "domicile" de la
-  // nouvelle catégorie (même mécanique que tout le reste de ce fichier,
-  // jamais de nouveau modèle de données).
-  function buildCategoryTaskRow(item, activityId, categoryKey) {
-    var row = document.createElement('div');
-    row.className = 'subProjectItem' + (item.done ? ' done' : '');
-
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = item.done;
-    cb.addEventListener('change', function () {
-      cb.disabled = true;
-      api('PUT', '/api/sub-project-items/' + item.id, { userId: profile.id, done: cb.checked })
-        .then(function () { activityGoalsCategoriesRefresh(activityId); })
-        .catch(function (err) { cb.checked = !cb.checked; alert(err.message); cb.disabled = false; });
-    });
-    row.appendChild(cb);
-
-    var label = document.createElement('span');
-    label.className = 'subProjectItemLabel';
-    appendLinkified(label, item.label);
-    row.appendChild(label);
-
-    if (item.goalAutoGenerated) {
-      var autoBadge = document.createElement('span');
-      autoBadge.className = 'meta subProjectItemAutoBadge';
-      autoBadge.textContent = '🗓️';
-      autoBadge.title = t('Déjà casée dans le planning hebdomadaire Objectifs');
-      row.appendChild(autoBadge);
-    }
-
-    var moveSelect = document.createElement('select');
-    moveSelect.className = 'activityGoalsCategoryTaskMove';
-    moveSelect.setAttribute('aria-label', t('Changer de pôle'));
-    currentActivityGoalsCategories.forEach(function (c) {
-      var opt = document.createElement('option');
-      opt.value = c.key;
-      opt.textContent = c.label;
-      if (c.key === categoryKey) opt.selected = true;
-      moveSelect.appendChild(opt);
-    });
-    moveSelect.addEventListener('click', function (e) { e.stopPropagation(); });
-    moveSelect.addEventListener('change', function () {
-      var newKey = moveSelect.value;
-      if (newKey === categoryKey) return;
-      moveSelect.disabled = true;
-      api('PUT', '/api/activities/' + activityId + '/goals/tasks/' + item.id + '/category', { userId: profile.id, categoryKey: newKey })
-        .then(function () { activityGoalsCategoriesRefresh(activityId); })
-        .catch(function (err) { alert(err.message); moveSelect.value = categoryKey; moveSelect.disabled = false; });
-    });
-    row.appendChild(moveSelect);
-
-    var del = TMT.ui.removeBtn(null, t('Supprimer cette tâche'));
-    del.addEventListener('click', function () {
-      TMT.ui.confirm(t('Supprimer cette tâche ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
-      api('DELETE', '/api/sub-project-items/' + item.id + '?userId=' + profile.id)
-        .then(function () { activityGoalsCategoriesRefresh(activityId); })
-        .catch(function (err) { alert(err.message); });
-    });
-    });
-    row.appendChild(del);
-    return row;
-  }
-
-  // Bloc de tâches d'une catégorie — liste (agrégée côté serveur depuis tous
-  // les sous-projets rattachés, voir server/lib/goalstasks.js), affichée
-  // seulement quand la catégorie est dépliée (voir
-  // renderActivityGoalsCategoriesPanel/activityGoalsCategoriesOpen).
-  // 17 septembre 2026 (3e correction, demande explicite d'Emilien) :
-  // « Supprime l'option d'ajouter une tâche directement dans la
-  // catégorie. » — le champ d'ajout par catégorie a disparu, tout passe
-  // désormais par la bulle IA unique en haut du panneau
-  // (buildCategoryAutoTaskBubble). Mêmes classes que buildTasksSection
-  // (plus haut dans ce fichier) pour un rendu visuel identique, sans
-  // dupliquer le CSS.
-  function buildCategoryTasksBlock(activityId, categoryKey, tasks) {
-    var wrap = document.createElement('div');
-    wrap.className = 'activityGoalsCategoryTasksBlock';
-
-    var itemsList = document.createElement('div');
-    itemsList.className = 'subProjectItems';
-    (tasks || []).forEach(function (item) { itemsList.appendChild(buildCategoryTaskRow(item, activityId, categoryKey)); });
-    wrap.appendChild(itemsList);
-
-    if (!(tasks || []).length) {
-      var empty = document.createElement('p');
-      empty.className = 'msg';
-      empty.textContent = t('Aucune tâche dans ce pôle.');
-      wrap.appendChild(empty);
-    }
-    return wrap;
-  }
 
   // 17 septembre 2026 (discussion C, cadré avec Emilien via AskUserQuestion,
   // citation directe : « lorsqu'on clique sur le plus, on ajoute
@@ -6721,6 +6348,8 @@
   // prévient par message AUTOTASK_SYNCED), sinon la page elle-même, à
   // l'événement 'online' et au chargement.
   var categoryAutoTaskOffline = [];
+  // 20 nov. 2026 : objectifs créés sans réseau, dans la même file (kind 'objectif') ; affichés dans l'arbre (objectifs-arbre.js), jamais dans la bulle des tâches.
+  var offlineObjectifs = [];
   var autoTaskQueue = window.NoesisAutoTaskQueue || null;
 
   function rerenderAutoTaskBubbleFromCache() {
@@ -6731,8 +6360,11 @@
   function reloadOfflineAutoTasks() {
     if (!autoTaskQueue) return Promise.resolve();
     return autoTaskQueue.list().then(function (items) {
-      categoryAutoTaskOffline = items.sort(function (a, b) { return a.id - b.id; });
+      items.sort(function (a, b) { return a.id - b.id; });
+      categoryAutoTaskOffline = items.filter(function (it) { return it.kind !== 'objectif'; });
+      offlineObjectifs = items.filter(function (it) { return it.kind === 'objectif'; });
       rerenderAutoTaskBubbleFromCache();
+      if (window.TMT.objectifsArbre && window.TMT.objectifsArbre.render) window.TMT.objectifsArbre.render();
     }).catch(function () { /* IndexedDB indisponible : rien à afficher */ });
   }
 
@@ -6745,13 +6377,18 @@
 
   function applyAutoTaskSyncResult(result) {
     if (!result) return reloadOfflineAutoTasks();
+    var objSynced = false;
     (result.synced || []).forEach(function (s) {
+      if (s.kind === 'objectif') { objSynced = true; return; }
       categoryAutoTaskPending.push({ activityId: String(s.activityId), label: s.label, categoryLabel: s.categoryLabel || '' });
     });
     (result.failed || []).forEach(function (f) {
+      if (f.kind === 'objectif' || f.kept) return; // reste dans la file (marqué en échec) et s'affiche dans l'arbre
       categoryAutoTaskPending.push({ activityId: String(f.activityId), label: f.label, failed: true, error: f.error || '' });
     });
-    return reloadOfflineAutoTasks();
+    return reloadOfflineAutoTasks().then(function () {
+      if (objSynced && window.TMT.objectifsArbre && window.TMT.objectifsArbre.refresh) window.TMT.objectifsArbre.refresh();
+    });
   }
 
   function syncOfflineAutoTasks() {
@@ -6768,14 +6405,25 @@
     }).catch(function () { /* nouvel essai au prochain 'online' ou chargement */ });
   }
 
-  function enqueueOfflineAutoTask(activityId, label) {
+  function enqueueOfflineAutoTask(activityId, label, extra) {
     if (!autoTaskQueue) return Promise.reject(new Error(t('Hors ligne — connecte-toi à internet pour continuer.')));
-    return autoTaskQueue.add({ activityId: activityId, label: label, tz: clientTimezone }).then(function () {
+    return autoTaskQueue.add({ activityId: activityId, label: label, tz: clientTimezone, dueDate: extra && extra.dueDate, plannedUserId: extra && extra.plannedUserId }).then(function () {
       return reloadOfflineAutoTasks();
     }).then(function () {
       syncOfflineAutoTasks();
     });
   }
+
+  // Création d'un objectif sans réseau (objectifs-creer.js) : même file, même voie d'envoi.
+  window.TMT.offlineObjectifs = {
+    add: function (activityId, label, body) {
+      if (!autoTaskQueue) return Promise.reject(new Error(t('Hors ligne — connecte-toi à internet pour continuer.')));
+      return autoTaskQueue.addObjectif({ activityId: activityId, label: label, body: body, tz: clientTimezone }).then(function () { return reloadOfflineAutoTasks(); }).then(function () { syncOfflineAutoTasks(); });
+    },
+    list: function () { return offlineObjectifs.slice(); },
+  };
+  // Barre « Nouvelle tâche… » de la vue Tâches (aujourdhui.js) sans réseau : même file que la capture hors ligne (rangée par l'IA au retour du réseau, jamais de doublon).
+  window.TMT.offlineTask = { add: function (activityId, label, extra) { return enqueueOfflineAutoTask(activityId, label, extra); } };
 
   if (autoTaskQueue) {
     window.addEventListener('online', syncOfflineAutoTasks);
@@ -6995,7 +6643,8 @@
       offlineHere.forEach(function (o) {
         var row = document.createElement('p');
         row.className = 'meta activityGoalsCategoryAutoTaskOfflineRow';
-        row.textContent = '⏳ ' + o.label + ' — ' + t('la synchronisation se fera au retour du réseau');
+        if (o.failed) { row.classList.add('isFailed'); row.textContent = '✗ ' + o.label + ' — ' + t('non ajoutée') + (o.error ? ' : ' + t(o.error) : ''); } // refusée à la synchronisation : reste visible avec le message du serveur
+        else row.textContent = '⏳ ' + o.label + ' — ' + t('la synchronisation se fera au retour du réseau');
         offlineZone.appendChild(row);
       });
       wrap.appendChild(offlineZone);
@@ -7016,7 +6665,7 @@
   // Comportement :
   //  · liste de PÔLES ; toucher une ligne la déplie/replie et révèle ses SECTEURS ;
   //  · couleur : seulement les pôles, AUTOMATIQUE selon leur position dans la liste
-  //    (subProjectShade, nuance de la couleur de l'activité) — aucun sélecteur ;
+  //    (TMT.poleColor, teinte standard de pôle de l'activité) — aucun sélecteur ;
   //  · ajout : zone d'écriture #catComposer (frère de #activityPageScroll, voir
   //    index.html), collée au-dessus du clavier ; la cible est « nouveau pôle » ou
   //    un pôle précis (touche « + Nouveau secteur » sous un pôle déplié) ;
@@ -7280,7 +6929,7 @@
     header.className = 'activityRowHeader';
     var dot = document.createElement('span');
     dot.className = 'dot';
-    dot.style.background = subProjectShade(currentActivityColor, 0, SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = TMT.poleColor(currentActivityColor, 0);
     var title = document.createElement('span');
     title.className = 'activityRowName';
     title.textContent = t('Nouveau pôle');
@@ -7433,7 +7082,7 @@
     var box = $('catComposer');
     if (!box) return;
     var addPoleBtn = $('catAddPoleBtn');
-    if (addPoleBtn) addPoleBtn.classList.toggle('hidden', activityGoalsCategoriesEditMode);
+    if (addPoleBtn) addPoleBtn.classList.toggle('hidden', activityGoalsCategoriesEditMode || !catCanAll());
     if (addPoleBtn) {
       var poleFull = currentActivityGoalsCategories.length >= currentActivityGoalsMax;
       addPoleBtn.disabled = poleFull;
@@ -7448,7 +7097,7 @@
     }
     // La zone d'écriture ne sert plus qu'à ajouter un SECTEUR (cible = un pôle) ;
     // l'ajout d'un pôle passe par la ligne de saisie inline (« + » de l'en-tête).
-    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole && !catNewPoleRow));
+    box.classList.toggle('hidden', !(activityPageSection === 'sub' && !activityGoalsCategoriesEditMode && pole && catCan(pole.key) && !catNewPoleRow));
     $('catComposerTarget').classList.toggle('hidden', !pole);
     if (pole) $('catComposerTargetLabel').textContent = t('Secteur dans « {name} »', { name: pole.label });
     $('activityGoalsCategoryAddInput').placeholder = t(pole ? 'Nouveau secteur…' : 'Nouveau pôle…');
@@ -7514,6 +7163,10 @@
   }
 
 
+  // Structure (créer, modifier, retirer, réordonner) : responsables seulement (20 nov. 2026) ; un simple membre ne voit aucun de ces contrôles. Le serveur refuse de toute façon (403).
+  function catManagedInfo() { return lastActivityGoalsCategoriesData && lastActivityGoalsCategoriesData.managed; }
+  function catCanAll() { var m = catManagedInfo(); return !m || !!m.all; }
+  function catCan(key) { var m = catManagedInfo(); return !m || !!m.all || (key != null && (m.keys || []).indexOf(String(key)) >= 0); }
   function catSmallButton(glyph, label, onClick) {
     var b = document.createElement('button');
     b.type = 'button';
@@ -7554,6 +7207,298 @@
       if (f && f.scrollIntoView) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
+  // ---------- Stratégie d'une catégorie (18 nov. 2026, décision d'Émilien) puis MODÈLE MODULABLE (19 nov. 2026) ----------
+  // Ligne « Stratégie » de la fiche d'une catégorie (activité, pôle, secteur), PAR CATÉGORIE : elle se déroule sur place (R36) en SIX lignes de famille (Nature, Temps, Tâches, Objectifs, Personne, Ajustement) ;
+  // chaque famille se déroule sur place et montre ses variables. Valeur de Noèsis (ou vide) en gris atténué ; valeur modifiée en violet clair avec un petit point ; « Revenir à la valeur de Noèsis » quand ce niveau l'a modifiée.
+  // La ligne Ajustement porte le mode (Propose | Auto) et la liste des RÈGLES « signal, seuil, durée, action » : règles de Noèsis (désactivables, jamais supprimables) et règles « À moi » (croix rouge).
+  // Seules les règles dont le moteur existe sont actives ; les autres sont enregistrées et dites « pas encore active ». L'héritage descend (activité -> pôle -> secteur), le niveau inférieur ne change jamais le supérieur.
+  // ENREGISTREMENT : à chaque choix (comme avant ; un bouton du bas ne servirait qu'aux champs numériques et la fiche a déjà celui de la Répartition). Voir docs/ia/strategie-modele.md.
+  // Composants existants : .activityEditRow, .cmpSepRow, .cmpSeg, .cmpChev (TMT.ui.chev), .cmpAdd (TMT.ui.addBtn), .cmpRemove, .objTimeRow, .toggleSwitch. Écriture : propriétaire et responsables de la catégorie (le serveur décide).
+  function buildStrategieBlock(activityId, key, open, onChange) {
+    var url = '/api/activities/' + activityId + '/strategie-categorie/' + (key || '_');
+    var root = document.createElement('div'); root.className = 'catStrategie';
+    var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
+    var data = null, loading = false, openIds = {};
+    if (!open) {
+      var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow cmpSepRow'; // R22 : trait d'un bord à l'autre sous « Stratégie » (comme sous « Responsables ») ; aucun trait sous la dernière option
+      var hl = document.createElement('span'); hl.textContent = t('Stratégie');
+      var hc = TMT.ui.chev(false);
+      head.appendChild(hl); head.appendChild(hc); root.appendChild(head);
+      head.addEventListener('click', function () { var show = body.classList.toggle('hidden') === false; TMT.ui.setChev(hc, show); if (show && !data) load(); });
+    }
+    root.appendChild(body);
+    function load() {
+      if (loading) return; loading = true;
+      api('GET', url).then(function (d) { data = d; paint(); }).catch(function (e) { body.textContent = e.message; }).then(function () { loading = false; });
+    }
+    function put(doc) { // doc : patch du document de stratégie de CETTE catégorie ; null efface (retour à la valeur du dessus ou de Noèsis)
+      return api('PUT', url, { doc: doc }).then(function (d) { data = d; paint(); if (onChange) onChange(); }).catch(function (e) { var m = body.querySelector('.msg'); if (m) m.textContent = e.message; });
+    }
+    function patch(fam, field, v) { var f = {}, d = {}; f[field] = v; d[fam] = f; return put(d); }
+    function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+    function val(fam, f) { var o = data.doc[fam]; return o ? o[f] : undefined; }
+    function srcOf(fam, f) { return data.source[fam + '.' + f] || null; }
+    function mod(fam, f) { return !!data.modifie[fam + '.' + f]; }
+    function mine(fam, f) { return srcOf(fam, f) === 'propre'; }
+    function valueSpan(text, modified) { return el('span', 'catStrategieV' + (modified ? ' modified' : ' inherited'), text == null || text === '' ? '—' : text); }
+    function revert(onClick) { var b = el('button', 'linkBtn catRevert', t('Revenir à la valeur de Noèsis')); b.type = 'button'; b.addEventListener('click', onClick); return b; }
+    // Une ligne qui se déroule sur place (R36) : libellé à gauche, résumé de la valeur + chevron à droite (R21) ; l'état ouvert survit au rafraîchissement.
+    function fold(id, label, summary, build, cls) {
+      var wrap = el('div', 'catStrategieL' + (cls ? ' ' + cls : ''));
+      var row = el('button', 'activityEditRow cmpSepRow'); row.type = 'button';
+      var l = typeof label === 'string' ? el('span', null, label) : label;
+      var hc = TMT.ui.chev(!!openIds[id]);
+      var right = el('span', 'catStrategieR'); if (summary) right.appendChild(summary); right.appendChild(hc);
+      row.appendChild(l); row.appendChild(right); wrap.appendChild(row);
+      var panel = el('div', 'catStrategieQ' + (openIds[id] ? '' : ' hidden')); build(panel); wrap.appendChild(panel);
+      row.addEventListener('click', function () { var show = panel.classList.toggle('hidden') === false; openIds[id] = show; TMT.ui.setChev(hc, show); });
+      return wrap;
+    }
+    var YN = [{ value: true, label: 'Oui' }, { value: false, label: 'Non' }];
+    function optLabel(options, v) { var f = null; options.forEach(function (o) { if (o.value === v) f = o; }); return f ? t(f.label) : null; }
+    // Variable à choix : bascule (3 options au plus) ou menu ; retoucher le choix du niveau l'efface.
+    function choice(fam, f, label, options) {
+      var cur = val(fam, f), m = mod(fam, f);
+      return fold(fam + '.' + f, label, valueSpan(optLabel(options, cur), m && cur != null), function (panel) {
+        var s;
+        if (options.length > 3) {
+          s = el('select'); s.disabled = !data.canEdit; s.setAttribute('aria-label', t(label));
+          var o0 = el('option', null, '—'); o0.value = ''; s.appendChild(o0);
+          options.forEach(function (o, i) { var e = el('option', null, t(o.label)); e.value = String(i); s.appendChild(e); });
+          s.value = ''; options.forEach(function (o, i) { if (mine(fam, f) && o.value === cur) s.value = String(i); });
+          s.addEventListener('change', function () { patch(fam, f, s.value === '' ? null : options[Number(s.value)].value); });
+        } else {
+          s = el('div', 'periodSwitch cmpSeg');
+          options.forEach(function (o) {
+            var b = el('button', 'periodBtn' + (mine(fam, f) && cur === o.value ? ' active' : ''), t(o.label)); b.type = 'button'; b.disabled = !data.canEdit;
+            b.addEventListener('click', function () { patch(fam, f, mine(fam, f) && cur === o.value ? null : o.value); });
+            s.appendChild(b);
+          });
+        }
+        panel.appendChild(s);
+        if (mine(fam, f) && data.canEdit) panel.appendChild(revert(function () { patch(fam, f, null); }));
+      });
+    }
+    // Variable à plusieurs choix (jours, phases) : boutons à cocher dans une bascule.
+    function multi(fam, f, label, options) {
+      var cur = val(fam, f) || [], m = mod(fam, f);
+      var txt = cur.length ? options.filter(function (o) { return cur.indexOf(o.value) >= 0; }).map(function (o) { return t(o.label); }).join(' ') : null;
+      return fold(fam + '.' + f, label, valueSpan(txt, m && cur.length > 0), function (panel) {
+        var s = el('div', 'periodSwitch cmpSeg');
+        options.forEach(function (o) {
+          var on = cur.indexOf(o.value) >= 0, b = el('button', 'periodBtn' + (on ? ' active' : ''), t(o.label)); b.type = 'button'; b.disabled = !data.canEdit;
+          b.addEventListener('click', function () { var n = cur.filter(function (x) { return x !== o.value; }); if (!on) n.push(o.value); patch(fam, f, n.length ? n : null); });
+          s.appendChild(b);
+        });
+        panel.appendChild(s);
+        if (mine(fam, f) && data.canEdit) panel.appendChild(revert(function () { patch(fam, f, null); }));
+      });
+    }
+    // Variable numérique ou texte : champ de la ligne « .objTimeRow » ; enregistrée quand on quitte le champ.
+    function field(fam, f, label, unit, kind) {
+      var cur = val(fam, f), m = mod(fam, f);
+      return fold(fam + '.' + f, label, valueSpan(cur == null ? null : cur + (unit ? ' ' + unit : ''), m && cur != null), function (panel) {
+        var r = el('div', 'objTimeRow'), l = el('span', null, t(label));
+        var i = el('input'); i.type = 'text'; i.autocomplete = 'off'; i.disabled = !data.canEdit; i.setAttribute('aria-label', t(label));
+        if (kind === 'text') i.maxLength = 300; else { i.inputMode = 'decimal'; i.maxLength = 6; i.className = 'objNumIn'; }
+        i.value = mine(fam, f) && cur != null ? String(cur) : '';
+        i.addEventListener('change', function () {
+          var raw = i.value.trim(), v = raw === '' ? null : kind === 'text' ? raw : parseFloat(raw.replace(',', '.'));
+          if (v !== null && kind !== 'text' && !isFinite(v)) { i.value = ''; return; }
+          if (v !== null && kind === 'int') v = Math.round(v);
+          patch(fam, f, v);
+        });
+        r.appendChild(l); r.appendChild(i); panel.appendChild(r);
+        if (mine(fam, f) && data.canEdit) panel.appendChild(revert(function () { patch(fam, f, null); }));
+      });
+    }
+    var SIG = { chrono_vs_prevu: 'Chrono contre prévu', planifie_vs_prevu: 'Tâches contre prévu', retard_periode: 'Retard de la période', surcharge_jour: 'Surcharge d’un jour', taches_en_retard: 'Tâches en retard', taches_reportees: 'Tâches reportées', regularite: 'Régularité', duree_reelle_vs_estimee: 'Durée réelle', objectif_atteint: 'Objectif non atteint', difficulte_declaree: 'Difficulté déclarée', objectif_modifie: 'Objectif modifié' };
+    var ACT = { proposer_temps: 'Proposer le temps', reporter_suivante: 'Reporter à la suite', marquer: 'Marquer', proposer_taches: 'Proposer des tâches', proposer_reduction: 'Proposer moins', proposer_revision: 'Proposer une révision', avertir: 'Prévenir' };
+    var UNIT = { '%': '%', n: '', j: 'j', sem: 'sem' };
+    function menu(label, items, cur, labels, disabled, onPick) {
+      var r = el('div', 'objTimeRow'), l = el('span', null, t(label)), s = el('select'); s.disabled = disabled; s.setAttribute('aria-label', t(label));
+      items.forEach(function (id) { var o = el('option', null, t(labels[id] || id)); o.value = id; s.appendChild(o); }); s.value = cur;
+      s.addEventListener('change', function () { onPick(s.value); }); r.appendChild(l); r.appendChild(s); return r;
+    }
+    function numRow(label, cur, unit, disabled, onPick) {
+      var r = el('div', 'objTimeRow'), l = el('span', null, t(label)), i = el('input'); i.type = 'text'; i.inputMode = 'decimal'; i.maxLength = 5; i.autocomplete = 'off'; i.disabled = disabled; i.value = String(cur); i.setAttribute('aria-label', t(label));
+      var u = el('span', 'catStrategieU', unit || ''); i.addEventListener('change', function () { var v = parseFloat(i.value.replace(',', '.')); if (!isFinite(v) || v < 0) { i.value = String(cur); return; } onPick(v); });
+      var box = el('span', 'objHoursVal'); box.appendChild(i); if (unit) box.appendChild(u); r.appendChild(l); r.appendChild(box); return r;
+    }
+    function ruleFold(r) {
+      var sg = data.signaux.filter(function (s) { return s.id === r.signal; })[0] || {}, unit = UNIT[sg.unite] || '';
+      var title = el('span', 'catRuleTitle'); title.appendChild(el('span', null, t(SIG[r.signal] || r.signal) + ' → ' + t(ACT[r.action] || r.action)));
+      if (r.pasActive) title.appendChild(el('small', null, t('pas encore active')));
+      var sum = el('span', 'catRuleTag' + (r.actif ? '' : ' off'), r.origine === 'moi' ? t('À moi') : 'Noèsis');
+      var w = fold('regle.' + r.id, title, sum, function (panel) {
+        var ro = !data.canEdit, nr = r.origine === 'noesis';
+        function pr(c, v) { var o = {}; o[c] = v; var q = {}; q[r.id] = o; return put({ ajustement: { regles: q } }); }
+        panel.appendChild(menu('Si', Object.keys(SIG), r.signal, SIG, ro || nr, function (v) { pr('signal', v); }));
+        panel.appendChild(numRow('dépasse', r.seuil, unit, ro, function (v) { pr('seuil', v); }));
+        panel.appendChild(numRow('pendant (sem.)', r.duree, '', ro, function (v) { pr('duree', Math.round(v)); }));
+        panel.appendChild(menu('alors', data.actions, r.action, ACT, ro || nr, function (v) { pr('action', v); }));
+        var sr = el('div', 'objTimeRow'), sl = el('span', null, t('Active')), sw = el('label', 'toggleSwitch'), inp = el('input'); inp.type = 'checkbox'; inp.checked = r.actif; inp.disabled = ro; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', t('Active'));
+        inp.addEventListener('change', function () { pr('actif', inp.checked); }); sw.appendChild(inp); sw.appendChild(el('span', 'toggleSwitchTrack')); sr.appendChild(sl); sr.appendChild(sw); panel.appendChild(sr);
+        if (r.pasActive) panel.appendChild(el('p', 'hint', t('Pas encore active : enregistrée seulement.')));
+        if (nr && r.modifie && !ro) panel.appendChild(revert(function () { var q = {}; q[r.id] = null; put({ ajustement: { regles: q } }); }));
+      }, 'catRule' + (r.origine === 'moi' ? ' catRuleMine' : ''));
+      if (r.origine === 'moi' && data.canEdit) { var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', t('Retirer')); x.addEventListener('click', function () { var q = {}; q[r.id] = null; put({ ajustement: { regles: q } }); }); w.appendChild(x); }
+      return w;
+    }
+    function rulesFold() {
+      var n = data.regles.length;
+      return fold('regles', t('Règles'), valueSpan(String(n), data.regles.some(function (r) { return r.origine === 'moi' || r.modifie; })), function (panel) {
+        data.regles.forEach(function (r) { panel.appendChild(ruleFold(r)); });
+        if (data.canEdit && data.regles.filter(function (r) { return r.origine === 'moi'; }).length < 12) {
+          var a = TMT.ui.addBtn(t('Ajouter une règle'), function () {
+            var id = 'u_' + Math.random().toString(36).slice(2, 8), q = {}; q[id] = { signal: 'taches_reportees', seuil: 1, duree: 0, action: 'avertir', actif: true }; openIds['regle.' + id] = true; put({ ajustement: { regles: q } });
+          });
+          panel.appendChild(a);
+        }
+      });
+    }
+    function famille(id, label, summary, vars) {
+      return fold('fam.' + id, t(label), summary, function (panel) { panel.classList.add('catStrategieF'); vars.forEach(function (v) { panel.appendChild(v); }); });
+    }
+    function sumOf(fam, f, options, unit) { var v = val(fam, f); var txt = options ? optLabel(options, v) : (v == null ? null : v + (unit ? ' ' + unit : '')); return valueSpan(txt, mod(fam, f) && v != null); }
+    function paint() {
+      body.textContent = '';
+      var kind = val('nature', 'kind');
+      var KIND = [{ value: 'projet', label: 'Construire' }, { value: 'progression', label: 'Progresser' }];
+      var SENS = [{ value: 'monter', label: 'Monter' }, { value: 'descendre', label: 'Descendre' }, { value: 'maintenir', label: 'Maintenir' }];
+      var RYT = [{ value: 'regulier', label: 'Régulier' }, { value: 'espaces', label: 'Par paliers' }, { value: 'libre', label: 'À mon rythme' }];
+      var STR = [{ value: 'lineaire', label: 'Linéaire' }, { value: 'paliers', label: 'Par paliers' }, { value: 'libre', label: 'Libre' }];
+      var nat = [choice('nature', 'kind', 'Construire ou progresser', KIND)];
+      if (kind === 'progression') {
+        nat.push(choice('nature', 'sens', 'Monter, descendre, maintenir', SENS));
+        if (val('nature', 'sens')) {
+          nat.push(choice('nature', 'famille', 'Ce qui progresse', data.familles.map(function (f) { return { value: f.id, label: f.label }; })));
+          if (val('nature', 'famille')) { nat.push(choice('nature', 'rythme', 'Rythme', RYT)); nat.push(field('nature', 'unite', 'Unité', '', 'text')); nat.push(choice('nature', 'structure', 'Structure', STR)); }
+        }
+      } else if (kind === 'projet') nat.push(choice('nature', 'reformer', 'Réparer l’existant d’abord', YN));
+      var DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(function (d, i) { return { value: i + 1, label: d }; });
+      var PH = [{ value: 'reformer', label: 'Réformer' }, { value: 'developper', label: 'Développer' }, { value: 'maintenir', label: 'Maintenir' }];
+      var DEC = [{ value: 'aucun', label: 'Aucun' }, { value: 'periodes', label: 'Périodes' }, { value: 'semaines', label: 'Semaines' }];
+      var NIV = [{ value: 'debutant', label: 'Débutant' }, { value: 'intermediaire', label: 'Intermédiaire' }, { value: 'avance', label: 'Avancé' }];
+      var MOD = [{ value: 'propose', label: 'Propose' }, { value: 'auto', label: 'Auto' }];
+      var FRQ = [{ value: 'hebdo', label: 'Chaque semaine' }, { value: 'mensuel', label: 'Chaque mois' }, { value: 'periode', label: 'Chaque période' }];
+      var modeFold = choice('ajustement', 'mode', 'Mode', MOD);
+      if (val('ajustement', 'mode') === 'auto') modeFold.lastChild.appendChild(el('p', 'hint', t('Auto : pas encore actif, Noèsis propose toujours.')));
+      body.appendChild(famille('nature', 'Nature', sumOf('nature', 'kind', KIND), nat));
+      body.appendChild(famille('temps', 'Temps', sumOf('temps', 'heuresSemaine', null, 'h'), [field('temps', 'heuresSemaine', 'Heures par semaine', 'h', 'num'), multi('temps', 'jours', 'Jours', DAYS)]));
+      body.appendChild(famille('taches', 'Tâches', sumOf('taches', 'parSemaine', null, '/sem'), [field('taches', 'parSemaine', 'Nombre par semaine', '', 'int'), field('taches', 'tailleMin', 'Taille (min)', 'min', 'int'), multi('taches', 'phases', 'Phases', PH), choice('taches', 'maintenance', 'Maintenance', YN)]));
+      body.appendChild(famille('objectifs', 'Objectifs', sumOf('objectifs', 'decoupage', DEC), [choice('objectifs', 'decoupage', 'Découpage', DEC), field('objectifs', 'jalons', 'Jalons', '', 'int')]));
+      body.appendChild(famille('personne', 'Personne', sumOf('personne', 'niveau', NIV), [choice('personne', 'niveau', 'Niveau', NIV), field('personne', 'dispoHeures', 'Disponibilités (h/sem)', 'h', 'num'), field('personne', 'contraintes', 'Contraintes', '', 'text')]));
+      body.appendChild(famille('ajustement', 'Ajustement', sumOf('ajustement', 'mode', MOD), [modeFold, choice('ajustement', 'frequence', 'Révision', FRQ), field('ajustement', 'ampleurMaxPct', 'Ampleur max (%)', '%', 'int'), rulesFold()]));
+      var msg = el('p', 'msg'); body.appendChild(msg);
+    }
+    // Clic en dehors : les lignes déroulées se referment ; l'écouteur disparaît avec le bloc (retiré du DOM).
+    var wasIn = false;
+    function outside(e) {
+      if (!root.isConnected) { if (wasIn) document.removeEventListener('pointerdown', outside, true); return; }
+      wasIn = true; if (root.contains(e.target)) return;
+      var any = Object.keys(openIds).some(function (k) { return openIds[k]; });
+      if (any) { openIds = {}; if (data) paint(); }
+    }
+    document.addEventListener('pointerdown', outside, true); // pointerdown et non click : sur iPhone un toucher sur une zone non cliquable ne produit pas de click
+    if (open) load();
+    return root;
+  }
+  // ---------- Répartition des tâches par membre (18 nov. 2026, décision d'Émilien) ----------
+  // Ligne « Répartition des tâches » (19 nov. 2026 : tableau, enregistré par le bouton du bas de la fiche ; remplace aussi l'ancien « Part des tâches (%) », lu par le Bilan) JUSTE APRÈS la Stratégie, par catégorie (activité, pôle, secteur), seulement si l'activité a plusieurs membres : un pourcentage par membre (le total fait 100 %), héritage
+  // du dessus si vide. Quand une part change, l'app PROPOSE d'ajuster les autres catégories : chaque ligne se valide ou se refuse (refus mémorisé) ; si c'est impossible, elle propose de changer la part du dessus
+  // (aucun message d'erreur). Ces parts décident le responsable des tâches rangées. Composants existants : .activityEditRow, .cmpChev, .iconBtn ; seul le propriétaire modifie.
+  function buildRepartitionBlock(activityId, key, open, onChange) {
+    var url = '/api/activities/' + activityId + '/repartition/' + (key || '_');
+    var root = document.createElement('div'); root.className = 'catStrategie hidden';
+    var body = document.createElement('div'); body.className = 'catStrategieBody' + (open ? '' : ' hidden');
+    var data = null, edit = {}, baseH = {}, prop = null;
+    if (!open) {
+      var head = document.createElement('button'); head.type = 'button'; head.className = 'activityEditRow';
+      var hl = document.createElement('span'); hl.textContent = t('Répartition des tâches');
+      var hc = TMT.ui.chev(false);
+      head.appendChild(hl); head.appendChild(hc); root.appendChild(head);
+      head.addEventListener('click', function () { var show = body.classList.toggle('hidden') === false; TMT.ui.setChev(hc, show); });
+    }
+    root.appendChild(body);
+    // 19 nov. 2026 : TABLEAU SIMPLE de CETTE catégorie : nom | heures par semaine (modifiable) | pourcentage (calculé = heures / total, lecture seule) ; ligne Total. Les heures sont persistées côté serveur (category_shares.hours),
+    // les pourcentages restent écrits dans la répartition existante. Plus de bouton « Enregistrer » propre au bloc : root.rep donne son état au bouton du bas de la fiche (R50, R35). Le niveau supérieur propose d'ajuster les niveaux
+    // inférieurs (Accepter / Refuser) ; un niveau inférieur ne propose jamais de changer celui du dessus.
+    function show(d) {
+      data = d; edit = {}; baseH = {};
+      var src = d.hours ? { m: d.hours, b: d.hours } : d.plannedHours ? { m: d.plannedHours, b: {} } : d.effectiveHours ? { m: d.effectiveHours, b: d.effectiveHours } : { m: {}, b: {} }; // propres, sinon temps prévu déjà saisi (pôle, à enregistrer), sinon hérités
+      baseH = src.b; (d.membres || []).forEach(function (m) { var v = src.m[m.userId]; edit[m.userId] = v == null ? '' : String(v); });
+      paint(); if (onChange) onChange();
+    }
+    function hrs(u) { var x = parseFloat(String(edit[u] == null ? '' : edit[u]).replace(',', '.')); return x > 0 ? Math.round(x * 10) / 10 : 0; }
+    function totalH() { return data.membres.reduce(function (s, m) { return s + hrs(m.userId); }, 0); }
+    function pcts() { // pour cent de chaque membre : calculés sur les heures (somme 100, plus grand reste) ; sans heures, les parts déjà posées (lecture seule)
+      var T = totalH(), ids = data.membres.map(function (m) { return m.userId; }), o = {};
+      if (T > 0) { var base = {}, rest = [], miss; ids.forEach(function (u) { var v = hrs(u) * 100 / T; base[u] = Math.floor(v); rest.push([u, v - base[u]]); }); miss = 100 - ids.reduce(function (s, u) { return s + base[u]; }, 0); rest.sort(function (a, b) { return b[1] - a[1]; }).forEach(function (r) { if (miss > 0) { base[r[0]]++; miss--; } }); return base; }
+      var st = data.own || data.effective || {}; ids.forEach(function (u) { o[u] = st[u] == null ? null : st[u]; }); return o;
+    }
+    function names(o) { return data.membres.map(function (m) { return m.name + ' ' + (o[m.userId] || 0) + ' %'; }).join(' · '); }
+    function changed() { if (!data || !data.canEdit) return false; return data.membres.some(function (m) { return hrs(m.userId) !== (baseH[m.userId] || 0); }); }
+    function valid() { return !!data && totalH() > 0; }
+    function err(m) { var e = body.querySelector('.msg'); if (e) e.textContent = m || ''; }
+    function save(payload) {
+      api('PUT', url, payload).then(function (d) { prop = d.proposition || null; show(d); }).catch(function (e) { err(e.message); });
+    }
+    function applyLines(lines, accept) {
+      var p = accept ? { acceptees: lines.map(function (l) { return { key: l.key, apres: l.apres }; }) } : { refusees: lines.map(function (l) { return { key: l.key, apres: l.apres }; }) };
+      api('POST', url + '/appliquer', p).then(function (d) {
+        prop.lignes = (prop.lignes || []).filter(function (x) { return lines.indexOf(x) < 0; });
+        show(d);
+      }).catch(function (e) { err(e.message); });
+    }
+    function proposalLine(l, text) {
+      var row = document.createElement('div'); row.className = 'catStrategieQ';
+      var q = document.createElement('p'); q.className = 'hint'; q.textContent = text; row.appendChild(q);
+      var a = document.createElement('button'); a.type = 'button'; a.className = 'cmpBtn'; a.textContent = t('Accepter');
+      var r = document.createElement('button'); r.type = 'button'; r.className = 'cmpBtn cmpBtnIdle'; r.textContent = t('Refuser');
+      a.addEventListener('click', function () { applyLines([l], true); }); r.addEventListener('click', function () { applyLines([l], false); });
+      row.appendChild(a); row.appendChild(r); return row;
+    }
+    function paint() {
+      body.textContent = '';
+      if (!data.own && data.effective) { var hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = t('Hérité'); body.appendChild(hint); }
+      // Tableau standard (composant partagé .retTable de css/composants.css, le même que « Ajuste ton temps ») : membre | heures par semaine (on touche la valeur : le champ est discret, dans la cellule) | pourcentage calculé (lecture seule) ; Total en pied.
+      var tH = document.createElement('b'), tP = document.createElement('b'), pc = {};
+      function refresh() { var p = pcts(), s = 0, any = false; data.membres.forEach(function (m) { var n = pc[m.userId]; if (n) n.textContent = p[m.userId] == null ? '' : p[m.userId] + ' %'; if (p[m.userId] != null) { s += p[m.userId]; any = true; } }); var T = totalH(); tH.textContent = T > 0 ? TMT.ui.heures(Math.round(T * 60)) : ''; tP.textContent = any ? s + ' %' : ''; }
+      function cell(tag, quiet, end, last) { var c = document.createElement(tag); c.className = 'retVal' + (end ? ' retVal--end' : '') + (quiet ? ' retValQuiet' : ''); return c; }
+      var tb = document.createElement('div'); tb.className = 'retTable retTable--3';
+      var hd = document.createElement('div'); hd.className = 'retTRow';
+      [[t('Membre'), false], [t('h / sem.'), true], ['%', true]].forEach(function (x) { var c = cell('span', true, x[1]); c.textContent = x[0]; hd.appendChild(c); }); tb.appendChild(hd);
+      data.membres.forEach(function (m) {
+        var r = document.createElement('div'); r.className = 'retTRow';
+        var nm = cell('span', false, false); nm.textContent = m.name;
+        var v = cell('label', false, true);
+        var i = document.createElement('input'); i.type = 'text'; i.className = 'retInput'; i.inputMode = 'decimal'; i.maxLength = 5; i.autocomplete = 'off'; i.value = edit[m.userId]; i.placeholder = '0'; i.disabled = !data.canEdit; i.setAttribute('aria-label', m.name + ' (h)'); i.setAttribute('data-u', m.userId);
+        i.addEventListener('input', function () { edit[m.userId] = i.value; refresh(); if (onChange) onChange(); });
+        var hu = document.createElement('span'); hu.textContent = ' h'; v.appendChild(i); v.appendChild(hu);
+        var pp = cell('span', false, true); pp.classList.add('repPct'); pc[m.userId] = pp;
+        r.appendChild(nm); r.appendChild(v); r.appendChild(pp); tb.appendChild(r);
+      });
+      var tr0 = document.createElement('div'); tr0.className = 'retTRow retTotal'; var tl = cell('b', false, false); tl.textContent = t('Total');
+      var tv = cell('span', false, true); tv.appendChild(tH); var tpw = cell('span', false, true); tpw.classList.add('repPct'); tpw.appendChild(tP);
+      tr0.appendChild(tl); tr0.appendChild(tv); tr0.appendChild(tpw); tb.appendChild(tr0); body.appendChild(tb); refresh();
+      var msg = document.createElement('p'); msg.className = 'msg'; body.appendChild(msg);
+      if (data.canEdit && data.own) { var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'activityEditRow cmpSepRow'; rs.textContent = t('Reprendre celle du dessus'); rs.addEventListener('click', function () { save({ shares: null }); }); body.appendChild(rs); }
+      if (prop && prop.lignes && prop.lignes.length) {
+        var pt = document.createElement('p'); pt.className = 'hint'; pt.textContent = t('Pour garder le total, ajuster :'); body.appendChild(pt);
+        prop.lignes.forEach(function (l) { body.appendChild(proposalLine(l, l.nom + ' : ' + names(l.avant) + ' → ' + names(l.apres))); });
+      }
+      root.classList.remove('hidden');
+    }
+    root.rep = {
+      changed: changed, valid: valid,
+      // Enregistre les heures modifiées (bouton du bas de la fiche) ; résout vrai si l'app propose d'ajuster des niveaux inférieurs (la fiche reste alors ouverte pour les valider ou les refuser).
+      save: function () { var h = {}; data.membres.forEach(function (m) { h[m.userId] = hrs(m.userId); }); return api('PUT', url, { hours: h }).then(function (d) { prop = d.proposition || null; show(d); return !!(prop && prop.lignes && prop.lignes.length); }); }
+    };
+    api('GET', url).then(function (d) { if (d.multi) show(d); }).catch(function () { /* reste masquée */ });
+    return root;
+  }
+  TMT.buildStrategieBlock = buildStrategieBlock; TMT.buildRepartitionBlock = buildRepartitionBlock; // 18 nov. 2026 : ces deux lignes vivent dans la fiche d'une catégorie (js/objectifs-creer.js), plus dans Réglages
   function catBuildEditForm(activityId) {
     var st = catEditState;
     var box = document.createElement('div');
@@ -7578,8 +7523,7 @@
     var save = document.createElement('button');
     save.type = 'button'; save.className = 'iconBtn btnBrique'; save.textContent = t('Enregistrer');
     actions.appendChild(cancel); actions.appendChild(save);
-    var caps = buildTimeCapsBlock(activityId, st.key, !st.poleKey);
-    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(caps.node); fields.appendChild(msg); fields.appendChild(actions);
+    fields.appendChild(nameIn); fields.appendChild(descIn); fields.appendChild(msg); fields.appendChild(actions);
     box.appendChild(fields);
     box.appendChild(del);
     nameIn.addEventListener('input', function () { st.name = nameIn.value; });
@@ -7589,14 +7533,11 @@
       if (save.disabled) return;
       var value = descIn.value.trim();
       var newLabel = nameIn.value.trim() || st.label;
-      var capsRead = caps.read();
-      if (capsRead.error) { msg.textContent = capsRead.error; return; }
       var textChanged = !(value === st.description && newLabel === st.label);
-      if (!textChanged && !capsRead.changed) { close(); return; }
+      if (!textChanged) { close(); return; }
       save.disabled = true; msg.textContent = '';
       var url = '/api/activities/' + activityId + '/goals/categories/' + (st.poleKey ? st.poleKey + '/secteurs/' : '') + st.key;
-      var saveCaps = capsRead.changed ? api('PUT', '/api/activities/' + activityId + '/goals/timecaps/' + st.key, capsRead.body) : Promise.resolve();
-      saveCaps.then(function () { return textChanged ? api('PUT', url, { label: newLabel, description: value }) : null; })
+      api('PUT', url, { label: newLabel, description: value })
         .then(function () { catEditState = null; activityGoalsCategoriesRefresh(activityId); })
         .catch(function (err) { msg.textContent = err.message; })
         .then(function () { save.disabled = false; });
@@ -7633,7 +7574,7 @@
     var dot = document.createElement('span');
     dot.className = 'dot';
     // Couleur AUTOMATIQUE : nuance de la couleur de l'activité selon la position.
-    dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+    dot.style.background = TMT.poleColor(currentActivityColor, index);
 
     if (edit) {
       var handle = document.createElement('span');
@@ -7647,9 +7588,10 @@
           reorderPoles(activityId, ordered.map(function (el) { return el.dataset.categoryKey; }));
         },
       });
-      header.appendChild(handle);
+      if (catCanAll()) header.appendChild(handle); // réordonner les pôles = propriétaire / responsable d'activité
       header.appendChild(dot);
-      header.appendChild(catNameInput(activityId, pole, null));
+      if (catCan(pole.key)) header.appendChild(catNameInput(activityId, pole, null));
+      else { var plain = document.createElement('span'); plain.className = 'activityRowName'; plain.textContent = pole.label; header.appendChild(plain); }
       // 6 oct. 2026 (Emilien) : en mode déplacement (appui long), plus de croix à droite des pôles.
       row.appendChild(header);
       group.appendChild(row);
@@ -7670,7 +7612,7 @@
     var chevron = TMT.ui.chev(isOpen);
     header.appendChild(dot);
     header.appendChild(name);
-    header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+    if (catCan(pole.key)) header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
       catOpenEdit(activityId, { key: pole.key, label: pole.label, poleKey: null, description: pole.description || '' });
     }));
     header.appendChild(chevron);
@@ -7679,7 +7621,7 @@
       activityGoalsCategoriesOpen[pole.key] = !activityGoalsCategoriesOpen[pole.key];
       catRerender();
     });
-    bindCatLongPress(row);
+    if (catCan(pole.key)) bindCatLongPress(row);
     row.appendChild(header);
     if (pole.description) {
       var cap = document.createElement('p');
@@ -7688,8 +7630,17 @@
       row.appendChild(cap);
     }
     group.appendChild(row);
+    group.appendChild(catMembersBlock(activityId, pole.key));
     if (isOpen) group.appendChild(buildCatSecteurs(activityId, pole, false));
     return group;
+  }
+
+  // Membres d'un pôle ou d'un secteur (19 nov. 2026) : seulement pour une activité partagée ; le bloc (js/membres-ui.js) se cache de lui-même si le serveur ne donne aucun droit à ce visiteur.
+  var catPopupShared = false;
+  function catMembersBlock(activityId, key) {
+    var holder = document.createElement('div');
+    if (catPopupShared && TMT.membres) holder.appendChild(TMT.membres.categoryBlock(activityId, key, function (m) { if (m) TMT.ui.confirm(m, { ok: "OK" }); }));
+    return holder;
   }
 
   function buildCatSecteurs(activityId, pole, edit) {
@@ -7722,8 +7673,9 @@
               .catch(function (err) { catFailRefresh(activityId, err); });
           },
         });
-        header.appendChild(handle);
-        header.appendChild(catNameInput(activityId, s, pole.key));
+        if (catCan(pole.key)) header.appendChild(handle);
+        if (catCan(s.key)) header.appendChild(catNameInput(activityId, s, pole.key));
+        else { var plainS = document.createElement('span'); plainS.className = 'activityRowName'; plainS.textContent = s.label; header.appendChild(plainS); }
         // 6 oct. 2026 (Emilien) : en mode déplacement, plus d'icône modifier à droite des secteurs.
         row.appendChild(header);
       } else {
@@ -7731,7 +7683,7 @@
         name.className = 'activityRowName';
         name.textContent = s.label;
         header.appendChild(name);
-        header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
+        if (catCan(s.key)) header.appendChild(catSmallButton('✎', t('Modifier la description'), function () {
           catOpenEdit(activityId, { key: s.key, label: s.label, poleKey: pole.key, description: s.description || '' });
         }));
         row.appendChild(header);
@@ -7741,12 +7693,13 @@
           cap.textContent = s.description;
           row.appendChild(cap);
         }
-        bindCatLongPress(row);
+        if (catCan(pole.key) || catCan(s.key)) bindCatLongPress(row);
       }
       wrap.appendChild(row);
+      if (!edit) wrap.appendChild(catMembersBlock(activityId, s.key));
     });
 
-    if (!edit) {
+    if (!edit && catCan(pole.key)) {
       var add = TMT.ui.addBtn(t('Nouveau secteur'), null);
       if ((pole.secteurs || []).length >= currentActivityGoalsMaxSecteurs) {
         add.disabled = true;
@@ -7976,16 +7929,12 @@
   };
 
   // Plafonds de temps facultatifs (7 oct. 2026) : moyenne historique + max/jour et max/semaine.
-  function fmtCapMinutes(m) {
-    if (m === null || m === undefined) return '';
-    return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
-  }
-  TMT.fmtCapMinutes = fmtCapMinutes;
   // Feuille flottante de choix d'une durée (heures 0-99 + minutes par 5), style
   // sélecteur d'heure iOS : deux roues scroll-snap. opts : { title, minutes, onDone(min) }.
-  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer.
+  // « Réinitialiser » = 0:00 ; ✓ valide ; ✕ ou toucher dehors ferme sans changer. opts.minuteStep (facultatif, défaut 5) : pas de la roue des minutes ; opts.maxHours (facultatif, défaut 99) : plafond des heures ; à ce plafond les minutes valent 0 (ex. 168 h = les heures d'une semaine).
   function openDurationPicker(opts) {
-    var ROW = 44, init = Math.max(0, Math.min(99 * 60 + 59, Number(opts.minutes) || 0));
+    var maxH = Number(opts.maxHours) > 0 ? Math.floor(Number(opts.maxHours)) : 99, maxMin = maxH === 99 ? 99 * 60 + 59 : maxH * 60;
+    var ROW = 44, init = Math.max(0, Math.min(maxMin, Number(opts.minutes) || 0));
     var ov = document.createElement('div'); ov.className = 'durPickerOverlay';
     var sheet = document.createElement('div'); sheet.className = 'durPickerSheet cmpGlass';
     sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', t(opts.title || 'Cible'));
@@ -8014,8 +7963,8 @@
       setTimeout(function () { sc.scrollTop = idx * ROW; }, 0);
       return { get: function () { return values[Math.max(0, Math.min(values.length - 1, Math.round(sc.scrollTop / ROW)))]; }, set: function (v) { sc.scrollTo({ top: Math.max(0, values.indexOf(v)) * ROW, behavior: 'smooth' }); } };
     }
-    var hours = []; for (var h = 0; h <= 99; h++) hours.push(h);
-    var mins = []; for (var m = 0; m < 60; m += 5) mins.push(m);
+    var hours = []; for (var h = 0; h <= maxH; h++) hours.push(h);
+    var mins = []; var step = [5, 10, 15, 20, 30].indexOf(Number(opts.minuteStep)) >= 0 ? Number(opts.minuteStep) : 5; for (var m = 0; m < 60; m += step) mins.push(m);
     var curMin = init % 60; if (mins.indexOf(curMin) < 0) { mins.push(curMin); mins.sort(function (p, q) { return p - q; }); }
     var hW = wheel(hours, Math.floor(init / 60), t('Heures'), 'h');
     var mW = wheel(mins, curMin, t('Minutes'), 'm');
@@ -8023,124 +7972,13 @@
     var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'durPickerReset'; reset.textContent = t('Réinitialiser');
     reset.addEventListener('click', function () { hW.set(0); mW.set(0); setTimeout(function () { opts.onDone(0); close(); }, 0); });
     var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'durPickerOk'; ok.textContent = '✓'; ok.setAttribute('aria-label', t('Valider'));
-    ok.addEventListener('click', function () { var v = hW.get() * 60 + mW.get(); close(); opts.onDone(v); });
+    ok.addEventListener('click', function () { var v = Math.min(maxMin, hW.get() * 60 + mW.get()); close(); opts.onDone(v); });
     bar.appendChild(reset); bar.appendChild(ok);
     sheet.appendChild(head); sheet.appendChild(wheels); sheet.appendChild(bar);
     ov.appendChild(sheet); document.body.appendChild(ov);
     return { close: close };
   }
   TMT.openDurationPicker = openDurationPicker;
-  // Bloc plafonds du formulaire en place : renvoie { node, read() }.
-  // Tableau Moyenne (lecture seule) / Maximum (boutons -> openDurationPicker).
-  // Maximum 0:00 = aucun plafond (null), affiché en gris.
-  function buildTimeCapsBlock(activityId, key, isPole) {
-    var state = { loaded: false, avgDay: 0, avgWeek: 0, day: null, week: null };
-    var node = document.createElement('div');
-    node.className = 'timeCapsBlock';
-    var table = document.createElement('div'); table.className = 'timeCapsTable';
-    function cell(cls, txt) { var d = document.createElement('div'); d.className = cls; if (txt != null) d.textContent = t(txt); return d; }
-    table.appendChild(cell('timeCapsCorner')); table.appendChild(cell('timeCapsHead', 'Moyenne')); table.appendChild(cell('timeCapsHead', 'Cible'));
-    var avgDayEl = cell('timeCapsAvg'), avgWeekEl = cell('timeCapsAvg');
-    function maxBtn(which, label) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'timeCapsMax'; b.disabled = true;
-      b.addEventListener('click', function () {
-        if (!state.loaded) return;
-        openDurationPicker({ title: 'Cible', minutes: state[which] || 0, onDone: function (v) { state[which] = v > 0 ? v : null; paint(); } });
-      });
-      return b;
-    }
-    var dayBtn = maxBtn('day'), weekBtn = maxBtn('week');
-    table.appendChild(cell('timeCapsRowLabel', 'Jour')); table.appendChild(avgDayEl); table.appendChild(dayBtn);
-    table.appendChild(cell('timeCapsRowLabel', 'Semaine')); table.appendChild(avgWeekEl); table.appendChild(weekBtn);
-    function paint() {
-      avgDayEl.textContent = fmtCapMinutes(state.avgDay) || '0:00'; avgWeekEl.textContent = fmtCapMinutes(state.avgWeek) || '0:00';
-      [[dayBtn, state.day], [weekBtn, state.week]].forEach(function (p) {
-        p[0].textContent = fmtCapMinutes(p[1]) || '0:00';
-        p[0].classList.toggle('isEmpty', !p[1]);
-      });
-    }
-    var use = document.createElement('button'); use.type = 'button'; use.className = 'linkBtn'; use.textContent = t('Utiliser ma moyenne');
-    use.addEventListener('click', function () {
-      if (!state.loaded) return;
-      state.day = state.avgDay > 0 ? state.avgDay : null; state.week = state.avgWeek > 0 ? state.avgWeek : null; paint();
-    });
-    var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'linkBtn';
-    var body = document.createElement('div'); body.className = 'timeCapsBody hidden';
-    function paintToggle() { toggle.textContent = t('Gérer mon temps'); toggle.setAttribute('aria-expanded', body.classList.contains('hidden') ? 'false' : 'true'); }
-    toggle.addEventListener('click', function () { body.classList.remove('hidden'); toggle.classList.add('hidden'); });
-    paintToggle(); paint();
-    body.appendChild(table); body.appendChild(use);
-    // Estimation indicative du temps par membre et par pôle (activité partagée seulement,
-    // lecture seule, sans IA) : médiane de ses entrées de temps, « pas assez de données » sous 3 entrées.
-    // Estimation indicative du temps par membre POUR CE PÔLE (pôles seulement : le temps des secteurs
-    // remonte au pôle). Liste repliée par défaut ; lecture seule + valeur saisie facultative.
-    var memberEst = document.createElement('div'); memberEst.className = 'goalMemberEst hidden';
-    var memEstToggle = document.createElement('button'); memEstToggle.type = 'button'; memEstToggle.className = 'linkBtn goalMemberEstToggle';
-    var memEstBody = document.createElement('div'); memEstBody.className = 'goalMemberEstBody hidden';
-    var memEstOpen = false;
-    function paintMemEstToggle() {
-      TMT.ui.toggleLabel(memEstToggle, t('Estimation du temps par membre'), memEstOpen);
-      memEstToggle.setAttribute('aria-expanded', memEstOpen ? 'true' : 'false');
-      memEstBody.classList.toggle('hidden', !memEstOpen);
-    }
-    memEstToggle.addEventListener('click', function () { memEstOpen = !memEstOpen; paintMemEstToggle(); });
-    memberEst.appendChild(memEstToggle); memberEst.appendChild(memEstBody);
-    if (isPole) body.appendChild(memberEst);
-    function paintMemberEst(rows) {
-      memEstBody.textContent = '';
-      var table = document.createElement('div'); table.className = 'timeCapsTable goalMemberEstTable';
-      rows.forEach(function (m) {
-        var p = m.pole;
-        var lbl = document.createElement('div'); lbl.className = 'timeCapsRowLabel'; lbl.textContent = m.name;
-        var calc = document.createElement('div'); calc.className = 'timeCapsAvg';
-        calc.textContent = p.estimate ? '~' + p.estimate.minutes + ' min' : t('pas assez de données');
-        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'timeCapsMax';
-        var shown = p.custom || (p.estimate && p.estimate.minutes) || 0;
-        btn.textContent = fmtCapMinutes(shown) || '0:00';
-        btn.classList.toggle('isEmpty', !p.custom);
-        function save(v) {
-          api('PUT', '/api/activities/' + activityId + '/goals/member-estimates', { memberId: m.id, category: key, minutes: v > 0 ? v : null })
-            .then(function () { p.custom = v > 0 ? v : null; paintMemberEst(rows); }).catch(function () {});
-        }
-        btn.addEventListener('click', function () { openDurationPicker({ title: 'Cible', minutes: shown, onDone: save }); });
-        table.appendChild(lbl); table.appendChild(calc); table.appendChild(btn);
-        if (p.custom) {
-          var back = document.createElement('button'); back.type = 'button'; back.className = 'linkBtn goalMemberEstBack';
-          back.textContent = t('Revenir à l’estimation calculée');
-          back.addEventListener('click', function () { save(0); });
-          table.appendChild(back);
-        }
-      });
-      memEstBody.appendChild(table);
-    }
-    if (isPole) api('GET', '/api/activities/' + activityId + '/goals/member-estimates?all=1').then(function (r) {
-      if (!r || !r.members || r.members.length < 2) return;
-      var rows = r.members.map(function (m) {
-        var p = m.poles.filter(function (x) { return x.key === key; })[0];
-        return p ? { id: m.id, name: m.name, pole: p } : null;
-      }).filter(Boolean);
-      if (!rows.length) return;
-      paintMemberEst(rows); paintMemEstToggle();
-      memberEst.classList.remove('hidden');
-    }).catch(function () {});
-    node.appendChild(toggle); node.appendChild(body);
-    api('GET', '/api/activities/' + activityId + '/goals/timecaps/' + key).then(function (c) {
-      state.loaded = true; state.avgDay = c.avgDayMinutes; state.avgWeek = c.avgWeekMinutes;
-      state.day = c.maxDayMinutes; state.week = c.maxWeekMinutes;
-      paint(); dayBtn.disabled = weekBtn.disabled = false;
-      state.origDay = state.day; state.origWeek = state.week;
-    }).catch(function () {});
-    return {
-      node: node,
-      // { error } | { changed:false } | { changed:true, body }
-      read: function () {
-        var d = state.day || null, w = state.week || null;
-        var changed = state.loaded && (d !== (state.origDay || null) || w !== (state.origWeek || null));
-        return { changed: changed, body: { maxDayMinutes: d, maxWeekMinutes: w } };
-      }
-    };
-  }
-
   // « Déplacer vers… » : change un secteur de pôle (PUT …/secteurs/:key/move, qui
   // garde la clé du secteur, donc son historique et ses tâches). Ajouté en fin de
   // liste du pôle cible.
@@ -8162,7 +8000,7 @@
       header.className = 'activityRowHeader clickable';
       var dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = subProjectShade(currentActivityColor, index, SUB_PROJECT_SHADE_COUNT);
+      dot.style.background = TMT.poleColor(currentActivityColor, index);
       var name = document.createElement('span');
       name.className = 'activityRowName';
       name.textContent = pole.label;
@@ -8223,7 +8061,7 @@
 
   // 16 septembre 2026 (8e passage) : couleur de L'ACTIVITÉ affichée, posée
   // par openGoalsForActivity() — source de base pour les nuances
-  // automatiques des badges de catégorie (subProjectShade(), voir
+  // automatiques des badges de catégorie (TMT.poleColor(), voir
   // renderGoalsGridHead()/renderGoalsGrid() plus bas, couleur 100%
   // automatique, plus aucune couleur choisie/stockée par catégorie).
   TMT.currentGoalsActivityColor = '';
@@ -8386,7 +8224,6 @@
     if (TMT.currentGoalsViewPeriodNumber == null || !goalPeriodByNumber(detailPlanning, TMT.currentGoalsViewPeriodNumber)) {
       TMT.currentGoalsViewPeriodNumber = detailPlanning.currentPeriodNumber;
     }
-    if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen()) TMT.renderActivityGoals();
   }
 
 
@@ -8455,7 +8292,6 @@
       // requête était en vol.
       if (activityId !== TMT.currentGoalsActivityId || poleKey !== TMT.currentGoalsSelectedPoleKey) return;
       TMT.currentGoalsGridColumns = data.columns || [];
-      if (TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen() && TMT.prepareGoalsMonth) { TMT.prepareGoalsMonth(); TMT.renderGoalsPoleSwitcher(); }
       TMT.currentGoalsMaxSecteurs = data.maxSecteurs || TMT.currentGoalsMaxSecteurs;
       if (TMT.currentGoalsAllPlannings) {
         TMT.currentGoalsAllPlannings.byCategory = TMT.currentGoalsAllPlannings.byCategory || {};
@@ -8580,352 +8416,6 @@
     if (last < str.length) node.appendChild(document.createTextNode(str.slice(last)));
   }
 
-  // ===================== FIL DE DISCUSSION D'UNE ACTIVITÉ PARTAGÉE =========
-  // Troisième forme d'écrit entre membres, volontairement distincte des deux
-  // qui existaient déjà : la note de session (écrite au STOP, attachée à une
-  // session, visible dans les flux "Partagée"/"Suivi") et la note "en direct"
-  // du Chrono (visible seulement tant que le chrono de son auteur tourne).
-  // Ici : une conversation, sans rapport avec un chrono, conservée
-  // durablement, réservée aux membres actuels de l'activité — voir
-  // activity_messages dans server/db.js et les routes
-  // /api/community/activity-messages.
-  // 30 septembre 2026 : le fil vit dans la Page 2 d'Objectifs (onglet
-  // Discussion, activité partagée seulement) et non plus dans la fenêtre
-  // Activité. Il suit donc SA propre activité (discussionActivityId, posée par
-  // TMT.discussion.open) et non currentCommunityActivityId.
-  var discussionActivityId = '';
-  var discussionVisible = false; // onglet Discussion de la Page 2 à l'écran
-  var discussionPollTimer = null;
-  var discussionRenderedIds = ''; // signature du dernier rendu, pour ne pas redessiner à l'identique
-
-  // Rafraîchissement périodique tant que le fil est à l'écran : c'est ce qui
-  // permet de voir arriver le message de quelqu'un d'autre sans recharger la
-  // page. Volontairement lent (15 s) — l'app n'a pas de WebSocket et c'est
-  // une conversation, pas une messagerie instantanée.
-  function startDiscussionPolling() {
-    stopDiscussionPolling();
-    discussionPollTimer = setInterval(function () {
-      // Onglet quitté, activité désélectionnée, ou app en arrière-plan
-      // (téléphone verrouillé) : rien à recharger.
-      // ⚠️ Testé sur #tab-activity, PAS sur #tab-community : ce fil vit dans
-      // l'onglet Activité depuis son déménagement du 30 août 2026. Le test
-      // portait encore sur #tab-community jusqu'au 3 septembre 2026 — comme
-      // cet onglet-là est forcément masqué quand on regarde une activité, la
-      // condition était vraie dès le premier tick et le minuteur se tuait
-      // aussitôt : le fil ne se rafraîchissait plus tout seul, et
-      // refreshUnreadBadges() (son unique appelant) ne s'exécutait jamais.
-      // ⚠️ 3 septembre 2026 (Activité — général), deuxième correction de cette
-      // même garde en deux jours : elle testait #tab-community jusqu'au 3
-      // septembre au matin (le fil avait déménagé dans #tab-activity le 30
-      // août sans que la garde suive), puis #tab-activity. Le fil vit
-      // maintenant dans #activityPage, une page qui se superpose aux onglets :
-      // c'est SA visibilité, et elle seule, qui dit si le fil est regardé.
-      // Application directe de la directive transverse née du premier bug.
-      var sw = $('goalsActivitySwitcher');
-      if (!discussionActivityId || !sw || sw.getClientRects().length === 0) {
-        stopDiscussionPolling();
-        return;
-      }
-      if (document.hidden) return;
-      loadDiscussion(discussionVisible);
-      refreshUnreadBadges();
-    }, 15000);
-  }
-
-  function stopDiscussionPolling() {
-    if (discussionPollTimer) clearInterval(discussionPollTimer);
-    discussionPollTimer = null;
-  }
-
-  function loadDiscussion(markRead) {
-    if (!profile || !discussionActivityId) return;
-    var activityId = discussionActivityId;
-    // Activité non partagée : pas de fil, on n'appelle pas la route.
-    var known = (activitiesCache || []).filter(function (a) { return String(a.id) === String(activityId); })[0];
-    if (known && known.membersCount <= 1 && !(lastRenderedShared && lastRenderedShared[String(activityId)])) {
-      renderDiscussion([]);
-      return;
-    }
-    api('GET', '/api/community/activity-messages?userId=' + profile.id + '&activityId=' + activityId + (markRead ? '' : '&markRead=0'))
-      .then(function (data) {
-        if (String(activityId) !== String(discussionActivityId)) return; // sélection changée entre-temps
-        renderDiscussion(data.messages);
-        // La pastille de cette activité vient d'être remise à zéro côté
-        // serveur (markRead) : on l'efface tout de suite ici plutôt que
-        // d'attendre le prochain rechargement complet de la liste.
-        if (markRead) { setUnreadBadge(activityId, 0); setDiscTabDot(0); }
-        refreshUnreadBadges();
-      })
-      .catch(function () {
-        // Activité quittée/supprimée entre-temps : loadActivityDetail gère
-        // déjà la fermeture du détail, rien à faire de plus ici.
-      });
-  }
-
-  // Menu ⋮ d'un message (une seule action : Signaler) et pop-up de signalement.
-  // Le message signalé disparaît pour le signaleur seulement (côté serveur).
-  function openMessageMenu(anchor, messageId) {
-    var old = document.querySelector('.msgMenuPop');
-    if (old) old.remove();
-    var pop = document.createElement('div');
-    pop.className = 'msgMenuPop';
-    var b = document.createElement('button');
-    b.type = 'button'; b.textContent = t('Signaler');
-    b.addEventListener('click', function () { pop.remove(); openReportDialog(messageId); });
-    pop.appendChild(b);
-    var r = anchor.getBoundingClientRect();
-    pop.style.top = (r.bottom + 4) + 'px';
-    pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-    document.body.appendChild(pop);
-    setTimeout(function () {
-      document.addEventListener('click', function close() { pop.remove(); document.removeEventListener('click', close); });
-    }, 0);
-  }
-
-  function openReportDialog(messageId) {
-    var reasons = [['abusif', 'Harcèlement ou propos abusifs'], ['spam', 'Pourriel ou publicité'], ['inapproprie', 'Contenu inapproprié'], ['autre', 'Autre']];
-    var ov = document.createElement('div');
-    ov.className = 'reportOverlay';
-    var card = document.createElement('div');
-    card.className = 'reportCard';
-    card.innerHTML =
-      '<div class="reportHead"><strong>' + escapeHtml(t('Signaler ce message')) + '</strong>' +
-      '<button type="button" class="cmpClose reportClose" aria-label="' + escapeHtml(t('Fermer')) + '">✕</button></div>' +
-      reasons.map(function (r, i) {
-        return '<label class="reportReason"><input type="radio" name="reportReason" value="' + r[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + escapeHtml(t(r[1])) + '</label>';
-      }).join('') +
-      '<div class="chatComposerRow"><textarea rows="2" maxlength="300" placeholder="' + escapeHtml(t('Précision (facultatif)')) + '"></textarea>' +
-      '<button type="button" class="cmpSend" aria-label="' + escapeHtml(t('Envoyer')) + '"></button></div>' +
-      '<p class="msg"></p>';
-    ov.appendChild(card);
-    document.body.appendChild(ov);
-    function close() { ov.remove(); }
-    card.querySelector('.reportClose').addEventListener('click', close);
-    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-    var send = card.querySelector('.cmpSend'), msgEl = card.querySelector('.msg');
-    send.addEventListener('click', function () {
-      send.disabled = true; msgEl.textContent = '';
-      api('POST', '/api/community/activity-messages/' + messageId + '/report', {
-        userId: profile.id,
-        reason: card.querySelector('input[name=reportReason]:checked').value,
-        detail: card.querySelector('textarea').value,
-      }).then(function () {
-        close(); discussionRenderedIds = ''; loadDiscussion(false);
-        alert(t('Merci, le message est signalé et masqué pour toi.'));
-      }).catch(function (err) { msgEl.textContent = err.message; send.disabled = false; });
-    });
-  }
-
-  function renderDiscussion(messages) {
-    var box = $('communityDiscussionList');
-    $('communityDiscussionEmptyHint').classList.toggle('hidden', messages.length > 0);
-
-    // Signature du contenu : évite de reconstruire (et donc de faire sauter le
-    // défilement) à chaque tour du rafraîchissement périodique quand rien n'a
-    // changé.
-    var signature = messages.map(function (m) { return m.id; }).join(',');
-    if (signature === discussionRenderedIds) return;
-    var wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
-    var isFirstRender = discussionRenderedIds === '';
-    discussionRenderedIds = signature;
-
-    box.innerHTML = '';
-    messages.forEach(function (m) {
-      var mine = profile && m.userId === profile.id;
-      var when = new Date(m.createdAt);
-      var dateLabel = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' });
-      var timeLabel = pad(when.getHours()) + ':' + pad(when.getMinutes());
-
-      var msg = document.createElement('div');
-      msg.className = 'discussionMsg' + (mine ? ' mine' : '');
-      // Repère utilisé par le renvoi depuis une notification, pour retrouver
-      // et mettre en évidence LE message concerné (voir focusFromNotification).
-      msg.dataset.messageId = m.id;
-      msg.innerHTML =
-        '<div class="discussionMsgTop">' +
-          '<span class="discussionMsgAuthor"><span class="dot" style="background:' + m.userColor + '"></span>' +
-          escapeHtml(m.userName) + (mine ? t(' (toi)') : '') + '</span>' +
-          '<span class="meta">' + dateLabel + ' · ' + timeLabel + '</span>' +
-        '</div>' +
-        (m.body ? '<div class="discussionMsgBody">' + escapeHtml(m.body) + '</div>' : '');
-
-      // Pièces jointes (images cliquables, PDF en lien) — servies par une
-      // route réservée aux membres de l'activité.
-      if (m.files && m.files.length) {
-        var filesBox = document.createElement('div');
-        filesBox.className = 'discussionMsgFiles';
-        m.files.forEach(function (f) {
-          var url = '/api/community/activity-message-files/' + f.id;
-          if (f.mimeType.indexOf('image/') === 0) {
-            var img = document.createElement('img');
-            img.src = url; img.alt = f.fileName; img.loading = 'lazy';
-            img.addEventListener('click', function () { openImageViewer(url, f.fileName); });
-            filesBox.appendChild(img);
-          } else {
-            var a = document.createElement('a');
-            a.href = url; a.target = '_blank'; a.rel = 'noopener';
-            a.textContent = '📎 ' + f.fileName;
-            filesBox.appendChild(a);
-          }
-        });
-        msg.appendChild(filesBox);
-      }
-
-      // Chacun ne supprime que ses propres messages — le propriétaire de
-      // l'activité n'a aucun droit particulier ici, comme partout ailleurs
-      // dans l'app (voir DELETE /community/activity-messages/:id).
-      if (mine) {
-        var del = TMT.ui.removeBtn(null, t('Supprimer ce message'));
-        del.addEventListener('click', function () {
-          TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
-          api('DELETE', '/api/community/activity-messages/' + m.id + '?userId=' + profile.id)
-            .then(function () { discussionRenderedIds = ''; loadDiscussion(true); })
-            .catch(function (err) { alert(err.message); });
-        });
-        });
-        // Placée dans la ligne d'en-tête (et pas en position absolue) pour ne
-        // jamais recouvrir l'horodatage, quelle que soit la longueur du nom.
-        msg.querySelector('.discussionMsgTop').appendChild(del);
-      }
-
-      // Signalement : menu ⋮ sur les messages des AUTRES (pas sur les siens).
-      if (!mine) {
-        var more = document.createElement('button');
-        more.type = 'button';
-        more.className = 'discussionMsgDelete discussionMsgMore';
-        more.textContent = '⋮';
-        more.setAttribute('aria-label', t('Plus d\'actions'));
-        more.addEventListener('click', function (e) { e.stopPropagation(); openMessageMenu(more, m.id); });
-        msg.querySelector('.discussionMsgTop').appendChild(more);
-      }
-
-      box.appendChild(msg);
-    });
-
-    // Fil chronologique : on reste collé au message le plus récent, sauf si
-    // la personne est justement en train de remonter la conversation.
-    if (isFirstRender || wasAtBottom) box.scrollTop = box.scrollHeight;
-  }
-
-  var discussionPendingFile = null; // { fileName, dataUrl }
-
-  function setDiscussionPendingFile(f) {
-    discussionPendingFile = f;
-    var box = $('communityDiscussionPending');
-    box.classList.toggle('hidden', !f);
-    box.innerHTML = '';
-    if (!f) return;
-    var span = document.createElement('span');
-    span.textContent = '📎 ' + f.fileName;
-    var x = TMT.ui.removeBtn(null, t('Retirer'));
-    x.addEventListener('click', function () { setDiscussionPendingFile(null); });
-    box.appendChild(span); box.appendChild(x);
-  }
-
-  function sendDiscussionMessage() {
-    if (!profile || !discussionActivityId) return;
-    var input = $('communityDiscussionInput');
-    var body = input.value.trim();
-    var msgEl = $('communityDiscussionMsg');
-    if (!body && !discussionPendingFile) { msgEl.textContent = t('Écris un message avant d\'envoyer.'); return; }
-
-    msgEl.textContent = '';
-    $('communityDiscussionSendBtn').disabled = true;
-    api('POST', '/api/community/activity-messages', {
-      userId: profile.id, activityId: discussionActivityId, body: body,
-      attachment: discussionPendingFile || undefined,
-    })
-      .then(function () {
-        input.value = '';
-        setDiscussionPendingFile(null);
-        discussionRenderedIds = '';
-        loadDiscussion(true);
-      })
-      .catch(function (err) { msgEl.textContent = err.message; })
-      .then(function () {
-        $('communityDiscussionSendBtn').disabled = false;
-        // Le clavier reste ouvert : on rend le focus au champ après l'envoi.
-        input.focus();
-      });
-  }
-
-  // Le tap sur Envoyer / trombone ne doit pas retirer le focus du champ
-  // (sinon le clavier se ferme) — même technique que #catComposerAddBtn.
-  ['communityDiscussionSendBtn', 'communityDiscussionAttachBtn'].forEach(function (id) {
-    $(id).addEventListener('mousedown', function (e) { e.preventDefault(); });
-    $(id).addEventListener('pointerdown', function (e) { e.preventDefault(); });
-  });
-  $('communityDiscussionAttachBtn').addEventListener('click', function () { $('communityDiscussionFileInput').click(); });
-  $('communityDiscussionFileInput').addEventListener('change', function () {
-    var file = this.files && this.files[0];
-    this.value = '';
-    var msgEl = $('communityDiscussionMsg');
-    if (!file) return;
-    if (!/^(image\/(jpeg|png|gif|webp)|application\/pdf)$/.test(file.type)) { msgEl.textContent = t('Images ou PDF seulement.'); return; }
-    if (file.size > 5 * 1024 * 1024) { msgEl.textContent = t('Fichier trop lourd (5 Mo max).'); return; }
-    msgEl.textContent = '';
-    var reader = new FileReader();
-    reader.onload = function () { setDiscussionPendingFile({ fileName: file.name, dataUrl: reader.result }); };
-    reader.readAsDataURL(file);
-  });
-  $('communityDiscussionSendBtn').addEventListener('click', sendDiscussionMessage);
-  // Entrée = envoyer, Maj+Entrée = retour à la ligne — convention habituelle
-  // d'un champ de conversation.
-  $('communityDiscussionInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDiscussionMessage(); }
-  });
-
-  // Points d'entrée pour la Page 2 d'Objectifs (objectifs-page2-taches.js).
-  window.TMT.discussion = {
-    // Activité partagée affichée : charge le fil SANS le marquer lu (la
-    // pastille de l'onglet signale les non-lus) et lance le rafraîchissement.
-    open: function (activityId) {
-      discussionActivityId = String(activityId);
-      discussionVisible = false;
-      discussionRenderedIds = '';
-      $('communityDiscussionList').innerHTML = '';
-      $('communityDiscussionInput').value = '';
-      $('communityDiscussionMsg').textContent = '';
-      setDiscussionPendingFile(null);
-      setDiscTabDot(0);
-      loadDiscussion(false);
-      startDiscussionPolling();
-      refreshUnreadBadges();
-    },
-    // Activité solo (ou page quittée) : plus de fil.
-    close: function () {
-      discussionActivityId = '';
-      discussionVisible = false;
-      stopDiscussionPolling();
-    },
-    // Onglet Discussion affiché/masqué : marquage lu à l'affichage.
-    setVisible: function (on) {
-      discussionVisible = !!on;
-      if (!on || !discussionActivityId) return;
-      var list = $('communityDiscussionList');
-      requestAnimationFrame(function () { list.scrollTop = list.scrollHeight; });
-      loadDiscussion(true);
-    },
-  };
-
-  // Pastilles de non-lus : mises à jour en place (sans reconstruire la liste
-  // d'activités, ce qui refermerait un menu "⋮" ouvert) — voir
-  // GET /api/community/unread-messages.
-  function setUnreadBadge(activityId, count) {
-    var badge = document.querySelector('#activitiesList .unreadBadge[data-activity-id="' + activityId + '"]');
-    if (!badge) return;
-    badge.textContent = count;
-    badge.classList.toggle('hidden', !count);
-  }
-
-  // AC·N1 : pastille .notifDot sur l'onglet Discussion de la page Activité,
-  // d'après le même état « lu » serveur que les pastilles de la liste
-  // (activity_message_reads). Jamais affichée quand le fil est à l'écran.
-  function setDiscTabDot(count) {
-    var dot = $('goalsPage2DiscDot');
-    if (dot) dot.classList.add('hidden'); // pas de point sans numéro (demande d'Émilien, 30 oct. 2026)
-  }
-
   // Point rouge sur les puces d'activité de la Feuille de route (Page 1).
   function syncUnreadChipDots() {
     var by = TMT.unreadByActivity || {};
@@ -8949,273 +8439,12 @@
         badge.textContent = n;
         badge.classList.toggle('hidden', !n);
       });
-      if (discussionActivityId) setDiscTabDot(data.byActivity[discussionActivityId] || 0);
       TMT.unreadByActivity = data.byActivity || {};
       syncUnreadChipDots();
       // Aucun point sur les icônes de la barre d'onglets (demande d'Émilien, 30 oct. 2026).
     }).catch(function () { /* sans conséquence : la pastille reste telle quelle */ });
   }
 
-  // ===================== STATISTIQUES D'UNE ACTIVITÉ (section Membres) =====
-  // Mêmes trois sections que l'onglet Statistiques (Feuille de temps /
-  // Répartition / Graphique), même fonctionnement (période, plein écran
-  // paysage, semaine réinitialisée à chaque sélection — voir
-  // loadActivityDetail ci-dessus) — demande d'Emilien, 29-30 août 2026.
-  // Copies parallèles et indépendantes des fonctions Statistiques
-  // équivalentes (jamais partagées, pour ne jamais faire dépendre l'un des
-  // deux chantiers d'un changement futur de l'autre) ; seuls les petits
-  // utilitaires déjà génériques (donutSlicePath, dayChartLabel,
-  // textColorForTheme, formatHM, escapeHtml, pad, t, $, api) sont réutilisés
-  // tels quels. L'axe de comparaison change : ici on compare les MEMBRES
-  // d'UNE SEULE activité entre eux, plus les activités entre elles (on est
-  // déjà "dans" une seule activité, il n'y en a plus à comparer).
-  // Un menu "⋮" par section, câblés par le helper générique de l'onglet
-  // Statistiques (setupStatsPeriodMenu) — réutilisé tel quel, pas une ligne
-  // modifiée, exactement comme la page de visite d'un profil le fait déjà.
-  function reloadActivityStats() {
-    if (sharedStatsActivityId) loadActivityStats(sharedStatsActivityId);
-  }
-  var caPieMenu = bindPeriodMenu({
-    btn: $('caPiePeriodBtn'), menu: $('caPiePeriodMenu'),
-    get: function () { return currentActivityPiePeriod; },
-    set: function (v) { currentActivityPiePeriod = v; },
-    onChange: reloadActivityStats,
-  });
-  var caChartMenu = bindPeriodMenu({
-    btn: $('caChartPeriodBtn'), menu: $('caChartPeriodMenu'),
-    get: function () { return currentActivityChartGranularity; },
-    set: function (v) { currentActivityChartGranularity = v; },
-    onChange: reloadActivityStats,
-  });
-
-  // Remet les deux menus sur leur période courante. Nécessaire à chaque
-  // nouvelle sélection d'activité : les menus gardent sinon la coche de
-  // l'activité précédente, alors que les variables, elles, sont réinitialisées.
-  // ----- Filtre par catégorie (4 septembre 2026, demande d'Emilien ; converti
-  // le 17 septembre 2026 du sous-projet à la catégorie Objectifs — citation
-  // directe : « [les catégories] sont visibles dans le stat lorsque tu
-  // cliques sur une stat. ») -----
-  // « je souhaite que les membres d'une activité puissent comparer entre eux
-  // leurs enregistrements globaux (cette fonction existe déjà), ainsi que
-  // leurs enregistrements par catégorie » — d'où un filtre, et non une
-  // fenêtre par membre : la comparaison entre membres reste à l'écran, elle
-  // est simplement restreinte à une catégorie.
-  //
-  // Trois familles de valeurs, exactement celles que la route accepte :
-  //   ''      : tout le temps de l'activité (paramètre non envoyé)
-  //   'none'  : le temps NON rattaché à une catégorie
-  //   <clé>   : cette catégorie
-  // Le camembert ET le graphique suivent, puisqu'un seul appel les sert.
-  // Utilise fetchChronoCategories (Chrono, plus haut dans ce fichier) — même
-  // source que le sélecteur du Chrono, aucune duplication.
-  function loadActivityCategoryFilter(activityId) {
-    var wrap = $('caCategoryFilterWrap');
-    var menu = $('caCategoryMenu');
-    if (!wrap || !menu || !profile || !activityId) return;
-    wrap.classList.add('hidden');
-    menu.innerHTML = '';
-    fetchChronoCategories(activityId).then(function (list) {
-      // Garde anti-réponse-en-vol : l'activité a pu changer entre-temps.
-      if (String(activityId) !== String(sharedStatsActivityId)) return;
-      if (list.length <= 1) return; // une seule catégorie : rien à filtrer, rien à montrer
-      var options = [{ value: '', label: t('Tous les pôles') },
-                     { value: 'none', label: t('Sans pôle') }];
-      list.forEach(function (c) {
-        options.push({ value: String(c.key), label: c.label || t('Pôle') });
-      });
-      options.forEach(function (o) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'statsPeriodMenuItem' + (o.value === currentActivityCategory ? ' active' : '');
-        b.setAttribute('data-category', o.value);
-        b.textContent = o.label;
-        menu.appendChild(b);
-      });
-      syncActivityCategoryBtn();
-      wrap.classList.remove('hidden');
-    });
-  }
-
-  function syncActivityCategoryBtn() {
-    var menu = $('caCategoryMenu');
-    var label = $('caCategoryBtnLabel');
-    if (!menu || !label) return;
-    var active = menu.querySelector('[data-category="' + currentActivityCategory + '"]');
-    label.textContent = active ? active.textContent : t('Tous les pôles');
-    menu.querySelectorAll('.statsPeriodMenuItem').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-category') === currentActivityCategory);
-    });
-  }
-
-  // Ouverture/fermeture : mêmes conventions que setupStatsPeriodMenu (classes
-  // .statsPeriodMenuWrap / .statsPeriodMenu, fermeture au clic en dehors déjà
-  // posée sur le document). Le helper lui-même n'est pas réutilisable ici : il
-  // câble les entrées UNE FOIS au démarrage, alors que celles-ci sont
-  // reconstruites à chaque activité. D'où un écouteur DÉLÉGUÉ sur le menu.
-  $('caCategoryBtn').addEventListener('click', function (e) {
-    e.stopPropagation();
-    var menu = $('caCategoryMenu');
-    var willOpen = menu.classList.contains('hidden');
-    closeAllStatsPeriodMenus();
-    if (willOpen) menu.classList.remove('hidden');
-  });
-  $('caCategoryMenu').addEventListener('click', function (e) {
-    var item = e.target.closest('.statsPeriodMenuItem');
-    if (!item) return;
-    this.classList.add('hidden');
-    var value = item.getAttribute('data-category') || '';
-    if (value === currentActivityCategory) return;
-    currentActivityCategory = value;
-    syncActivityCategoryBtn();
-    if (TMT.caTasks) TMT.caTasks.onCategory();
-    if (sharedStatsActivityId) loadActivityStats(sharedStatsActivityId);
-  });
-
-  function syncActivityPeriodMenus() {
-    caPieMenu.sync();
-    caChartMenu.sync();
-  }
-
-  // ⚠️ UN SEUL appel serveur pour les deux sections, avec DEUX périodes.
-  // La route renvoie `breakdown` (camembert, période demandée) et
-  // `dailyBreakdown` (graphique, sa propre période). Changer la période de
-  // l'une redessine aussi l'autre à l'identique — un aller-retour réseau de
-  // moins qu'avec deux appels, pour un rendu client négligeable.
-  function loadActivityStats(activityId) {
-    if (!profile || !activityId) return;
-    var url = '/api/community/activity-stats?userId=' + profile.id +
-      '&activityId=' + activityId +
-      '&period=' + currentActivityPiePeriod +
-      '&chartGranularity=' + currentActivityChartGranularity +
-      // Filtre par catégorie (4 septembre 2026 ; converti le 17 septembre
-      // 2026 du sous-projet à la catégorie Objectifs). Vide = tout le temps
-      // de l'activité, comportement d'avant ce chantier : le paramètre n'est
-      // alors pas envoyé du tout, et le serveur ne change rien à sa requête.
-      (currentActivityCategory
-        ? '&category=' + encodeURIComponent(currentActivityCategory) : '');
-    api('GET', url).then(function (data) {
-      if (String(activityId) !== String(sharedStatsActivityId)) return; // sélection changée entre-temps
-      var block = data.breakdown;
-      // Libellé de période seul, dans le bloc Répartition lui-même (motif
-      // .statsSummary de l'onglet Statistiques). Le total qui l'accompagnait
-      // a été retiré le 6 septembre 2026 — Emilien : « le temps total est
-      // marqué deux fois dans répartition » — renderPie l'écrivant
-      // déjà au centre du camembert. block.totalSeconds continue de lui être
-      // passé, c'est lui qui alimente ce centre.
-      $('communityActivityStatsLabel').textContent = t(block.label);
-      // ⚠️ AVANT les deux rendus : ils lisent tous les deux le rang de nuance
-      // de chaque membre, et ce rang se calcule sur l'ensemble des membres
-      // connus. On le nourrit des DEUX sources de la réponse — le camembert
-      // (période courte) et le graphique (période longue) — pour qu'un membre
-      // absent de l'une garde la même couleur dans l'autre.
-      var seen = [block.members];
-      (data.dailyBreakdown || []).forEach(function (d) { seen.push(d.members); });
-      rememberActivityMembers(activityId, seen);
-
-      renderPie(activityMembersAsPieParts(block.members), block.totalSeconds, {
-        wrap: 'communityActivityPie', emptyHint: 'communityActivityPieEmptyHint',
-        ariaLabel: t('Répartition du temps par membre'),
-      });
-
-      lastActivityDailyBreakdown = data.dailyBreakdown || [];
-      renderActivityChart(lastActivityDailyBreakdown);
-    }).catch(function () {
-      // L'activité a pu être quittée/supprimée entre-temps par un autre
-      // membre. Cette garde vivait dans l'appel à /community/activity-feed,
-      // retiré avec le flux des notes : elle est reprise ici, sur le seul
-      // appel qui reste à porter la même vérification d'accès.
-      if (String(activityId) !== String(sharedStatsActivityId)) return;
-      // Chantier Chrono : l'activité n'est plus accessible (quittée ou supprimée) : la 3e page du Chrono relit la liste des activités.
-      refreshActivities().then(function () { if (TMT.sharedStatsRefresh) TMT.sharedStatsRefresh(); }, function () {});
-    });
-  }
-
-  // 3e page du Chrono (chantier Chrono) : statistiques de l'activité partagée choisie par les puces (public/js/stats-avance.js).
-  // Repart de zéro à chaque choix : période « Semaine », graphique « Jour », aucun filtre de pôle.
-  function selectSharedStats(a) {
-    sharedStatsActivityId = a ? String(a.id) : '';
-    if (!a) return;
-    currentActivityColor = a.color || '';
-    currentActivityPiePeriod = 'week';
-    currentActivityChartGranularity = 'day';
-    currentActivityCategory = '';
-    syncActivityPeriodMenus();
-    loadActivityCategoryFilter(a.id);
-    loadActivityStats(a.id);
-  }
-
-  // ----- Section Camembert : une part par MEMBRE (couleur = nuance personnelle
-  // du membre sur cette activité), dessinée par renderPie — voir
-  // activityMembersAsPieParts. Le filtre par catégorie (#caCategoryBtn) change
-  // ce que le serveur renvoie, pas ce qui est dessiné ; aucune tranche
-  // cliquable ici (décision d'Emilien, 4 sept. 2026). -----
-  function activityMembersAsPieParts(members) {
-    return members.map(function (m) {
-      return { name: m.name, seconds: m.seconds, percent: m.percent, color: activityMemberColor(m.userId, m.color) };
-    });
-  }
-
-  // ----- Section Graphique : une courbe d'évolution par MEMBRE sur la
-  // période sélectionnée, plus une courbe Total agrégeant tous les membres —
-  // pendant exact de buildChartSeries/renderChart, réindexé par membre. -----
-  function buildActivityChartSeries(sortedDays) {
-    var byMember = {};
-    var order = [];
-    sortedDays.forEach(function (d) {
-      (d.members || []).forEach(function (m) {
-        if (!byMember[m.userId]) {
-          byMember[m.userId] = { userId: m.userId, name: m.name, color: m.color, total: 0 };
-          order.push(m.userId);
-        }
-        byMember[m.userId].total += m.seconds;
-        byMember[m.userId].name = m.name;
-        byMember[m.userId].color = m.color;
-      });
-    });
-
-    var members = order.map(function (id) { return byMember[id]; })
-      .sort(function (a, b) { return b.total - a.total; });
-
-    var series = members.map(function (mem) {
-      return {
-        id: mem.userId,
-        name: mem.name,
-        // Même nuance que dans le camembert juste au-dessus : les deux
-        // sections se lisent avec une seule légende dans la tête.
-        color: activityMemberColor(mem.userId, mem.color),
-        isTotal: false,
-        values: sortedDays.map(function (d) {
-          var found = (d.members || []).find(function (m) { return m.userId === mem.userId; });
-          return found ? found.seconds : 0;
-        }),
-      };
-    });
-
-    series.push({
-      id: '__total__',
-      name: t('Total'),
-      color: textColorForTheme(currentTheme),
-      isTotal: true,
-      values: sortedDays.map(function (d) { return d.totalSeconds; }),
-    });
-
-    return series;
-  }
-
-  // 14 septembre 2026 : rendu réunifié dans renderChart (voir son commentaire
-  // plus haut) — cette fonction ne fait plus que lui passer l'axe par membre
-  // (buildActivityChartSeries) et les ids/dimensions propres à cette page.
-  // Largeur/hauteur inchangées (mêmes 320/180/14/26/false qu'avant l'unification).
-  var ACTIVITY_CHART_IDS = {
-    box: 'communityActivityChart', wrap: 'communityActivityChartWrap',
-    legend: 'communityActivityChartLegend', tooltip: 'caChartTooltip',
-    emptyHint: 'communityActivityChartEmptyHint',
-    buildSeries: buildActivityChartSeries,
-    minWidthFloor: 320, useClientWidth: false,
-  };
-  function renderActivityChart(days) {
-    renderChart(days, ACTIVITY_CHART_IDS);
-  }
   // ----- Plein écran retiré le 3 septembre 2026 (Activité — général),
   // demande d'Emilien : « aligne-le. Plus de plein écran nulle part. »
   // Cette page était la dernière à en avoir un : la Feuille de temps de
@@ -9290,28 +8519,19 @@
     // membres [doit se situer] au même niveau que le nom complet des
     // membres ») — ajouté DANS .activityRowHeader (même ligne que le nom),
     // pas dans un .rowActions séparé en dessous comme au premier jet.
+    // 8 nov. 2026 (demande d'Émilien) : « Exclure » et « Ajouter / Retirer comme responsable » sont rangés dans un petit menu « ⋯ » (composant commun TMT.ui.dotsMenu) à côté du nom.
+    var menuItems = [];
     if (opts.canExclude && profile && m.userId !== profile.id) {
-      var header = row.querySelector('.activityRowHeader');
-      var excludeBtn = document.createElement('button');
-      excludeBtn.type = 'button';
-      excludeBtn.className = 'iconBtn btnBrique btnDanger';
-      excludeBtn.textContent = t('Exclure');
-      excludeBtn.addEventListener('click', function () {
+      menuItems.push({ label: t('Exclure'), danger: true, onClick: function () {
         TMT.ui.confirm(t('Exclure {name} de "{activity}" ? Cette personne gardera son historique déjà enregistré, dans sa propre activité personnelle. Elle ne fait plus partie de "{activity}" ensuite.', { name: displayName, activity: opts.activityName }), { ok: t('Exclure') }).then(function (ok) { if (!ok) return;
-        excludeBtn.disabled = true;
-        api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
-          .then(function (res) {
-            alert(t(res.message));
-            if (opts.onExcluded) opts.onExcluded();
-          })
-          .catch(function (err) {
-            excludeBtn.disabled = false;
-            alert(err.message);
-          });
-      });
-      });
-      header.appendChild(excludeBtn);
+          api('DELETE', '/api/activities/' + opts.activityId + '/members/' + m.userId, { userId: profile.id })
+            .then(function (res) { TMT.ui.confirm(t(res.message), { ok: "OK" }); if (opts.onExcluded) opts.onExcluded(); })
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
+        });
+      } });
     }
+    (opts.extraItems || []).forEach(function (it) { menuItems.push(it); });
+    if (menuItems.length) row.querySelector('.activityRowHeader').appendChild(TMT.ui.dotsMenu(t('Paramètres du membre'), menuItems));
 
     return row;
   }
@@ -9360,7 +8580,7 @@
     var actionsRow = document.createElement('div');
     actionsRow.className = 'rowActions';
 
-    var canAdd = a.isOwner || !isShared;
+    var canAdd = a.isOwner || a.isActivityManager === true || !isShared;
 
     if (isShared) {
       var leaveBtn = document.createElement('button');
@@ -9377,9 +8597,9 @@
             // de laisser à l'écran une fenêtre qui ne lui correspond plus.
             closeActivityPage();
             refreshActivities().then(renderActivityGrid);
-            alert(t(res.message));
+            TMT.ui.confirm(t(res.message), { ok: "OK" });
           })
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       });
       actionsRow.appendChild(leaveBtn);
@@ -9403,16 +8623,14 @@
       var searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'memberSearchInput';
-      searchInput.placeholder = t('Pseudo, projet, secteur');
+      searchInput.placeholder = t('Ajouter un nouveau membre…');
       searchInput.autocomplete = 'off';
+      searchInput.enterKeyHint = 'search';
       var searchRow = document.createElement('div');
       searchRow.className = 'chatComposerRow communitySearchRow';
-      var searchBtn = document.createElement('button');
-      searchBtn.type = 'button';
-      searchBtn.className = 'iconBtn btnBrique';
-      searchBtn.textContent = t('Rechercher');
+      // Même barre que celle de Communauté : loupe à gauche, plus de bouton « Rechercher » (la recherche part en tapant ou avec Entrée).
+      searchRow.insertAdjacentHTML('beforeend', '<svg class="communitySearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>');
       searchRow.appendChild(searchInput);
-      searchRow.appendChild(searchBtn);
 
       var suggestBox = document.createElement('div');
 
@@ -9533,7 +8751,7 @@
           .catch(function () { if (seq === addMemberSearchSeq) suggestBox.innerHTML = ''; });
       }
       var addMemberDebounce = null;
-      searchBtn.addEventListener('click', function () { clearTimeout(addMemberDebounce); runAddMemberSearch(); });
+      searchInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(addMemberDebounce); runAddMemberSearch(); } });
       searchInput.addEventListener('input', function () {
         clearTimeout(addMemberDebounce);
         addMemberDebounce = setTimeout(runAddMemberSearch, 250);
@@ -9544,11 +8762,11 @@
         validateBtn.disabled = true;
         api('POST', '/api/activities/' + a.id + '/invite', { userId: profile.id, pseudo: selectedUser.name })
           .then(function (res) {
-            alert(t(res.message));
+            TMT.ui.confirm(t(res.message), { ok: "OK" });
             closeSearchPanel();
           })
           .catch(function (err) {
-            alert(err.message);
+            TMT.ui.confirm(err.message, { ok: "OK" });
             validateBtn.disabled = false;
           });
       });
@@ -9606,7 +8824,8 @@
     // pouvoir rafraîchir la liste après une exclusion, sans refermer la
     // modale ni la retraverser depuis la grille d'activités.
     function loadMembers() {
-      return api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId).then(function (data) {
+      return Promise.all([api('GET', '/api/community/activity-members?userId=' + profile.id + '&activityId=' + activityId), TMT.responsables ? TMT.responsables.load(activityId) : Promise.resolve(null)]).then(function (both) {
+        var data = both[0], respSt = both[1];
         $('communityMembersModalTitle').textContent = t('Membres · {name}', { name: data.activityName });
         var box = $('communityMembersModalList');
         box.innerHTML = '';
@@ -9617,6 +8836,7 @@
             activityId: activityId,
             activityName: data.activityName,
             onExcluded: refreshAfterExclude,
+            extraItems: respSt ? TMT.responsables.items(activityId, respSt, m.userId, function (e) { if (e) TMT.ui.confirm(e.message, { ok: "OK" }); loadMembers(); }) : [], // Ajouter / Retirer comme responsable
           }));
         });
         $('communityMembersModal').classList.remove('hidden');
@@ -9860,6 +9080,8 @@
     return el;
   }
 
+  TMT.buildSmallAvatar = buildSmallAvatar; // 19 nov. 2026 : les bulles du pop-up « Ajouter un membre » (js/membres-ui.js) reprennent celles des suggestions de Communauté
+
   // Nom complet (prénom + nom de famille) — ajouté le 3 septembre 2026,
   // sixième passage (demande d'Emilien : « le nom des utilisateurs doit
   // toujours s'afficher en entier [...] que ce soit dans la zone des
@@ -9925,6 +9147,7 @@
   function renderSearchResults(list, isDiscovery) {
     var box = $('communitySearchResults');
     box.innerHTML = '';
+    var pg1 = $('communityPage1'); if (pg1) pg1.classList.toggle('searchEmpty', list.length === 0 && !isDiscovery); // 09 : recherche sans résultat = UN seul message d'état vide (celui du fil se masque)
     if (list.length === 0) {
       box.className = 'activitiesList';
       box.innerHTML = '<p class="hint">' + t('Aucun membre trouvé.') + '</p>';
@@ -10017,7 +9240,7 @@
               u.followStatus = 'none'; u.followId = null;
               renderSearchResults(list, isDiscovery);
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         });
         actionsWrap.appendChild(cancelBtn);
       } else {
@@ -10031,7 +9254,7 @@
               u.followStatus = 'pending'; u.followId = r.id;
               renderSearchResults(list, isDiscovery);
             })
-            .catch(function (err) { alert(err.message); followBtn.disabled = false; });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); followBtn.disabled = false; });
         });
         actionsWrap.appendChild(followBtn);
       }
@@ -10106,7 +9329,7 @@
       acceptBtn.addEventListener('click', function () {
         api('POST', '/api/follows/' + r.id + '/accept', { userId: profile.id })
           .then(loadFollowRequests)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
 
       var declineBtn = document.createElement('button');
@@ -10115,7 +9338,7 @@
       declineBtn.addEventListener('click', function () {
         api('POST', '/api/follows/' + r.id + '/decline', { userId: profile.id })
           .then(loadFollowRequests)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
 
       actionsWrap.appendChild(acceptBtn);
@@ -10185,7 +9408,7 @@
           btn.disabled = false;
           btn.classList.remove('armed');
           btn.textContent = label;
-          alert(err.message);
+          TMT.ui.confirm(err.message, { ok: "OK" });
         });
     });
     return btn;
@@ -10203,7 +9426,7 @@
       TMT.ui.confirm(t('Bloquer {name} ? Cette personne sera retirée de tes abonnés et ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }), { ok: t('Bloquer') }).then(function (ok) { if (!ok) return;
       api('POST', '/api/blocks', { blockedId: userId })
         .then(onDone)
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     return btn;
@@ -10218,7 +9441,7 @@
     btn.addEventListener('click', function () {
       api('DELETE', '/api/blocks/' + blockId)
         .then(onDone)
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     return btn;
   }
@@ -10339,6 +9562,36 @@
   // bouton de suppression (pas son message), pièces jointes en lecture
   // seule (buildAttachmentRowReadOnly), et le nom de l'auteur est affiché
   // (buildProfilePostCard ne montre jamais que "toi").
+  // Bloquer un auteur (App Store 1.2 / Google Play) : confirmation puis POST /api/blocks existant ; le fil est ensuite rechargé (ses publications et sondages disparaissent).
+  function confirmBlockMember(userId, name, onDone) {
+    TMT.ui.confirm(t('Bloquer {name} ? Ses publications disparaîtront de ton fil et cette personne ne pourra plus te suivre tant que tu ne l\'auras pas débloquée.', { name: name }), { ok: t('Bloquer') }).then(function (ok) {
+      if (!ok) return;
+      api('POST', '/api/blocks', { blockedId: userId })
+        .then(function () { if (onDone) onDone(); loadFollowingFeed(); })
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: 'OK' }); });
+    });
+  }
+
+  // Appui long (500 ms, TMT.ui.holdDrag, R27) sur une publication d'un autre membre : petite fenêtre centrée à deux choix, chacun confirmé.
+  function openPostActions(entry) {
+    var name = fullName(entry.userName, entry.userLastName);
+    TMT.ui.confirm('', { closeLabel: t('Fermer'), choices: [
+      { value: 'report', label: t('Signaler cette publication') },
+      { value: 'block', label: t('Bloquer cet auteur') },
+    ] }).then(function (choice) {
+      if (choice === 'report') {
+        TMT.ui.confirm(t('Signaler cette publication à l\'équipe Noèsis ? Elle disparaîtra de ton fil.'), { ok: t('Signaler') }).then(function (ok) {
+          if (!ok) return;
+          api('POST', '/api/community/posts/' + entry.id + '/report', {})
+            .then(function () { loadFollowingFeed(); })
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: 'OK' }); });
+        });
+      } else if (choice === 'block') {
+        confirmBlockMember(entry.userId, name);
+      }
+    });
+  }
+
   function buildFollowingPostCard(entry) {
     // Mes propres publications défilent désormais dans ce flux, mêlées à celles
     // des membres que je suis (3 septembre 2026, demande d'Emilien) — voir
@@ -10395,6 +9648,7 @@
     if (!isMine && !isAnnouncement) {
       authorSpan.style.cursor = 'pointer';
       authorSpan.addEventListener('click', function () { openProfileViewModal(entry.userId, entry.userName, entry.userColor); });
+      if (TMT.ui.holdDrag) TMT.ui.holdDrag(card, { holdMs: 500, onHold: function () { openPostActions(entry); } });
     }
     top.appendChild(authorSpan);
 
@@ -10413,7 +9667,7 @@
         TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/profile/posts/' + entry.id + '?userId=' + profile.id)
           .then(function () { refreshAllProfilePostsComposers(); loadFollowingFeed(); })
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       });
       top.appendChild(del);
@@ -11238,7 +10492,14 @@
   // mécanisme qu'Activité »). Elle a pris la place du « ← » flottant, dans le
   // bandeau plutôt qu'en surimpression — voir index.html et styles.css.
   // L'écouteur, lui, est rigoureusement le même qu'avant.
-  $('settingsCloseBtn').addEventListener('click', closeSettingsPanel);
+  // « Quitter sans enregistrer ? » si l'identité, une activité en cours de modification, une catégorie en cours de modification ou un mot de passe saisi n'est pas enregistré ; sinon fermeture directe.
+  function settingsHasUnsaved() {
+    if (!$('settingsSaveBtn').disabled) return true;
+    if (document.querySelector('.activityEditBubble .activityEditActions .cmpBtn:not(:disabled)')) return true;
+    if (catEditState && catEditState.activityId != null && (catEditState.name !== catEditState.label || catEditState.desc !== catEditState.description) && document.querySelector('.catEditForm:not(.activityEditBubble)')) return true;
+    return ['settingsCurrentPin', 'settingsNewPin', 'settingsNewPinConfirm'].some(function (id) { var el = $(id); return !!(el && el.value); });
+  }
+  $('settingsCloseBtn').addEventListener('click', function () { TMT.ui.fermerAvecConfirmation(closeSettingsPanel, settingsHasUnsaved); });
 
   // Clic sur la zone « en dehors » qui entoure la carte : referme, comme
   // #activityPage (voir son propre écouteur, même forme exacte). Le test
@@ -11498,7 +10759,8 @@
       var checkbox = this;
       var enabled = checkbox.checked;
       checkbox.disabled = true;
-      ensurePushSubscribedForToggle().then(function () {
+      ensurePushSubscribedForToggle(); // lancé sans l'attendre : une permission ou un service worker qui ne répond pas ne doit pas bloquer la case
+      Promise.resolve().then(function () {
         return api('PUT', '/api/profile/' + profile.id + '/notify-community', { enabled: enabled });
       }).catch(function (err) {
         checkbox.checked = !enabled;
@@ -11515,7 +10777,8 @@
       var activityId = checkbox.dataset.activityId;
       var enabled = checkbox.checked;
       checkbox.disabled = true;
-      ensurePushSubscribedForToggle().then(function () {
+      ensurePushSubscribedForToggle(); // lancé sans l'attendre : une permission ou un service worker qui ne répond pas ne doit pas bloquer la case
+      Promise.resolve().then(function () {
         return api('PUT', '/api/activities/' + activityId, { notifyEnabled: enabled });
       }).catch(function (err) {
         checkbox.checked = !enabled;
@@ -11608,39 +10871,10 @@
     })();
   }
 
-  // Tâche visée par le rappel de 6 h, dans l'écran Tâches de la Page 2
-  // (public/js/objectifs-page2.js, E. Objectifs — PAGE 2). Un groupe secteur
-  // y est REPLIÉ par défaut et ne rend ses tâches qu'une fois déplié : on
-  // retrouve donc d'abord le groupe qui contient la tâche (même route en
-  // lecture que l'écran lui-même, tasks/overview), puis on rejoue le clic
-  // sur son en-tête — même principe que les branches 'activity'/'subproject'
-  // (rejouer le geste de la personne plutôt que manipuler l'état interne
-  // d'un autre segment) — et enfin on surligne la ligne [data-task-id].
+  // Tâche visée par le rappel de 6 h : on ouvre l'onglet Tâches (Feuille de route) et on surligne la ligne [data-task-id] dès qu'elle est affichée (les secteurs y sont repliés : la ligne n'existe qu'une fois son secteur déplié).
   function focusGoalsTaskFromNotification(activityId, taskId) {
-    api('GET', '/api/activities/' + activityId + '/goals/tasks/overview').then(function (data) {
-      var group = null;
-      ((data && data.groups) || []).forEach(function (g) {
-        if (group) return;
-        (g.tasks || []).forEach(function (task) { if (String(task.id) === String(taskId)) group = g; });
-      });
-      var taskSel = '#goalsTasksGroups [data-task-id="' + taskId + '"]';
-      if (!group) { focusWhenReady('#goalsTasksGroups', 20); return; }
-      var groupSel = '#goalsTasksGroups .goalsTasksGroup[data-group-key="' + (window.CSS && CSS.escape ? CSS.escape(String(group.key)) : String(group.key)) + '"]';
-      var tries = 40;
-      (function poll() {
-        var row = String(TMT.currentGoalsActivityId) === String(activityId) ? document.querySelector(groupSel) : null;
-        if (!row) {
-          if (tries-- > 0) setTimeout(poll, 100);
-          return;
-        }
-        // Pôles comme secteurs sont des accordéons repliés par défaut : on déplie dans les deux cas.
-        if (!row.classList.contains('open')) {
-          var header = row.querySelector('.subProjectRowHeader');
-          if (header) header.click();
-        }
-        focusWhenReadyOr(taskSel, groupSel);
-      })();
-    }).catch(function () { /* hors ligne ou route indisponible : on reste sur l'écran Tâches */ });
+    if (TMT.switchTab) TMT.switchTab('tasks');
+    focusWhenReady('#goalsTodayView [data-task-id="' + taskId + '"]', 40);
   }
 
   // Identifiant issu de l'adresse d'une notification (entier ou UUID de
@@ -11721,7 +10955,7 @@
 
     // Module désactivé (Réglages > Modules) : la notification est ignorée sans erreur.
     var NOTIF_MODULES = { activity: ['roadmap', 'sharing'], post: ['community'], follow: ['community'], community: ['community'], profile: ['community'],
-      invite: ['sharing'], dailypriority: ['roadmap'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], goalperiod: ['roadmap'], trade: ['trade'] };
+      invite: ['sharing'], drivesync: ['roadmap', 'ai'], taskassigned: ['roadmap'], trade: ['trade'] };
     if ((NOTIF_MODULES[target] || []).some(function (m) { return !modOn(m); })) return;
 
     // Nouvel achat Trade Tracker (POST /api/trade-events -> push.js#notifyTradePurchase) : ouvre la page plein écran Trade Tracker.
@@ -11739,20 +10973,12 @@
       return;
     }
 
-    // Rappel d'échéance d'un sous-projet (4 septembre 2026, "Calendrier des
-    // clôtures") : on ouvre la page de l'activité sur sa section Sous-projets
-    // et on met le sous-projet concerné en évidence. Même mécanisme que
-    // 'activity' ci-dessus — on rejoue le clic sur la ligne plutôt que de
-    // reconstruire les arguments d'openActivityPage().
+    // Rappel d'échéance (adresse ?notif=activity ; l'ancien ?notif=subproject des notifications déjà reçues va au même endroit) :
+    // les sous-projets n'ont plus d'écran, on ouvre la Page 2 de l'activité, comme 'activity' ci-dessus.
     if (target === 'subproject') {
-      var dueActivityId = params.get('activityId');
-      openActivitiesSettings();
-      if (dueActivityId) {
-        whenElementReady('#activitiesList .activityRow[data-activity-id="' + dueActivityId + '"] .activityRowHeader', function (header) {
-          header.click();
-          setActivityPageSection('sub');
-        });
-      }
+      var dueActivityId = notifIdParam(params, 'activityId');
+      switchTab('goals');
+      if (dueActivityId) openGoalsActivityFromNotification(dueActivityId, null, null);
       return;
     }
 
@@ -11803,25 +11029,6 @@
       return;
     }
 
-    // Tâches quotidiennes — rappel de 6 h (28 septembre 2026, décision
-    // d'Emilien). Jusqu'ici ?notif=dailypriority n'était pas géré : le clic
-    // ouvrait l'app sans rien faire. Destination : Objectifs, Page 2 de
-    // l'activité qui contient la tâche la plus urgente (activityId/taskId
-    // ajoutés à l'adresse par server/lib/dailysuggestioncron.js — C.
-    // Objectifs — PAGE 1), écran Tâches (vue par défaut de la Page 2),
-    // tâche surlignée. Même chemin que 'goalperiod' pour ouvrir l'activité
-    // (openGoalsActivityFromNotification, sans période → reste sur Tâches).
-    // Sans activityId : onglet Objectifs, Page 1 (liste des activités).
-    if (target === 'dailypriority') {
-      var dailyActivityId = notifIdParam(params, 'activityId');
-      var dailyTaskId = notifIdParam(params, 'taskId');
-      switchTab('goals');
-      if (!dailyActivityId) return;
-      openGoalsActivityFromNotification(dailyActivityId, null, null);
-      if (dailyTaskId) focusGoalsTaskFromNotification(dailyActivityId, dailyTaskId);
-      return;
-    }
-
     // Surveillance Drive (16 oct. 2026) : tâches ajoutées/proposées depuis le dossier ; ouvre la page
     // Ajouter de l'activité (qui affiche le pop-up des tâches ajoutées). Voir objectifs-document-taches.js.
     if (target === 'drivesync') {
@@ -11843,27 +11050,12 @@
       if (!taActivityId) return;
       if (taCategory && taPeriod) {
         openGoalsActivityFromNotification(taActivityId, taCategory, taPeriod);
-        if (taWeek >= 1 && taWeek <= 4) focusWhenReady('#goalWeekCard' + taWeek, 60);
+        if (taWeek >= 1 && taWeek <= 53) focusWhenReady('#goalWeekCard' + taWeek, 60);
       } else {
         openGoalsActivityFromNotification(taActivityId, null, null);
         var taTask = notifIdParam(params, 'taskId');
         if (taTask) focusGoalsTaskFromNotification(taActivityId, taTask);
       }
-      return;
-    }
-
-    // Rappel de fin de période d'objectif (15 septembre 2026,
-    // server/lib/goalreminders.js, discussion "Objectifs — D : Calendrier &
-    // intégrations") : ouvre l'onglet Objectifs sur l'activité concernée
-    // puis directement la page 2 de la période — voir
-    // openGoalsPeriodFromNotification() plus haut, qui attend que
-    // l'activité soit chargée avant d'ouvrir le détail.
-    if (target === 'goalperiod') {
-      var goalActivityId = params.get('activityId');
-      var goalCategory = params.get('category');
-      var goalPeriodNumber = Number(params.get('periodNumber'));
-      switchTab('goals');
-      if (goalActivityId) openGoalsActivityFromNotification(goalActivityId, goalCategory, goalPeriodNumber);
       return;
     }
 
@@ -11969,16 +11161,33 @@
     return JSON.stringify(['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail'].map(function (id) { return $(id).value.trim(); })
       .concat([$('settingsContactShareEmail').checked, $('settingsContactSharePhone').checked]));
   }
+  var identityJustSaved = false; // vrai juste après un enregistrement réussi : le bouton pâle dit « Enregistré » jusqu'à la prochaine modification
   function syncIdentitySaveState(resetBaseline) {
     if (resetBaseline) identityBaseline = identityState();
     var dirty = identityState() !== identityBaseline;
+    if (dirty) identityJustSaved = false;
     $('settingsSaveBtn').disabled = !dirty;
-    $('settingsSaveBtn').classList.toggle('cmpBtnIdle', !dirty);
+    $('settingsSaveBtn').classList.toggle('cmpBtnInactif', !dirty);
+    $('settingsSaveBtn').textContent = (!dirty && identityJustSaved) ? t('Enregistré') : t('Enregistrer');
   }
+  // Le message d'erreur sous le formulaire doit se voir : rouge du système, amené à l'écran (il restait sous le bouton fixe).
+  function showIdentityMsg(text, isError) {
+    var m = $('settingsMsg'); m.textContent = text; m.style.color = isError ? 'var(--danger)' : '';
+    if (text && isError && m.scrollIntoView) m.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  // Partage du score : enregistré à l'instant (route à part), pas par « Enregistrer ».
+  $('settingsScoreShared').addEventListener('change', function () {
+    var box = $('settingsScoreShared'); var shared = box.checked;
+    api('PUT', '/api/profile/score-sharing', { shared: shared })
+      .then(function () { profile.scoreShared = shared; })
+      .catch(function () { box.checked = !shared; });
+  });
+
   ['settingsName', 'settingsLastName', 'settingsPhone', 'settingsEmail', 'settingsContactShareEmail', 'settingsContactSharePhone'].forEach(function (id) {
-    $(id).addEventListener('input', function () { syncIdentitySaveState(false); });
+    $(id).addEventListener('input', function () { showIdentityMsg('', false); syncIdentitySaveState(false); });
     $(id).addEventListener('change', function () { syncIdentitySaveState(false); });
   });
+  TMT.ui.dockEnregistrer($('settingsSaveBtn'), $('profileSettingsPanel')); // R50 : Enregistrer décollé, à la place de la barre des volets
   $('settingsSaveBtn').addEventListener('click', function () {
     $('settingsSaveBtn').disabled = true;
     // La photo ne fait plus partie de ce formulaire (voir plus haut,
@@ -11989,13 +11198,16 @@
     // 2026) n'est donc pas envoyé, plutôt que d'être refusé par le serveur
     // (qui interdit d'enregistrer une valeur vide sur ces champs une fois
     // qu'ils existent — voir server/routes/profile.js).
+    // Seuls les champs MODIFIÉS sont validés et envoyés : un ancien téléphone au format non conforme ne bloque plus l'enregistrement du courriel.
     var payload = { name: $('settingsName').value.trim() };
     var lastName = $('settingsLastName').value.trim();
     var phone = $('settingsPhone').value.trim();
     var email = $('settingsEmail').value.trim();
-    if (lastName) payload.lastName = lastName;
-    if (phone) payload.phone = phone;
-    if (email) payload.email = email;
+    if (lastName && lastName !== String(profile.lastName || '')) payload.lastName = lastName;
+    if (phone && phone !== String(profile.phone || '') && !Saisie.isValidPhone(phone)) { showIdentityMsg(t(MSG_PHONE), true); syncIdentitySaveState(false); return; } // 01 : refus côté client (le serveur refuse aussi)
+    if (phone && phone !== String(profile.phone || '')) payload.phone = phone;
+    if (email && email.toLowerCase() !== String(profile.email || '').toLowerCase() && !Saisie.isValidEmail(email)) { showIdentityMsg(t(MSG_EMAIL), true); syncIdentitySaveState(false); return; }
+    if (email && email !== String(profile.email || '')) payload.email = email;
     // contactShareEmail/contactSharePhone : contrairement à lastName/phone/
     // email ci-dessus, une case à cocher a toujours un état défini (cochée
     // ou non) — envoyée systématiquement, jamais omise du payload.
@@ -12008,10 +11220,11 @@
         // ligne "$('whoamiName')..." devenue inutile depuis le 3 septembre
         // 2026 (remplacement du nom en topbar par une photo) a été retirée.
         saveProfile(p);
-        $('settingsMsg').textContent = t('Profil mis à jour.');
+        showIdentityMsg(t('Profil mis à jour.'), false);
+        identityJustSaved = true;
         syncIdentitySaveState(true);
       })
-      .catch(function (err) { $('settingsMsg').textContent = err.message; })
+      .catch(function (err) { showIdentityMsg(err.message || t('Enregistrement impossible.'), true); })
       .finally(function () { syncIdentitySaveState(false); });
   });
 
@@ -12043,7 +11256,7 @@
           // dans l'ancienne langue, ce qui donnait l'impression que le bouton
           // ne faisait rien.
           if (p.lang !== chosen) {
-            $('langMsg').textContent = t("Le serveur n'a pas pris en compte le changement de langue : il tourne encore sur la version d'avant la mise à jour. Arrête-le (Ctrl+C) et relance `npm start`, puis réessaie.");
+            $('langMsg').textContent = t('Impossible de changer la langue pour le moment.');
             return;
           }
           saveProfile(p);
@@ -12118,17 +11331,17 @@
     var newPin = $('settingsNewPin').value.trim();
     var newPinConfirm = $('settingsNewPinConfirm').value.trim();
     var newProblem = passwordProblem(newPin);
-    if (newProblem) { $('settingsPinMsg').textContent = newProblem; return; }
-    if (newPin !== newPinConfirm) { $('settingsPinMsg').textContent = t('Les deux mots de passe ne correspondent pas.'); return; }
+    if (newProblem) { showMsg($('settingsPinMsg'), newProblem); return; }
+    if (newPin !== newPinConfirm) { showMsg($('settingsPinMsg'), t('Les deux mots de passe ne correspondent pas.')); return; }
     $('settingsPinSaveBtn').disabled = true;
     api('POST', '/api/profile/' + profile.id + '/set-pin', { pin: newPin, currentPin: currentPin })
       .then(function () {
-        $('settingsPinMsg').textContent = t('Mot de passe mis à jour.');
+        showMsg($('settingsPinMsg'), t('Mot de passe mis à jour.'), false);
         $('settingsCurrentPin').value = '';
         $('settingsNewPin').value = '';
         $('settingsNewPinConfirm').value = '';
       })
-      .catch(function (err) { $('settingsPinMsg').textContent = err.message; })
+      .catch(function (err) { showMsg($('settingsPinMsg'), err.message); })
       .finally(function () { $('settingsPinSaveBtn').disabled = false; });
   });
 
@@ -12716,7 +11929,7 @@
             userId: profile.id,
             orderedIds: ordered.map(function (el) { return Number(el.dataset.projectId); }),
           }).then(renderProjectsList)
-            .catch(function (err) { alert(err.message); loadProfileProjects(); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); loadProfileProjects(); });
         }
       }
 
@@ -13062,7 +12275,7 @@
         TMT.ui.confirm(t('Supprimer ce projet ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
         api('DELETE', '/api/profile/projects/' + p.id + '?userId=' + profile.id)
           .then(loadProfileProjects)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       });
 
@@ -13278,6 +12491,7 @@
     // renderViewProfileFollowRow plus bas, appelée une fois cette réponse
     // arrivée.
     $('viewProfileActionsRow').classList.add('hidden');
+    renderViewProfileScore(null);
     $('viewProfileFollowSlot').innerHTML = '';
     $('viewProfileContactSlot').innerHTML = '';
     $('viewProfileContactSlot').classList.add('hidden');
@@ -13341,6 +12555,7 @@
         // ou rouverte sur quelqu'un d'autre pendant la requête.
         if (viewProfileUserId !== userId) return;
         renderViewProfileIdentity(card2);
+        renderViewProfileScore(card2);
         renderViewProfileFollowRow(card2);
         viewProfileCanSeePosts = !!card2.canSeePosts;
         // 7 septembre 2026 : statistiques et détail des projets ne partent
@@ -13369,6 +12584,29 @@
     // réservés aux abonnés acceptés. mountPolls porte sa propre garde
     // anti-réponse-en-vol, sur le même principe que viewProfileUserId.
     viewProfilePollsMount.load();
+  }
+
+  // Score d'exécution du profil visité : le serveur ne l'envoie que si le membre a choisi de l'afficher.
+  function renderViewProfileScore(card) {
+    var s = card && card.score;
+    $('viewProfileScoreBlock').classList.toggle('hidden', !s);
+    $('viewProfileScorePoles').innerHTML = '';
+    if (!s) return;
+    $('viewProfileScoreValue').textContent = String(s.score);
+    (s.poles || []).forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'viewProfileScoreRow';
+      var top = document.createElement('div');
+      top.className = 'viewProfileScoreRowTop';
+      var name = document.createElement('span'); name.textContent = p.label;
+      var val = document.createElement('span'); val.textContent = String(p.score);
+      top.appendChild(name); top.appendChild(val);
+      var bar = document.createElement('div'); bar.className = 'viewProfileScoreBar';
+      var fill = document.createElement('i'); fill.style.width = Math.max(0, Math.min(100, p.score)) + '%';
+      bar.appendChild(fill);
+      row.appendChild(top); row.appendChild(bar);
+      $('viewProfileScorePoles').appendChild(row);
+    });
   }
 
   function renderViewProfileIdentity(card) {
@@ -13422,11 +12660,22 @@
     // se présenter (rien n'ouvre #viewProfileModal sur soi-même), mais
     // mieux vaut une rangée simplement masquée qu'un bouton absurde si ça
     // arrivait malgré tout.
+    var blockSlot = $('viewProfileBlockSlot');
+    blockSlot.innerHTML = '';
+    blockSlot.classList.add('hidden');
     if (card.isSelf) {
       $('viewProfileFollowSlot').innerHTML = '';
       row.classList.add('hidden');
       return;
     }
+    // « Bloquer » tout en bas de la fenêtre, séparé, violet (R4/R28), avec confirmation.
+    var blockBtn = document.createElement('button');
+    blockBtn.type = 'button'; blockBtn.className = 'cmpBtn'; blockBtn.textContent = t('Bloquer');
+    blockBtn.addEventListener('click', function () {
+      confirmBlockMember(card.id, fullName(card.name, card.lastName), closeProfileViewModal);
+    });
+    blockSlot.appendChild(blockBtn);
+    blockSlot.classList.remove('hidden');
 
     renderViewProfileFollowButton(card);
 
@@ -13489,7 +12738,7 @@
             card.followId = null;
             renderViewProfileFollowButton(card);
           })
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
       slot.appendChild(cancelBtn);
       return;
@@ -13507,7 +12756,7 @@
           card.followId = r.id;
           renderViewProfileFollowButton(card);
         })
-        .catch(function (err) { alert(err.message); followBtn.disabled = false; });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); followBtn.disabled = false; });
     });
     slot.appendChild(followBtn);
   }
@@ -13951,7 +13200,7 @@
           TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
           api('DELETE', cfg.deleteUrl(post))
             .then(refreshRegistry)
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         });
         });
         top.appendChild(del);
@@ -14304,7 +13553,7 @@
       TMT.ui.confirm(t('Supprimer ce message ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
       api('DELETE', '/api/profile/posts/' + post.id + '?userId=' + profile.id)
         .then(renderProfileFeed)
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     });
     });
     top.appendChild(del);
@@ -15124,7 +14373,7 @@
   // n'y a plus qu'UNE seule adresse possible, celle sur laquelle on se
   // trouve.
   function currentShareUrl() {
-    return (location.origin || '').replace(/\/+$/, '');
+    return (window.TMT_SERVER_ORIGIN || location.origin || '').replace(/\/+$/, '');
   }
 
   // Une adresse locale (localhost, 127.0.0.1, réseau privé) reste utile entre
@@ -15222,11 +14471,11 @@
   }
 
   $('shareAppBtn').addEventListener('click', function () {
-    shareOrCopy(t('Noèsis — le TimeTracker partagé. Rejoins-nous ici : {url}', { url: currentShareUrl() }));
+    shareOrCopy(t('Noèsis, l’application partagée. Rejoins-nous ici : {url}', { url: currentShareUrl() }));
   });
 
   $('shareProfileBtn').addEventListener('click', function () {
-    shareOrCopy(t("Rejoins-moi sur Noèsis, mon TimeTracker partagé : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: currentShareUrl(), pseudo: profile.name }));
+    shareOrCopy(t("Rejoins-moi sur Noèsis : {url}\nMon pseudo est « {pseudo} » — retrouve-moi dans Communauté > Rechercher des membres pour t'abonner.", { url: currentShareUrl(), pseudo: profile.name }));
   });
 
   // ----- Supprimer mon compte (zone "danger" tout en bas de Réglages) -----
@@ -15246,7 +14495,7 @@
   $('deleteAccountBtn').addEventListener('click', function () {
     var pin = $('deleteAccountPin').value.trim();
     $('deleteAccountMsg').textContent = '';
-    if (!pin) { $('deleteAccountMsg').textContent = t('Saisis ton code pour confirmer la suppression.'); return; }
+    if (!pin) { $('deleteAccountMsg').textContent = t('Saisis ton mot de passe pour confirmer la suppression.'); return; }
     TMT.ui.confirm(t('Supprimer définitivement ton compte ? Cette action est irréversible.'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
     TMT.ui.confirm(t('Dernière confirmation : tout ton historique et tes notes seront perdus. Continuer ?'), { ok: t('Supprimer'), danger: true }).then(function (ok) { if (!ok) return;
     $('deleteAccountBtn').disabled = true;
@@ -15281,16 +14530,12 @@
   // même : on perd le détail des membres, pas la gestion des activités.
   function loadSettingsActivities() {
     if (!profile) return;
-    // Affichage immédiat : dernière liste connue (puis rafraîchie), sinon « Chargement… ».
+    // Affichage immédiat : dernière liste connue (puis rafraîchie).
     var listBox = $('activitiesList');
     if (listBox && !listBox.children.length) {
       if (activitiesCache && activitiesCache.length) {
         renderActivitiesSettings(activitiesCache, (lastActivitiesData && lastActivitiesData.sharedList) || []);
       } else {
-        var ld = document.createElement('p');
-        ld.className = 'hint';
-        ld.textContent = t('Chargement…');
-        listBox.appendChild(ld);
       }
     }
     Promise.all([
@@ -15497,7 +14742,7 @@
           if (!value || value === a.name) { nameInput.value = a.name; return; }
           api('PUT', '/api/activities/' + a.id, { userId: profile.id, name: value })
             .then(function () { a.name = value; refreshActivities().then(renderActivityGrid); })
-            .catch(function (err) { nameInput.value = a.name; alert(err.message); });
+            .catch(function (err) { nameInput.value = a.name; TMT.ui.confirm(err.message, { ok: "OK" }); });
         }
         nameInput.addEventListener('blur', commitActivityName);
         nameInput.addEventListener('keydown', function (e) {
@@ -15523,7 +14768,7 @@
               colorBtn.style.background = c;
               refreshActivities().then(renderActivityGrid);
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         }, true);
         swatches.classList.add('hidden');
         row.appendChild(swatches);
@@ -15680,6 +14925,7 @@
       body.appendChild(composer);
       block.classList.remove('hidden');
       currentCommunityActivityId = a.id;
+      catPopupShared = a.membersCount > 1;
       activityPageSection = 'sub';
       loadActivityGoalsCategories(a.id);
     }, function () {
@@ -15728,7 +14974,7 @@
           nameLine.classList.remove('colorOpen');
           refreshActivities().then(renderActivityGrid);
         })
-        .catch(function (err) { alert(err.message); });
+        .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
     }, true);
     swatches.classList.add('hidden');
     colorBtn.addEventListener('click', function (e) {
@@ -15760,11 +15006,8 @@
     }
     var rows = document.createElement('div');
     rows.className = 'activityEditRows';
-    if (TMT.strategy) {
-      rows.appendChild(plainRow(t('Stratégie'), function () {
-        openEditPopup(t('Stratégie'), function (body) { TMT.strategy.mount(body, a.id); });
-      }, 'ai'));
-    }
+    // 8 nov. 2026 (demande d'Émilien) : « Membres » prend la place de « Stratégie » (retirée de l'interface ; les données de stratégie restent, jamais supprimées) et n'est plus sous « Avancé ».
+    rows.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     rows.appendChild(plainRow(t('Catégories'), function () { openCategoriesPopup(a); }));
     fields.appendChild(rows);
 
@@ -15779,7 +15022,7 @@
     var visRow = document.createElement('label');
     visRow.className = 'activityEditRow activityEditVis';
     var visWord = document.createElement('span');
-    visWord.textContent = t('Visible par les autres');
+    visWord.textContent = conf ? t('Confidentiel') : t('Public'); // même mots que le Chrono
     var sw = document.createElement('span');
     sw.className = 'toggleSwitch';
     var cb = document.createElement('input');
@@ -15793,8 +15036,19 @@
     visRow.appendChild(visWord);
     visRow.appendChild(sw);
     adv.appendChild(visRow);
+    // Réglages personnels de l'activité, enregistrés avec le bouton Enregistrer.
+    var cmpPending = {};
+    // « Arbre des objectifs » : allumé = l'activité est dans l'arbre de Feuille de route (défaut) ; éteint = masquée (objectifs gardés, rétablissable). Enregistré avec le bouton Enregistrer.
+    (function () {
+      var tRow = document.createElement('label'); tRow.className = 'activityEditRow activityEditVis';
+      var tWord = document.createElement('span'); tWord.textContent = t('Arbre des objectifs');
+      var tSw = document.createElement('span'); tSw.className = 'toggleSwitch';
+      var tIn = document.createElement('input'); tIn.type = 'checkbox'; tIn.checked = !a.treeHidden; tIn.setAttribute('role', 'switch');
+      var tTrack = document.createElement('span'); tTrack.className = 'toggleSwitchTrack';
+      tSw.appendChild(tIn); tSw.appendChild(tTrack); tRow.appendChild(tWord); tRow.appendChild(tSw); adv.appendChild(tRow);
+      tIn.addEventListener('change', function () { if (!tIn.checked !== !!a.treeHidden) cmpPending.treeHidden = !tIn.checked; else delete cmpPending.treeHidden; markDirty(); });
+    })();
     if ((acts || []).length > 1) adv.appendChild(plainRow(t('Fusionner avec…'), function () { openMergeActivityModal(a); }));
-    adv.appendChild(plainRow(t('Membres'), function () { openCommunityMembersModal(a.id, a.name, { activity: a, solo: !(a.membersCount > 1) }); }));
     advToggle.addEventListener('click', function () {
       var open = adv.classList.toggle('hidden') === false;
       advToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -15851,17 +15105,17 @@
     cancel.addEventListener('click', function () { activityEditId = null; loadSettingsActivities(); });
     var save = document.createElement('button');
     save.type = 'button';
-    save.className = 'cmpBtn cmpBtnIdle';
+    save.className = 'cmpBtn cmpBtnInactif';
     save.disabled = true;
     save.textContent = t('Enregistrer');
     // Gris et inactif tant que rien n'a changé, violet dès qu'il y a un changement.
     function markDirty() {
-      var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential;
+      var dirty = (a.isOwner && nameIn.value.trim() !== a.name) || conf !== !!a.confidential || Object.keys(cmpPending).length > 0;
       save.disabled = !dirty;
-      save.classList.toggle('cmpBtnIdle', !dirty);
+      save.classList.toggle('cmpBtnInactif', !dirty);
     }
     nameIn.addEventListener('input', markDirty);
-    cb.addEventListener('change', function () { conf = !cb.checked; markDirty(); });
+    cb.addEventListener('change', function () { conf = !cb.checked; visWord.textContent = conf ? t('Confidentiel') : t('Public'); markDirty(); });
     save.addEventListener('click', function () {
       save.disabled = true;
       var newName = nameIn.value.trim();
@@ -15872,12 +15126,15 @@
       if (conf !== !!a.confidential) {
         chain = chain.then(function () { return api('PUT', '/api/activities/' + a.id, { userId: profile.id, confidential: conf }); });
       }
+      if (Object.keys(cmpPending).length) {
+        chain = chain.then(function () { return api('PUT', '/api/activities/' + a.id, Object.assign({ userId: profile.id }, cmpPending)); });
+      }
       chain.then(function () {
         activityEditId = null;
         return refreshActivities().then(function () { renderActivityGrid(); loadSettingsActivities(); });
       }).catch(function (err) { msg.textContent = err.message; save.disabled = false; });
     });
-    row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs
+    if ((acts || []).length > 1) row.appendChild(trash); // croix rouge en haut à droite de la carte, hors du champ du nom et des couleurs ; absente quand il ne reste qu'une activité (la dernière ne se supprime pas)
     actions.appendChild(cancel);
     actions.appendChild(save);
     fields.appendChild(actions);
@@ -16014,7 +15271,7 @@
             ids: ordered.map(function (el) { return Number(el.dataset.activityId); }),
           }).then(function () {
             refreshActivities().then(renderActivityGrid);
-          }).catch(function (err) { alert(err.message); loadSettingsActivities(); });
+          }).catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); loadSettingsActivities(); });
         }
       }
 
@@ -16244,10 +15501,10 @@
   }
 
   function openOffer1CheckoutModal() {
-    if (!profile) return;
+    if (!profile || window.TMT_NATIVE_SHELL) return; // coques iOS/Android : jamais d'achat dans l'app
     resetOffer1CheckoutModal();
     $('offer1CheckoutModal').classList.remove('hidden');
-    $('offer1CheckoutMsg').textContent = t('Chargement…');
+    $('offer1CheckoutMsg').textContent = '';
     Promise.all([
       api('GET', '/api/activities?all=1&userId=' + profile.id),
       api('GET', '/api/offer/subscriptions?userId=' + profile.id),
@@ -16348,9 +15605,9 @@
     var params = new URLSearchParams(location.search);
     var achat = params.get('achat');
     if (achat !== 'succes' && achat !== 'annule') return;
-    alert(achat === 'succes'
+    TMT.ui.confirm(achat === 'succes'
       ? t("Abonnement à Expansion activé. Merci !")
-      : t('Paiement annulé — aucun abonnement créé.'));
+      : t('Paiement annulé — aucun abonnement créé.'), { ok: 'OK' });
     params.delete('achat');
     var qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
@@ -16493,9 +15750,9 @@
               refreshActivities().then(renderActivityGrid);
               loadSettingsActivities();
               loadPendingInvites();
-              if (mergeActivityId) alert(t(res.message));
+              if (mergeActivityId) TMT.ui.confirm(t(res.message), { ok: "OK" });
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
         }
         if (!mergeActivityId) { doAccept(); return; }
         var mineName = mergeSelect.options[mergeSelect.selectedIndex].textContent;
@@ -16508,7 +15765,7 @@
       declineBtn.addEventListener('click', function () {
         api('POST', '/api/invites/' + inv.id + '/decline', { userId: profile.id })
           .then(loadPendingInvites)
-          .catch(function (err) { alert(err.message); });
+          .catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); });
       });
 
       actionsWrap.appendChild(acceptBtn);
@@ -16547,7 +15804,7 @@
       $('newActivityCard').classList.add('hidden');
       refreshActivities().then(renderActivityGrid);
       loadSettingsActivities();
-    }).catch(function (err) { alert(err.message); })
+    }).catch(function (err) { TMT.ui.confirm(err.message, { ok: "OK" }); })
       .finally(function () { $('newActivitySave').disabled = false; });
   });
 
@@ -16648,7 +15905,23 @@
   // restent à jour même après connexion/déconnexion ou changement de thème.
   window.TMT.$ = $;
   window.TMT.api = api;
-  window.TMT.selectSharedStats = selectSharedStats;
+  window.TMT.portee = {
+    // Créer / modifier / supprimer / déplacer une tâche dans cette catégorie : activité à un seul membre, propriétaire ou responsable de cette portée. Inconnu = permis (le serveur refuse sinon).
+    canWrite: function (activityId, key) {
+      var info = porteeCache[String(activityId)];
+      if (!info) return window.TMT.portee.canManage(activityId);
+      if (!info.shared || info.all) return true;
+      return key != null && key !== '' && info.keys.indexOf(String(key)) >= 0;
+    },
+    // Responsable (propriétaire inclus) d'une activité partagée, ou activité à un seul membre : false = simple membre.
+    canManage: function (activityId) {
+      var a = (activitiesCache || []).filter(function (x) { return String(x.id) === String(activityId); })[0];
+      return !a || a.canManage !== false;
+    },
+    // Au moins une activité où je peux créer (la mienne seule, ou partagée où je suis responsable) ; liste inconnue = oui.
+    anyManage: function () { var l = activitiesCache || []; return !l.length || l.some(function (a) { return a.canManage !== false; }); },
+    note: function (activityId, managed) { if (managed) porteeCache[String(activityId)] = managed; }
+  };
   window.TMT.getCaState = function () { return { id: currentCommunityActivityId, category: '' }; }; // fenêtre Activité (activite-stats-taches.js)
   // Page « Tâches par membre » : le filtre de pôle n'y propose pas « Sans pôle » ; couleurs de membres = nuances de l'activité.
   window.TMT.caTasksPage = function () {}; // plus de filtre de pôle dans la fenêtre Activité (les filtres vivent dans la 3e page du Chrono)
@@ -16660,14 +15933,10 @@
   window.TMT.dateLocale = dateLocale;
   window.TMT.refreshActivities = refreshActivities;
   window.TMT.textColorForTheme = textColorForTheme;
-  window.TMT.subProjectShade = subProjectShade;
-  window.TMT.SUB_PROJECT_SHADE_COUNT = SUB_PROJECT_SHADE_COUNT;
   window.TMT.eclairciPourLisibilite = eclairciPourLisibilite;
   window.TMT.readableTextOn = readableTextOn;
   window.TMT.appendLinkified = appendLinkified;
   window.TMT.switchTab = switchTab;
-  window.TMT.enterStats = enterStats;
-  window.TMT.openStats = openStats;
   // Bascule d'un module (Réglages > Modules) : l'interface se met à jour sans recharger l'app.
   function onModulesChange() {
     var active = document.querySelector('.tabBtn.active');

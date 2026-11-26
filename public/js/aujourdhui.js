@@ -1,4 +1,4 @@
-/* Page 1 de la Feuille de route, vue « Aujourd'hui » (27 oct. 2026, demande d'Émilien ; remplace le bouton flottant) : tâches du jour de toutes les
+/* Page 1 de la Feuille de route, vue « Tâches » (27 oct. 2026 ; 6 nov. 2026 : bande de la SEMAINE en haut, liste de la JOURNÉE choisie seulement) : tâches du jour de toutes les
  * activités (à cocher : cercle rempli + coche, barrée et grisée, puis descend dans « Faites aujourd'hui »), puis la barre « Ajouter une tâche ».
  * Ajout : Noèsis PROPOSE « Activité › Pôle » (POST /api/goals/capture/propose, ne crée rien) ; la flèche ↑ accepte, « Changer » choisit ailleurs ;
  * l'envoi suit la même chaîne que l'ancienne bulle de la page 1 (TMT.captureTaskFlow : pop-up selon le mode de l'IA).
@@ -21,17 +21,11 @@
     var p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', d); s.appendChild(p);
     return s;
   }
-  function minutesLabel(m) {
-    m = Math.max(0, Math.round(m || 0));
-    var h = Math.floor(m / 60), r = m % 60;
-    if (!h) return r + ' min';
-    return r ? h + ' h ' + (r < 10 ? '0' : '') + r : h + ' h';
-  }
+  function minutesLabel(m) { return TMT.ui.heures(m || 0); } // UN SEUL format d'heures (composants.js)
   function localIso() { var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-  var dayOff = 0; // 0 = aujourd'hui, +1 = demain, -1 = hier…
   // Affichage instantané (29 oct. 2026, demande d'Émilien) : la dernière réponse de chaque jour est gardée (mémoire ; aujourd'hui aussi en stockage local,
   // pour le premier affichage après ouverture de l'app) et dessinée tout de suite ; la réponse du serveur la remplace ensuite.
-  var cacheByDay = {}, CACHE_KEY = 'noesis_today_v1';
+  var cacheByDay = {}, CACHE_KEY = 'noesis_today_v2';
   function cacheUser() { try { var p = TMT.getProfile && TMT.getProfile(); return p && p.id ? String(p.id) : ''; } catch (e) { return ''; } }
   function cacheGet(day) {
     if (cacheByDay[day]) return cacheByDay[day];
@@ -43,59 +37,273 @@
     cacheByDay[day] = d;
     if (day === localIso() && cacheUser()) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ u: cacheUser(), d: day, data: d })); } catch (e) {} }
   }
-  function dayDate() { var d = new Date(); d.setDate(d.getDate() + dayOff); return d; }
-  function dayIso() { var d = dayDate(), p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-  function todayLabel() {
-    var s = dayDate().toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
 
   // ---------- Pop-up ----------
-  var listBox = null, sumL = null, sumR = null, timer = null, loadSeq = 0;
+  var listBox = null, counter = null, timer = null, loadSeq = 0;
   var ui = {}; // éléments de la barre d'ajout
   var state = { added: [], proposal: null, options: [], choice: null, proposedFor: '', files: [], busy: false, seq: 0, debounce: null, date: null, who: null, poleId: null, open: '', members: {}, flash: null, exp: null, essor: null, expStep: 0, review: false };
 
-  var root = null, shown = false, dock = null;
+  var root = null, shown = false, dock = null, viewDay = 'all'; // viewDay : 'all' = TOUTES les tâches (défaut) ; null = aujourd'hui ; sinon le jour choisi dans la bande
+  function dayIso() { return (viewDay && viewDay !== 'all') ? viewDay : localIso(); }
+  function viewKey() { return viewDay === 'all' ? 'all' : dayIso(); }
+  function dayKind() { var d = dayIso(), t = localIso(); return d < t ? 'past' : d > t ? 'future' : 'today'; }
   // La barre n'existe à l'écran que si la vue Aujourd'hui est réellement visible (autre volet, autre vue ou page par-dessus : masquée).
-  function syncDock() { if (dock) dock.classList.toggle('hidden', !(shown && root && root.getClientRects().length)); }
+  // La zone d'écriture n'apparaît que par le bouton « + » de la barre des volets (18 nov. 2026, Émilien) ; une proposition ou l'étape Enregistrer d'Expansion la garde affichée.
+  var composerOpen = false;
+  function flowOn() { return !!dock && (dock.classList.contains('expSave') || (ui.proposal && !ui.proposal.classList.contains('hidden'))); }
+  function syncDock() {
+    if (!dock) return;
+    var barOn = composerOpen || flowOn(), popOn = !!dayPop && !dayPop.classList.contains('hidden'); // le pop-up des tâches du jour touché vit dans ce bloc : il reste visible même sans la barre d'écriture
+    var vis = !!(shown && root && root.getClientRects().length && (barOn || popOn));
+    dock.classList.toggle('hidden', !vis); dock.classList.toggle('noBar', !barOn);
+    document.documentElement.classList.toggle('composerOn', vis && barOn);
+  } // la barre d'ajout REMPLACE la barre des volets et le « + » (19 nov. 2026, Émilien)
+  // Plus de « + » pour refermer : un toucher en dehors de la barre la referme (le texte écrit reste là), sauf pendant une proposition ou l'étape Enregistrer.
+  document.addEventListener('pointerdown', function (e) { if (composerOpen && !calExpanded && dock && !flowOn() && !dock.contains(e.target) && !(e.target.closest && e.target.closest('.cmpGlass, [role="dialog"]'))) setComposer(false); });
+  // Simple membre (ni propriétaire ni responsable) : aucune barre d'ajout là où il n'a pas le droit d'écrire ; le serveur refuse de toute façon (TACHE_RESERVEE_RESPONSABLES).
+  function canAddHere() {
+    if (!TMT.portee) return true;
+    if (!TMT.portee.anyManage()) return false; // simple membre partout
+    return filt.act == null || TMT.portee.canManage(filt.act); // filtre sur une activité où il n'est que membre
+  }
+  function setComposer(v) {
+    v = !!v; if (v && !canAddHere()) v = false;
+    if (v === composerOpen) return;
+    composerOpen = v; syncDock(); if (!v && ui.text && document.activeElement === ui.text) ui.text.blur();
+    if (v && dock) { dock.classList.remove('tasksDockIn'); void dock.offsetWidth; dock.classList.add('tasksDockIn'); if (ui.text) ui.text.focus({ preventScroll: true }); } // apparition de droite à gauche (css/aujourdhui.css)
+    try { document.dispatchEvent(new CustomEvent('tmt:composer')); } catch (e) { /* vieux navigateur */ }
+  } // l'éditeur d'objectif du calendrier intégré a sa propre barre : celle-ci se masque pendant ce temps
   function build(container) {
     root = el('div', 'tasksToday');
-    var head = el('div', 'tasksTodayHead cmpNav cmpNav--sm');
-    // Jour affiché au centre, flèches de part et d'autre (même modèle que le sélecteur de pôle, en plus petit) : demain, après-demain, hier…
-    var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Jour précédent'));
-    var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Jour suivant'));
-    ui.dayLabel = el('span', 'cmpNavLabel', todayLabel());
-    function go(n) { dayOff += n; ui.dayLabel.textContent = todayLabel(); state.added = []; var c = cacheGet(dayOff ? dayIso() : localIso()); if (c) render(c); refresh(); }
-    prev.addEventListener('click', function () { go(-1); }); next.addEventListener('click', function () { go(1); });
-    head.appendChild(prev); head.appendChild(ui.dayLabel); head.appendChild(next);
-    var sum = el('div', 'tasksPopSum'); sumL = el('span'); sumR = el('span'); sum.appendChild(sumL); sum.appendChild(sumR);
-    listBox = el('div', 'tasksPopList');
-    root.appendChild(head); root.appendChild(sum); root.appendChild(listBox);
+    listBox = el('div', 'tasksPopList tasksTree'); listBox.id = 'tasksListBox';
+    root.appendChild(buildFilter()); root.appendChild(buildCal()); root.appendChild(buildCalHost()); root.appendChild(buildTopRow()); root.appendChild(listBox); root.appendChild(buildArchive());
     // La barre d'ajout est AU PREMIER PLAN, fixée au-dessus de la barre des volets (comme elle). Défilé = glissement latéral entre les pages :
     // elle prend le même décalage que la page (#tab-goals) pendant le glissement, puis disparaît avec elle.
-    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock);
+    dock = buildAdd(); dock.classList.add('tasksDock', 'hidden'); document.body.appendChild(dock); buildDayPop(); listHome = root;
     var tab = document.getElementById('tab-goals');
     if (tab && window.MutationObserver) {
       new MutationObserver(function () { dock.style.transform = tab.style.transform || ''; dock.style.transition = tab.style.transition || ''; syncDock(); }).observe(tab, { attributes: true, attributeFilter: ['style', 'class'] }); // fin de glissement vers les statistiques : l'onglet se masque, la barre se masque dans la même image (sans attendre le balayage de 300 ms)
     }
     setInterval(syncDock, 300);
     // Clavier ouvert : la barre se pose juste au-dessus du clavier, en tout temps (et revient à sa place normale, au-dessus des volets, à la fermeture).
-    var kbRaf = null, kbStop = 0;
-    function syncDockKeyboard() {
-      var vv = window.visualViewport;
-      if (!dock || !vv) return;
-      if (document.documentElement.classList.contains('kbOpen')) {
-        var gap = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
-        dock.style.bottom = (gap + 8) + 'px';
-      } else dock.style.bottom = '';
-    }
-    function kbLoop() { syncDockKeyboard(); if (Date.now() < kbStop || document.activeElement === ui.text) kbRaf = window.requestAnimationFrame(kbLoop); else kbRaf = null; }
-    function kbWatch() { kbStop = Date.now() + 800; if (!kbRaf) kbRaf = window.requestAnimationFrame(kbLoop); }
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', kbWatch); window.visualViewport.addEventListener('scroll', kbWatch); }
-    ui.text.addEventListener('focus', kbWatch); ui.text.addEventListener('blur', kbWatch);
+    TMT.ui.dockKeyboard(dock, ui.text); // code commun aux barres fixes (composants.js)
     container.appendChild(root);
   }
 
+  // ---------- Bande de la SEMAINE (modèle B, 6 nov. 2026) : jours cliquables ; le libellé du mois déploie le mois en place (classes .goalsCal*, .cmpNav de la page 3) ----------
+  var calBox = null, calExpanded = false, calAnchor = null;
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function isoOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function fromIso(s) { return new Date(s + 'T12:00:00'); }
+  function addDays(s, n) { var d = fromIso(s); d.setDate(d.getDate() + n); return isoOf(d); }
+  function mondayOf(s) { return addDays(s, -((fromIso(s).getDay() + 6) % 7)); }
+  function cap1(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function buildCal() { calBox = el('div', 'tasksWeek'); calAnchor = dayIso(); paintCal(); bindCalSwipe(calBox); return calBox; }
+  function paintCal() {
+    if (!calBox) return;
+    calBox.textContent = '';
+    var loc = TMT.dateLocale || undefined, sel = dayIso(), today = localIso(), anchor = calAnchor || sel;
+    var nav = el('div', 'cmpNav cmpNav--sm goalsCalNav');
+    var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr(calExpanded ? 'Mois précédent' : 'Semaine précédente'));
+    var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr(calExpanded ? 'Mois suivant' : 'Semaine suivante'));
+    var label = el('button', 'cmpNavLabel tasksWeekLabel'); label.type = 'button'; label.setAttribute('aria-expanded', calExpanded ? 'true' : 'false');
+    var ref = calExpanded ? anchor.slice(0, 8) + '01' : addDays(mondayOf(anchor), 3); // semaine à cheval sur deux mois : le mois du jeudi (norme ISO)
+    label.appendChild(document.createTextNode(cap1(fromIso(ref).toLocaleDateString(loc, { month: 'long', year: 'numeric' }))));
+    label.appendChild(el('span', 'cmpChev' + (calExpanded ? ' open' : '')));
+    label.addEventListener('click', function () { toggleExpand(false); });
+    prev.addEventListener('click', function () { stepCal(-1); });
+    next.addEventListener('click', function () { stepCal(1); });
+    nav.appendChild(label); calBox.appendChild(nav); // libellé du mois seul en haut ; les flèches encadrent le calendrier (centrées sur lui, elles descendent quand le mois se déploie)
+    var frame = el('div', 'tasksWeekFrame'), grid = el('div', 'tasksWeekGrid');
+    var head = el('div', 'goalsCalHead');
+    for (var k = 0; k < 7; k++) head.appendChild(el('span', null, cap1(new Date(2024, 0, 1 + k).toLocaleDateString(loc, { weekday: 'narrow' })))); // 1er janv. 2024 = lundi
+    var hw = el('div', 'tasksWeekHead'); hw.appendChild(head); calBox.appendChild(hw); // initiales des jours HORS du cadre : les flèches se centrent sur les cases des numéros
+    var first, rows, month = fromIso(anchor).getMonth();
+    if (calExpanded) { var f = anchor.slice(0, 8) + '01', fd = fromIso(f); first = mondayOf(f); rows = Math.ceil((((fd.getDay() + 6) % 7) + new Date(fd.getFullYear(), month + 1, 0).getDate()) / 7); }
+    else { first = mondayOf(anchor); rows = 1; }
+    for (var r = 0; r < rows; r++) {
+      var wrow = el('div', 'calWeekRow'), week = el('div', 'goalsCalWeek'), days = el('div', 'goalsCalDays');
+      if (TMT.calNums) { var wn = el('span', 'calWeekNum', 'S' + TMT.calNums.week(addDays(first, r * 7))); wn.appendChild(el('i', null, 'P' + TMT.calNums.period(addDays(first, r * 7)))); wrow.appendChild(wn); } // numéro de la semaine, à gauche de sa rangée
+      for (var c = 0; c < 7; c++) {
+        var di = addDays(first, r * 7 + c);
+        var cell = el('button', 'goalsCalDay' + (calExpanded && fromIso(di).getMonth() !== month ? ' out' : '') + (di === today ? ' today' : '') + (di === sel && viewDay !== 'all' ? ' sel' : ''), String(+di.slice(8, 10)));
+        cell.type = 'button'; cell.setAttribute('data-day', di);
+        (function (d) { cell.addEventListener('click', function () { pickDay(d); }); })(di);
+        days.appendChild(cell);
+      }
+      week.appendChild(days); wrow.appendChild(week); grid.appendChild(wrow);
+    }
+    frame.appendChild(prev); frame.appendChild(grid); frame.appendChild(next); calBox.appendChild(frame);
+    syncCalSel();
+  }
+  // Balayage sur le calendrier : change de semaine (ou de mois déployé), jamais de page (les écouteurs de page ne voient pas le geste).
+  function bindCalSwipe(node) {
+    var x0 = 0, y0 = 0, on = false;
+    node.addEventListener('touchstart', function (e) { e.stopPropagation(); on = e.touches.length === 1; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    node.addEventListener('touchmove', function (e) { e.stopPropagation(); }, { passive: true });
+    node.addEventListener('touchend', function (e) {
+      e.stopPropagation(); if (!on) return; on = false;
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) stepCal(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+  function stepCal(n) {
+    if (calExpanded) { var d = fromIso((calAnchor || dayIso()).slice(0, 8) + '01'); d.setMonth(d.getMonth() + n); calAnchor = isoOf(d); }
+    else calAnchor = addDays(calAnchor || dayIso(), 7 * n);
+    paintCal(); calNavChanged();
+  }
+  // Libellé du mois : replie / déploie (jamais au choix d'un jour). resetAnchor (calendrier importé) : en repliant, la semaine est celle du jour choisi, sinon d'aujourd'hui.
+  function toggleExpand(resetAnchor) {
+    if (calExpanded && resetAnchor) calAnchor = viewDay === 'all' ? localIso() : dayIso();
+    calExpanded = !calExpanded; paintCal(); syncDayPop(); calNavChanged();
+    if (!calExpanded) setComposer(false); // 05 : déplier le mois n'ouvre ni la barre « Nouvelle tâche » ni le clavier (elle s'ouvre au toucher d'un jour ou par « + ») ; elle se ferme au repli
+  }
+  function calNavChanged() { if (calOn && TMT.goalsCalNavChanged) TMT.goalsCalNavChanged(); } // la période du calendrier importé suit la semaine / le mois affiché
+  // Jour choisi : la liste ne montre QUE cette journée. Futur : les ajouts sont datés de ce jour ; passé : lecture seule.
+  // Jour touché (comme la page 3) : la liste sous le calendrier disparaît ; les tâches du jour s'affichent dans un pop-up au-dessus de la barre d'ajout (✕ = retour à toutes les tâches).
+  var dayPopCount = null, dayPop = null, dayPopBody = null, dayPopKick = null, listHome = null;
+  function buildDayPop() {
+    dayPop = el('div', 'tasksPropose cmpGlass tasksDayPop hidden');
+    var head = el('div', 'tasksProposeHead'); dayPopKick = el('span', 'tasksProposeKicker'); head.appendChild(dayPopKick);
+    dayPopCount = el('span', 'tasksCounter tasksDayCount'); head.appendChild(dayPopCount);
+    head.appendChild(TMT.ui.closeBtn(function () { if (viewDay !== 'all') pickDay(dayIso()); setComposer(false); }, tr('Fermer'))); // ✕ du pop-up : il se ferme et la barre d'ajout aussi
+    dayPopBody = el('div', 'tasksProposeBody'); dayPop.appendChild(head); dayPop.appendChild(dayPopBody);
+    dock.insertBefore(dayPop, dock.firstChild);
+  }
+  function syncDayPop() {
+    if (!dayPop || !listHome) return;
+    var on = viewDay !== 'all' && calExpanded; // pop-up seulement calendrier DÉPLIÉ ; replié : la liste du jour, comme d'habitude
+    if (on) { dayPopKick.textContent = cap1(fromIso(dayIso()).toLocaleDateString(TMT.dateLocale || undefined, { weekday: 'long', day: 'numeric', month: 'long' })); if (listBox.parentNode !== dayPopBody) dayPopBody.appendChild(listBox); }
+    else if (listBox.parentNode !== listHome) listHome.insertBefore(listBox, document.getElementById('goalsTodayArchiveSection'));
+    dayPop.classList.toggle('hidden', !on); syncDock();
+    if (root) { root.classList.toggle('dayPopOn', on); root.classList.toggle('calUnfolded', !!calExpanded); }
+  }
+  function pickDay(d) {
+    if (calExpanded && !composerOpen) setComposer(true); // un jour touché dans le calendrier déplié : la barre d'ajout est là
+    var nv = d === localIso() ? null : d; viewDay = nv === viewDay ? 'all' : nv; if (!calExpanded) calAnchor = d; // retoucher le jour choisi = retour à toutes les tâches ; mois déployé : il le reste (8 nov. 2026, Émilien), même mois
+    state.date = null;
+    paintCal(); syncDayPop();
+    var c = cacheGet(viewKey()); if (c) render(c); else { listBox.textContent = ''; }
+    refresh();
+  }
+  // Minuit / retour au premier plan : le cercle « aujourd'hui », la nature du jour choisi (passé / futur) et la liste se mettent à jour.
+  var lastToday = localIso();
+  function rollDay() { var t = localIso(); if (t === lastToday) return; lastToday = t; if (!viewDay || viewDay === 'all') calAnchor = t; paintCal(); if (shown) { var c = cacheGet(viewKey()); if (c) render(c); refresh(); } }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) rollDay(); });
+  setInterval(rollDay, 30000);
+  function resetDay() { viewDay = 'all'; calAnchor = localIso(); calExpanded = false; paintCal(); syncDayPop(); }
+
+  // ---------- Calendrier de la page 3 intégré (7 nov. 2026, demande d'Émilien) : UN SEUL calendrier, celui de la page 3 (objectifs-page3.js : TMT.showGoalsCalendar, aucune copie) ----------
+  // Il remplace la bande de la semaine QUAND le filtre désigne un pôle (sans secteurs) ou un secteur ; sans filtre ou avec une activité seule, la bande reste telle quelle.
+  // Le jour touché dans sa grille filtre la liste d'ici (crochet calHook) ; la barre « Nouvelle tâche… » d'ici est celle qui ajoute, datée de ce jour.
+  var calHost = null, calOn = false, calKey = '', calAt = 0, calSeq = 0;
+  var calHook = {
+    current: function () { return viewDay === 'all' ? null : dayIso(); },
+    pick: function (iso) { pickDay(iso); },
+    topHost: null, // posé après la construction de la rangée du haut
+    nav: function () { return { anchor: calAnchor || dayIso(), expanded: calExpanded }; },
+    step: function (n) { stepCal(n); },
+    toggle: function () { toggleExpand(true); },
+    setNav: function (iso) { calAnchor = iso; paintCal(); },
+    released: function () { calSeq++; calOn = false; calKey = ''; setCalOn(false); } // la page 3 reprend son calendrier : la bande revient
+  };
+  function buildCalHost() { calHost = el('div', 'tasksCalHost hidden'); bindCalSwipe(calHost); return calHost; }
+  function setCalOn(on) { if (calBox) calBox.classList.toggle('hidden', on); if (calHost) calHost.classList.toggle('hidden', !on); if (root) root.classList.toggle('calIntegrated', on); }
+  function calCat() { return filt.act != null && filt.pole != null ? (filt.sectorKey || filt.pole) : null; } // catégorie du calendrier : le secteur, ou le pôle sans secteurs
+  function syncCalSel() { if (calOn && TMT.goalsCalSetSel) TMT.goalsCalSetSel(calHook.current()); }
+  function calOff() { calSeq++; calOn = false; calKey = ''; setCalOn(false); if (TMT.goalsCalUnmount) TMT.goalsCalUnmount(); }
+  function syncCalendar(date, force) {
+    var cat = calCat();
+    if (!cat || !calHost || !TMT.showGoalsCalendar) { calOff(); return Promise.resolve(false); }
+    var key = filt.act + '|' + filt.pole + '|' + (filt.sectorKey || '');
+    if (!force && calOn && key === calKey && Date.now() - calAt < 3000) return Promise.resolve(true);
+    calHook.topHost = periodHost;
+    var seq = ++calSeq, d = date || calAnchor || dayIso();
+    return TMT.showGoalsCalendar({ activityId: filt.act, poleKey: filt.pole, secteurKey: filt.sectorKey || null, date: d }, calHost, calHook).then(function (r) {
+      if (seq !== calSeq) return !!r;
+      if (!r) { calOff(); return false; } // pas de planning pour cette catégorie (ex. pôle qui a des secteurs) : la bande reste
+      calKey = key; calAt = Date.now(); calOn = true; setCalOn(true);
+      var chg = false;
+      if (r.poleLabel && filt.poleLabel !== r.poleLabel) { filt.poleLabel = r.poleLabel; chg = true; }
+      if (filt.sectorKey && r.sectorLabel && filt.sector !== r.sectorLabel) { filt.sector = r.sectorLabel; chg = true; }
+      if (chg) paintFilter();
+      syncCalSel();
+      return true;
+    });
+  }
+  // Après un ajout, un cochage ou un enregistrement : les cadres du calendrier (statuts, pastilles) se rechargent.
+  function calReload() { if (!calOn || !TMT.reloadGoalsAll) return; TMT.reloadGoalsAll().then(function () { if (calOn && TMT.renderActivityGoals) TMT.renderActivityGoals(); }).catch(function () {}); }
+
+  // ---------- Filtre (7 nov. 2026) : une ligne nue sous « Tâches | Objectifs », au-dessus du calendrier ----------
+  // Un toucher déroule un panneau sur place : page 1 = « Toutes les activités » + les activités ; toucher une activité glisse vers la page 2 = ses pôles, chacun avec ses secteurs
+  // dessous (choix direct, pas de 3e page). Balayage vers la droite = retour à la page 1. Les tâches sans objectif restent dans la liste de leur activité, pôle ou secteur.
+  var filt = { act: null, pole: null, sector: null }, filterBox = null, fv = { open: false, browse: null, pole: null, page: 0 };
+  function filtMatch(t) { return filt.act == null || (String(t.activityId) === filt.act && (filt.pole == null || t.pole === filt.pole) && (filt.sector == null || (t.sectorKey !== undefined && filt.sectorKey ? t.sectorKey === filt.sectorKey : t.sector === filt.sector))); }
+  var filterRow = null, periodHost = null;
+  // Rangée du haut : icône de filtre à gauche ; à sa droite, la ligne de période du calendrier importé (masquée quand le panneau de filtre est ouvert).
+  function buildFilter() { filterRow = el('div', 'tasksFilterRow'); filterBox = el('div', 'tasksFilter'); periodHost = el('div', 'tasksPeriodHost'); filterRow.appendChild(filterBox); filterRow.appendChild(periodHost); paintFilter(); return filterRow; }
+  var struct = null; // { activityId: [{ key, label, secteurs: [{ key, label }] }] }, lu comme l'arbre (GET /api/objectifs/structure)
+  function loadStruct() {
+    return TMT.api('GET', '/api/objectifs/structure').then(function (r) { var m = {}; ((r && r.activities) || []).forEach(function (a) { m[String(a.id)] = a.poles || []; }); struct = m; return TMT.ui.couleur(0); }).then(function () { paintFilter(); }).catch(function () {});
+  }
+  function filtData(actId) {
+    var acts = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a && a.id != null; });
+    if (filt.act != null && !acts.some(function (a) { return String(a.id) === filt.act; })) filt = { act: null, pole: null, sector: null };
+    var poles = [], seen = {}, secs = {};
+    ((lastData && lastData.tasks) || []).filter(function (t) { return actId != null && String(t.activityId) === String(actId); }).forEach(function (t) {
+      if (!seen[t.pole]) { seen[t.pole] = true; poles.push({ key: t.pole, label: t.poleName || t.pole, idx: t.poleIndex || 0 }); secs[t.pole] = []; }
+      if (t.sector && !secs[t.pole].some(function (s) { return s.label === t.sector; })) secs[t.pole].push({ label: t.sector, key: t.sectorKey || null });
+    });
+    // Structure de l'activité (pôles et secteurs, comme l'arbre) : toujours proposée, même sans tâche chargée (jour touché, activité sans tâche).
+    var st = struct && actId != null ? struct[String(actId)] : null;
+    if (st) st.forEach(function (p, i) {
+      if (!seen[p.key]) { seen[p.key] = true; poles.push({ key: p.key, label: p.label || p.key, idx: i - 1000 }); secs[p.key] = []; }
+      (p.secteurs || []).forEach(function (x) { if (!secs[p.key].some(function (y) { return y.label === x.label; })) secs[p.key].push({ label: x.label, key: x.key || null }); });
+    });
+    poles.sort(function (a, b) { return a.idx - b.idx; });
+    return { acts: acts, poles: poles, secs: secs };
+  }
+  function applyFilt(next) { filt = next; fv.open = false; fv.browse = null; fv.pole = null; fv.page = 0; if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer')); paintFilter(); if (lastData) render(lastData); syncCalendar(); }
+  function poleColorOf(actId, key) { return TMT.scopeFilter.poleColor(struct, actId, key); } // nuance standard du pôle (composant commun)
+  var fctx = { view: null, filt: function () { return filt; }, data: filtData, poleColor: poleColorOf, apply: applyFilt, set: function (n) { filt = n; }, refresh: function () { if (lastData) render(lastData); syncCalendar(); }, repaint: function () { paintFilter(); }, onOpen: function () { loadStruct(); } }; // le dessin du filtre est le composant commun js/filtre-niveau.js (partagé avec le Bilan)
+  function paintFilter() {
+    if (!filterBox) return; fctx.view = fv; if (filterRow) filterRow.classList.toggle('open', fv.open);
+    TMT.scopeFilter.paint(filterBox, fctx);
+  }
+
+  // « Archive » (fin de l'onglet) : même gabarit que « Archives » de l'onglet Tâches (mêmes classes, CSS partagé) ; les lignes sont celles de la liste du jour,
+  // mais pour toutes les activités (GET /api/goals/archive). Tâches faites des 7 derniers jours ; passé ce délai elles n'apparaissent plus, mais restent en base.
+  var rowBuilder = null; // fonction de rendu d'une ligne de tâche d'Aujourd'hui (définie dans render)
+  function archiveOpen() { var p = document.getElementById('goalsTodayArchivePanel'); return !!p && !p.classList.contains('hidden'); }
+  function loadArchive() {
+    TMT.api('GET', '/api/goals/archive').then(function (d) {
+      var box = ui.archList, today = localIso(), tasks = ((d && d.tasks) || []).filter(function (x) { var dd = new Date(x.doneAt); return !isNaN(dd) && isoOf(dd) === today; }); // l'archive, c'est le jour : seulement les tâches cochées aujourd'hui
+      box.textContent = '';
+      if (rowBuilder) tasks.forEach(function (task) { rowBuilder(task, box); }); // même ligne que dans la liste du jour (cocher/décocher : la tâche repart dans la liste)
+      ui.archEmpty.classList.toggle('hidden', tasks.length > 0);
+    }).catch(function (e) { if (window.console) console.error('Archive : ' + ((e && e.message) || e)); });
+  }
+  function buildArchive() {
+    var sec = el('div'); sec.id = 'goalsTodayArchiveSection'; sec.classList.add('hidden'); ui.archSec = sec; // visible seulement quand une tâche est cochée (jamais sur un jour passé)
+    var head = el('div', 'sectionTitleRow historyHeaderClickable'); head.id = 'goalsTodayArchiveHeader'; ui.archTitle = el('p', 'sectionTitle', tr('Faites aujourd’hui')); head.appendChild(ui.archTitle);
+    var panel = el('div', 'hidden'); panel.id = 'goalsTodayArchivePanel';
+    ui.archList = el('div'); ui.archEmpty = el('p', 'hint hidden', tr('Aucune tâche terminée aujourd’hui.'));
+    panel.appendChild(ui.archList); panel.appendChild(ui.archEmpty);
+    head.addEventListener('click', function () {
+      var opening = !archiveOpen();
+      panel.classList.toggle('hidden', !opening);
+      if (opening) { loadArchive(); window.requestAnimationFrame(function () { head.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
+    });
+    sec.appendChild(head); sec.appendChild(panel);
+    return sec;
+  }
+  // Rangée du haut : icône de tri à gauche, compteur « faites / à faire » (X / Y, rien d'autre) à droite.
+  function buildTopRow() {
+    var row = el('div', 'tasksTopRow');
+    counter = el('span', 'tasksCounter');
+    row.appendChild(counter);
+    return row;
+  }
   // Barre d'ajout : [📎 à gauche] [texte] [↑ flèche d'envoi] ; au-dessus, la proposition de Noèsis.
   function buildAdd() {
     var box = el('div', 'tasksPopAdd');
@@ -104,11 +312,13 @@
     ui.kicker = el('span', 'tasksProposeKicker', tr('Noèsis propose'));
     ui.close = TMT.ui.closeBtn(function () {
       if (state.gen && state.gen.tasks && state.gen.tasks.length) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir effacer les tâches générées ?'), { ok: tr('Effacer'), danger: true }).then(function (yes) { if (yes) reset(); }); return; }
-      if (state.exp || state.expStep) reset(); else if (state.review && target() && ui.text.value.trim()) send(); else reset(); }, tr('Fermer')); // ✕ en haut à droite (R13) : enregistre le rangement affiché et l'applique (demande d'Émilien, 30 oct. 2026) ; sans rangement complet, ferme seulement
+      if (state.exp || state.expStep) { reset(); return; }
+      if (state.review && ui.text.value.trim()) { TMT.ui.confirm(tr('Êtes-vous sûr de vouloir quitter sans enregistrer ?'), { ok: tr('Quitter') }).then(function (yes) { if (yes) reset(); }); return; } // la ✕ ne l'enregistre plus : elle la supprime, après confirmation (20 nov. 2026, Émilien) ; c'est « Enregistrer » qui l'enregistre
+      reset(); }, tr('Fermer')); // ✕ en haut à droite (R13)
     kick.appendChild(ui.kicker); kick.appendChild(ui.close);
     ui.body = el('div', 'tasksProposeBody'); // la seule zone qui défile, sous le titre et la ✕ qui restent en place
     ui.fields = el('div', 'tasksFields');
-    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'));
+    ui.hint = el('p', 'tasksProposeHint', tr('Rien n’est rangé sans toi : ↑ valide ce rangement.'));
     ui.pages = el('div', 'tasksPages'); ui.track = el('div', 'tasksTrack');
     var pageA = el('div', 'tasksPage tasksPageA'); pageA.appendChild(ui.fields); pageA.appendChild(ui.hint);
     ui.tasksBox = el('div', 'tasksPage tasksPageB off');
@@ -124,7 +334,7 @@
     ui.file.accept = '.txt,.md,.markdown,.csv,.docx,.pdf,text/*,image/*';
     clip.appendChild(ui.file);
     ui.file.addEventListener('change', onPick);
-    ui.text = el('textarea', 'tasksText'); ui.text.rows = 1; ui.text.maxLength = 300; ui.text.placeholder = tr('Ajouter une tâche');
+    ui.text = el('textarea', 'tasksText'); ui.text.rows = 1; ui.text.maxLength = 300; ui.text.placeholder = tr('Nouvelle tâche…');
     ui.text.addEventListener('input', onType);
     ui.text.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
     ui.send = el('button', 'cmpSend'); ui.send.type = 'button'; ui.send.setAttribute('aria-label', tr('Ajouter'));
@@ -134,7 +344,8 @@
     ui.send.title = tr('Appui long : demande Expansion');
     bar.appendChild(clip); bar.appendChild(ui.text); bar.appendChild(ui.send);
     ui.exHint = el('p', 'tasksExHint hidden', tr('Appuie longtemps sur ↑ pour utiliser Expansion')); // sous la barre, seulement si le texte parle de générer et qu'une activité a Expansion
-    ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg');
+    ui.chips = el('div', 'tasksChips'); ui.msg = el('p', 'tasksMsg'); // jamais de texte sous la barre (20 nov. 2026, Émilien) : ce que le code y écrit s'affiche dans la bulle AU-DESSUS (showToast) et la ligne reste vide
+    if (typeof MutationObserver === 'function') new MutationObserver(function () { var m = ui.msg.textContent; if (m) { ui.msg.textContent = ''; showToast(m); } }).observe(ui.msg, { childList: true });
     ui.toast = el('p', 'tasksToast hidden'); ui.toast.setAttribute('role', 'status');
     ui.save = el('button', 'tasksSaveBtn', tr('Enregistrer')); ui.save.type = 'button'; // remplace la zone d'écriture à l'étape 2 d'Expansion (liste des tâches à valider)
     ui.save.addEventListener('click', function () { expSave(); });
@@ -143,6 +354,31 @@
   }
 
   function target() { return state.choice || state.proposal; }
+  // Choix toujours pré-sélectionné (comme les activités du Chrono) : l'activité / le pôle / le secteur du filtre du volet, sinon le PLUS SOUVENT UTILISÉ sur les tâches de l'utilisateur (égalité : le plus récent).
+  function usage(match) {
+    var n = 0, last = 0, all = ((lastData && lastData.tasks) || []).concat(state.added || []);
+    all.forEach(function (t) { if (match(t)) { n++; if ((t.id || 0) > last) last = t.id || 0; } });
+    return { n: n, last: last };
+  }
+  function bestOf(list, match) {
+    var best = null, bu = null;
+    list.forEach(function (o) { var u = usage(function (t) { return match(t, o); }); if (!best || u.n > bu.n || (u.n === bu.n && u.last > bu.last)) { best = o; bu = u; } });
+    return best;
+  }
+  function poleKeyOfOption(o) { var ps = (struct && struct[String(o.activityId)]) || [], key = String(o.categoryKey); for (var i = 0; i < ps.length; i++) { if (String(ps[i].key) === key || (ps[i].secteurs || []).some(function (x) { return String(x.key) === key; })) return String(ps[i].key); } return null; }
+  function catUsed(t, o) { return String(t.activityId) === String(o.activityId) && String(t.sectorKey || t.pole) === String(o.categoryKey); }
+  function defaultChoice(opts, actId) { // actId : activité déjà fixée (sinon filtre du volet, sinon la plus utilisée)
+    if (!opts.length) return null;
+    var act = actId != null ? actId : (filt.act != null && opts.some(function (o) { return String(o.activityId) === filt.act; }) ? filt.act : null);
+    var inAct = act != null ? opts.filter(function (o) { return String(o.activityId) === String(act); }) : opts;
+    if (act == null) { var seen = {}, firsts = []; opts.forEach(function (o) { if (!seen[o.activityId]) { seen[o.activityId] = true; firsts.push(o); } }); var a0 = bestOf(firsts, function (t, o) { return String(t.activityId) === String(o.activityId); }); inAct = opts.filter(function (o) { return o.activityId === a0.activityId; }); }
+    if (filt.act != null && String(inAct[0].activityId) === filt.act && filt.pole != null) { var inPole = inAct.filter(function (o) { return poleKeyOfOption(o) === String(filt.pole); }); if (inPole.length) inAct = inPole; }
+    var poles = {}, pf = []; inAct.forEach(function (o) { var k = poleOf(o); if (!poles[k]) { poles[k] = true; pf.push(o); } });
+    var p0 = bestOf(pf, function (t, o) { return String(t.activityId) === String(o.activityId) && (t.poleName ? t.poleName === poleOf(o) : false); });
+    var inP = inAct.filter(function (o) { return poleOf(o) === poleOf(p0); });
+    if (filt.act != null && filt.sector != null && filt.sectorKey) { var fs0 = inP.filter(function (o) { return String(o.categoryKey) === String(filt.sectorKey); })[0]; if (fs0) return fs0; }
+    return bestOf(inP, catUsed);
+  }
   // « Produit → Interface » : pôle « Produit », secteur « Interface » ; « Privé » : un pôle sans secteur.
   function poleOf(o) { return String(o.categoryLabel || '').split(' → ')[0]; }
   function sectorOf(o) { var p = String(o.categoryLabel || '').split(' → '); return p.length > 1 ? p[1] : ''; }
@@ -172,7 +408,7 @@
     if (readOnly) { var v = el('button', 'tasksFieldValue'); v.type = 'button'; v.disabled = true; v.appendChild(el('span', 'tasksFieldText', dateText(state.date))); row.appendChild(v); }
     else {
       var inp = el('input', 'tasksDateInput tasksDateInline'); inp.type = 'date'; inp.value = state.date || dayIso(); inp.setAttribute('aria-label', tr('Date'));
-      inp.addEventListener('change', function () { state.date = inp.value || null; });
+      inp.addEventListener('change', function () { state.date = inp.value || null; state.dateAuto = false; });
       row.appendChild(inp);
     }
     wrap.appendChild(row); return wrap;
@@ -194,13 +430,40 @@
     ui.fields.appendChild(fieldRow('pole', 'Pôle', t ? poleOf(t) : tr('Choisir'), readOnly || !poleId));
     if (!t || sectorsOfPole(t).length) ui.fields.appendChild(fieldRow('secteur', 'Secteur', t && sectorOf(t) ? sectorOf(t) : tr('Choisir'), readOnly || !t));
     if (!state.expStep) ui.fields.appendChild(dateRow(readOnly)); // étape 1 d'Expansion : seulement le pôle et le secteur
-    if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Responsable', state.who ? state.who.name : '—', readOnly));
+    if (!state.expStep && !readOnly) ui.fields.appendChild(advBlock()); // « Avancé » : replié, un seul choix « Nature »
+    if (!state.expStep && poleId && state.members[poleId] && state.members[poleId].length > 1) ui.fields.appendChild(fieldRow('who', 'Exécutant', state.who ? state.who.name : '—', readOnly));
     if (state.expStep) { ui.hint.textContent = tr('Balaie vers la gauche pour voir les tâches générées.'); ui.hint.classList.remove('hidden'); }
-    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ ou ✕ enregistre ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
+    else { ui.hint.textContent = tr('Rien n’est rangé sans toi : ↑ valide ce rangement.'); ui.hint.classList.toggle('hidden', !t || !!readOnly); }
     if (poleId && !state.members[poleId]) membersOf(poleId).then(function () { if (!readOnly && (target() ? target().activityId : state.poleId) === poleId) paintProposal(); });
   }
+  // « Avancé » de la création manuelle d'une tâche : replié par défaut ; « Nature » (Maintenir / Développer) VIDE par défaut = l'IA décide en silence d'après le titre ; aucun choix de phase. Retoucher le choix l'annule.
+  var NATURES = [['maintenance', 'Maintenir'], ['developpement', 'Développer']];
+  function natureValue() { return state.nature || null; }
+  function advBlock() {
+    var box = el('div', 'tasksAdv'), wrap = el('div', 'objField objGuideRow' + (state.advOpen ? ' open' : ''));
+    var head = el('button', 'objGuideHead objAdvHead cmpToggle'); head.type = 'button'; head.setAttribute('aria-expanded', state.advOpen ? 'true' : 'false');
+    var tx = el('span', 'objGuideTxt'); tx.appendChild(el('span', 'cmpBlockTitle', tr('Avancé')));
+    head.appendChild(tx); head.appendChild(el('span', 'cmpChev' + (state.advOpen ? ' open' : '')));
+    head.addEventListener('click', function () { state.advOpen = !state.advOpen; paintProposal(); });
+    wrap.appendChild(head); box.appendChild(wrap);
+    if (!state.advOpen) return box;
+    var row = el('div', 'objField objGuideRow' + (state.natureOpen ? ' open' : '')), h2 = el('button', 'objGuideHead cmpToggle'); h2.type = 'button'; h2.setAttribute('aria-expanded', state.natureOpen ? 'true' : 'false');
+    var t2 = el('span', 'objGuideTxt'); t2.appendChild(el('span', 'cmpBlockTitle', tr('Nature'))); h2.appendChild(t2);
+    var cur = NATURES.filter(function (n) { return n[0] === natureValue(); })[0];
+    h2.appendChild(el('span', 'hint objGuideRight objNivAns', cur ? tr(cur[1]) : '')); h2.appendChild(el('span', 'cmpChev' + (state.natureOpen ? ' open' : '')));
+    h2.addEventListener('click', function () { state.natureOpen = !state.natureOpen; paintProposal(); });
+    row.appendChild(h2);
+    if (state.natureOpen) {
+      var seg = el('div', 'cmpSeg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', tr('Nature'));
+      NATURES.forEach(function (n) { var b = el('button', natureValue() === n[0] ? 'active' : '', tr(n[1])); b.type = 'button'; b.setAttribute('aria-pressed', natureValue() === n[0] ? 'true' : 'false'); b.addEventListener('click', function () { state.nature = natureValue() === n[0] ? null : n[0]; state.natureOpen = false; paintProposal(); }); seg.appendChild(b); });
+      row.appendChild(seg);
+    }
+    box.appendChild(row); return box;
+  }
   function closeChooser() { state.open = ''; }
-  function choice(box, label, fn) { var b = el('button', 'tasksChoice', label); b.type = 'button'; b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
+  // couleur standard (TMT.ui.couleur) : point = activité ; texte = pôle ou secteur (nuance de son pôle)
+  function dotEl(color) { var d = el('span', 'tasksDot'); if (color) d.style.background = color; return d; } // pastille de couleur (couleur d'activité ; un pôle prend sa nuance, un secteur celle de son pôle)
+  function choice(box, label, fn, look) { var b = el('button', 'tasksChoice', label); b.type = 'button'; if (look) { var dot = dotEl(''); b.insertBefore(dot, b.firstChild); var paint = function (c) { if (c) dot.style.background = c; }, c0 = TMT.ui.couleurSync(look.a, look.p, look.label); if (c0) paint(c0); else TMT.ui.couleur(look.a, look.p, look.label).then(paint); } b.addEventListener('click', function () { fn(); closeChooser(); paintProposal(); if (state.expStep) genEnsure(); }); box.appendChild(b); }
   function toggleChooser(key) { state.open = state.open === key ? '' : key; paintProposal(); }
   // Les choix du champ ouvert (construits sous lui par fieldRow).
   function chooserFor(key) {
@@ -214,18 +477,18 @@
           var mine = state.options.filter(function (x) { return x.activityId === o.activityId; });
           var same = t && mine.filter(function (x) { return x.categoryKey === t.categoryKey; })[0];
           state.poleId = o.activityId; state.who = null;
-          state.choice = same || (mine.length === 1 ? mine[0] : null);
+          state.choice = same || (mine.length === 1 ? mine[0] : defaultChoice(mine, o.activityId));
           if (!state.choice && state.proposal && state.proposal.activityId !== o.activityId) state.proposal = null;
-        });
+        }, { dot: true, a: o.activityId });
       });
     } else if (key === 'pole') {
       var seenP = {};
       state.options.filter(function (o) { return o.activityId === poleId; }).forEach(function (o) {
         var pl = poleOf(o); if (seenP[pl]) return; seenP[pl] = true;
-        choice(box, pl, function () { state.choice = o; });
+        choice(box, pl, function () { state.choice = defaultChoice(state.options.filter(function (x) { return x.activityId === o.activityId && poleOf(x) === pl; }), o.activityId) || o; }, { a: o.activityId, label: pl });
       });
     } else if (key === 'secteur') {
-      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }); });
+      sectorsOfPole(t).forEach(function (o) { choice(box, sectorOf(o), function () { state.choice = o; }, { a: o.activityId, label: poleOf(o) }); });
     } else if (key === 'who') {
       choice(box, '—', function () { state.who = null; });
       (state.members[poleId] || []).forEach(function (m) { choice(box, m.name, function () { state.who = { id: m.id, name: m.name }; }); });
@@ -265,6 +528,7 @@
   }
   function expansionAsked() {
     if (state.busy) return;
+    if (dayIso() < localIso()) { say(tr('Pas d’ajout dans un jour passé.')); return; } // jour passé : lecture seule
     var label = ui.text.value.trim();
     if (!label) { say(tr('Écris ta demande, puis appuie longuement sur ↑ pour Expansion.')); return; }
     startExpansion(expKind(label), label);
@@ -302,7 +566,7 @@
         return TMT.api('GET', '/api/activities/' + a.id + '/offer1').then(function (r) { return { id: a.id, name: a.name, essor: !!(r && r.essor) }; }).catch(function () { return { id: a.id, name: a.name, essor: false, err: true }; });
       }));
     }).then(function (l) {
-      var list = l.filter(function (x) { return x.essor; });
+      var list = l.filter(function (x) { return x.essor && (!TMT.portee || TMT.portee.canManage(x.id)); }); // génération de tâches : responsables seulement dans une activité partagée
       state.essor = { at: Date.now(), list: list, others: l.filter(function (x) { return !x.essor && !x.err; }), failed: l.some(function (x) { return x.err; }) };
       if (!list.length && state.essor.failed) state.essor.at = 0; // vérification incomplète : on réessaiera
       return list;
@@ -322,6 +586,7 @@
       if (!list.length) {
         setExpMode(false); ui.exHint.classList.add('hidden');
         if (state.essor && state.essor.failed) { showAbove(tr('Impossible de vérifier Expansion pour le moment. Réessaie dans un instant.')); return null; }
+        if (window.TMT_NATIVE_SHELL) { showAbove(tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.')); return null; } // coques iOS/Android : information seule, aucun lien d'achat
         showAbove(tr('Expansion n’est actif sur aucune de tes activités : cette demande ne marche que sur celles qui l’ont.'), tr('Découvrir Expansion'), function () {
           TMT.api('GET', '/api/offer/available').then(function (r) { if (r && r.available && TMT.openOffer1CheckoutModal) TMT.openOffer1CheckoutModal(); else showAbove(tr('Expansion — à venir. Elle n’est pas encore disponible.')); })
             .catch(function () { showAbove(tr('Expansion — à venir. Elle n’est pas encore disponible.')); });
@@ -376,10 +641,8 @@
   function paintGenPage() {
     var g = state.gen, t = target();
     ui.tasksBox.textContent = '';
-    ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + (t ? t.activityName + ' › ' + String(t.categoryLabel || '').replace(' → ', ' › ') : '…')));
     if (!g) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Choisis d’abord l’activité.')));
     else {
-      if (g.loading) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
       if (!g.loading && g.tasks && !g.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', g.error ? g.error : tr('Aucune tâche proposée. Précise ta demande.')));
       (g.tasks || []).forEach(function (task, i) {
         var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = g.checked[i] !== false;
@@ -404,8 +667,8 @@
     var picked = g.tasks.filter(function (x, i) { return g.checked[i] !== false; });
     if (!picked.length) { reset(); return; }
     ui.save.disabled = true;
-    TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes }; }) }).then(function (r) {
-      var n = (r && r.addedCount) || 0; reset(); refresh();
+    TMT.api('POST', '/api/activities/' + t.activityId + '/document-tasks/apply', { tasks: picked.map(function (x) { return { title: x.title, key: t.categoryKey, day: x.day, week: x.week, minutes: x.minutes, minMinutes: x.minMinutes, maxMinutes: x.maxMinutes }; }), refused: g.tasks.filter(function (x, i) { return g.checked[i] === false; }).map(function (x) { return x.title; }) }).then(function (r) {
+      var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { say((err && err.message) || tr('Erreur.')); }).then(function () { ui.save.disabled = false; });
   }
@@ -440,8 +703,6 @@
     ui.kicker.textContent = tr('Expansion') + ' · ' + tr('Nouvelles tâches');
     ui.pages.classList.add('locked'); // les choix de la page 1 sont figés une fois validés
     ui.tasksBox.textContent = '';
-    ui.tasksBox.appendChild(el('p', 'tasksPageHead', tr('Dans') + ' ' + e.acts[0].name + (e.categoryLabel ? ' › ' + e.categoryLabel.replace(' → ', ' › ') : '')));
-    if (e.loading) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
     if (e.tasks && !e.tasks.length) ui.tasksBox.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
     (e.tasks || []).forEach(function (t, i) {
       var lab = el('label', 'tasksExpRow'), cb = el('input'); cb.type = 'checkbox'; cb.checked = e.checked[i] !== false;
@@ -453,7 +714,7 @@
     });
     ui.hint.classList.add('hidden');
     goPage(2);
-    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche Enregistrer pour les ajouter, ou balaie pour revenir aux choix.') : tr('Balaie vers la droite pour changer le rangement.'));
+    say(e.loading ? '' : e.tasks && e.tasks.length ? tr('Touche Enregistrer pour les ajouter, ou balaie pour revenir aux choix.') : tr('Balaie vers la droite pour changer le rangement.'));
   }
   function paintExpansion() {
     var e = state.exp; if (!e) return;
@@ -469,14 +730,13 @@
     row.appendChild(b); wrap.appendChild(row);
     if (state.open === 'exp' && !b.disabled) {
       var box = el('div', 'tasksChooser');
-      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }); });
+      e.acts.forEach(function (a) { choice(box, a.name, function () { e.actId = a.id; e.tasks = null; }, { dot: true, a: a.id }); });
       ((state.essor && state.essor.others) || []).forEach(function (a) {
         var off = el('div', 'tasksChoice off'); off.appendChild(el('span', null, a.name)); off.appendChild(el('small', null, tr('Sans Expansion'))); box.appendChild(off);
       });
       wrap.appendChild(box);
     }
     ui.fields.appendChild(wrap);
-    if (e.loading) ui.fields.appendChild(el('p', 'tasksProposeHint', tr('Noèsis prépare les tâches…')));
     if (e.tasks) {
       if (!e.tasks.length) ui.fields.appendChild(el('p', 'tasksProposeHint', tr('Aucune tâche proposée. Précise ta demande.')));
       e.tasks.forEach(function (t, i) {
@@ -490,7 +750,7 @@
     }
     ui.hint.classList.add('hidden'); // un seul message, centré sous la barre
     dock.classList.toggle('expSave', !!(e.tasks && e.tasks.length) && !e.loading);
-    say(e.loading ? tr('Noèsis prépare les tâches…') : e.tasks && e.tasks.length ? tr('Touche ✕ ou ↑ pour valider.') : tr('Touche ↑ pour envoyer, ou ✕ pour fermer.'));
+    say(e.loading ? '' : e.tasks && e.tasks.length ? tr('Touche ✕ ou ↑ pour valider.') : tr('Touche ↑ pour envoyer, ou ✕ pour fermer.'));
   }
   function runExpansion() {
     var e = state.exp; if (!e) return Promise.resolve();
@@ -511,8 +771,8 @@
     var picked = e.tasks.filter(function (t, i) { return e.checked[i] !== false; });
     if (!picked.length) { reset(); return Promise.resolve(); }
     e.loading = true; paintExpansion();
-    return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: e.categoryKey || t.key, day: t.day, week: t.week, minutes: t.minutes }; }) }).then(function (r) {
-      var n = (r && r.addedCount) || 0; reset(); refresh();
+    return TMT.api('POST', '/api/activities/' + e.actId + '/document-tasks/apply', { tasks: picked.map(function (t) { return { title: t.title, key: e.categoryKey || t.key, day: t.day, week: t.week, minutes: t.minutes, minMinutes: t.minMinutes, maxMinutes: t.maxMinutes }; }) }).then(function (r) {
+      var n = (r && r.addedCount) || 0; reset(); refresh(); calReload();
       showToast(n + ' ' + tr(n > 1 ? 'tâches enregistrées' : 'tâche enregistrée'));
     }).catch(function (err) { e.loading = false; say((err && err.message) || tr('Erreur.')); paintExpansion(); });
   }
@@ -534,6 +794,8 @@
     return TMT.api('POST', '/api/goals/capture/propose', { label: text, skipAi: TMT.aiMode === 'absence' }).then(function (r) {
       if (seq !== state.seq) return;
       state.proposedFor = text; state.proposal = r.proposal || null; state.options = r.options || [];
+      if (!state.proposal && !state.choice && state.options.length) state.choice = defaultChoice(state.options, state.poleId); // jamais à choisir d'abord pour valider
+      if (state.date == null || state.dateAuto) { state.date = r.date || null; state.dateAuto = !!r.date; } // jour écrit dans le titre (règles locales du serveur) ; un jour choisi à la main prime
       if (state.choice && !state.options.some(function (o) { return o.activityId === state.choice.activityId && o.categoryKey === state.choice.categoryKey; })) state.choice = null; // un choix de l'utilisateur prime sur la proposition
       paintProposal();
     }).catch(function () { /* pas de proposition : « Changer » reste possible */ });
@@ -542,17 +804,40 @@
   // Pièces jointes (mêmes contraintes que la zone de la page 1) : un document concerne UNE activité (celle du rangement choisi).
   function onPick() {
     var picked = Array.prototype.slice.call(ui.file.files || []); ui.file.value = '';
-    if (!TMT.shrinkImage && TMT.renderGoalsCaptureBubble) TMT.renderGoalsCaptureBubble(); // construit le lecteur d'images partagé
     picked.forEach(function (f) {
       if (state.files.length >= MAX_FILES) { ui.msg.textContent = tr('3 fichiers maximum.'); return; }
-      if (f.size > MAX_BYTES) { ui.msg.textContent = tr('Fichier trop lourd (5 Mo max).'); return; }
-      if (/^image\//.test(f.type) && TMT.shrinkImage) {
-        TMT.shrinkImage(f).then(function (o) { state.files.push(o); paintChips(); }).catch(function (e) { ui.msg.textContent = e.message; });
+      var isImg = /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name || '');
+      if (isImg) { // photo : réduite ici (une photo d'iPhone pèse plusieurs Mo), jamais envoyée telle quelle
+        if (f.size > 30 * 1024 * 1024) { ui.msg.textContent = tr('Photo trop lourde (30 Mo max).'); return; }
+        shrinkPhoto(f).then(function (o) { state.files.push(o); paintChips(); }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Photo illisible : essaie en JPEG.'); });
         return;
       }
+      if (f.size > MAX_BYTES) { ui.msg.textContent = tr('Fichier trop lourd (5 Mo max).'); return; }
       var r = new FileReader();
       r.onload = function () { state.files.push({ fileName: f.name, mimeType: f.type, dataUrl: r.result }); paintChips(); };
       r.readAsDataURL(f);
+    });
+  }
+  // Photo réduite pour l'IA : côté 1600 px puis plus petit tant qu'elle dépasse ~380 Ko (plafond serveur 400 Ko) ; un manuscrit reste lisible.
+  function shrinkPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var side = 1600, q = 0.78, out = null;
+        for (var i = 0; i < 8; i++) {
+          var k = Math.min(1, side / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(img.width * k)); cv.height = Math.max(1, Math.round(img.height * k));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          out = cv.toDataURL('image/jpeg', q);
+          if (out.length * 0.75 <= 380 * 1024) break;
+          if (q > 0.5) q -= 0.1; else side = Math.round(side * 0.8);
+        }
+        if (!out || out.length * 0.75 > 395 * 1024) { reject(new Error(tr('Photo trop lourde pour l’IA : prends-la de moins près.'))); return; }
+        resolve({ fileName: (file.name || 'photo').replace(/\.\w+$/, '') + '.jpg', mimeType: 'image/jpeg', dataUrl: out });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(tr('Photo illisible (format non pris en charge) : réessaie en JPEG ou PNG.'))); };
+      img.src = url;
     });
   }
   function paintChips() {
@@ -573,7 +858,7 @@
   }
   function reset() {
     clearTimeout(state.flash); state.exp = null; state.gen = null; state.expStep = 0; state.review = false; ui.pages.classList.remove('locked'); goPage(1, true); dock.classList.remove('expSave'); setExpMode(false); ui.exHint.classList.add('hidden'); ui.exHint.textContent = EXHINT_DEF; ui.text.value = ''; state.proposal = null; state.choice = null; state.proposedFor = ''; state.files = []; state.options = [];
-    state.date = null; state.who = null; state.poleId = null; closeChooser();
+    state.date = null; state.dateAuto = false; state.who = null; state.poleId = null; state.nature = null; state.advOpen = false; state.natureOpen = false; closeChooser();
     ui.proposal.classList.add('hidden'); paintChips(); ui.msg.textContent = '';
     repaintText(); // iPhone : le texte d'invite (placeholder) ne se redessinait qu'en partie (« Ajou ») après l'envoi
   }
@@ -586,25 +871,46 @@
     clearTimeout(state.toastT); ui.toast.textContent = text; ui.toast.classList.remove('hidden');
     state.toastT = setTimeout(function () { ui.toast.classList.add('hidden'); }, 2500);
   }
+  // Sans réseau : la tâche entre dans la file d'attente hors ligne existante (rangée par l'IA au retour du réseau, jamais de doublon), dans l'activité choisie, sinon celle du filtre, sinon la première où l'on peut écrire.
+  function offlineActivity() {
+    var t = target(); if (t) return t.activityId;
+    if (filt.act != null) return filt.act;
+    var l = ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.canManage !== false; });
+    return l.length ? l[0].id : null;
+  }
+  function queueOffline(label, actId, extra) {
+    if (!TMT.offlineTask || actId == null) return Promise.reject(new Error(tr('Hors ligne — connecte-toi à internet pour continuer.')));
+    return TMT.offlineTask.add(actId, label, extra); // date et exécutant gardés dans la file, rejoués au retour du réseau
+  }
   function fastCommit(c) {
     var t = c.t;
-    reset(); showToast(tr('Tâche enregistrée'));
+    reset(); setComposer(false); showToast(tr('Tâche enregistrée')); // 07 : après l'envoi la barre se referme proprement (clavier compris)
     function fail(msg) { ui.toast.classList.add('hidden'); ui.text.value = c.label; ui.msg.textContent = msg || tr('non ajoutée'); }
     TMT.captureTaskFlow(c.label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
       var ok = flow && (flow.results || []).filter(function (x) { return x.ok; })[0];
       if (!ok) { var bad = flow && (flow.results || [])[0]; fail(bad && bad.error ? tr(bad.error) : ''); return null; }
-      state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
+      state.added.unshift({ id: ok.id, label: c.label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true, addedAt: Date.now() });
       var extra = { userId: TMT.getProfile().id, dueDate: c.date };
+      if (c.nature) extra.nature = c.nature; // choisie dans « Avancé » ; vide = l'IA décide en silence
       if (c.who) { extra.plannedUserId = c.who.id; extra.notifyAssignee = true; }
-      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }).then(function () { refresh(); });
-    }).catch(function (err) { fail(err && err.message); });
+      return TMT.api('PUT', '/api/sub-project-items/' + ok.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }).then(function () { refresh(); calReload(); });
+    }).catch(function (err) {
+      if (err && err.offline) { queueOffline(c.label, t.activityId, { dueDate: c.date, plannedUserId: c.who && c.who.id }).catch(function (e2) { fail(e2 && e2.message); }); return; } // coupure découverte à l'envoi : même file
+      fail(err && err.message);
+    });
   }
   function send() {
     if (state.busy) return;
+    if (state.date && state.date < localIso()) { ui.msg.textContent = tr('Pas de date dans le passé.'); return; } // même message qu'à la modification (20 nov. 2026)
+    if (dayIso() < localIso()) { ui.msg.textContent = tr('Pas d’ajout dans un jour passé.'); return; } // jour passé : lecture seule
     var label = ui.text.value.trim();
     if (!label) { ui.msg.textContent = tr('Écris une tâche avant d’ajouter.'); return; }
     if (state.expStep === 1) { expNext(); return; }
     if (state.exp) { runExpansion(); return; }
+    if (navigator.onLine === false && !state.files.length) { // hors ligne connu d'avance : directement dans la file, sans proposition ni attente
+      queueOffline(label, offlineActivity(), { dueDate: state.date || dayIso(), plannedUserId: state.who && state.who.id }).then(function () { reset(); showToast(tr('Tâche enregistrée')); }).catch(function (e) { ui.msg.textContent = (e && e.message) || tr('Erreur.'); });
+      return;
+    }
     state.busy = true; ui.send.disabled = true; ui.msg.textContent = '';
     var shown = state.review; // le panneau de revue était déjà affiché AVANT cet appui : ↑ (ou ✕) valide
     var go = shown ? Promise.resolve() : propose(label); // rien d'affiché encore : on demande d'abord la proposition
@@ -613,48 +919,61 @@
       // IA partielle ou absente : une proposition qui vient d'arriver s'AFFICHE pour que tu la revoies, elle n'est jamais appliquée dans la foulée (30 oct. 2026, Émilien).
       if (!shown) {
         state.review = true; paintProposal(); ui.proposal.classList.remove('hidden');
-        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche ↑ (ou ✕).') : tr('Choisis où ranger la tâche.');
+        ui.msg.textContent = t ? tr('Vérifie le rangement, puis touche ↑.') : tr('Choisis où ranger la tâche.');
         if (!t && state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity');
         return null;
       }
       if (!t) { state.review = true; paintProposal(); ui.proposal.classList.remove('hidden'); ui.msg.textContent = tr('Choisis où ranger la tâche.'); if (state.options.length) toggleChooser(state.poleId ? 'pole' : 'activity'); return null; }
       if (state.files.length) {
         var files = state.files.slice();
-        if (TMT.docTasksPrefill) TMT.docTasksPrefill(t.activityId, label, files);
-        return null;
+        return essorActivities().then(function (list) {
+          if (!list.some(function (x) { return String(x.id) === String(t.activityId); })) { // pas d'Expansion sur cette activité : on le dit, rien ne part, les fichiers restent joints
+            ui.msg.textContent = tr('Lire une photo ou un document demande Expansion sur cette activité.'); return null;
+          }
+          if (!TMT.docTasksPrefill) { ui.msg.textContent = tr('Lecture de document indisponible pour le moment.'); return null; }
+          TMT.docTasksPrefill(t.activityId, label, files, function (why) { ui.msg.textContent = why; });
+          return null;
+        });
       }
       // Proposition déjà affichée : validation INSTANTANÉE (↑ ou ✕). Le panneau se ferme tout de suite, « Tâche enregistrée » s'affiche en haut de la barre, l'enregistrement se termine en arrière-plan.
-      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who }); return null; }
+      if (shown) { fastCommit({ t: t, label: label, date: state.date || dayIso(), who: state.who, nature: natureValue() }); return null; }
       return TMT.captureTaskFlow(label, [t.activityId], t.categoryKey, { inline: true }).then(function (flow) {
         if (!flow) return null;
         var ok = (flow.results || []).filter(function (x) { return x.ok; })[0];
         if (!ok) { var bad = (flow.results || [])[0]; ui.msg.textContent = bad && bad.error ? tr(bad.error) : tr('non ajoutée'); return null; }
         var r = ok;
           // Montrée tout de suite dans la liste, même si Noèsis l'a placée un autre jour (« demain »…), tant que la vue reste ouverte.
-          state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true });
-          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date };
+          state.added.unshift({ id: r.id, label: label, activityName: t.activityName, sector: t.categoryLabel.split(' → ').pop(), activityColor: null, done: false, minutes: null, justAdded: true, addedAt: Date.now() });
+          var snap = { t: t, date: state.date || dayIso(), who: state.who }, extra = { userId: TMT.getProfile().id, dueDate: snap.date }; if (natureValue()) extra.nature = natureValue();
           if (snap.who) { extra.plannedUserId = snap.who.id; extra.notifyAssignee = true; }
-          var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou responsable non enregistré.'); }) : Promise.resolve();
+          var after = Object.keys(extra).length > 1 ? TMT.api('PUT', '/api/sub-project-items/' + r.id, extra).catch(function () { ui.msg.textContent = tr('Date ou exécutant non enregistré.'); }) : Promise.resolve();
           return after.then(function () {
-            reset(); refresh(); showToast(tr('Tâche enregistrée'));
+            reset(); setComposer(false); refresh(); calReload(); showToast(tr('Tâche enregistrée'));
           });
       });
     }).catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Erreur.'); })
       .then(function () { state.busy = false; ui.send.disabled = false; });
   }
 
-  function strong(text, rest) { var s = el('span'); s.appendChild(el('b', null, text)); s.appendChild(document.createTextNode(rest)); return s; }
+  var lastData = null;
   function render(d) {
-    sumL.textContent = ''; sumR.textContent = '';
-    sumL.appendChild(strong(d.doneCount + ' ' + tr(d.doneCount > 1 ? 'faites' : 'faite'), ' · ' + d.todoCount + ' ' + tr('à faire')));
-    sumR.appendChild(strong(minutesLabel(d.doneMinutes) + ' ' + tr('faites'), ' · ' + minutesLabel(d.todoMinutes) + ' ' + tr('à faire')));
+    lastData = d;
+    if (filterBox && !TMT.ui.menuOpenIn(filterBox)) paintFilter();
+    d = Object.assign({}, d, { tasks: (d.tasks || []).filter(filtMatch) });
+    var kind = dayKind(), d0 = d;
+    root.classList.toggle('dayPast', kind === 'past'); root.classList.toggle('dayFuture', kind === 'future');
+    if (kind === 'past') d = Object.assign({}, d, { tasks: (d.tasks || []).filter(function (t) { return t.done; }), todoCount: 0 }); // jour passé : ce qui a été fait, rien d'autre
+    var nDone = d.tasks.filter(function (t) { return t.done; }).length, nTodo = d.tasks.filter(function (t) { return !t.done && !t.upcoming && !(t.plannedUserId && t.plannedUserId !== TMT.getProfile().id) && (viewDay !== 'all' || t.dueNow !== false); }).length; // vue « toutes » : le compteur reste celui d'AUJOURD'HUI (à faire aujourd'hui, en retard ou sans date), identique à la vue du jour
+    var planned = d0.plannedCount != null ? d0.plannedCount : (d0.tasks || []).filter(function (t) { return !t.done || t.dueDate === dayIso(); }).length; // jour passé : prévues ce jour-là (faites ou non)
+    counter.textContent = kind === 'past' ? (nDone + planned ? nDone + ' / ' + planned : '') : (nDone + nTodo ? nDone + ' / ' + (nDone + nTodo) : ''); // rien d'affiché quand il n'y a aucune tâche // faites / total (faites + à faire) de ce qui est affiché : une tâche cochée quitte la liste mais reste comptée, +1 aux faites
+    if (dayPopCount) dayPopCount.textContent = counter.textContent; // le compteur vit dans l'en-tête du pop-up du jour
     listBox.textContent = '';
     var have = {}; d.tasks.forEach(function (t) { have[t.id] = true; });
     d.tasks = state.added.filter(function (a) { return !have[a.id]; }).concat(d.tasks);
-    if (!d.tasks.length) listBox.appendChild(el('p', 'tasksPopEmpty', tr(dayOff === 0 ? 'Rien pour aujourd’hui.' : 'Rien ce jour-là.')));
-    var doneShown = false;
-    d.tasks.forEach(function (t) {
-      if (t.done && !doneShown) { doneShown = true; listBox.appendChild(el('p', 'tasksPopSection', tr(dayOff === 0 ? 'Faites aujourd’hui' : 'Faites ce jour-là'))); }
+    var inDay = viewDay !== 'all'; // jour touché : la liste montre aussi les tâches FAITES du jour (le compteur « faites / total » les compte) ; vue « toutes » : les faites sont dans Archive
+    if (ui.archSec) { var showArc = kind !== 'past' && nDone > 0; ui.archSec.classList.toggle('hidden', !showArc); if (showArc) ui.archTitle.textContent = tr('Faites aujourd’hui') + ' · ' + nDone; else { var ap0 = document.getElementById('goalsTodayArchivePanel'); if (ap0) ap0.classList.add('hidden'); } } // l'archive n'existe que s'il y a une tâche cochée
+    if (!d.tasks.some(function (t) { return inDay || !t.done; })) { var em = el('div', 'tasksPopEmpty'); em.appendChild(svg('M19.91 10.88A8.5 8.5 0 1 1 16.34 6.69M7.5 12.8l3.5 3.4 9.6-9.9', 2)); em.appendChild(el('b', null, tr(kind === 'past' ? 'Aucune tâche ce jour-là' : 'Journée libre'))); if (kind !== 'past') em.appendChild(el('small', null, tr('Touche + pour ajouter une tâche'))); listBox.appendChild(em); } // journée vide : icône, une ligne, une invitation
+    function addRow(t, parent) {
       var row = el('div', 'tasksPopRow' + (t.done ? ' done' : ''));
       var cb = el('button', 'tasksPopCheck'); cb.type = 'button';
       cb.setAttribute('aria-label', tr(t.done ? 'Remettre à faire' : 'Marquer comme faite')); cb.setAttribute('aria-pressed', t.done ? 'true' : 'false');
@@ -668,34 +987,131 @@
         cb.textContent = ''; if (nowDone) cb.appendChild(svg('M6.5 12.5l3.5 3.5 7.5-8', 2));
         cb.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
         TMT.api('PUT', '/api/sub-project-items/' + t.id, { userId: TMT.getProfile().id, done: nowDone })
-          .catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); })
-          .then(function () {
+          .catch(function (err) { ui.msg.textContent = (err && err.message) || tr('Impossible de modifier cette tâche.'); return null; })
+          .then(function (res) {
+            if (res && res.objectifQuestion) TMT.ui.objectifQuestion(res);
             // Une seconde pour voir la coche et le texte barré, puis la ligne s'efface (fondu + repli) avant de passer dans l'autre section.
             leaving++;
             setTimeout(function () {
               row.style.maxHeight = row.offsetHeight + 'px';
               void row.offsetHeight;
               row.classList.add('leaving'); row.style.maxHeight = '0px';
-              setTimeout(function () { leaving = Math.max(0, leaving - 1); refresh(); }, 360);
+              setTimeout(function () { leaving = Math.max(0, leaving - 1); refresh(); calReload(); }, 360);
             }, 1000);
           });
       });
       var txt = el('div', 'tasksPopText');
       txt.appendChild(el('b', null, t.label));
       var meta = el('small');
-      var dot = el('span', 'tasksPopDot'); if (t.activityColor) dot.style.background = t.activityColor;
+      var et = TMT.ui.etiquette({ activityName: t.activityName, activityColor: t.activityColor, poleLabel: t.poleName, secteurLabel: t.sector, poleIndex: t.poleIndex }); // étiquette partagée : nom du niveau le plus bas, couleur du pôle
+      var dot = el('span', 'tasksPopDot'); if (et.color) dot.style.background = et.color;
       meta.appendChild(dot);
-      meta.appendChild(document.createTextNode([t.activityName, t.sector].filter(Boolean).join(' · ') + ' · ' + (t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : minutesLabel(t.minutes)))));
+      meta.appendChild(document.createTextNode([et.name, t.done ? tr('terminé') : (t.justAdded ? tr('ajoutée à l’instant') : '')].filter(Boolean).join(' · ')));
       txt.appendChild(meta);
-      row.appendChild(cb); row.appendChild(txt); listBox.appendChild(row);
+      row.appendChild(cb); row.appendChild(txt);
+      // Même icône et même panneau de modification que l'onglet Tâches de la page 2 (TMT.openGoalsTaskEditPanel) ; après enregistrement, la liste se recharge.
+      if (TMT.openGoalsTaskEditPanel && !t.justAdded && t.canEdit !== false) { // simple membre d'une activité partagée : il coche seulement
+        var edit = el('button', 'cmpEdit goalsTaskEditBtn'); edit.type = 'button'; edit.innerHTML = TMT.goalsTaskEditIcon ? TMT.goalsTaskEditIcon() : '';
+        edit.title = tr('Modifier cette tâche'); edit.setAttribute('aria-label', tr('Modifier cette tâche'));
+        edit.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var existing = row.querySelector('.goalsTaskEditPanel');
+          if (existing) { existing.remove(); row.classList.remove('goalsTaskEditing'); edit.style.display = ''; return; }
+          edit.style.display = 'none';
+          TMT.openGoalsTaskEditPanel(row, { id: t.id, label: t.label, dueDate: t.dueDate, activityId: t.activityId, shared: t.shared, plannedUserId: t.plannedUserId }, function () { var p = row.querySelector('.goalsTaskEditPanel'); if (p) p.remove(); refresh(); });
+        });
+        row.appendChild(edit);
+      }
+      parent.appendChild(row);
+    }
+    rowBuilder = addRow; // la même ligne sert à « Archive » (tâches faites : rond coché, titre barré, « terminé », icône de modification)
+    paintTodo(d.tasks.filter(function (t) { return !t.done; }), addRow);
+    if (inDay) d.tasks.filter(function (t) { return t.done; }).forEach(function (t) { addRow(t, listBox); }); // les tâches faites ne restent plus dans la liste du jour : elles sont dans « Archive »
+    if (archiveOpen()) loadArchive();
+  }
+  // ---------- Tri (demande d'Émilien, 3 nov. 2026) : « Activité » (défaut, arbre replié), « Aujourd'hui », « Objectif », « Responsable » ----------
+  var SORT_KEY = 'noesis_today_sort_v1', SORTS = ['activity', 'today', 'objective', 'assignee'];
+  var SORT_LABELS = { activity: 'Activité', today: 'Aujourd’hui', objective: 'Objectif', assignee: 'Exécutant' };
+  var sortMode = 'today', openNodes = {}; // openNodes : branches dépliées de l'arbre, gardées le temps de la session de la vue
+  // Tri : toujours « Aujourd'hui » à l'arrivée dans la Feuille de route (ouverture, autre module, notification) ; gardé seulement le temps de la session (retour depuis Statistiques).
+  function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
+  // Une branche repliable : ligne (nom + chevron à droite, R21) puis son contenu, visible seulement si dépliée.
+  // Ligne repliable = celle de l'onglet Tâches (TMT.buildGoalsGroupRow : mêmes classes, chevron, comportement : on redessine la liste) ; ici pour les niveaux activité et pôle.
+  function toggleNode(id) { if (openNodes[id]) delete openNodes[id]; else openNodes[id] = true; if (lastData) render(lastData); }
+  // Niveau activité : la ligne de la liste d'activités de la vue « Objectifs » (mêmes classes .goalsCaptureActivityChip / .goalsCaptureZone, aucune copie de CSS) ; un toucher la déplie.
+  function activityBranch(parent, id, t0, count, fill) {
+    var open = !!openNodes[id], wrap = el('div', 'tasksActNode');
+    var btn = el('button', 'goalsCaptureActivityChip cmpSepRow'); btn.type = 'button'; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var zone = el('span', 'goalsCaptureZone'); if (t0.activityColor) zone.style.setProperty('--c', t0.activityColor);
+    zone.appendChild(el('span', 'goalsCaptureActivityChipName', t0.activityName)); btn.appendChild(zone);
+    btn.appendChild(el('span', 'goalsCaptureDailyCount', String(count)));
+    btn.addEventListener('click', function () { toggleNode(id); });
+    wrap.appendChild(btn);
+    if (open) { var body = el('div', 'tasksTreeBody'); wrap.appendChild(body); fill(body); }
+    parent.appendChild(wrap);
+  }
+  // Nuance du pôle (celle des objectifs : TMT.poleColor, rang du pôle) ; les secteurs reprennent celle de leur pôle.
+  function poleShade(t) { return t.activityColor && TMT.poleColor ? TMT.poleColor(t.activityColor, t.poleIndex || 0) : ''; }
+  function branch(parent, id, label, count, depth, fill, color) {
+    var open = !!openNodes[id];
+    var row = TMT.buildGoalsGroupRow(label, count, open, function () { toggleNode(id); });
+    if (color) row.querySelector('.activityRowName').style.color = color; // texte seulement
+    if (open) { var body = el('div', 'subProjectItems tasksTreeBody'); row.appendChild(body); fill(body); }
+    parent.appendChild(row);
+  }
+  // Ligne de tâche de l'onglet Tâches (case, texte, date, icône de modification) ; après coche ou enregistrement, la liste d'Aujourd'hui se recharge.
+  function treeRow(t, parent) {
+    parent.appendChild(TMT.buildGoalsTaskRow(Object.assign({}, t, { grey: !!t.upcoming }), t.catKey || t.pole, function () { var p = listBox.querySelector('.goalsTaskEditPanel'); if (p) p.remove(); refresh(); }));
+  }
+  function group(list, keyOf) { var order = [], map = {}; list.forEach(function (t) { var k = keyOf(t); if (!map[k]) { map[k] = []; order.push(k); } map[k].push(t); }); return order.map(function (k) { return { key: k, items: map[k] }; }); }
+  // Tri « Objectif » : un groupe par objectif HEBDOMADAIRE de la semaine en cours (titre = texte de l'objectif), ses seules tâches à faire aujourd'hui ; objectif sans tâche masqué,
+  // tâches sans objectif masquées ; groupes dans l'ordre de taskkind.compareContinuity : fin de période la plus proche, numéro de période, semaine.
+  function paintObjectives(list) {
+    var withObj = list.filter(function (t) { return t.objectiveId != null; }), without = list.filter(function (t) { return t.objectiveId == null; }), day = dayIso();
+    var groups = group(withObj, function (t) { return t.objectiveId; });
+    // Objectifs les PLUS PROCHES de la journée choisie : ceux qui finissent le plus tôt à partir de ce jour d'abord, puis ceux déjà échus (le plus récemment échu d'abord).
+    var ahead = function (g) { return g.items[0].objectiveEnd && g.items[0].objectiveEnd >= day ? 0 : 1; };
+    groups.sort(function (x, y) { var a = x.items[0], b = y.items[0]; return (ahead(x) - ahead(y)) || (ahead(x) ? cmpNum(b.objectiveEnd, a.objectiveEnd) : cmpNum(a.objectiveEnd, b.objectiveEnd)) || cmpNum(a.objectiveNumber || 0, b.objectiveNumber || 0) || cmpNum(a.objectiveWeek || 0, b.objectiveWeek || 0); });
+    without.forEach(function (t) { treeRow(t, listBox); }); // tâches sans objectif : toujours visibles, en tête
+    groups.forEach(function (g) { branch(listBox, 'o' + g.key, g.items[0].objectiveText || '—', g.items.length, 0, function (body) { g.items.forEach(function (t) { treeRow(t, body); }); }); });
+  }
+  // Tri « Responsable » : un groupe par personne responsable (la personne connectée d'abord ; une tâche sans responsable désigné est la sienne), puis les autres membres par ordre alphabétique ;
+  // dans chaque groupe l'ordre du serveur (activité, paliers, échéance). Tâches à faire d'aujourd'hui, retards et sans date seulement.
+  function paintAssignees(list, foreign, me) {
+    var meName = (TMT.getProfile() || {}).name || '';
+    var groups = group(list, function (t) { return foreign(t) ? t.plannedUserId : me; });
+    groups.sort(function (x, y) { if (x.key === me) return -1; if (y.key === me) return 1; return String(x.items[0].plannedUserName || '').localeCompare(String(y.items[0].plannedUserName || '')); });
+    groups.forEach(function (g) { branch(listBox, 'r' + g.key, g.key === me ? meName : (g.items[0].plannedUserName || '—'), g.items.length, 0, function (body) { g.items.forEach(function (t) { treeRow(t, body); }); }); });
+  }
+  function paintTodo(list, addRow) {
+    var upc = list.filter(function (t) { return t.upcoming; }); list = list.filter(function (t) { return !t.upcoming; }); // tâches à venir (complément à 5 par pôle) : seulement dans l'arbre, en grisé, jamais dans les tris à plat
+    var fresh = list.filter(function (t) { return t.justAdded; }); list = list.filter(function (t) { return !t.justAdded; }); // tâche ajoutée à l'instant : en tête, avant le tri
+    var me = TMT.getProfile().id, foreign = function (t) { return !!t.plannedUserId && t.plannedUserId !== me; }; if (sortMode !== 'assignee') list = list.filter(function (t) { return !foreign(t); }); // tâches d'un autre membre : seulement dans le tri « Responsable »
+    fresh.forEach(function (t) { addRow(t, listBox); });
+    if (sortMode === 'objective') { paintObjectives(list); return; }
+    if (sortMode === 'assignee') { paintAssignees(list, foreign, me); return; }    if (sortMode !== 'activity') { list.forEach(function (t) { addRow(t, listBox); }); return; }
+    group(list.concat(upc), function (t) { return t.activityId; }).forEach(function (a) {
+      var inAct = function (aBody) {
+        group(a.items, function (t) { return t.pole || ''; }).sort(function (x, y) { return (x.items[0].poleIndex || 0) - (y.items[0].poleIndex || 0); }).forEach(function (p) { // pôles dans l'ordre de leur rang (même ordre et même nuance que l'écran Objectifs)
+          var items = p.items; // le serveur a déjà appliqué la règle des 5 par secteur (goalstoday.js) : base entière, complétée par les tâches à venir si moins de 5
+          var inPole = function (pBody) {
+            group(items, function (t) { return t.sector || ''; }).forEach(function (s) {
+              if (!s.key) s.items.forEach(function (t) { treeRow(t, pBody); }); // tâches directement dans le pôle : visibles à l'ouverture du pôle
+              else branch(pBody, 'a' + a.key + '/' + p.key + '/' + s.key, s.key, s.items.length, 2, function (sBody) { s.items.forEach(function (t) { treeRow(t, sBody); }); }, poleShade(p.items[0]));
+            });
+          };
+          branch(aBody, 'a' + a.key + '/' + p.key, p.items[0].poleName || p.key, items.length, 1, inPole, poleShade(p.items[0]));
+        });
+      };
+      activityBranch(listBox, 'a' + a.key, a.items[0], a.items.length, inAct);
     });
   }
   var leaving = 0; // lignes en train de s'effacer : on ne recharge pas la liste sous leurs pieds
   function refresh() {
-    if (leaving > 0 || !root || !root.getClientRects().length) return; // vue masquée (autre volet, autre page) : rien à charger
+    if (leaving > 0 || !root || !root.getClientRects().length || listBox.querySelector('.goalsTaskEditPanel')) return; // une tâche en cours de modification : la liste ne se redessine pas sous elle // vue masquée (autre volet, autre page) : rien à charger
     var seq = ++loadSeq;
-    var day = dayOff ? dayIso() : localIso();
-    TMT.api('GET', '/api/goals/today?today=' + localIso() + (dayOff ? '&day=' + dayIso() : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) render(d); }).catch(function () {});
+    var day = viewKey();
+    var t0 = Date.now(); TMT.api('GET', '/api/goals/today?today=' + localIso() + (viewDay ? '&day=' + viewDay : '')).then(function (d) { if (d && d.tasks) cachePut(day, d); if (seq === loadSeq && shown) { if (d && d.tasks) { var inSrv = {}; d.tasks.forEach(function (x) { inSrv[x.id] = true; }); state.added = state.added.filter(function (a) { return inSrv[a.id] || !(a.addedAt < t0); }); } render(d); } }) // une tâche ajoutée que le serveur a rangée à un autre jour (rééquilibrage silencieux) quitte la liste : liste et compteur « faites / prévues ce jour » restent d'accord.catch(function () {});
   }
 
   // Préchargement : les tâches du jour sont demandées dès l'ouverture de l'app (et au retour au premier plan), avant même d'ouvrir la Feuille de route.
@@ -706,7 +1122,37 @@
   var mounted = false;
   TMT.todayView = {
     mount: function (container) { if (mounted) return; mounted = true; build(container); },
-    show: function () { shown = true; syncDock(); var c = cacheGet(localIso()); if (c && !dayOff) render(c); refresh(); clearInterval(timer); timer = setInterval(refresh, 6000); },
-    hide: function () { shown = false; dayOff = 0; if (ui.dayLabel) ui.dayLabel.textContent = todayLabel(); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
+    resetSort: function () {
+      resetDay(); // arrivée dans la Feuille de route depuis un autre module : tri « Aujourd'hui »
+      sortMode = 'today';
+      Array.prototype.forEach.call(document.querySelectorAll('.tasksSortWrap .statsPeriodMenuItem'), function (b) { b.classList.toggle('active', b.textContent === tr(SORT_LABELS.today)); });
+      if (lastData) render(lastData);
+    },
+    syncDock: syncDock,
+    toggleComposer: function () { setComposer(!composerOpen); },
+    composerOpen: function () { return composerOpen; },
+    canAdd: function () { return canAddHere(); },
+    // Arrivée depuis l'arbre des objectifs (TMT.ouvrirCalendrierTaches) : filtre posé sur ce pôle / secteur, calendrier au bon mois, puis la vue Tâches s'affiche. -> Promise<boolean> ; échec : le filtre d'avant est remis.
+    openCalendar: function (o) {
+      o = o || {}; if (o.activityId == null || !o.poleKey) return Promise.resolve(false);
+      var host = document.getElementById('goalsTodayView'); if (!host) return Promise.resolve(false);
+      TMT.todayView.mount(host);
+      var prev = filt, sk = o.secteurKey && o.secteurKey !== o.poleKey ? String(o.secteurKey) : null;
+      var known = ((lastData && lastData.tasks) || []).filter(function (t) { return String(t.activityId) === String(o.activityId) && t.pole === o.poleKey && (!sk || t.sectorKey === sk); })[0];
+      filt = { act: String(o.activityId), pole: o.poleKey, poleLabel: known ? known.poleName : '', sector: sk ? ((known && known.sector) || sk) : null, sectorKey: sk };
+      if (o.date) calAnchor = o.date;
+      return syncCalendar(o.date || null, true).then(function (ok) {
+        if (!ok) { filt = prev; paintFilter(); syncCalendar(); return false; }
+        fv.open = false; fv.browse = null;
+        if (o.date) { calAnchor = o.date; calExpanded = false; }
+        viewDay = 'all'; paintCal(); syncDayPop(); paintFilter(); if (lastData) render(lastData);
+        if (composerOpen && !canAddHere()) setComposer(false); else document.dispatchEvent(new CustomEvent('tmt:composer'));
+        if (TMT.setGoalsPage1View) TMT.setGoalsPage1View('today');
+        return true;
+      });
+    },
+    show: function () { shown = true; syncDock(); var c = cacheGet(viewKey()); if (c) render(c); refresh(); syncCalendar(); clearInterval(timer); timer = setInterval(refresh, 6000); },
+    hide: function () { shown = false; setComposer(false); resetDay(); filt = { act: null, pole: null, sector: null }; fv.open = false; fv.browse = null; fv.pole = null; fv.page = 0; if (filterBox) paintFilter(); // à l'arrivée sur le volet : toujours le jour actuel, toutes les activités
+    openNodes = {}; var ap = document.getElementById('goalsTodayArchivePanel'); if (ap) ap.classList.add('hidden'); syncDock(); clearInterval(timer); timer = null; clearTimeout(state.debounce); state.added = []; },
   };
 })();

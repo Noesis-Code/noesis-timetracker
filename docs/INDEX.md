@@ -9,19 +9,34 @@ Tout nouveau document va dans le sous-dossier de son sujet et est listé ici.
 - `SIMPLIFICATION.md` : principes de simplicité, journal des refus.
 - `DESIGN.md` : lexique de design.
 - `docs/regles/regles-rangement.md` : règles de design et de rangement.
+- `docs/objectifs/structure-validee-2026-11-12.md` : structure des objectifs validée par Émilien (cadre, types, temps, parcours) ; à lire avant tout code sur la création d'objectif, l'arbre, le Temps, le Chrono.
 
 ## Sous-dossiers
 - `regles/` : règles de travail (`regles-rangement`, `brief-chantier`, `boucle-veille`, `modele-tache`, `intentions`) ; `efvp-horaire.md` (projet d'EFVP Loi 25 du module Horaire, à signer).
 - `audits/` : audits, benchmarks, écarts de design, performance, fiabilité, sécurité, accessibilité, fuseaux, PWA.
-- `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts).
+- `audits/verification-navigateur-arbre.md` : vérification navigateur (Chrome + CDP) de l’arbre des objectifs : décalage de page, nombre de lignes, semaine courante (scripts `scripts/verif-*.js`).
+- `audits/audit-design-20-nov-2026.md` : audit design du 20 nov. 2026 (écarts R6/R7/R29/R5/F2 trouvés, en suspens).
+- `ia/` : `ia-appels.md`, document IA unique (appels, modèles, budget, échecs, coûts) ; `objectifs-durees.md`, base de durées des objectifs (date butoir proposée sans IA) ; `durees-taches.md`, durée d'une tâche (fourchette stockée, micro-étapes, plan en 3 phases) ; `rangement-taches.md`, rangement des tâches dans les objectifs (modèle, choix, apprentissage, consentement).
 - `expansion/` : offre payante (accès, résiliation, courriels, Stripe, taxes, parcours commercial) ; `connecteur-ia-libre.md` (outils d'écriture du connecteur IA, gratuits) ; `lecture-organisation-ia-cadrage.md` (lecture anonyme de l'organisation IA, à trancher).
 - `trade/` : Trade Tracker (connexion, délais, intégration).
 - `basic/` : offre gratuite (contrastes) ; `module-horaire.md` (module « Horaire » : horaires du personnel d'un restaurant, backend).
 - `precision/` : génération et estimation des tâches, tri.
 - `questions/` : `questions-emilien.md`, fichier unique des questions à Émilien.
 - `journal/` : journaux de chantiers, bilans, relectures croisées, plan de semaine.
+  - `journal/diagnostic-mesures-iphone.md` : mode diagnostic invisible (mesures de mise en page iPhone sur staging, `?diag=1`).
 - `simplifications/` : `propositions.md`, liste vivante unique des propositions de simplification (S1 à S15 et suivantes).
-- `fonctionnalites/` : `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier).
+- `fonctionnalites/` : `chantiers-planifies.md`, les 5 tâches planifiées qui font avancer les chantiers (rythme, exécution, rapports, rotation), `captures-chantiers.md` (une capture 390 px par chantier), `tiroir-taches.md` (tiroir des tâches mis de côté le 6 nov. 2026, code au repos dans `repos-tiroir/`).
+- [ia/strategie-modele.md](ia/strategie-modele.md) : stratégie d'une catégorie en modèle modulable (six familles, règles signal/seuil/action, défauts Noèsis, héritage, ce qui est actif).
 - `img/`, `maquettes/` : images et maquettes.
 - [legal/propositions-comptes-entreprise-2026-10-30.md](legal/propositions-comptes-entreprise-2026-10-30.md) : propositions de mise à jour des CGU et de la politique pour les comptes entreprise (à faire relire par un juriste)
+- [legal/adresses-publiques.md](legal/adresses-publiques.md) : adresses web publiques de la politique, des CGU et des mentions légales (App Store, Google Play), générées sans dupliquer le texte
+- [legal/renommage-noesis-2026-11-01.md](legal/renommage-noesis-2026-11-01.md) : le nom du produit est « Noèsis » seul depuis le 1er novembre 2026, sans changement de fond
 - [legal/audit-conformite-2026-10-30.md](legal/audit-conformite-2026-10-30.md) : audit des documents légaux contre le code (corrigé, à faire par Émilien, limites)
+- [objectifs/cas-de-figure-objectifs.md](objectifs/cas-de-figure-objectifs.md) : dossier des cas de figure du module Objectifs (cas, comportement attendu, état réel du code, priorités des correctifs)
+- [objectifs/parametres-objectif.md](objectifs/parametres-objectif.md) : inventaire court des paramètres d’un objectif (existant, défaut, placement visible ou Avancé), à valider par Émilien
+- [objectifs/navigation-arbre.md](objectifs/navigation-arbre.md) : règle unique de navigation de l’arbre (niveaux, entrée = toucher, sortie = flèche, aucune entrée cachée).
+- [objectifs/heures-et-taches.md](objectifs/heures-et-taches.md) : la capacité de tâches d'une personne = sa part des heures des objectifs en cours (source unique, repli, ajustement du temps)
+- [objectifs/retard.md](objectifs/retard.md) : retard d'un objectif de période (un test, un message : report silencieux sur la période suivante, seuil de 20 %, état « retard », définitions choisies, lot 1 sans interface)
+- [objectifs/scenarios-retard.md](objectifs/scenarios-retard.md) : Compte B de test (staging) : cinq activités S1 à S5, une par scénario de la règle de retard, données calculées par rapport au jour de création, ce que Gaspard fait et voit
+- [membres/appartenance-par-categorie.md](membres/appartenance-par-categorie.md) : modèle d'appartenance d'un membre à une catégorie (activité, pôle, secteur), routes (formes JSON), portée par endpoint, règles des activités partagées (objectifs, tâches), endroits du client qui créent des tâches.
+- [mobile/coques-sans-achat.md](mobile/coques-sans-achat.md) : coques iOS/Android sans aucun élément d'achat d'Expansion (détection, éléments retirés, refus serveur, points non vérifiés)

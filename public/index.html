@@ -48,6 +48,7 @@
      devienne noire, pour qu'il n'y ait plus de différence avec le haut du
      téléphone, plutôt que de faire remonter le violet jusque là-haut). -->
 <meta name="theme-color" content="#000000">
+<script src="/js/native-shell.js"></script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -69,10 +70,11 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/css/composants.css">
 <link rel="stylesheet" href="/css/objectifs-page1.css">
-<link rel="stylesheet" href="/css/objectifs-page2-taches.css">
+<link rel="stylesheet" href="/css/fenetre-activite.css">
+<link rel="stylesheet" href="/css/taches-ligne.css">
+<link rel="stylesheet" href="/css/taches-ligne.css">
 <link rel="stylesheet" href="/css/objectifs-page2-objectif.css">
 <link rel="stylesheet" href="/css/objectifs-offre1-code.css">
-<link rel="stylesheet" href="/css/strategie.css">
 <link rel="stylesheet" href="/css/objectifs-document-taches.css">
 <link rel="stylesheet" href="/css/objectifs-page3.css">
 <link rel="stylesheet" href="/css/stats-avance.css">
@@ -84,6 +86,9 @@
 <link rel="stylesheet" href="/css/barre-volets.css">
 <link rel="stylesheet" href="/css/bureau.css">
 <link rel="stylesheet" href="/css/aujourdhui.css">
+<link rel="stylesheet" href="/css/objectifs-creer.css">
+<link rel="stylesheet" href="/css/objectifs-arbre.css">
+<link rel="stylesheet" href="/css/objectifs-retard.css">
 <link rel="stylesheet" href="/css/reglages.css">
 
 <style>
@@ -508,7 +513,7 @@
       <input type="email" id="onbEmail" placeholder="Adresse email" maxlength="120" autocomplete="off">
       <input type="password" id="onbPin" placeholder="Choisis un mot de passe (10 caractères ou plus)" maxlength="128" autocomplete="new-password">
       <input type="password" id="onbPinConfirm" placeholder="Confirme le mot de passe" maxlength="128" autocomplete="new-password">
-      <p class="hint pwdRules hidden" id="onbPwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+      <p class="hint pwdRules hidden" id="onbPwdRules">10 caractères ou plus.</p>
       <!-- 11 septembre 2026, demande directe d'Emilien : le simple lien de
            lecture des CGU (7 septembre 2026, voir plus bas dans ce fichier)
            ne suffisait pas à formaliser un consentement — n'importe qui
@@ -632,29 +637,7 @@
       </div>
     </div>
 
-    <!-- 11 septembre 2026 (demande d'Emilien) : tant que l'app n'est pas
-         ouverte en mode "installé" (raccourci ajouté à l'écran d'accueil),
-         ni la création de profil ni la recherche d'un profil existant ne
-         doivent être accessibles — seules les étapes d'installation du
-         raccourci s'affichent. Détection via isStandaloneMode() dans
-         app.js (display-mode: standalone / navigator.standalone), pas
-         d'événement fiable pour "raccourci vient d'être créé" : la
-         bascule se refait à chaque chargement, donc l'écran disparaît
-         définitivement dès que l'app est lancée depuis son icône. -->
-    <div id="onbInstallPwa" class="hidden">
-      <div class="onbInstallIcon" aria-hidden="true">
-        <svg viewBox="0 0 64 64" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="6" y="6" width="52" height="52" rx="14" fill="var(--purple)" opacity="0.12"/>
-          <path d="M32 16v22M32 38l-9-9M32 38l9-9" stroke="var(--purple)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="17" y="44" width="30" height="6" rx="3" fill="var(--purple)"/>
-        </svg>
-      </div>
-      <p class="lead">Ajoute Noèsis à ton écran d'accueil</p>
-      <p class="hint">Pour créer ou retrouver ton profil, ajoute d'abord Noèsis à ton écran d'accueil — ça ne prend que quelques secondes, et l'app s'ouvrira ensuite comme une vraie application.</p>
-      <ol id="onbInstallSteps" class="onbInstallSteps"></ol>
-      <p class="hint">Une fois l'icône ajoutée, ouvre Noèsis à partir d'elle — cet écran ne s'affichera plus.</p>
-    </div>
-
+    
     <p id="onbMsg" class="msg"></p>
   </div>
   <!-- 10 oct. 2026 : lien Gouvernance discret sous la carte, visible seulement sur l'écran de connexion (Loi 25 : accessible sans compte). -->
@@ -789,6 +772,7 @@
              pas de régler par CSS. -->
         <div id="stopConfirmPanel" class="hidden" role="dialog" aria-labelledby="stopConfirmTitle">
           <div class="stopConfirmCard">
+            <button type="button" class="cmpClose" id="stopCloseBtn" aria-label="Fermer">✕</button>
             <p class="stepLabel" id="stopConfirmTitle">Confirmer l'arrêt</p>
             <p class="stopFieldLabel">Heure de début</p>
             <div class="stopDateTimeRow">
@@ -854,16 +838,6 @@
     <!-- ---------- ONGLET STATISTIQUES ---------- -->
     <section id="tab-stats" class="tab hidden">
       <div id="statsPages"><div id="statsPage1">
-      <div class="statsPeriodMenuWrap caSubProjectFilter">
-        <button type="button" class="caSubProjectBtn" id="statsVisBtn" aria-haspopup="true" aria-expanded="false">
-          <span id="statsVisBtnLabel">Tous</span>
-        </button>
-        <div class="statsPeriodMenu caSubProjectMenu hidden" id="statsVisMenu">
-          <button type="button" class="statsPeriodMenuItem active" data-vis="all">Tous</button>
-          <button type="button" class="statsPeriodMenuItem" data-vis="public">Public</button>
-          <button type="button" class="statsPeriodMenuItem" data-vis="confidential">Confidentiel</button>
-        </div>
-      </div>
       <!-- Section 1 : Feuille de temps (heatmap hebdomadaire, ou calendrier
            mensuel — voir plus bas). Plus de mode plein écran depuis le
            1er septembre 2026 (demande d'Emilien : « supprimer l'option de
@@ -884,7 +858,7 @@
         <div class="sectionTitleRow">
           <p class="sectionTitle">Feuille de temps</p>
           <div class="timesheetNav">
-            <div class="cmpNav cmpNav--sm">
+            <div class="cmpNav cmpNav--sm cmpNav--fixed" style="--nav-label-w: 72px">
               <button id="tsPrevWeek" type="button" class="cmpNavArrow" aria-label="Période précédente">‹</button>
               <span id="tsWeekLabel" class="cmpNavLabel" aria-live="polite"></span>
               <button id="tsNextWeek" type="button" class="cmpNavArrow" aria-label="Période suivante">›</button>
@@ -893,7 +867,7 @@
               <button type="button" class="menuBtn" id="tsPeriodBtn" aria-haspopup="true" aria-expanded="false" aria-label="Choisir la période">⋮</button>
               <div class="statsPeriodMenu hidden" id="tsPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="period">Période</button>
                 <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
               </div>
             </div>
@@ -967,7 +941,7 @@
                libellé de période reste au-dessus. -->
         </div>
         <div id="statsPie" class="pieWrap"></div>
-        <p id="statsPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
+        <p id="statsPieEmptyHint" class="hint cmpEmpty hidden">Rien d'enregistré sur cette période.</p>
       </div>
 
       <!-- Section 3 : Graphique — une courbe par activité, plus une courbe
@@ -1019,7 +993,7 @@
             <div class="statsPeriodMenu hidden" id="chartPeriodMenu">
               <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
               <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-              <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+              <button type="button" class="statsPeriodMenuItem" data-period="period">Période</button>
             </div>
           </div>
         </div>
@@ -1033,90 +1007,6 @@
         <p id="statsChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
       </div>
       </div>
-      <!-- 2 oct. 2026 : page 2 « tâches réalisées » (public/js/stats-avance.js), balayage droite → gauche depuis la page 1 -->
-      <div id="statsAvancePage" class="hidden"></div>
-      <!-- Chantier Chrono : 3e page du Chrono (tout à droite) = statistiques des activités partagées. Sélection de l'activité en haut (puces, comme les stats de tâches et d'objectifs) ;
-           Répartition par membre + Graphique : blocs déplacés tels quels depuis la fenêtre Activité (mêmes ids). Logique : public/js/stats-avance.js (puces) et app.js (loadActivityStats). -->
-      <div id="statsSharedPage" class="hidden">
-        <div id="ssChips" class="saChips"></div>
-        <p id="ssEmpty" class="hint hidden">Aucune activité partagée.</p>
-        <div id="ssBody">
-        <div id="caCategoryFilterWrap" class="statsPeriodMenuWrap caSubProjectFilter hidden">
-          <button type="button" class="caSubProjectBtn" id="caCategoryBtn" aria-haspopup="true">
-            <span id="caCategoryBtnLabel">Tous les pôles</span>
-          </button>
-          <div class="statsPeriodMenu caSubProjectMenu hidden" id="caCategoryMenu"></div>
-        </div>
-
-        <div class="statsSection">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Répartition</p>
-            <!-- Motif "⋮" générique de l'onglet Statistiques (.statsPeriodMenu*),
-                 câblé par setupStatsPeriodMenu() — réutilisé tel quel, aucune
-                 règle CSS ni aucune ligne de ce helper n'a été modifiée.
-                 "Aujourd'hui" n'existe QUE sur la Répartition, comme demandé :
-                 le Graphique tracerait un seul point pour une seule journée. -->
-            <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="caPiePeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-              <div class="statsPeriodMenu hidden" id="caPiePeriodMenu">
-                <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
-                <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
-              </div>
-            </div>
-          </div>
-          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que
-               l'indication de l'année ou de la semaine ou du mois ou
-               d'aujourd'hui soit affichée comme sur la capture d'écran, comme
-               dans le volet statistique ». Reprise à l'identique de
-               #statsPieBlock : .statsSummary (libellé de période au-dessus)
-               entre la ligne de titre et le camembert.
-               ⚠️ 6 septembre 2026 : le total en gros qui l'accompagnait a
-               été retiré, ici comme dans les quatre autres Répartitions —
-               il faisait doublon avec celui que renderActivityPie écrit au
-               centre du camembert. Le libellé de période, lui, reste :
-               c'est ce qu'Emilien demandait le 3 septembre. -->
-          <div class="statsSummary">
-            <p class="statsLabel" id="communityActivityStatsLabel"></p>
-          </div>
-          <div id="communityActivityPie" class="pieWrap"></div>
-          <p id="communityActivityPieEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-        </div>
-
-        <div id="communityActivityChartBlock" class="statsSection">
-          <div class="sectionTitleRow">
-            <p class="sectionTitle">Graphique</p>
-            <div class="statsPeriodMenuWrap">
-              <button type="button" class="menuBtn" id="caChartPeriodBtn" aria-haspopup="true" aria-label="Choisir la période">⋮</button>
-              <!-- ⚠️ Second passage du 3 septembre : GRANULARITÉ (Jour/Semaine/Mois),
-                   plus une période. Le graphique couvre toujours toute l'histoire
-                   de l'activité — mêmes valeurs et même ordre que #chartPeriodMenu
-                   dans l'onglet Statistiques, dont ce bloc est la copie. -->
-              <div class="statsPeriodMenu hidden" id="caChartPeriodMenu">
-                <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
-              </div>
-            </div>
-          </div>
-          <div class="chartWrap" id="communityActivityChartWrap">
-            <div class="chartScroll">
-              <div id="communityActivityChart" class="chartSvgWrap"></div>
-            </div>
-            <div id="caChartTooltip" class="chartTooltip hidden" role="tooltip"></div>
-          </div>
-          <div id="communityActivityChartLegend" class="chartLegend"></div>
-          <p id="communityActivityChartEmptyHint" class="hint hidden">Rien d'enregistré sur cette période.</p>
-        </div>
-        </div><!-- /#ssBody -->
-      </div><!-- /#statsSharedPage -->
-      <!-- Feuille de route : page Groupe (tout à droite : Tâches | Objectifs | Groupe) = « Tâches par membre » des activités partagées (public/js/activite-stats-taches.js). -->
-      <div id="statsGroupPage" class="hidden">
-        <div id="sgChips" class="saChips"></div>
-        <p id="sgEmpty" class="hint hidden">Aucune activité partagée.</p>
-        <div id="sgBody"></div>
-      </div><!-- /#statsGroupPage -->
       </div>
     </section>
 
@@ -1192,10 +1082,15 @@
       <div class="entryCard" id="communitySearchBar">
         <div class="chatComposerRow communitySearchRow">
           <svg class="communitySearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input type="text" id="communitySearchInput" aria-label="Rechercher" placeholder="Pseudo, projet, secteur" autocomplete="off" enterkeyhint="search">
+          <input type="text" id="communitySearchInput" aria-label="Rechercher" placeholder="Pseudo, projet, secteur…" autocomplete="off" enterkeyhint="search">
         </div>
         <div class="seekingTagPicker" id="communitySeekingFilters"></div>
       </div>
+      <!-- Deux pages (1er nov. 2026, demande d'Emilien) : page 1 = membres et abonnements (aucune communauté ici),
+           page 2 = communautés (recherche, celles qu'on a rejointes), accessible en glissant vers la droite
+           (TMT.slidePager). La barre de recherche reste en haut et change de placeholder selon la page. -->
+      <div id="communityPagesHost">
+      <div id="communityPage1">
       <!-- Découverte de membres (2 septembre 2026, demande d'Emilien :
            « perfectionner la découverte [...] des profils des autres
            utilisateurs »). Trois changements dans ce même bloc :
@@ -1242,6 +1137,7 @@
            flux en dessous. -->
       <div id="communitySearchResults" class="activitiesList"></div>
 
+
       <!-- ⚠️ 29 septembre 2026 : le composeur "Publier" (#communityMyPostsBlock,
            qui vivait ici avant le 5 septembre) et le bloc Sondages Communauté
            (#communityPollsBlock, formulaire de création) ont disparu avec le
@@ -1262,6 +1158,12 @@
         <div id="followingFeed"></div>
         <p id="followingFeedEmptyHint" class="hint hidden">Rien à afficher pour l'instant : soit personne ne partage encore son profil avec toi, soit personne n'a encore écrit.</p>
       </div>
+      </div><!-- /#communityPage1 -->
+
+
+      <!-- Page 3 : Réseau personnel PRIVÉ (2 nov. 2026, d'après le document « Personal Network Intelligence Platform ») :
+           un carnet de contacts riche et une toile d'araignée visibles de toi seul. Rien n'est partagé (server/lib/networkcrm.js). -->
+      </div><!-- /#communityPagesHost -->
 
     </section>
 
@@ -1296,62 +1198,9 @@
              retiré avec le mode « déplié dans la ligne » qu'il servait. Toute
              activité ouvre de nouveau sa page, et c'est la croix de
              #activityPageHeader qui ferme — un seul geste, un seul endroit. -->
-        <!-- Fil de discussion de l'activité sélectionnée : une vraie
-             conversation entre ses membres, conservée durablement — à ne
-             pas confondre avec les notes "en direct" du Chrono (bloc "En ce
-             moment" de Communauté), qui s'effacent dès que leur auteur
-             clique sur STOP, ni avec les notes de session listées plus bas.
-             Placé en tête du détail : c'est ce qu'on vient voir en premier
-             quand quelqu'un a écrit. -->
-        <div id="communityDiscussionBlock" class="discussionBlock" data-module="sharing">
-          <!-- ⚠️ 3 septembre 2026, demande d'Emilien : « je souhaite que le
-               titre discussion - "activité" disparaisse ». Il répétait deux
-               informations déjà à l'écran à trois centimètres de là : le
-               bouton "Discussion" du sélecteur de sections, et le nom de
-               l'activité en gros dans l'en-tête de la page. Le <span
-               id="communityDiscussionName"> est parti avec, ainsi que la
-               ligne de loadDiscussion qui le remplissait. -->
-          <!-- ⚠️ .chatThread (3 septembre 2026, Activité — général) : ce fil et celui
-         d'un sous-projet sont de VRAIES conversations, avec des bulles alignées
-         à gauche ou à droite selon l'auteur. Les deux autres listes qui portent
-         .discussionList — le fil "Communauté" du Profil et les messages d'une
-         page de visite — sont des FLUX, pas des conversations : elles gardent
-         l'apparence d'origine. D'où ce modificateur, plutôt qu'une modification
-         de .discussionMsg qui les aurait toutes touchées. -->
-    <div id="communityDiscussionList" class="discussionList chatThread"></div>
-          <p id="communityDiscussionEmptyHint" class="hint hidden">Aucun message pour l'instant — écris le premier ci-dessous.</p>
-          <!-- Composeur : le bouton "Envoyer" vit DANS la zone de saisie, à droite
-               (demande d'Emilien). .chatComposerRow le pose en absolu par-dessus le
-               textarea, qui lui réserve la place par un padding à droite. -->
-          <!-- 17 septembre 2026 (Design, correctif définitif du curseur signalé
-               le 16 septembre) : rows="2" → rows="1". Le `min-height:0` posé sur
-               #communityDiscussionInput (styles.css) neutralise la contrainte CSS
-               mais PAS la hauteur intrinsèque qu'un <textarea rows="2"> réserve
-               nativement pour du contenu vide — pollAutoGrow() ne fait que suivre
-               cette hauteur (scrollHeight), il ne la réduit jamais sous elle. Le
-               champ restait donc haut de 2 lignes au repos malgré le correctif du
-               16, plaçant le curseur natif hors de la ligne du placeholder — même
-               mécanisme déjà résolu pour #communityMyPostsInput le 6 septembre
-               (voir son commentaire, plus haut dans ce fichier) : rows="1" aligne
-               la hauteur intrinsèque sur le placeholder d'une ligne, pollAutoGrow
-               ne fait plus qu'agrandir, jamais réduire. -->
-          <div class="discussionComposer chatComposer">
-            <div class="chatComposerRow">
-              <input type="file" id="communityDiscussionFileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" class="hidden">
-              <textarea id="communityDiscussionInput" rows="1" maxlength="2000" placeholder="Écrire aux membres..."></textarea>
-              <!-- Pièce jointe (1er oct. 2026, demande de Gaspard ; placé APRÈS le champ dans le DOM : Safari peignait le champ en verre (backdrop-filter) par-dessus le trombone) : trombone tout à GAUCHE, DANS la zone d'écriture, comme Envoyer à droite. -->
-              <button type="button" id="communityDiscussionAttachBtn" class="chatAttachBtn" aria-label="Joindre un fichier" title="Joindre une image ou un PDF">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              </button>
-              <button type="button" id="communityDiscussionSendBtn" class="cmpSend" aria-label="Envoyer"></button>
-            </div>
-            <div id="communityDiscussionPending" class="chatPendingFile hidden"></div>
-            <p id="communityDiscussionMsg" class="msg"></p>
-          </div>
-        </div>
 
         <!-- Fenêtre Activité > Statistiques : seule reste la page « Tâches par membre » (public/js/activite-stats-taches.js, GET /api/stats/activity-members).
-             La Répartition et le Graphique des activités partagées sont dans la 3e page du Chrono (#statsSharedPage) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->
+             Les statistiques de temps par membre sont dans le Bilan (une activité partagée) ; #caStatsPage1 reste vide donc la page unique s'ouvre directement, sans points. -->
         <div id="communityActivityMembersPart" data-module="sharing">
         <div id="caStatsPages"><div id="caStatsPage1" class="hidden"></div>
         <div id="caStatsPage2"></div>
@@ -1381,7 +1230,7 @@
              l'activité » SANS seuil de partage : elle fonctionne donc telle
              quelle en solo, et checkSharedActivityAccess n'a pas eu à être
              touché. Le camembert est dessiné par renderPie (Répartition) et
-             les nuances par subProjectShade — les deux appelés tels quels.
+             les teintes de pôle par TMT.poleColor — les deux appelés tels quels.
 
              ⚠️ Le temps enregistré SANS catégorie forme sa propre part : le
              rattachement à une catégorie au chrono est optionnel, et masquer
@@ -1395,7 +1244,7 @@
               <div class="statsPeriodMenu hidden" id="soloStatsPeriodMenu">
                 <button type="button" class="statsPeriodMenuItem" data-period="day">Aujourd'hui</button>
                 <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-                <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                <button type="button" class="statsPeriodMenuItem" data-period="period">Période</button>
                 <button type="button" class="statsPeriodMenuItem" data-period="year">Année</button>
               </div>
             </div>
@@ -1511,6 +1360,9 @@
            (#mergeActivityConfirm) — le sens n'est pas toujours celui par
            lequel on est parti : une activité partagée ne disparaît jamais,
            c'est elle qui recueille les enregistrements de l'autre. -->
+
+
+
       <div id="mergeActivityModal" class="communityMembersModal hidden">
         <div class="communityMembersModalCard cmpGlass">
           <div class="communityMembersModalHeader">
@@ -1655,7 +1507,7 @@
             <div class="sectionTitleRow">
               <p class="sectionTitle">Feuille de temps</p>
               <div class="timesheetNav">
-                <div class="cmpNav cmpNav--sm">
+                <div class="cmpNav cmpNav--sm cmpNav--fixed" style="--nav-label-w: 72px">
                   <button type="button" class="cmpNavArrow" id="csTsPrevWeek" aria-label="Période précédente">‹</button>
                   <span class="cmpNavLabel" id="csTsWeekLabel"></span>
                   <button type="button" class="cmpNavArrow" id="csTsNextWeek" aria-label="Période suivante">›</button>
@@ -1664,7 +1516,7 @@
                   <button type="button" class="menuBtn" id="csTsPeriodBtn" aria-label="Choisir la période">⋮</button>
                   <div class="statsPeriodMenu hidden" id="csTsPeriodMenu">
                     <button type="button" class="statsPeriodMenuItem active" data-period="week">Semaine</button>
-                    <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                    <button type="button" class="statsPeriodMenuItem" data-period="period">Période</button>
                   </div>
                 </div>
               </div>
@@ -1720,7 +1572,7 @@
                 <div class="statsPeriodMenu hidden" id="csChartPeriodMenu">
                   <button type="button" class="statsPeriodMenuItem active" data-period="day">Jour</button>
                   <button type="button" class="statsPeriodMenuItem" data-period="week">Semaine</button>
-                  <button type="button" class="statsPeriodMenuItem" data-period="month">Mois</button>
+                  <button type="button" class="statsPeriodMenuItem" data-period="period">Période</button>
                 </div>
               </div>
             </div>
@@ -1849,6 +1701,15 @@
           <div id="viewProfileContactSlot" class="viewProfileContactSlot hidden"></div>
         </div>
         <p id="viewProfileProjectsMsg" class="msg"></p>
+
+        <!-- Score d'exécution (1er nov. 2026, demande d'Emilien) : affiché seulement si le membre a choisi de le
+             montrer (Réglages > Identité). Calculé côté serveur (server/lib/trustscore.js) à partir du chrono, des
+             objectifs et des tâches. Un pôle par ligne, sans couleur de secteur. -->
+        <div id="viewProfileScoreBlock" class="activityRow viewProfileScore hidden">
+          <div class="viewProfileScoreHead"><span>Score d'exécution</span><span id="viewProfileScoreValue" class="viewProfileScoreValue"></span></div>
+          <p class="hint">Calculé sur 12 semaines à partir du chrono, des objectifs et des tâches.</p>
+          <div id="viewProfileScorePoles"></div>
+        </div>
 
         <p class="sectionTitle">Projets</p>
         <!-- 5 septembre 2026, demande d'Emilien : « je souhaite que les
@@ -2055,6 +1916,7 @@
             <p class="hint">Suis ce profil pour voir ses publications.</p>
           </div>
         </div>
+        <div id="viewProfileBlockSlot" class="viewProfileBlockSlot hidden"></div>
         </div><!-- fin de #viewProfileScroll -->
       </div>
     </div>
@@ -2134,7 +1996,6 @@
         <div class="periodSwitch cmpSeg" id="activityPageSectionSwitch" data-module="stats">
           <button type="button" class="periodBtn active" data-section="sub">Catégories</button>
           <button type="button" class="periodBtn" id="activityPageTabStats" data-section="stats">Statistiques</button>
-          <!-- 30 septembre 2026 : l'onglet Discussion a déménagé dans la Page 2 du volet Feuille de route (#goalsPage2ModeDiscBtn). -->
         </div>
         <div id="activityPageScroll">
           <!-- ⚠️ Le menu "☰" qui portait ici les réglages de l'activité a été
@@ -2684,6 +2545,7 @@
                   <p id="aiModeMsg" class="msg"></p>
                 </div>
                 <div class="settingsCard"><div id="aiConnectBox"></div></div>
+                <div class="settingsCard hidden" id="settingsExpansionCard"><p class="cmpBlockTitle">Expansion</p></div>
               </div>
             </div>
             </div>
@@ -2805,8 +2667,24 @@
                     <span class="toggleSwitchTrack"></span>
                   </label>
                 </div>
+                <!-- Enregistré tout de suite (route à part), hors du bouton « Enregistrer ». -->
+                <div class="notifRow">
+                  <span class="notifRowLabel">Afficher mon score d'exécution sur mon profil</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsScoreShared" role="switch" aria-label="Afficher mon score d'exécution sur mon profil">
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
+                <!-- Enregistré tout de suite (js/objectifs-creer.js) : données anonymes agrégées des objectifs atteints (aucun texte, aucune identité), Loi 25. -->
+                <div class="notifRow">
+                  <span class="notifRowLabel">Contribuer anonymement aux durées d'objectifs</span>
+                  <label class="toggleSwitch">
+                    <input type="checkbox" id="settingsObjectifsAnon" role="switch" aria-label="Contribuer anonymement aux durées d'objectifs" checked>
+                    <span class="toggleSwitchTrack"></span>
+                  </label>
+                </div>
               </div>
-              <button id="settingsSaveBtn" class="cmpBtn cmpBtnIdle" disabled>Enregistrer</button>
+              <button id="settingsSaveBtn" class="cmpBtn cmpBtnInactif" disabled>Enregistrer</button>
               <p id="settingsMsg" class="msg"></p>
                 <!-- « Déconnexion » (26 septembre 2026, demande d'Emilien) : placé
                      ici, sous « Enregistrer », après deux emplacements précédents
@@ -2829,7 +2707,7 @@
                 <input type="password" id="settingsCurrentPin" placeholder="Mot de passe actuel" maxlength="128" autocomplete="current-password">
                 <input type="password" id="settingsNewPin" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
                 <input type="password" id="settingsNewPinConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
-                <p class="hint pwdRules">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+                <p class="hint pwdRules">10 caractères ou plus.</p>
               </div>
               <button id="settingsPinSaveBtn" class="btn btn-primary btn-small">Changer mon mot de passe</button>
               <p id="settingsPinMsg" class="msg"></p>
@@ -2923,7 +2801,7 @@
                    #privacyPolicyModal/#legalNoticesModal/#legalTermsModal plus
                    bas dans ce fichier. -->
               <div class="settingsCard">
-                <p class="hint">Comment Noèsis TimeTracker fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
+                <p class="hint">Comment Noèsis fonctionne, ce qu'il fait de tes renseignements, et les règles d'utilisation du service.</p>
                 <button type="button" id="openPrivacyPolicyBtn" class="iconBtn">Lire la politique de confidentialité<span class="cmpChev" aria-hidden="true"></span></button>
                 <button type="button" id="openGovernanceBtn" class="iconBtn governanceLink">Gouvernance des renseignements personnels<span class="cmpChev" aria-hidden="true"></span></button>
                 <button type="button" id="openLegalNoticesBtn" class="iconBtn">Lire les mentions légales<span class="cmpChev" aria-hidden="true"></span></button>
@@ -3257,17 +3135,15 @@
 
   </main>
 
-  <!-- Points de pagination des pages de statistiques (gauche de Chrono / de la Feuille de route) : js/stats-avance.js. -->
-  <div id="statsPageDots" class="hidden" role="group"></div>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="tabLens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feImage href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'64'%20height%3D'44'%3E%3Cdefs%3E%3ClinearGradient%20id%3D'x'%20x1%3D'0'%20x2%3D'1'%20y1%3D'0'%20y2%3D'0'%3E%3Cstop%20offset%3D'0'%20stop-color%3D'%23f00'%2F%3E%3Cstop%20offset%3D'1'%20stop-color%3D'%23000'%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D'y'%20x1%3D'0'%20x2%3D'0'%20y1%3D'0'%20y2%3D'1'%3E%3Cstop%20offset%3D'0'%20stop-color%3D'%230f0'%2F%3E%3Cstop%20offset%3D'1'%20stop-color%3D'%23000'%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D'64'%20height%3D'44'%20fill%3D'%23000'%2F%3E%3Crect%20width%3D'64'%20height%3D'44'%20fill%3D'url(%23x)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'64'%20height%3D'44'%20fill%3D'url(%23y)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3C%2Fsvg%3E" x="0" y="0" width="64" height="44" preserveAspectRatio="none" result="carte"/><feDisplacementMap in="SourceGraphic" in2="carte" scale="8" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
   <nav class="tabbar">
    <div class="tabbarPill cmpGlass" id="tabbarPill" role="tablist">
     <button class="tabBtn active" data-tab="chrono" aria-label="Chrono">
       <span class="tabIcon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="13" r="8"/>
-          <line x1="12" y1="13" x2="12" y2="9"/>
-          <line x1="12" y1="13" x2="15" y2="15"/>
+          <circle cx="12" cy="14" r="8.5"/>
+          <line x1="12" y1="14" x2="12" y2="10"/>
+          <line x1="12" y1="14" x2="15" y2="16"/>
           <line x1="10" y1="2" x2="14" y2="2"/>
         </svg>
       </span>
@@ -3313,7 +3189,15 @@
          même couleur (currentColor, suit l'état actif/inactif) que les 4 autres
          icônes, et un libellé visible « Feuille de route » est ajouté sous elle.
          aria-label="Objectifs" inchangé : seule l'étiquette affichée change. -->
-    <button class="tabBtn" data-tab="goals" aria-label="Objectifs">
+    <button class="tabBtn" data-tab="tasks" aria-label="Tâches">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M19.91 10.88A8.5 8.5 0 1 1 16.34 6.69"/><polyline points="7.5 12.8 11 16.2 20.6 6.3"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Tâches</span>
+    </button>
+    <button class="tabBtn" data-tab="objectives" aria-label="Objectifs">
       <span class="tabIcon">
         <svg viewBox="163 131 586 752" fill="currentColor" aria-hidden="true" focusable="false">
           <polygon points="183,293 287,461 287,616 183,675"/>
@@ -3325,7 +3209,15 @@
           <polygon points="729,151 612,186 635,253 708,287"/>
         </svg>
       </span>
-      <span class="tabLabel">Feuille de route</span>
+      <span class="tabLabel">Objectifs</span>
+    </button>
+    <button class="tabBtn" data-tab="bilan" aria-label="Bilan">
+      <span class="tabIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3,17 9,10 13,14 21,5"/>
+        </svg>
+      </span>
+      <span class="tabLabel">Bilan</span>
     </button>
     <button class="tabBtn" data-tab="community" aria-label="Communauté">
       <span class="tabIcon">
@@ -3379,7 +3271,7 @@
       <span class="tabLabel">Activité</span>
     </button>
    </div>
-    <button type="button" class="tabBtnAdd" id="tabbarAdd" aria-label="Ajouter un onglet">
+    <button type="button" class="tabBtnAdd" id="tabbarAdd" aria-label="Nouvelle tâche">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </nav>
@@ -3427,24 +3319,24 @@
       <p class="hint">Version 1.2 — en vigueur le 10 octobre 2026.</p>
 
       <h3>1. Objet et acceptation</h3>
-      <p>Les présentes Conditions Générales d'Utilisation (les « CGU ») régissent l'accès et l'utilisation de l'application Noèsis TimeTracker et des services associés (les « Services »), édités par Noèsis Inc. (la « Société »). En créant un compte ou en utilisant les Services, l'Utilisateur reconnaît avoir lu, compris et accepté les présentes CGU.</p>
+      <p>Les présentes Conditions Générales d'Utilisation (les « CGU ») régissent l'accès et l'utilisation de l'application Noèsis et des services associés (les « Services »), édités par Noèsis Inc. (la « Société »). En créant un compte ou en utilisant les Services, l'Utilisateur reconnaît avoir lu, compris et accepté les présentes CGU.</p>
       <p>Les Services sont offerts aux personnes résidant au Canada. Ils ne sont pas proposés aux résidents d'autres territoires et n'y sont pas promus ; en créant un Compte, l'Utilisateur déclare résider au Canada.</p>
       <p>Les dispositions du présent document propres aux Utilisateurs résidant en France ou dans l'Union européenne (articles 7 et 12) sont rédigées par anticipation d'une expansion future des Services au-delà du Canada ; elles ne sont pas opérantes tant que les Services demeurent offerts exclusivement aux résidents du Canada.</p>
 
       <h3>2. Identification de la Société</h3>
       <p>Noèsis Inc. (raison sociale légale : Compagnie Noèsis inc.) est une société par actions constituée au Québec le 8 septembre 2026, immatriculée sous le numéro d'entreprise du Québec (NEQ) 1182542432.</p>
       <p>Les présentes CGU engagent la Société elle-même. Ses fondateurs, administrateurs et dirigeants n'y sont pas personnellement parties et ne peuvent être tenus personnellement responsables des obligations qui y sont décrites.</p>
-      <p>Pour toute question relative aux présentes CGU : compagnie.noesis@gmail.com.</p>
+      <p>Pour toute question relative aux présentes CGU : admin@compagnienoesis.com.</p>
 
       <h3>3. Définitions</h3>
-      <p>« Services » : l'ensemble des fonctionnalités offertes par Noèsis TimeTracker, incluant l'Offre Gratuite (et, une fois construite et lancée, l'Expansion — voir article 4.2).</p>
+      <p>« Services » : l'ensemble des fonctionnalités offertes par Noèsis, incluant l'Offre Gratuite (et, une fois construite et lancée, l'Expansion — voir article 4.2).</p>
       <p>« Compte » : l'espace personnel créé par l'Utilisateur pour accéder aux Services ; un Compte correspond à une seule personne responsable.</p>
       <p>« Utilisateur » : toute personne physique ou entreprise/organisation titulaire d'un Compte.</p>
       <p>« Contenu » : toute donnée, information ou message transmis par l'Utilisateur dans le cadre des Services, y compris dans la Communauté.</p>
       <p>« Abonnement » : l'accès payant à l'Expansion, une fois celle-ci lancée.</p>
 
       <h3>4. Description des Services</h3>
-      <p><strong>4.1 Offre Gratuite.</strong> L'Offre Gratuite comprend le suivi du temps (TimeTracker), avec répartition de l'activité par jour, semaine, mois et année, l'organisation en sous-projets, les statistiques, ainsi qu'un accès à la Communauté (sondages, publications, abonnements entre utilisateurs) et au calendrier optionnel. L'Offre Gratuite comprend aussi un assistant d'intelligence artificielle qui propose un classement des tâches (voir la Politique de confidentialité). Les propositions de l'assistant peuvent être inexactes, incomplètes ou trompeuses : l'Utilisateur doit les vérifier avant de s'y fier. C'est la seule offre active au lancement du 11 septembre 2026.</p>
+      <p><strong>4.1 Offre Gratuite.</strong> L'Offre Gratuite comprend le suivi du temps, avec répartition de l'activité par jour, semaine, mois et année, l'organisation en sous-projets, les statistiques, ainsi qu'un accès à la Communauté (sondages, publications, abonnements entre utilisateurs) et au calendrier optionnel. L'Offre Gratuite comprend aussi un assistant d'intelligence artificielle qui propose un classement des tâches (voir la Politique de confidentialité). Les propositions de l'assistant peuvent être inexactes, incomplètes ou trompeuses : l'Utilisateur doit les vérifier avant de s'y fier. C'est la seule offre active au lancement du 11 septembre 2026.</p>
       <p><strong>4.2 Expansion (payante) — non applicable au lancement du 11 septembre 2026.</strong> Cette section décrit une offre qui n'existe pas encore dans l'application. Elle est conservée ici par anticipation et deviendra opérante seulement le jour où l'Expansion sera réellement construite et lancée — pas avant. L'Expansion donnerait accès à des formulaires d'identification et à l'analyse générée à partir de ces formulaires, incluant une feuille de route régénérée automatiquement tous les six mois. Elle serait souscrite par activité. Prix envisagé : 20 $ par mois et par activité.</p>
       <p><strong>4.3 Module Horaire.</strong> Le module Horaire permet au gestionnaire d’un établissement de saisir son personnel et ses disponibilités et de générer un horaire selon des règles fixes. Il comprend un export CSV, que l’Utilisateur importe lui-même dans Dayforce (l’application ne se connecte pas à Dayforce), et un texte de consignes que l’Utilisateur peut copier pour l’IA de son choix (l’application n’envoie rien à une IA). L’Utilisateur demeure responsable des renseignements de son personnel et de l’usage de l’IA qu’il choisit (voir la Politique de confidentialité, section 4.8). Les disponibilités, congés et horaires générés ne sont pas enregistrés : ils ne sont gardés qu'en mémoire du serveur pendant la session.</p>
 
@@ -3468,13 +3360,13 @@
       <p>Toute modification substantielle sera communiquée à l'Utilisateur par un courriel individuel envoyé à l'adresse de son Compte, au moins 30 jours avant son entrée en vigueur, conformément à l'article 11.2 de la Loi sur la protection du consommateur. Ce courriel décrit la nouvelle clause et celle qu'elle remplace, indique la date d'entrée en vigueur et rappelle que l'Utilisateur qui refuse une modification substantielle peut résilier son Compte sans frais avant cette date.</p>
 
       <h3>9. Propriété intellectuelle</h3>
-      <p>L'application Noèsis TimeTracker, sa structure, ses fonctionnalités et son contenu éditorial demeurent la propriété exclusive de la Société.</p>
+      <p>L'application Noèsis, sa structure, ses fonctionnalités et son contenu éditorial demeurent la propriété exclusive de la Société.</p>
 
       <h3>10. Contenu utilisateur et Communauté</h3>
       <p>La Communauté permet à l'Utilisateur d'échanger des messages privés, visibles uniquement par leur destinataire, et des messages publics, visibles uniquement par les autres abonnés, ainsi que de publier des sondages. L'Utilisateur reste seul responsable du Contenu qu'il publie et garantit qu'il ne contrevient à aucune loi applicable ni aux droits d'un tiers.</p>
       <p>En publiant du Contenu dans le cadre des Services, l'Utilisateur accorde à la Société une licence non exclusive, gratuite et mondiale d'héberger, de reproduire, d'afficher et de transmettre ce Contenu dans la seule mesure nécessaire au fonctionnement des Services, notamment son affichage aux destinataires ou abonnés concernés. Cette licence prend fin lorsque le Contenu est supprimé, sous réserve des copies conservées à des fins de sauvegarde ou de conformité légale.</p>
       <p>La Société applique une modération proactive des messages publics de la Communauté, sans attendre nécessairement un signalement. Cette lecture, effectuée manuellement par un dirigeant de la Société, a pour seul objet de détecter un Contenu contraire aux présentes CGU ou à la loi ; elle ne comporte aucune appréciation de l'opinion, de la valeur ou de la qualité du Contenu, et la Société ne sélectionne, ne classe ni ne met en évidence aucun Contenu en fonction de son intérêt ou de son point de vue. Un Contenu ainsi détecté peut être retiré et le Compte de son auteur suspendu.</p>
-      <p>Les messages privés échangés entre Utilisateurs ne font l'objet d'aucune surveillance ni lecture proactive par la Société. Ils ne sont examinés que sur signalement, adressé par courriel à compagnie.noesis@gmail.com ou par tout autre moyen de signalement mis à disposition dans l'application.</p>
+      <p>Les messages privés échangés entre Utilisateurs ne font l'objet d'aucune surveillance ni lecture proactive par la Société. Ils ne sont examinés que sur signalement, adressé par courriel à admin@compagnienoesis.com ou par tout autre moyen de signalement mis à disposition dans l'application.</p>
       <p>À l'égard du Contenu publié par ses Utilisateurs, la Société agit à titre d'hébergeur. Sa responsabilité pour un tel Contenu ne peut être engagée que si, ayant été informée par un signalement suffisamment précis de son caractère illicite, elle n'agit pas promptement pour le retirer ou en bloquer l'accès.</p>
 
       <h3>11. Absence de détention de fonds de tiers</h3>
@@ -3489,14 +3381,14 @@
       <p><strong>Utilisateurs résidant en France ou dans l'Union européenne (par anticipation, non opérant).</strong> Aucune clause des présentes ne saurait supprimer ou réduire le droit à réparation de l'Utilisateur résidant en France ou dans l'Union européenne en cas de manquement de la Société à l'une de ses obligations.</p>
 
       <h3>13. Résiliation</h3>
-      <p>L'Utilisateur peut résilier son Compte à tout moment, directement depuis les paramètres de son Compte ou en en faisant la demande à compagnie.noesis@gmail.com. La Société peut suspendre ou résilier un Compte en cas de manquement grave ou répété aux présentes CGU, moyennant un avis préalable sauf urgence.</p>
+      <p>L'Utilisateur peut résilier son Compte à tout moment, directement depuis les paramètres de son Compte ou en en faisant la demande à admin@compagnienoesis.com. La Société peut suspendre ou résilier un Compte en cas de manquement grave ou répété aux présentes CGU, moyennant un avis préalable sauf urgence.</p>
 
       <h3>14. Langue du contrat</h3>
       <p>Conformément à la Charte de la langue française (telle que modifiée par la Loi 96), la version française des présentes CGU est celle qui prévaut. Toute version dans une autre langue n'est offerte qu'à titre de commodité et ne lie l'Utilisateur que s'il y consent expressément après avoir reçu la version française.</p>
 
       <h3>15. Droit applicable et recours</h3>
       <p>Les présentes CGU sont régies par le droit applicable dans la province de Québec. Sous réserve du droit de l'Utilisateur consommateur d'intenter un recours devant le tribunal de son propre domicile lorsque la loi le lui permet, tout litige relève des tribunaux compétents du district judiciaire de Montréal. Aucune clause des présentes n'a pour effet de priver l'Utilisateur consommateur de son droit d'intenter un recours devant les tribunaux compétents, y compris un recours collectif, ni de le contraindre à un arbitrage obligatoire, conformément à l'article 11.1 de la Loi sur la protection du consommateur.</p>
-      <p>Avant toute action judiciaire, les parties s'engagent à tenter de bonne foi de résoudre à l'amiable tout différend découlant des présentes CGU, au moyen d'une communication écrite adressée à compagnie.noesis@gmail.com décrivant le différend, suivie d'une période de négociation d'au moins trente (30) jours. Cette tentative amiable ne prive en aucun cas l'Utilisateur consommateur de son droit d'intenter à tout moment un recours devant les tribunaux compétents, ni n'affecte les délais de prescription qui lui sont applicables.</p>
+      <p>Avant toute action judiciaire, les parties s'engagent à tenter de bonne foi de résoudre à l'amiable tout différend découlant des présentes CGU, au moyen d'une communication écrite adressée à admin@compagnienoesis.com décrivant le différend, suivie d'une période de négociation d'au moins trente (30) jours. Cette tentative amiable ne prive en aucun cas l'Utilisateur consommateur de son droit d'intenter à tout moment un recours devant les tribunaux compétents, ni n'affecte les délais de prescription qui lui sont applicables.</p>
 
       <h3>16. Dispositions diverses</h3>
       <p><strong>Divisibilité —</strong> Si une disposition des présentes CGU est jugée invalide, illégale ou inapplicable, cette disposition est réputée dissociée des présentes, sans affecter la validité ni le caractère exécutoire des autres dispositions.</p>
@@ -3506,7 +3398,7 @@
       <p><strong>Force majeure —</strong> La Société ne peut être tenue responsable d'un retard ou d'un défaut d'exécution résultant d'une cause indépendante de sa volonté raisonnable, notamment une panne d'un fournisseur d'hébergement, une catastrophe naturelle ou une décision gouvernementale.</p>
 
       <h3>17. Coordonnées</h3>
-      <p>Pour toute question relative aux présentes CGU : compagnie.noesis@gmail.com.</p>
+      <p>Pour toute question relative aux présentes CGU : admin@compagnienoesis.com.</p>
     </div>
   </div>
 </div>
@@ -3522,16 +3414,16 @@
       <p class="hint">Version 3.7 — en vigueur le 10 octobre 2026.</p>
 
       <h3>À qui s'adresse ce service</h3>
-      <p>Noèsis TimeTracker est offert aux personnes résidant au Canada. Le service n'est pas proposé aux résidents de l'Union européenne ni d'autres territoires, et il n'y est pas promu. Si vous n'êtes pas au Canada, ce service ne vous est pas destiné. Il s'adresse aux personnes physiques et aux entreprises ou organisations établies au Canada qui ouvrent un compte entreprise (notamment pour le module Horaire).</p>
+      <p>Noèsis est offert aux personnes résidant au Canada. Le service n'est pas proposé aux résidents de l'Union européenne ni d'autres territoires, et il n'y est pas promu. Si vous n'êtes pas au Canada, ce service ne vous est pas destiné. Il s'adresse aux personnes physiques et aux entreprises ou organisations établies au Canada qui ouvrent un compte entreprise (notamment pour le module Horaire).</p>
 
       <h3>En bref</h3>
-      <p>Noèsis TimeTracker est une application qui vous permet de chronométrer vos activités et d'en suivre les totaux. Pour fonctionner, elle a besoin de savoir qui vous êtes et de conserver ce que vous chronométrez.</p>
+      <p>Noèsis est une application qui vous permet de chronométrer vos activités et d'en suivre les totaux. Pour fonctionner, elle a besoin de savoir qui vous êtes et de conserver ce que vous chronométrez.</p>
       <p>Nous collectons le minimum : votre nom, votre numéro de téléphone, une adresse courriel, et ce que vous enregistrez vous-même dans l'application. Nous ne revendons aucun de vos renseignements et nous ne les communiquons à aucun annonceur. Si vous y consentez par une case distincte, Noèsis peut les utiliser pour analyser l'usage, vous écrire à des fins commerciales et cibler ses propres campagnes (section 2.4), et en conserver une copie sur un support de stockage chiffré détenu par Noèsis (section 4.7). Il n'y a aucun traceur publicitaire dans l'application. Votre prénom et votre nom de famille peuvent être vus avant même la connexion : il suffit de taper au moins 3 caractères d'un nom sur l'écran de connexion pour voir apparaître jusqu'à 5 identités complètes, et le nombre de recherches possibles est limité. Vous y consentez par une case distincte, cochée à l'inscription. Une fois connecté à son propre compte, tout autre membre inscrit peut aussi voir votre photo de profil, le nombre de projets que vous suivez et ce que vous recherchez (si vous l'indiquez) : c'est la fonction d'annuaire de base de l'application. Tout le reste — vos activités, vos totaux, vos notes — est privé par défaut. Rien n'est visible par les autres tant que vous ne le décidez pas. Votre numéro de téléphone et votre adresse courriel ne sont jamais visibles par défaut : vous pouvez choisir de partager l'un, l'autre, ou les deux avec vos abonnés acceptés, chacun restant désactivé tant que vous ne l'activez pas vous-même. Pour vous aider à classer vos tâches, une intelligence artificielle fournie par Anthropic peut utiliser ce que vous saisissez dans l'application pour l'organiser, mais jamais votre nom, votre prénom, votre courriel, votre numéro de téléphone, votre photo, votre mot de passe, vos conversations ni vos publications (section 4.6). Vous pouvez supprimer votre compte à tout moment : tout est alors effacé. Vos renseignements sont hébergés aux Pays-Bas, chez notre fournisseur d'infrastructure.</p>
       <p>Le reste de ce document détaille chacun de ces points.</p>
 
       <h3>1. Qui est responsable de vos renseignements</h3>
-      <p>L'application Noèsis TimeTracker est exploitée par Noèsis Inc. (raison sociale légale : Compagnie Noèsis inc., NEQ 1182542432), société par actions constituée au Québec, dont le siège social est situé à Montréal, Québec.</p>
-      <p>Conformément à la Loi sur la protection des renseignements personnels dans le secteur privé (Québec), la personne responsable de la protection des renseignements personnels est Émilien Morel-Obaton, vice-président de Noèsis Inc., à qui cette fonction a été déléguée par écrit — compagnie.noesis@gmail.com. Pour les personnes qui résident dans une autre province ou un territoire du Canada, la Loi sur la protection des renseignements personnels et les documents électroniques (LPRPDE), ou la loi provinciale applicable, s'applique également.</p>
+      <p>L'application Noèsis est exploitée par Noèsis Inc. (raison sociale légale : Compagnie Noèsis inc., NEQ 1182542432), société par actions constituée au Québec, dont le siège social est situé à Montréal, Québec.</p>
+      <p>Conformément à la Loi sur la protection des renseignements personnels dans le secteur privé (Québec), la personne responsable de la protection des renseignements personnels est Émilien Morel-Obaton, vice-président de Noèsis Inc., à qui cette fonction a été déléguée par écrit — admin@compagnienoesis.com. Pour les personnes qui résident dans une autre province ou un territoire du Canada, la Loi sur la protection des renseignements personnels et les documents électroniques (LPRPDE), ou la loi provinciale applicable, s'applique également.</p>
       <p>C'est à cette adresse qu'il faut écrire pour toute question sur cette politique, pour exercer vos droits, ou pour signaler un problème.</p>
 
       <h3>2. Ce que nous collectons, et pourquoi</h3>
@@ -3579,7 +3471,7 @@
       <p><strong>4.4 Personne d'autre.</strong> Nous ne vendons pas vos renseignements. Nous ne les louons pas. Nous ne les communiquons à aucun annonceur, courtier de données ou partenaire commercial. Nous ne les communiquerions à une autorité publique que si la loi nous y obligeait, et nous vous en informerions dans la mesure où la loi nous le permet.</p>
       <p><strong>4.5 Notre service d'envoi de courriels, si vous utilisez « Aide et suggestions ».</strong> Le formulaire « Aide et suggestions » du panneau Réglages vous permet d'envoyer un message libre à l'équipe de Noèsis, avec jusqu'à deux pièces jointes optionnelles (photo ou document, sans distinction entre les deux). Ce message — accompagné de votre prénom (ou pseudonyme) déjà associé à votre profil — est transmis par courriel, à l'aide de Resend, un sous-traitant américain d'envoi de courriels, à l'adresse compagnie.noesis@gmail.com, une boîte de réception Gmail (service de Google) : le message est donc aussi conservé dans cette boîte. Ce transfert vers les États-Unis est encadré par une entente écrite de traitement des données (DPA) signée avec Resend, qui lui impose des obligations de confidentialité et de sécurité. Resend conserve le contenu de ce courriel et les journaux d'envoi tant que notre compte y reste actif, et les supprime au plus tard 90 jours après sa fermeture. Comme pour les notes (section 2.2), évitez d'y inscrire des renseignements sensibles que vous ne voudriez pas voir transiter par ce canal, ni conserver, même temporairement, chez ces sous-traitants.</p>
       <p><strong>4.6 Notre assistant d'intelligence artificielle, fourni par Anthropic.</strong> Dans l'Offre Gratuite, lorsque vous créez une tâche dans une activité, une intelligence artificielle fournie par Anthropic, un sous-traitant américain, vous propose un pôle et une section pour la ranger. Vous gardez la décision finale : à la première utilisation de cette fonction, vous choisissez le mode que vous préférez, et vous pouvez le changer à tout moment dans Réglages (section Mon IA), où deux options sont proposées : Partiel (la proposition vous est présentée dans une fenêtre que vous devez valider avant qu'elle ne s'applique) ou Absent (aucune suggestion, vous classez vous-même vos tâches). Lorsque vous ajoutez une tâche depuis la barre d'ajout, elle est créée et rangée tout de suite, avec la proposition de l'assistant ; vous pouvez la déplacer ensuite. Dans les autres cas, aucun classement ne s'applique sans votre validation. Vous pouvez nous demander quels renseignements ont servi à proposer un classement et pourquoi, à l'adresse de la section 1.</p>
-      <p>Autres usages de l'assistant. Pour classer et organiser vos tâches, l'assistant intervient aussi dans les cas suivants : (1) chaque titre de tâche que vous saisissez lui est envoyé pour corriger l'orthographe et la grammaire, et cette correction s'applique sans validation ; (2) il peut proposer un autre secteur ou un autre pôle pour une tâche, la rattacher à un objectif hebdomadaire, reformuler un objectif ou suggérer une récurrence ; (3) pour cela, il reçoit les descriptions de vos pôles et de vos secteurs et, au plus, vos 5 corrections de classement les plus récentes. Le mode Absent arrête les propositions de classement ; il ne supprime pas la correction d'orthographe du point (1). Quand l'assistant ne parvient pas à choisir, la tâche est rangée dans le secteur que vous utilisez le plus et vous pouvez la déplacer ensuite.</p>
+      <p>Autres usages de l'assistant. Pour classer et organiser vos tâches, l'assistant intervient aussi dans les cas suivants : (1) chaque titre de tâche que vous saisissez lui est envoyé pour corriger l'orthographe et la grammaire, et cette correction s'applique sans validation ; (2) il peut proposer un autre secteur ou un autre pôle pour une tâche, la rattacher à un objectif hebdomadaire, reformuler un objectif ou suggérer une récurrence ; (3) pour cela, il reçoit les descriptions de vos pôles et de vos secteurs et, au plus, vos 5 corrections de classement les plus récentes. Le mode Absent arrête toute transmission à l'assistant : aucune proposition de classement et aucune correction d'orthographe, et rien n'est envoyé à Anthropic. Quand l'assistant ne parvient pas à choisir, la tâche est rangée dans le secteur que vous utilisez le plus et vous pouvez la déplacer ensuite.</p>
       <p>Dans l'Expansion (payante), qui n'existe pas encore dans l'application, si vous choisissez de remplir les formulaires prévus à cet effet, les données que vous y indiquerez — temps consacré à vos activités par semaine, jours les plus productifs, tâches déjà notées — seront transmises à Anthropic pour générer automatiquement une feuille de route quotidienne, qui s'adaptera chaque semaine à votre disponibilité de la semaine précédente. Une notification, accompagnée d'une fenêtre présentant les tâches proposées pour la journée, vous sera envoyée chaque jour.</p>
       <p>Ce qui peut être transmis à Anthropic : ce que vous saisissez dans l'application pour l'organiser, à savoir vos activités, vos pôles et sections, vos sessions chronométrées, vos tâches, vos notes, vos pièces jointes, vos préférences et, le jour où l'Expansion existera, vos réponses aux formulaires utilisés pour la feuille de route. Ne sont jamais transmis : votre prénom, votre nom de famille, votre numéro de téléphone, votre adresse courriel, votre photo, votre mot de passe (nous n'en conservons qu'une version chiffrée), vos conversations (messages privés et discussions d'activité) et vos publications dans la Communauté. Dans le classement actuel des tâches, l'assistant reçoit le texte de la tâche et les noms des pôles et secteurs de l'activité. Ces renseignements peuvent être utilisés par l'assistant dès maintenant ou dans de nouvelles fonctions ; avant qu'une nouvelle fonction n'utilise vos renseignements à une fin nouvelle, nous vous en informons par courriel et dans l'application (section 9). Anthropic peut traiter ces renseignements partout dans le monde, dans le cadre du contrat de traitement des données conclu avec nous (conditions commerciales et addenda de traitement des données d'Anthropic). Anthropic fait appel à des sous-traitants dont la liste à jour est publique : anthropic.com/subprocessors. Selon les conditions commerciales d'Anthropic, celle-ci ne peut pas utiliser le contenu transmis par l'intermédiaire de l'API pour entraîner ses modèles. À la fin du contrat avec Anthropic, ces renseignements sont supprimés de ses systèmes dans un délai de 30 jours, sauf obligation légale, litige entre les parties ou nécessité de lutter contre un usage nuisible du service. Pendant le contrat, Anthropic supprime automatiquement de ses serveurs les renseignements transmis et les réponses de l'assistant dans les 30 jours suivant leur réception ou leur génération ; un contenu signalé par ses systèmes comme contraire à sa politique d'utilisation peut être conservé jusqu'à 2 ans. Les propositions de l'assistant peuvent être inexactes, incomplètes ou trompeuses : vérifiez-les avant de les accepter.</p>
       <p><strong>4.7 Notre support de stockage chiffré, si vous avez consenti à l'usage de la section 2.4.</strong> Les renseignements concernés peuvent être copiés, pour être analysés, sur un support de stockage chiffré détenu par Noèsis (ordinateur ou support amovible), sans passer par un service tiers. Seuls les dirigeants de Noèsis Inc. y ont accès. Nous n'y plaçons ni votre mot de passe ni vos messages privés. Si vous retirez votre consentement ou supprimez votre compte, nous supprimons de ce support la copie qui vous concerne.</p>
@@ -3628,7 +3520,7 @@
       <p><strong>Aucun système n'est parfaitement sûr</strong>. En cas d'incident présentant un risque de préjudice sérieux, nous en informerons la Commission d'accès à l'information et les personnes touchées, comme la loi l'exige. Pour les personnes résidant hors du Québec, nous en informerons de la même façon le Commissariat à la protection de la vie privée du Canada lorsqu'il existe un risque réel de préjudice grave. Nous consignons tous les incidents dans un registre.</p>
 
       <h3>8. Les personnes mineures</h3>
-      <p>Noèsis TimeTracker n'est pas destinée aux personnes de moins de 16 ans.</p>
+      <p>Noèsis n'est pas destinée aux personnes de moins de 16 ans.</p>
       <p>Une offre payante est prévue pour l'avenir avec des conditions d'âge et de consentement parental additionnelles — voir les conditions d'utilisation. Elle n'existe pas encore dans l'application au moment de la publication de cette politique.</p>
 
       <h3>9. Si cette politique change</h3>
@@ -3637,7 +3529,7 @@
       <h3>10. Nous joindre</h3>
       <p>Pour toute question, demande ou plainte relative à vos renseignements personnels :</p>
       <p>Émilien Morel-Obaton, vice-président de Noèsis Inc. — Responsable de la protection des renseignements personnels</p>
-      <p>compagnie.noesis@gmail.com</p>
+      <p>admin@compagnienoesis.com</p>
       <p>Vous pouvez également vous adresser directement à la Commission d'accès à l'information du Québec — cai.gouv.qc.ca — ou, si vous résidez hors du Québec, au Commissariat à la protection de la vie privée du Canada — priv.gc.ca.</p>
     </div>
   </div>
@@ -3660,13 +3552,13 @@
       <p class="hint">Version 1.2 — en vigueur le 10 octobre 2026.</p>
 
       <h3>Identification de l'exploitant</h3>
-      <p>L'application Noèsis TimeTracker est exploitée par <strong>Noèsis Inc.</strong> (raison sociale légale : Compagnie Noèsis inc.), société par actions constituée au Québec le 8 septembre 2026, dont le siège social est situé à Montréal, Québec, Canada.</p>
+      <p>L'application Noèsis est exploitée par <strong>Noèsis Inc.</strong> (raison sociale légale : Compagnie Noèsis inc.), société par actions constituée au Québec le 8 septembre 2026, dont le siège social est situé à Montréal, Québec, Canada.</p>
       <p>Numéro d'entreprise du Québec (NEQ) : <strong>1182542432</strong>.</p>
       <p>Noèsis Inc. est une société par actions constituée au Québec. Les fondateurs, Gaspard et Émilien Morel-Obaton, en sont les dirigeants et actionnaires et n'assument plus personnellement, à titre individuel, les responsabilités liées à l'application.</p>
-      <p>Contact : compagnie.noesis@gmail.com</p>
+      <p>Contact : admin@compagnienoesis.com</p>
 
       <h3>Responsable de la protection des renseignements personnels</h3>
-      <p>Conformément à l'article 3.1 de la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Émilien Morel-Obaton</strong>, vice-président de Noèsis Inc., à qui cette fonction a été déléguée par écrit — compagnie.noesis@gmail.com.</p>
+      <p>Conformément à l'article 3.1 de la <em>Loi sur la protection des renseignements personnels dans le secteur privé</em>, la personne responsable de la protection des renseignements personnels est <strong>Émilien Morel-Obaton</strong>, vice-président de Noèsis Inc., à qui cette fonction a été déléguée par écrit — admin@compagnienoesis.com.</p>
       <p>Cette personne est chargée de veiller au respect de la loi, de répondre aux demandes d'accès, de rectification et de suppression, et de traiter les incidents de confidentialité.</p>
 
       <h3>Hébergement</h3>
@@ -3686,8 +3578,8 @@
       <button type="button" class="cmpClose" id="governanceModalClose" aria-label="Fermer">✕</button>
     </div>
     <div class="legalTermsBody">
-      <p>Noèsis recueille le minimum de renseignements, ne les vend pas, les héberge chez des fournisseurs liés par contrat et vous permet de les consulter, corriger ou supprimer. Pour joindre le responsable de la protection des renseignements personnels, faire une demande ou une plainte, écrivez à compagnie.noesis@gmail.com. Nous visons une réponse dans les 15 jours; la loi nous donne 30 jours. Si vous n'êtes pas satisfait de la réponse, vous pouvez vous adresser à la Commission d'accès à l'information du Québec.</p>
-      <p class="hint">Dernière mise à jour : 30 octobre 2026</p>
+      <p>Noèsis recueille le minimum de renseignements, ne les vend pas, les héberge chez des fournisseurs liés par contrat et vous permet de les consulter, corriger ou supprimer. Pour joindre le responsable de la protection des renseignements personnels, faire une demande ou une plainte, écrivez à admin@compagnienoesis.com. Nous visons une réponse dans les 15 jours; la loi nous donne 30 jours. Si vous n'êtes pas satisfait de la réponse, vous pouvez vous adresser à la Commission d'accès à l'information du Québec.</p>
+      <p class="hint">Dernière mise à jour : 2 novembre 2026</p>
     </div>
   </div>
 </div>
@@ -3765,7 +3657,7 @@
 <div id="resetPwd" class="forcePwd hidden" role="dialog" aria-modal="true" aria-labelledby="resetPwdTitle">
   <div class="forcePwdCard cmpGlass">
     <p class="sectionTitle" id="resetPwdTitle">Choisis un nouveau mot de passe</p>
-    <p class="hint" id="resetPwdHint">10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+    <p class="hint" id="resetPwdHint">10 caractères ou plus.</p>
     <input type="password" id="resetPwdNew" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
     <input type="password" id="resetPwdConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
     <button type="button" class="cmpBtn" id="resetPwdSave">Enregistrer</button>
@@ -3786,7 +3678,7 @@
 <div id="forcePwd" class="forcePwd hidden" role="dialog" aria-modal="true" aria-labelledby="forcePwdTitle">
   <div class="forcePwdCard cmpGlass">
     <p class="sectionTitle" id="forcePwdTitle">Choisis un nouveau mot de passe</p>
-    <p class="hint">Pour protéger ton compte et tes données, ton ancien code à 4 chiffres est remplacé par un mot de passe solide : 10 caractères ou plus, avec une minuscule, une majuscule, un chiffre et un caractère spécial.</p>
+    <p class="hint">Pour protéger ton compte et tes données, ton ancien code à 4 chiffres est remplacé par un mot de passe solide : 10 caractères ou plus.</p>
     <input type="password" id="forcePwdCurrent" placeholder="Ancien code" maxlength="128" autocomplete="current-password" class="hidden">
     <input type="password" id="forcePwdNew" placeholder="Nouveau mot de passe" maxlength="128" autocomplete="new-password">
     <input type="password" id="forcePwdConfirm" placeholder="Confirme le nouveau mot de passe" maxlength="128" autocomplete="new-password">
@@ -3841,7 +3733,7 @@
       <p>Évitez d'écrire des renseignements sensibles (santé, finances, vie privée) dans vos tâches, notes et pièces jointes si vous ne voulez pas qu'ils soient transmis.</p>
       <p>Anthropic peut traiter ces renseignements partout dans le monde, selon le contrat de traitement des données conclu avec Noèsis. Elle ne peut pas s'en servir pour entraîner ses modèles. Elle les supprime de ses serveurs dans les 30 jours. La liste de ses sous-traitants est publique : anthropic.com/subprocessors. Les propositions de Noèsis peuvent être inexactes : vérifiez-les.</p>
       <p>Vous gardez la décision. Dans Réglages, section Mon IA, vous pouvez modifier ou désactiver l'aide de Noèsis à tout moment : « Partiel » ou « Absent » (aucune donnée transmise à Anthropic).</p>
-      <p>Questions ou demande sur vos renseignements : compagnie.noesis@gmail.com. Le détail est dans la section 4.6 de notre <a href="#" class="policy24Link">Politique de confidentialité</a>.</p>
+      <p>Questions ou demande sur vos renseignements : admin@compagnienoesis.com. Le détail est dans la section 4.6 de notre <a href="#" class="policy24Link">Politique de confidentialité</a>.</p>
     </div>
     <div class="marketingInviteActions">
       <button type="button" class="btn btn-small btnBrique" id="aiNoticeAck">J'ai compris</button>
@@ -3888,6 +3780,7 @@
 <!-- 22 sept. 2026 : file d'attente des tâches capturées hors ligne (partagée avec sw.js) -->
 <script src="/offline-queue.js"></script>
 <!-- 19 oct. 2026 : avant app.js pour que le masquage des modules soit posé dès le premier rendu -->
+<script src="/js/saisie.js"></script>
 <script src="/js/composants.js"></script>
 <script src="/js/passkey.js"></script>
 <script src="/js/modules.js"></script>
@@ -3896,20 +3789,31 @@
 <script src="/js/horaire.js"></script>
 <script src="/js/barre-volets.js"></script>
 <script src="/js/axis-lock.js"></script>
+<script src="/js/taches-ligne.js"></script>
 <script src="/js/objectifs-page1.js"></script>
+<script src="/js/objectifs-liaison.js"></script>
+<script src="/js/objectifs-creer.js"></script>
+<script src="/js/responsables-ui.js"></script>
+<script src="/js/membres-ui.js"></script>
+<script src="/js/objectifs-arbre.js"></script>
+<script src="/js/objectifs-retard.js"></script>
 <!-- 29 sept. 2026 : Page 2 scindée en 2 fichiers exclusifs (ordre obligatoire : « taches » crée la coque, « objectif » s'y insère) -->
-<script src="/js/objectifs-page2-taches.js"></script>
+<script src="/js/fenetre-activite.js"></script>
 <script src="/js/objectifs-page2-objectif.js"></script>
 <script src="/js/objectifs-offre1-code.js"></script>
-<script src="/js/strategie.js"></script>
+<script src="/js/geo-villes.js"></script>
 <script src="/js/objectifs-document-taches.js"></script>
+<script src="/js/calendrier-numeros.js"></script>
 <script src="/js/objectifs-page3.js"></script>
 <!-- 2 oct. 2026 : Statistiques, page 2 (avancement par activité) -->
 <script src="/js/stats-avance.js"></script>
 <script src="/js/bureau.js"></script>
+<script src="/js/filtre-niveau.js"></script>
 <script src="/js/aujourdhui.js"></script>
 <script src="/js/activite-stats-taches.js"></script>
+<script src="/js/bilan-blocs.js"></script>
 <script src="/js/connexion-ia.js"></script>
 <script src="/js/a11y-popups.js"></script>
+<script src="/js/diag-mesures.js"></script>
 </body>
 </html>

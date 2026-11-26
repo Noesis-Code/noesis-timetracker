@@ -215,7 +215,7 @@ function notify(userId, activityId, added, proposed) {
     let body;
     if (added) body = fr ? `${n} tâche${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} depuis ton Drive` : `${n} task${n > 1 ? 's' : ''} added from your Drive`;
     else body = fr ? `${n} nouvelle${n > 1 ? 's' : ''} tâche${n > 1 ? 's' : ''} proposée${n > 1 ? 's' : ''} depuis ton Drive` : `${n} new task${n > 1 ? 's' : ''} suggested from your Drive`;
-    push.sendToUsers([userId], { module: 'ai', title: 'TiMeTracker', body, tag: 'drive-sync-' + activityId, url: '/?notif=drivesync&activityId=' + activityId });
+    push.sendToUsers([userId], { module: 'ai', title: 'Noèsis', body, tag: 'drive-sync-' + activityId, url: '/?notif=drivesync&activityId=' + activityId });
   } catch (e) { /* une notification ratée ne doit rien bloquer */ }
 }
 

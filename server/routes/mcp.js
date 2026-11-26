@@ -93,7 +93,7 @@ const tools = {
       if (args.au != null && !isDay(args.au)) throw toolError('au : format AAAA-MM-JJ attendu.');
       const labels = poleLabels(a.id);
       const pole = poleMatches(a.id, args.pole);
-      const list = goalstasks.allTasksWithGroup(a.id).filter((t) => mine(t, userId))
+      const list = goalstasks.allTasksWithGroup(a.id, statut !== 'a_faire').filter((t) => mine(t, userId)) // terminées/toutes : inclut les tâches faites depuis plus de 7 jours (archivées, jamais supprimées)
         .filter((t) => statut === 'toutes' || (statut === 'terminees' ? t.done : !t.done))
         .filter((t) => !pole || t.poleKey === pole)
         .filter((t) => !args.du || (t.dueDate && t.dueDate >= args.du))
@@ -137,6 +137,20 @@ const tools = {
         out.push({ pole: p.label, [args.horizon === 'annuel' ? 'periodes' : 'periode_courante']: sel });
       });
       return { activityId: a.id, activite: a.name, horizon: args.horizon, poles: out };
+    },
+  },
+  arbre_objectifs: {
+    description: "Arbre des objectifs de l'utilisateur (lecture seule) : chaque objectif avec son échéance, son parent, s'il est un grand objectif (a des sous-objectifs) ou un macro (relie plusieurs colonnes). Sert à résumer une année ou à proposer un titre commun. activityId facultatif.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer', description: "Limiter à une activité (lister_activites)." }, annee: { type: 'integer', description: "Limiter aux objectifs dont l'échéance tombe cette année." } }, additionalProperties: false },
+    run(userId, args) {
+      if (args.activityId != null) memberActivity(userId, args.activityId);
+      let list = require('../lib/objectifs').liste(userId, 'tous');
+      if (args.activityId != null) list = list.filter((o) => o.activity.id === Number(args.activityId) || (o.isMacro && (o.macroActivities || []).some((a) => a.id === Number(args.activityId))));
+      if (args.annee != null) list = list.filter((o) => String(o.endDate).slice(0, 4) === String(args.annee));
+      return list.map((o) => ({
+        id: o.id, titre: o.title, activityId: o.activity.id, activite: o.activity.name, debut: o.startDate, echeance: o.endDate,
+        parent_id: o.parentId || null, grand_objectif: !!o.isBig, macro: !!o.isMacro, abandonne: !!o.abandoned, atteint: o.status === 'atteint',
+      }));
     },
   },
   plan_du_jour_donnees: {
@@ -231,6 +245,7 @@ Object.assign(tools, {
 // avec SON jeton, sur SON compte uniquement. Aucun appel IA de Noèsis, jamais de suppression définitive :
 // chaque écriture est journalisée (ai_write_log) avec l'état d'avant et `annuler_modification` le rétablit.
 const wlog = require('../lib/aiwritelog');
+const taskminutes = require('../lib/taskminutes');
 const textlimits = require('../lib/textlimits');
 const MAX_BATCH = 30;
 const MAX_GOAL = 300;
@@ -272,7 +287,9 @@ function ownTask(userId, taskId) {
   if (access.error) throw toolError('Tâche introuvable.');
   if (item.plannedUserId && item.plannedUserId !== userId) throw toolError('Cette tâche est confiée à un autre membre.');
   try { sp.assertItemEditable(item); } catch (e) { throw toolError(e.message); }
-  return { item, activityId: sp.getSubProject(item.subProjectId).activityId };
+  const parent = sp.getSubProject(item.subProjectId);
+  try { require('../lib/portee').exigerEcritureTache(userId, parent.activityId, parent.goalCategory); } catch (e) { throw toolError(e.message); } // activité partagée : un simple membre ne modifie, ne déplace ni ne retire rien (il coche seulement)
+  return { item, activityId: parent.activityId };
 }
 // Pôle ou secteur d'une activité, par nom ou clé.
 function resolveTarget(activityId, wanted) {
@@ -297,38 +314,96 @@ function setPositions(pairs) {
   db.exec('BEGIN');
   try { pairs.forEach(([id, pos]) => db.prepare('UPDATE sub_project_items SET position = ? WHERE id = ?').run(pos, id)); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
+function checkDuree(v) { // minutes entières 5 à 480 (mêmes bornes que taskminutes)
+  const n = Number(v);
+  if (v === '' || v === null || typeof v === 'boolean' || !Number.isInteger(n) || n < 5 || n > 480) throw toolError('duree : entier de 5 à 480 (minutes).');
+  return n;
+}
+// Rangement fourni par l'IA de la personne (18 nov. 2026) : objectif, nature, étape de. Validé AVANT toute écriture ; appliqué APRÈS, et appris (journal de la personne ; agrégat anonyme seulement avec consentement).
+// Noèsis ne lit que ce qui passe par ces champs : jamais le prompt ni le modèle de la personne. Ce qui manque est classé par règles gratuites (taches-rangement.classerSilencieux) à la création.
+function checkRangement(userId, activityId, args) {
+  if (args.nature !== undefined && args.nature !== null && !['maintenance', 'developpement'].includes(args.nature)) throw toolError('nature : maintenance ou developpement.');
+  if (args.objectif !== undefined && args.objectif !== null && !db.prepare('SELECT 1 FROM user_objectives WHERE id = ? AND userId = ? AND activityId = ?').get(Number(args.objectif), userId, activityId)) throw toolError('Objectif introuvable dans cette activité.');
+  if (args.etape_de !== undefined && args.etape_de !== null && !db.prepare('SELECT 1 FROM sub_project_items i JOIN sub_projects p ON p.id = i.subProjectId WHERE i.id = ? AND p.activityId = ?').get(Number(args.etape_de), activityId)) throw toolError('Tâche regroupante introuvable dans cette activité.');
+}
+function applyRangement(userId, item, args) {
+  try {
+    const choix = require('../lib/taches-choix');
+    if (args.nature !== undefined && args.nature !== null) choix.corriger(userId, { itemId: item.id, field: 'nature', to: args.nature });
+    if (args.objectif !== undefined) choix.corriger(userId, { itemId: item.id, field: 'objective', to: args.objectif });
+    if (args.etape_de !== undefined) choix.corriger(userId, { itemId: item.id, field: 'group', to: args.etape_de });
+  } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de ranger la tâche.'); }
+}
 const done = (data, logId) => Object.assign({}, data, { journal: logId });
 
 Object.assign(tools, {
   creer_tache: {
     write: true, journal: true,
-    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ. Correction d'orthographe de Noèsis désactivée.",
-    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
+    description: "Ajoute une tâche (titre 300 caractères max) dans un pôle ou secteur de l'utilisateur, avec une échéance facultative AAAA-MM-JJ et une durée facultative en minutes (entier de 5 à 480). Correction d'orthographe de Noèsis désactivée. Rangement facultatif : objectif (identifiant), nature (maintenance ou developpement), etape_de (identifiant d'une tâche existante) ; ce qui manque est classé par règles gratuites.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, titre: { type: 'string' }, pole: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480, description: 'Durée en minutes (5 à 480).' }, objectif: { type: 'integer', description: 'Identifiant de l\'objectif qui accueille la tâche (facultatif).' }, nature: { type: 'string', enum: ['maintenance', 'developpement'], description: 'Maintenir ou développer (facultatif).' }, etape_de: { type: 'integer', description: 'Identifiant d\'une tâche existante dont celle-ci est une étape (facultatif).' } }, required: ['activityId', 'titre', 'pole'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const titre = checkTitle(args.titre);
       const t = poleAndSecteurs(a.id, args.pole);
+      checkRangement(userId, a.id, args);
       const extra = { noSpellfix: true };
+      if (args.duree != null) { const m = taskminutes.fromProposal(checkDuree(args.duree)); m.source = 'saisie'; extra.estimate = m; extra.durSource = 'saisie'; }
       if (args.echeance != null && args.echeance !== '') extra.dueDate = checkDay(args.echeance, 'echeance');
       let item;
       try { item = goalstasks.addCategoryTask(a.id, userId, t.key, titre, extra); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'ajouter la tâche.'); }
-      const logId = wlog.record(ctx, 'creer_tache', a.id, item.id, null, { label: titre, dueDate: extra.dueDate || null });
+      applyRangement(userId, item, args);
+      const logId = wlog.record(ctx, 'creer_tache', a.id, item.id, null, { label: titre, dueDate: extra.dueDate || null, duree: extra.estimate ? extra.estimate.median : null });
       return done({ taskId: item.id, activityId: a.id, tache: titre }, logId);
     },
   },
   modifier_tache: {
     write: true, journal: true,
-    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
-    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' } }, required: ['taskId'], additionalProperties: false },
+    description: "Change le titre (300 caractères max) et/ou l'échéance (AAAA-MM-JJ) et/ou la durée (minutes, 5 à 480) et/ou le rangement (objectif, nature, etape_de) d'une tâche de l'utilisateur. Réversible avec annuler_modification.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, titre: { type: 'string' }, echeance: { type: 'string' }, duree: { type: 'integer', minimum: 5, maximum: 480 }, objectif: { type: 'integer' }, nature: { type: 'string', enum: ['maintenance', 'developpement'] }, etape_de: { type: 'integer' } }, required: ['taskId'], additionalProperties: false },
     run(userId, args, ctx) {
       const { item, activityId } = ownTask(userId, args.taskId);
       const fields = {};
       if (args.titre !== undefined) fields.label = checkTitle(args.titre);
       if (args.echeance !== undefined) fields.dueDate = checkDay(args.echeance, 'echeance');
-      if (!Object.keys(fields).length) throw toolError('Rien à modifier (titre ou echeance).');
-      try { sp.updateItem(item.id, fields, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de modifier cette tâche.'); }
-      const logId = wlog.record(ctx, 'modifier_tache', activityId, item.id, { label: item.label, dueDate: item.dueDate }, { label: fields.label || item.label, dueDate: fields.dueDate || item.dueDate });
-      return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate }, logId);
+      const duree = args.duree !== undefined ? checkDuree(args.duree) : undefined;
+      const rang = args.objectif !== undefined || args.nature !== undefined || args.etape_de !== undefined;
+      if (rang) checkRangement(userId, activityId, args);
+      if (!Object.keys(fields).length && duree === undefined && !rang) throw toolError('Rien à modifier (titre, echeance, duree ou rangement).');
+      try { if (Object.keys(fields).length) sp.updateItem(item.id, fields, userId, { noSpellfix: true }); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de modifier cette tâche.'); }
+      const beforeDur = item.medianMinutes == null ? null : item.medianMinutes;
+      if (duree !== undefined) { const m = taskminutes.fromProposal(duree); m.source = 'saisie'; taskminutes.store(db, item.id, m, 'saisie'); }
+      if (rang) applyRangement(userId, item, args);
+      const logId = wlog.record(ctx, 'modifier_tache', activityId, item.id, { label: item.label, dueDate: item.dueDate, duree: beforeDur }, { label: fields.label || item.label, dueDate: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree });
+      return done({ taskId: item.id, tache: fields.label || item.label, echeance: fields.dueDate || item.dueDate, duree: duree === undefined ? beforeDur : duree }, logId);
+    },
+  },
+  ranger_tache: {
+    write: true, journal: true,
+    description: "Range une tâche de l'utilisateur (catégorie, objectif, nature) avec une RAISON courte (une phrase) et une CONFIANCE (0 à 100). Tous les champs sont obligatoires : objectif = 0 si aucun objectif ne convient. Exige le consentement à l'amélioration anonyme du modèle de Noèsis, donné à la connexion de l'IA. Réversible avec annuler_modification.",
+    inputSchema: { type: 'object', properties: { taskId: { type: 'integer' }, categorie: { type: 'string', description: 'Pôle (ou secteur si le pôle en a).' }, objectif: { type: 'integer', minimum: 0, description: "Identifiant de l'objectif, ou 0 si aucun ne convient." }, nature: { type: 'string', enum: ['maintenance', 'developpement'] }, raison: { type: 'string', description: 'Une phrase (200 caractères au plus).' }, confiance: { type: 'integer', minimum: 0, maximum: 100 } }, required: ['taskId', 'categorie', 'objectif', 'nature', 'raison', 'confiance'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const { item, activityId } = ownTask(userId, args.taskId);
+      const apprentissage = require('../lib/taches-apprentissage'), choix = require('../lib/taches-choix'), rangement = require('../lib/taches-rangement'), taskkind = require('../lib/taskkind');
+      if (!apprentissage.hasConsent(userId)) throw toolError("Le consentement à l'amélioration anonyme du modèle de Noèsis est nécessaire pour ranger une tâche par le connecteur. Il se donne à la connexion de l'IA.");
+      const raison = typeof args.raison === 'string' ? args.raison.trim() : '';
+      if (raison.length < 3 || raison.length > 200) throw toolError('raison : une phrase de 3 à 200 caractères.');
+      const conf = Number(args.confiance);
+      if (!Number.isInteger(conf) || conf < 0 || conf > 100) throw toolError('confiance : un entier de 0 à 100.');
+      if (!['maintenance', 'developpement'].includes(args.nature)) throw toolError('nature : maintenance ou developpement.');
+      const t = poleAndSecteurs(activityId, args.categorie);
+      const objectif = Number(args.objectif) > 0 ? Number(args.objectif) : null;
+      let objTitle = null;
+      if (objectif) { const o = db.prepare('SELECT title FROM user_objectives WHERE id = ? AND userId = ? AND activityId = ?').get(objectif, userId, activityId); if (!o) throw toolError('Objectif introuvable dans cette activité.'); objTitle = o.title; }
+      const sub = sp.getSubProject(item.subProjectId);
+      const before = { categorie: sub && sub.goalCategory ? sub.goalCategory : null, objectif: (rangement.readLink(item.id) || {}).objectiveId || null, nature: taskkind.read(item.id).kind };
+      try {
+        if (t.key !== before.categorie) goalstasks.moveCategoryTask(activityId, userId, item.id, t.key);
+        choix.corriger(userId, { itemId: item.id, field: 'objective', to: objectif });
+        choix.corriger(userId, { itemId: item.id, field: 'nature', to: args.nature });
+      } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de ranger cette tâche.'); }
+      apprentissage.recordExempleConnecteur(userId, activityId, item.label, { categorie: t.key, objectif: objTitle, nature: args.nature }, raison, conf);
+      const logId = wlog.record(ctx, 'ranger_tache', activityId, item.id, before, { categorie: t.key, objectif, nature: args.nature });
+      return done({ taskId: item.id, tache: item.label, categorie: t.key, objectif: objectif || 0, nature: args.nature }, logId);
     },
   },
   ordonner_taches: {
@@ -375,7 +450,7 @@ Object.assign(tools, {
   definir_objectif_periodique: {
     write: true, journal: true,
     description: "Écrit l'objectif d'une période (1 à 39, voir objectifs) pour un pôle ou secteur. Texte 300 caractères max, description 1000 max. Remplace le texte actuel, qui reste au journal (annuler_modification).",
-    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' } }, required: ['activityId', 'pole', 'periode', 'texte'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' }, debut: { type: 'string', description: 'Début AAAA-MM-JJ (optionnel ; défaut : période de la grille)' }, fin: { type: 'string', description: 'Fin AAAA-MM-JJ = vraie échéance (optionnel)' } }, required: ['activityId', 'pole', 'periode', 'texte'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const t = resolveTarget(a.id, args.pole);
@@ -384,22 +459,29 @@ Object.assign(tools, {
       if (!texte) throw toolError('texte requis (un objectif ne se supprime pas par ce connecteur).');
       const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
       const old = periodRow(a.id, t.key, n);
-      const before = old ? { text: old.mainGoalText || '', description: old.mainGoalDescription || '', minutes: old.mainGoalEstimateSource === 'manual' ? old.mainGoalEstimateMinutes : null } : { text: '', description: '', minutes: null };
-      try { goals.setMainGoal(a.id, t.key, n, texte, description); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'écrire cet objectif.'); }
+      const before = old ? { text: old.mainGoalText || '', description: old.mainGoalDescription || '', minutes: old.mainGoalEstimateSource === 'manual' ? old.mainGoalEstimateMinutes : null, debut: old.startDate, fin: old.endDate } : { text: '', description: '', minutes: null };
+      try {
+        goals.setMainGoal(a.id, t.key, n, texte, description);
+        if (args.debut || args.fin) {
+          const cur = periodRow(a.id, t.key, n);
+          before.debut = cur.startDate; before.fin = cur.endDate;
+          goals.setPeriodDates(a.id, t.key, n, args.debut || cur.startDate, args.fin || cur.endDate);
+        }
+      } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible d\'écrire cet objectif.'); }
       const logId = wlog.record(ctx, 'definir_objectif_periodique', a.id, null, Object.assign({ key: t.key, periode: n }, before), { text: texte });
       return done({ activityId: a.id, pole: t.key, periode: n, objectif: texte }, logId);
     },
   },
   definir_objectif_hebdomadaire: {
     write: true, journal: true,
-    description: "Écrit l'objectif d'une semaine (1 à 4) d'une période pour un pôle ou secteur. Texte 300 caractères max. Un objectif confié à un autre membre est refusé. Réversible (annuler_modification).",
+    description: "Écrit l'objectif d'une semaine (1 = première semaine de la période) d'une période pour un pôle ou secteur. Texte 300 caractères max. Un objectif confié à un autre membre est refusé. Réversible (annuler_modification).",
     inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string' }, periode: { type: 'integer' }, semaine: { type: 'integer' }, texte: { type: 'string' }, description: { type: 'string' } }, required: ['activityId', 'pole', 'periode', 'semaine', 'texte'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
       const t = resolveTarget(a.id, args.pole);
       const n = periodNumber(args.periode);
       const w = Number(args.semaine);
-      if (!Number.isInteger(w) || w < 1 || w > 4) throw toolError('semaine : entier de 1 à 4.');
+      if (!Number.isInteger(w) || w < 1 || w > 53) throw toolError('semaine : entier positif (dans les semaines de la période).');
       const texte = checkText(args.texte, MAX_GOAL, 'Objectif');
       if (!texte) throw toolError('texte requis (un objectif ne se supprime pas par ce connecteur).');
       const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
@@ -431,7 +513,17 @@ Object.assign(tools, {
           }
           case 'modifier_tache': {
             const { item } = ownTask(userId, row.targetId);
-            sp.updateItem(item.id, { label: before.label, dueDate: before.dueDate }, userId, { noSpellfix: true }); break;
+            sp.updateItem(item.id, { label: before.label, dueDate: before.dueDate }, userId, { noSpellfix: true });
+            if (before.duree !== undefined) { if (before.duree == null) db.prepare('UPDATE sub_project_items SET minMinutes = NULL, medianMinutes = NULL, maxMinutes = NULL, durSource = NULL, durConfidence = NULL WHERE id = ?').run(item.id); else { const m = taskminutes.fromProposal(before.duree); if (m) taskminutes.store(db, item.id, m, 'saisie'); } }
+            break;
+          }
+          case 'ranger_tache': {
+            const { item } = ownTask(userId, row.targetId);
+            const sub = sp.getSubProject(item.subProjectId), choix = require('../lib/taches-choix');
+            if (before.categorie && sub && sub.goalCategory !== before.categorie) goalstasks.moveCategoryTask(act, userId, item.id, before.categorie);
+            require('../lib/taches-rangement').setLink(item.id, { objectiveId: before.objectif || null });
+            if (before.nature) require('../lib/taskkind').setNature(item.id, before.nature, item.label);
+            break;
           }
           case 'ordonner_taches': {
             Object.keys(before).forEach((id) => { ownTask(userId, id); });
@@ -449,7 +541,9 @@ Object.assign(tools, {
             db.prepare('INSERT INTO sub_project_items (' + cols.join(',') + ') VALUES (' + cols.map(() => '?').join(',') + ')').run(...cols.map((c) => before[c])); break;
           }
           case 'definir_objectif_periodique':
-            goals.setMainGoal(act, before.key, before.periode, before.text, before.description, before.minutes == null ? undefined : before.minutes); break;
+            goals.setMainGoal(act, before.key, before.periode, before.text, before.description, before.minutes == null ? undefined : before.minutes);
+            if (before.debut && before.fin) goals.setPeriodDates(act, before.key, before.periode, before.debut, before.fin);
+            break;
           case 'definir_objectif_hebdomadaire':
             if (before.existait) goals.setWeekly(act, before.key, before.periode, before.semaine, before.text, before.description);
             else goals.deleteWeekly(act, before.key, before.periode, before.semaine);
@@ -482,7 +576,7 @@ function handleRpc(msg, ctx) {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: 'timetracker', version: '1.1.0' },
-        instructions: "TimeTracker : les tâches et objectifs de l'utilisateur. Commence par lister_activites. Avec un jeton en écriture, tu peux organiser (créer, modifier, ordonner, planifier, objectifs) mais seulement à la demande de l'utilisateur, jamais de ta propre initiative ; chaque écriture renvoie un numéro de journal pour annuler_modification.",
+        instructions: "Noèsis : les tâches et objectifs de l'utilisateur. Commence par lister_activites. Avec un jeton en écriture, tu peux organiser (créer, modifier, ordonner, planifier, objectifs) mais seulement à la demande de l'utilisateur, jamais de ta propre initiative ; chaque écriture renvoie un numéro de journal pour annuler_modification.",
       });
     case 'notifications/initialized':
     case 'notifications/cancelled':
@@ -495,7 +589,7 @@ function handleRpc(msg, ctx) {
       const p = msg.params || {};
       const tool = Object.prototype.hasOwnProperty.call(tools, p.name) ? tools[p.name] : null;
       if (!tool) return isNotification ? null : rpcError(msg.id, -32602, 'Outil inconnu : ' + p.name);
-      if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans TimeTracker pour cet outil.' }] });
+      if (!toolOn(userId, p.name)) return isNotification ? null : ok({ isError: true, content: [{ type: 'text', text: 'Module désactivé dans Noèsis pour cet outil.' }] });
       if (tool.write && !ctx.canWrite) { const e = new Error("Ce jeton est en lecture seule."); e.forbidden = true; throw e; }
       if (tool.journal && !wlog.unlimited(userId) && !wlog.takeWriteSlot(ctx.tokenId)) return ok({ isError: true, content: [{ type: 'text', text: 'Limite atteinte : ' + wlog.WRITES_PER_MINUTE + ' écritures par minute et ' + wlog.WRITES_PER_DAY + ' par 24 h.' }] });
       try {
@@ -517,7 +611,7 @@ function handleMcpPost(req, res, token) {
     res.set('WWW-Authenticate', 'Bearer realm="timetracker"');
     return res.status(401).json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Jeton invalide ou révoqué.' } });
   }
-  if (!modules.isEnabled(auth.userId, 'ai')) return res.status(403).json(rpcError(null, -32004, 'Module « Assistant IA » désactivé dans TimeTracker.'));
+  if (!modules.isEnabled(auth.userId, 'ai')) return res.status(403).json(rpcError(null, -32004, 'Module « Assistant IA » désactivé dans Noèsis.'));
   if (!aitokens.rateOk(auth.tokenId)) {
     res.set('Retry-After', '60');
     return res.status(429).json(rpcError(null, -32002, 'Trop d\'appels : 60 par minute maximum.'));
@@ -555,11 +649,18 @@ router.delete('/mcp', (req, res) => res.status(405).set('Allow', 'POST').json({ 
 
 // ---------------------------------------------------------------- jetons (Réglages)
 router.get('/api/ai-tokens', requireAuth, (req, res) => {
-  res.json({ tokens: aitokens.listTokens(req.userId), max: aitokens.MAX_ACTIVE, url: req.protocol + '://' + req.get('host') + '/mcp', origin: req.protocol + '://' + req.get('host') });
+  let consentement = false; try { consentement = require('../lib/taches-apprentissage').hasConsent(req.userId); } catch (e) { consentement = false; }
+  res.json({ consentement, tokens: aitokens.listTokens(req.userId), max: aitokens.MAX_ACTIVE, url: req.protocol + '://' + req.get('host') + '/mcp', origin: req.protocol + '://' + req.get('host') });
 });
 router.post('/api/ai-tokens', requireAuth, (req, res) => {
   try {
-    res.json(aitokens.createToken(req.userId, req.body && req.body.label, !!(req.body && req.body.canWrite)));
+    const consent = req.body && req.body.consentement;
+    // Consentement OBLIGATOIRE par défaut (18 nov. 2026, décision d'Émilien : la fenêtre existe maintenant) ; CONNECTEUR_CONSENTEMENT_OBLIGATOIRE=0 le désactive ; déjà donné : pas redemandé.
+    let deja = false; try { deja = require('../lib/taches-apprentissage').hasConsent(req.userId); } catch (e) { deja = false; }
+    if (consent === false || (process.env.CONNECTEUR_CONSENTEMENT_OBLIGATOIRE !== '0' && consent !== true && !deja)) return res.status(400).json({ error: 'Le consentement est nécessaire pour connecter une IA : les rangements et corrections qui passent par le connecteur servent, de façon anonyme et agrégée, à améliorer le modèle de Noèsis.' });
+    const out = aitokens.createToken(req.userId, req.body && req.body.label, !!(req.body && req.body.canWrite));
+    if (consent === true) require('../lib/taches-apprentissage').setConsent(req.userId, true, 'connecteur'); // date d'acceptation journalisée (rangement_consentement)
+    res.json(out);
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error('[mcp] création jeton', err.message);

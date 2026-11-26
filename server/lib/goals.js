@@ -328,6 +328,69 @@ function periodNumberForDate(planStartDate, isoDay) {
 }
 
 // ---------------------------------------------------------------------------
+// Périodes libres (3 nov. 2026, décision d'Émilien) : les dates de début/fin
+// d'une période sont celles de sa ligne goal_periods (jamais recalculées depuis
+// la grille). La grille de 13 périodes de 4 semaines reste le défaut proposé.
+// periodNumber (clé) ne change jamais ; seules les dates d'une ligne bougent.
+
+// Nombre de semaines d'une période (découpées depuis startDate ; la dernière peut être plus courte). 4 pour la grille.
+function weeksInPeriod(period) {
+  if (!period || !period.startDate || !period.endDate) return WEEKS_PER_PERIOD;
+  const days = daysBetween(period.startDate, period.endDate);
+  if (days === null || days < 0) return WEEKS_PER_PERIOD;
+  return Math.max(1, Math.ceil((days + 1) / WEEK_DAYS));
+}
+
+// Comme weekBounds, mais la fin de la dernière semaine ne dépasse jamais la fin de la période.
+function weekBoundsIn(period, weekIndex) {
+  const b = weekBounds(period.startDate, weekIndex);
+  return { start: b.start, end: b.end > period.endDate ? period.endDate : b.end };
+}
+
+function hasFreePeriods(activityId, category) {
+  return !!db.prepare("SELECT 1 FROM goal_periods WHERE activityId = ? AND category = ? AND kind = 'libre'").get(activityId, category);
+}
+
+// Numéro de la période contenant `isoDay`. Sans période libre : la grille (comportement historique, inchangé).
+// Avec périodes libres : la ligne dont les dates contiennent le jour ; un jour dans un trou va à la période suivante.
+function periodNumberFor(activityId, category, planStartDate, isoDay) {
+  if (hasFreePeriods(activityId, category)) {
+    const inside = db.prepare('SELECT periodNumber FROM goal_periods WHERE activityId = ? AND category = ? AND startDate <= ? AND endDate >= ? ORDER BY periodNumber LIMIT 1')
+      .get(activityId, category, isoDay, isoDay);
+    if (inside) return inside.periodNumber;
+    const next = db.prepare('SELECT periodNumber FROM goal_periods WHERE activityId = ? AND category = ? AND startDate > ? ORDER BY startDate LIMIT 1')
+      .get(activityId, category, isoDay);
+    if (next) return next.periodNumber;
+  }
+  return periodNumberForDate(planStartDate, isoDay);
+}
+
+// Change les dates d'une période (la rend 'libre'). Refuse : dates invalides, chevauchement d'une autre période du
+// même pôle/secteur, ou réduction qui laisserait des objectifs hebdomadaires écrits hors des nouvelles semaines
+// (jamais supprimés en silence).
+function setPeriodDates(activityId, category, periodNumber, start, end) {
+  assertCategoryOrSecteurForActivity(activityId, category);
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(String(start)) || !re.test(String(end)) || addDays(start, 0) !== start || addDays(end, 0) !== end) {
+    const e = new Error('Dates invalides.'); e.statusCode = 400; throw e;
+  }
+  if (end < start) { const e = new Error('La fin doit être après le début.'); e.statusCode = 400; throw e; }
+  const plan = ensurePlan(activityId, category);
+  ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
+  const row = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
+  const clash = db.prepare('SELECT periodNumber FROM goal_periods WHERE activityId = ? AND category = ? AND id != ? AND startDate <= ? AND endDate >= ? ORDER BY periodNumber LIMIT 1')
+    .get(activityId, category, row.id, end, start);
+  if (clash) { const e = new Error('Ces dates chevauchent la période ' + clash.periodNumber + '.'); e.statusCode = 409; throw e; }
+  const weeks = weeksInPeriod({ startDate: start, endDate: end });
+  const orphan = db.prepare("SELECT COUNT(*) AS n FROM goal_weekly WHERE periodId = ? AND weekIndex > ? AND text != ''").get(row.id, weeks).n;
+  if (orphan) { const e = new Error('Des objectifs hebdomadaires écrits dépassent la nouvelle fin : déplace-les d\'abord.'); e.statusCode = 409; throw e; }
+  const grid = periodBounds(plan.startDate, periodNumber);
+  const kind = (start === grid.start && end === grid.end) ? 'grille' : 'libre';
+  db.prepare('UPDATE goal_periods SET startDate = ?, endDate = ?, kind = ? WHERE id = ?').run(start, end, kind, row.id);
+  return { ...row, startDate: start, endDate: end, kind, weeks };
+}
+
+// ---------------------------------------------------------------------------
 // Le plan (une ligne par (activité, catégorie), jamais recréée)
 
 function getPlan(activityId, category) {
@@ -490,7 +553,7 @@ function actualSecondsForRange(activityId, startDate, endDate) {
   const row = db.prepare(`
     SELECT COALESCE(SUM(durationSeconds), 0) AS seconds
     FROM time_entries
-    WHERE activityId = ? AND isoDate BETWEEN ? AND ?
+    WHERE activityId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60
   `).get(activityId, startDate, endDate);
   return row.seconds;
 }
@@ -673,6 +736,13 @@ function ensurePeriodRow(activityId, category, periodNumber, planStartDate) {
   if (existing) return rowToPeriod(existing);
 
   const bounds = periodBounds(planStartDate, periodNumber);
+  // Période précédente étendue par l'utilisateur : la nouvelle commence après elle, sans chevauchement.
+  const prev = db.prepare('SELECT endDate FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber < ? ORDER BY periodNumber DESC LIMIT 1')
+    .get(activityId, category, periodNumber);
+  if (prev && prev.endDate >= bounds.start) {
+    bounds.start = addDays(prev.endDate, 1);
+    if (bounds.end < bounds.start) bounds.end = addDays(bounds.start, PERIOD_DAYS - 1);
+  }
   const createdAt = new Date().toISOString();
   db.prepare(`
     INSERT INTO goal_periods
@@ -710,14 +780,14 @@ function carryOverWeekly(activityId, category, planStartDate) {
   const today = todayLocal();
 
   const pending = db.prepare(`
-    SELECT w.*, p.startDate AS periodStart, p.periodNumber AS periodNumber
+    SELECT w.*, p.startDate AS periodStart, p.endDate AS periodEnd, p.periodNumber AS periodNumber
     FROM goal_weekly w
     JOIN goal_periods p ON p.id = w.periodId
     WHERE p.activityId = ? AND p.category = ? AND w.carriedToId IS NULL AND w.text != ''
   `).all(activityId, category);
 
   pending.forEach((w) => {
-    const bounds = weekBounds(w.periodStart, w.weekIndex);
+    const bounds = weekBoundsIn({ startDate: w.periodStart, endDate: w.periodEnd }, w.weekIndex);
     if (bounds.end >= today) return; // semaine pas encore terminée
 
     // Statut toujours non tranché à la fin de la semaine : compte comme non
@@ -734,11 +804,12 @@ function carryOverWeekly(activityId, category, planStartDate) {
     // la période suivante si on était déjà en semaine 4.
     let targetPeriodNumber = w.periodNumber;
     let targetWeekIndex = w.weekIndex + 1;
-    if (targetWeekIndex > WEEKS_PER_PERIOD) {
+    if (targetWeekIndex > weeksInPeriod({ startDate: w.periodStart, endDate: w.periodEnd })) {
       targetPeriodNumber += 1;
       targetWeekIndex = 1;
     }
     const targetPeriod = ensurePeriodRow(activityId, category, targetPeriodNumber, planStartDate);
+    let targetWeeks = weeksInPeriod(targetPeriod);
 
     // Semaine cible déjà occupée : on cherche la première semaine libre de
     // cette même période plutôt que d'écraser l'objectif qui s'y trouve déjà
@@ -748,11 +819,12 @@ function carryOverWeekly(activityId, category, planStartDate) {
         .get(targetPeriod.id, targetWeekIndex);
       if (!occupied) break;
       targetWeekIndex += 1;
-      if (targetWeekIndex > WEEKS_PER_PERIOD) {
+      if (targetWeekIndex > targetWeeks) {
         targetPeriodNumber += 1;
         targetWeekIndex = 1;
         const nextPeriod = ensurePeriodRow(activityId, category, targetPeriodNumber, planStartDate);
         targetPeriod.id = nextPeriod.id;
+        targetWeeks = weeksInPeriod(nextPeriod);
       }
     }
 
@@ -872,7 +944,8 @@ function postBilanIfDue(activity, category, planStartDate) {
 // objectifs hebdomadaires sont atteints, partiel s'il en manque un seul, non atteint s'il en manque 2 ou plus.
 const WEEKLY_ATTEINT_MIN = 0.9;
 const WEEKLY_PARTIEL_MIN = 0.75;
-const DEFAULT_TASK_MINUTES = 30;
+const taskminutes = require('./taskminutes'); // durée d'une tâche : point unique
+const DEFAULT_TASK_MINUTES = taskminutes.DEFAULT_TASK_MINUTES;
 
 // Pur. tasks : [{ done, minutes }] ; minutes absent/<=0 -> DEFAULT_TASK_MINUTES. Renvoie null s'il n'y a aucune tâche.
 // Ratio de temps fait (0..1) : SOURCE UNIQUE, réutilisée par le statut ET par les statistiques « Où ça glisse ».
@@ -897,9 +970,9 @@ function weeklyStatusFromTasks(tasks) {
 }
 
 // Minutes d'une tâche liée à un objectif hebdomadaire (catégorie de l'objectif) : estimation historique, sinon défaut.
-function weeklyTaskMinutes(activityId, category, label) {
-  const est = estimateForGoal(activityId, category, 'weekly', label);
-  return est && est.minutes > 0 ? est.minutes : DEFAULT_TASK_MINUTES;
+// row (facultatif) : ligne de la tâche (médiane stockée par l'IA, prioritaire).
+function weeklyTaskMinutes(activityId, category, label, row) {
+  return taskminutes.taskMinutes(row, () => { const est = estimateForGoal(activityId, category, 'weekly', label); return est && est.minutes; });
 }
 
 // Pur. statuses : statuts des objectifs hebdomadaires de la période. null si aucun objectif hebdomadaire.
@@ -929,8 +1002,8 @@ function recomputeWeeklyStatus(weeklyId) {
     FROM goal_weekly w JOIN goal_periods p ON p.id = w.periodId WHERE w.id = ?
   `).get(weeklyId);
   if (!w) return;
-  const rows = db.prepare('SELECT label, done FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
-  const st = weeklyStatusFromTasks(rows.map((r) => ({ done: !!r.done, minutes: weeklyTaskMinutes(w.activityId, w.category, r.label) })));
+  const rows = db.prepare('SELECT label, done, medianMinutes, maxMinutes FROM sub_project_items WHERE goalWeeklyId = ?').all(weeklyId);
+  const st = weeklyStatusFromTasks(rows.map((r) => ({ done: !!r.done, minutes: weeklyTaskMinutes(w.activityId, w.category, r.label, r) })));
   if (st != null && st !== w.status) db.prepare('UPDATE goal_weekly SET status = ? WHERE id = ?').run(st, weeklyId);
   recomputePeriodStatus(w.periodId);
 }
@@ -950,7 +1023,7 @@ function planningForActivity(activityId, category) {
   assertReadableCategory(activityId, category);
   const activity = db.prepare('SELECT id, name, ownerId FROM activities WHERE id = ?').get(activityId);
   const plan = ensurePlan(activityId, category);
-  const currentPeriodNumber = periodNumberForDate(plan.startDate, todayLocal());
+  const currentPeriodNumber = periodNumberFor(activityId, category, plan.startDate, todayLocal());
   // 13 septembre 2026 (correction, demande d'Emilien) : on matérialise tout
   // le CYCLE de 13 périodes en cours, pas seulement les périodes jusqu'à
   // aujourd'hui. ensurePeriodRow() ne fait que poser les dates de la période
@@ -969,7 +1042,7 @@ function planningForActivity(activityId, category) {
     // Borne : jamais de période au-delà de la dernière année créée (un report
     // ou un étalement peut avoir matérialisé la période 14+ ; elle reste cachée tant que
     // l'utilisateur n'a pas créé l'année suivante).
-    .filter((p) => p.periodNumber <= cycleLastPeriodNumber)
+    .filter((p) => p.periodNumber <= cycleLastPeriodNumber || p.kind === 'libre')
     .map((p) => {
       const weeklies = weeklyForPeriod(p.id).map((w) => ({
         ...w,
@@ -977,8 +1050,8 @@ function planningForActivity(activityId, category) {
         // Un objectif reporté est, par définition, non réalisé : pastille rouge.
         status: (w.status == null && w.carriedOverFromId) ? 'non_atteint' : w.status,
         taskTotal: db.prepare('SELECT COUNT(*) AS n FROM sub_project_items WHERE goalWeeklyId = ?').get(w.id).n,
-        actualMinutes: weekIsOver(p.startDate, w.weekIndex)
-          ? Math.round(actualSecondsForRange(activityId, weekBounds(p.startDate, w.weekIndex).start, weekBounds(p.startDate, w.weekIndex).end) / 60)
+        actualMinutes: weekBoundsIn(p, w.weekIndex).end < todayLocal()
+          ? Math.round(actualSecondsForRange(activityId, weekBoundsIn(p, w.weekIndex).start, weekBoundsIn(p, w.weekIndex).end) / 60)
           : null,
       }));
       weeklies.forEach((w) => { w.accuracy = accuracyScore(w.estimateMinutes, w.actualMinutes); });
@@ -990,6 +1063,7 @@ function planningForActivity(activityId, category) {
       return {
         ...p,
         firstWeekOfYear: weekOfYear(p.periodIndexInCycle, 1),
+        weeksCount: weeksInPeriod(p),
         weeklies,
         assignees: periodAssigneesFor(p.id),
         actualMinutes,
@@ -1006,10 +1080,6 @@ function planningForActivity(activityId, category) {
     periods,
     members: membersForActivity(activityId),
   };
-}
-
-function weekIsOver(periodStart, weekIndex) {
-  return weekBounds(periodStart, weekIndex).end < todayLocal();
 }
 
 // ---------------------------------------------------------------------------
@@ -1104,6 +1174,7 @@ function setWeekly(activityId, category, periodNumber, weekIndex, text, descript
   const plan = ensurePlan(activityId, category);
   ensurePeriodsUpTo(activityId, category, periodNumber, plan.startDate);
   const period = db.prepare('SELECT * FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, category, periodNumber);
+  if (weekIndex > weeksInPeriod(period)) { const e = new Error('Cette période a seulement ' + weeksInPeriod(period) + ' semaine(s).'); e.statusCode = 400; throw e; }
   const cleanText = String(text || '').trim();
   let estimate = estimateForGoal(activityId, category, 'weekly', cleanText);
 
@@ -1337,6 +1408,10 @@ module.exports = {
   migratePlansToYearGrid,
   weekBounds,
   periodNumberForDate,
+  periodNumberFor,
+  weeksInPeriod,
+  weekBoundsIn,
+  setPeriodDates,
   estimateForGoal,
   beginEstimateMemo,
   endEstimateMemo,
@@ -1355,9 +1430,7 @@ module.exports = {
   ensurePlan,
   ensurePeriodRow,
   weeklyForPeriod,
-  // Exportée pour server/lib/goalsdailypriority.js (Brief B, liste
-  // quotidienne priorisée, 22 septembre 2026) — même fonction interne que
-  // ci-dessus, pas de doublon.
+  // Exportée (même fonction interne que ci-dessus, pas de doublon).
   daysBetween,
   // Réalignement rétroactif ponctuel (16 septembre 2026, discussion Objectifs
   // — D, 6ᵉ passage) — réservées à scripts/realign-goals-monday.js, jamais

@@ -1,0 +1,155 @@
+// Résumé annuel des grands objectifs (6 nov. 2026) : un résumé PAR ACTIVITÉ ET PAR AN, à la demande (premier affichage de la case de l'année dans l'arbre des années).
+// « Grand objectif » = objectif qui a au moins un sous-objectif ; année = année de son échéance. Le résumé est un AFFICHAGE DÉRIVÉ, jamais une donnée saisie :
+// il ne modifie rien. Repli sans IA = liste courte des titres (toujours disponible : sans clé API, IA désactivée, panne, limite atteinte).
+// Cache : par jeu de grands objectifs (hash des ids + titres + échéances) ; mémoire 24 h (aicache.memoize) et table objectifs_resume_annuel pour ne pas régénérer
+// tant que le jeu ne change pas. La table porte aussi userId (les objectifs sont ceux d'une personne ; effacée avec le compte, Loi 25).
+const crypto = require('crypto');
+const db = require('../db');
+
+db.exec(`CREATE TABLE IF NOT EXISTS objectifs_resume_annuel (
+  userId TEXT NOT NULL,
+  activityId INTEGER NOT NULL,
+  year INTEGER NOT NULL,
+  hash TEXT NOT NULL,
+  text TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  PRIMARY KEY (userId, activityId, year)
+)`);
+
+const FEATURE = 'resume-annuel', MAX_OBJECTIVES = 15, MAX_TITLE = 140, MAX_OUT_TOKENS = 200, MAX_TEXT = 600;
+const SYSTEM = 'Tu résumes en français, pour une personne, ses grands objectifs d’une année. Réponds par UNE phrase courte, puis au plus 3 puces commençant par « - ». '
+  + 'Tu n’inventes rien : seulement ce qui est dans la liste (titres et échéances).';
+let caller = null; // tests : fausse IA (prompt) -> texte
+function setCaller(fn) { caller = fn; }
+function err(msg, code) { return Object.assign(new Error(msg), { statusCode: code || 400 }); }
+
+// TROIS VOIES (décision d'Émilien, 6 nov. 2026 : limiter FORTEMENT l'IA des comptes gratuits) :
+//  1) 'aucune' (compte gratuit, par défaut) : le grand objectif est l'ACCUMULATION des titres reliés ; AUCUN appel IA, le crédit gratuit n'est jamais touché ;
+//  2) 'expansion' : IA intégrée (modèle léger, cache agressif : jeu de titres inchangé = aucun nouvel appel, mémoire 7 jours) ;
+//  3) 'personnelle' : une IA branchée par « Connecter mon IA » (jeton actif) fait le travail dans SA conversation, avec l'outil de lecture `arbre_objectifs` du connecteur ;
+//     Noèsis ne rappelle pas Anthropic (iaPersonnelle: true : l'interface sait que l'IA de la personne s'en charge).
+const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
+function aiMode(userId) {
+  try { if (require('./offer1access').hasOffer1Access(userId)) return 'expansion'; } catch (e) { /* repli */ }
+  try { if (db.prepare('SELECT 1 FROM ai_tokens WHERE userId = ? AND revokedAt IS NULL LIMIT 1').get(userId)) return 'personnelle'; } catch (e) { /* repli */ }
+  return 'aucune';
+}
+function descOf(metaJson) { try { return String(JSON.parse(metaJson || '{}').description || '').replace(/\s+/g, ' ').trim().slice(0, 300); } catch (e) { return ''; } } // « Description (pour l'IA) » : 300 caractères au plus
+function bigOnes(userId, activityId, year) {
+  return db.prepare(`SELECT o.id, o.title, o.endDate, o.metaJson, o.poleKey, o.categoryKey FROM user_objectives o
+    WHERE o.userId = ? AND o.isMacro = 0 AND o.activityId = ? AND substr(o.endDate, 1, 4) = ?
+      AND EXISTS (SELECT 1 FROM user_objectives c WHERE c.parentId = o.id AND c.userId = o.userId)
+    ORDER BY o.endDate, o.id`).all(userId, activityId, String(year))
+    .filter((r) => { try { return !JSON.parse(r.metaJson || '{}').abandoned; } catch (e) { return true; } })
+    .map((r) => ({ id: r.id, title: r.title, endDate: r.endDate, desc: descOf(r.metaJson), poleKey: r.poleKey, categoryKey: r.categoryKey }));
+}
+const hashOf = (bigs) => crypto.createHash('sha256').update(JSON.stringify(bigs.map((b) => [b.id, b.title, b.endDate, b.desc]))).digest('hex');
+const titlesText = (bigs) => bigs.map((b) => '- ' + b.title).join('\n');
+function buildPrompt(bigs, year) {
+  return 'Année ' + year + '. Grands objectifs :\n' + bigs.slice(0, MAX_OBJECTIVES).map((b) => '- ' + String(b.title).slice(0, MAX_TITLE) + ' (échéance ' + b.endDate + ')' + (b.desc ? ' — ' + b.desc : '')).join('\n');
+}
+function clean(text) {
+  const lines = String(text || '').replace(/\r/g, '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const sentence = lines.find((l) => !/^[-•*]/.test(l)), bullets = lines.filter((l) => /^[-•*]/.test(l)).slice(0, 3).map((l) => '- ' + l.replace(/^[-•*]\s*/, ''));
+  const out = [sentence].concat(bullets).filter(Boolean).join('\n').slice(0, MAX_TEXT);
+  return out || null;
+}
+async function callAi(userId, prompt) {
+  if (caller) return clean(await caller(prompt));
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  const aibudget = require('./aibudget'), aimodels = require('./aimodels');
+  const model = aimodels.fastModelRaw();
+  if (model === 'off') return null;
+  const res = await aibudget.runAs(userId, () => aibudget.fetchAnthropic(FEATURE, 'https://api.anthropic.com/v1/messages', {
+    method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('rapprochement')),
+    headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model, max_tokens: MAX_OUT_TOKENS, temperature: 0, system: SYSTEM, messages: [{ role: 'user', content: prompt }] }),
+  }));
+  if (!res.ok) return null;
+  const body = await res.json();
+  return clean((body.content || []).map((b) => b.text || '').join(''));
+}
+
+// Retourne { text, source: 'ia' | 'titres', generatedAt, count } ; jamais d'erreur d'IA (repli sur les titres).
+async function resumeAnnuel(userId, activityId, year, idsParam) {
+  const y = Number(year), aid = Number(activityId);
+  if (!Number.isInteger(y) || y < 2000 || y > 2100) throw err('Année invalide.');
+  if (!db.prepare('SELECT 1 FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND m.activityId = ? AND a.active = 1').get(userId, aid)) throw err('Activité introuvable.', 404);
+  const pt = require('./portee');
+  const only = idsParam ? new Set(String(idsParam).split(',').map(Number).filter(Number.isInteger)) : null; // case d'UN pôle : seulement ses objectifs, jamais ceux des autres pôles de l'année
+  const bigs = bigOnes(userId, aid, y).filter((b) => !only || only.has(b.id)).filter((b) => pt.objectifVisible(userId, aid, b.poleKey, b.categoryKey)); // activité partagée : seulement les objectifs de la portée du responsable (un simple membre : aucun)
+  if (!bigs.length) return { text: '', source: 'titres', generatedAt: null, count: 0, iaPersonnelle: false };
+  const mode = aiMode(userId);
+  if (mode !== 'expansion') return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic
+  const hash = hashOf(bigs);
+  const row = only ? null : db.prepare('SELECT hash, text, createdAt FROM objectifs_resume_annuel WHERE userId = ? AND activityId = ? AND year = ?').get(userId, aid, y);
+  if (row && row.hash === hash) return { text: row.text, source: 'ia', generatedAt: row.createdAt, count: bigs.length, iaPersonnelle: false };
+  let text = null;
+  try {
+    const aicache = require('./aicache');
+    text = await aicache.memoize([FEATURE, userId, aid, y, hash], () => callAi(userId, buildPrompt(bigs, y)), { cacheIf: (v) => !!v, ttlMs: CACHE_TTL_MS });
+  } catch (e) { text = null; } // panne, limite de budget ou plafond : repli sans IA
+  if (!text) return { text: titlesText(bigs), source: 'titres', generatedAt: null, count: bigs.length, iaPersonnelle: false };
+  const now = new Date().toISOString();
+  if (!only) db.prepare(`INSERT INTO objectifs_resume_annuel (userId, activityId, year, hash, text, createdAt) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(userId, activityId, year) DO UPDATE SET hash = excluded.hash, text = excluded.text, createdAt = excluded.createdAt`).run(userId, aid, y, hash, text, now);
+  return { text, source: 'ia', generatedAt: now, count: bigs.length, iaPersonnelle: false };
+}
+// ---- Titre commun d'un macro (fonction macro-titre) : UNE ligne ≤ 140 caractères à partir des titres des objectifs reliés ----
+// Entrée : childIds[] (objectifs de la personne) OU columns[] ({ activityId, poleKey?, categoryKey? } : sans poleKey = niveau activité, avec poleKey = pôle, avec categoryKey = secteur) ;
+// par colonne, les DEUX objectifs les plus récents. Ne crée rien : le client enregistre ensuite par POST /objectifs/macro avec le titre (modifiable).
+// Même mécanique que le résumé annuel : modèle léger, cache par hash des titres (mémoire 24 h), crédit gratuit et plafond global appliqués par aibudget (crédit épuisé : aucun appel),
+// repli sans IA = titres joints par « · ».
+const TITLE_FEATURE = 'macro-titre', MAX_TITLE_LINE = 140, TITLE_SYSTEM = 'Tu écris, en français, UN titre d’objectif commun, sur une seule ligne (moins de 100 caractères, sans guillemets), qui englobe les objectifs listés. Réponds uniquement par le titre.';
+let titleCaller = null;
+function setTitleCaller(fn) { titleCaller = fn; }
+function titlesFor(userId, body) {
+  const rows = [];
+  const notAb = (r) => { try { return !JSON.parse(r.metaJson || '{}').abandoned; } catch (e) { return true; } };
+  if (Array.isArray(body && body.childIds) && body.childIds.length) {
+    body.childIds.slice(0, 20).forEach((id) => { const r = db.prepare('SELECT id, title, metaJson FROM user_objectives WHERE id = ? AND userId = ?').get(Number(id), userId); if (!r) throw err('Objectif introuvable.', 404); rows.push(r); });
+  } else if (Array.isArray(body && body.columns) && body.columns.length) {
+    body.columns.slice(0, 10).forEach((c) => {
+      const aid = Number(c && c.activityId);
+      if (!db.prepare('SELECT 1 FROM activity_members WHERE userId = ? AND activityId = ?').get(userId, aid)) throw err('Activité introuvable.', 404);
+      require('./portee').exigerObjectif(userId, aid, c.poleKey || null, c.categoryKey || null); // activité partagée : portée du responsable
+      let where = "activityId = ? AND (level IS NULL OR level = 'activite')", args = [aid];
+      if (c.poleKey && c.categoryKey) { where = "activityId = ? AND level = 'secteur' AND poleKey = ? AND categoryKey = ?"; args = [aid, String(c.poleKey), String(c.categoryKey)]; }
+      else if (c.poleKey) { where = "activityId = ? AND level = 'pole' AND poleKey = ?"; args = [aid, String(c.poleKey)]; }
+      db.prepare('SELECT id, title, metaJson FROM user_objectives WHERE userId = ? AND isMacro = 0 AND ' + where + ' ORDER BY id DESC').all(userId, ...args).filter(notAb).slice(0, 2).forEach((r) => rows.push(r));
+    });
+  } else throw err('Indique des objectifs ou des colonnes à relier.');
+  const seen = new Set(), titles = []; titles.descs = [];
+  rows.forEach((r) => { if (!seen.has(r.id)) { seen.add(r.id); titles.push(String(r.title)); titles.descs.push(descOf(r.metaJson)); } });
+  if (!titles.length) throw err('Aucun objectif à relier.');
+  const out = titles.slice(0, 12); out.descs = titles.descs.slice(0, 12); return out;
+}
+const clipLine = (s) => { const t = String(s || '').replace(/[\r\n]+/g, ' ').replace(/^["«\s]+|["»\s]+$/g, '').trim(); return t.length > MAX_TITLE_LINE ? t.slice(0, MAX_TITLE_LINE - 1).trimEnd() + '…' : t; };
+const firstLine = (s) => clipLine(String(s || '').split(/\r?\n/).find((l) => l.trim()) || '');
+async function titreMacro(userId, body) {
+  const titles = titlesFor(userId, body), joined = clipLine(titles.join(' · '));
+  const mode = aiMode(userId);
+  if (mode !== 'expansion') return { title: joined, source: 'titres', iaPersonnelle: mode === 'personnelle' }; // zéro appel Anthropic, crédit gratuit intact
+  const prompt = 'Objectifs à englober :\n' + titles.map((t, i) => '- ' + t.slice(0, MAX_TITLE) + (titles.descs && titles.descs[i] ? ' — ' + titles.descs[i] : '')).join('\n');
+  const hash = crypto.createHash('sha256').update(JSON.stringify([titles, titles.descs || []])).digest('hex');
+  let line = null;
+  try {
+    const aicache = require('./aicache');
+    line = await aicache.memoize([TITLE_FEATURE, userId, hash], async () => {
+      if (titleCaller) return firstLine(await titleCaller(prompt));
+      if (!process.env.ANTHROPIC_API_KEY) return null;
+      const aibudget = require('./aibudget'), aimodels = require('./aimodels'), model = aimodels.fastModelRaw();
+      if (model === 'off') return null;
+      const res = await aibudget.runAs(userId, () => aibudget.fetchAnthropic(TITLE_FEATURE, 'https://api.anthropic.com/v1/messages', {
+        method: 'POST', signal: AbortSignal.timeout(aimodels.timeoutMs('rapprochement')),
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model, max_tokens: 60, temperature: 0, system: TITLE_SYSTEM, messages: [{ role: 'user', content: prompt }] }),
+      }));
+      if (!res.ok) return null;
+      const b = await res.json();
+      return firstLine((b.content || []).map((x) => x.text || '').join(''));
+    }, { cacheIf: (v) => !!v, ttlMs: CACHE_TTL_MS });
+  } catch (e) { line = null; } // panne, crédit épuisé ou plafond : repli sans IA
+  return line ? { title: line, source: 'ia', iaPersonnelle: false } : { title: joined, source: 'titres', iaPersonnelle: false };
+}
+module.exports = { resumeAnnuel, titreMacro, setTitleCaller, setCaller, bigOnes, FEATURE };

@@ -41,8 +41,8 @@ function buildContext(activityId) {
     const lo = k * goals.PERIODS_PER_CYCLE + 1;
     const todo = [], written = [];
     for (let n = lo; n < lo + goals.PERIODS_PER_CYCLE; n++) {
-      const b = goals.periodBounds(plan.startDate, n);
-      const row = db.prepare('SELECT id, mainGoalText FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, key, n);
+      const row = db.prepare('SELECT id, mainGoalText, startDate, endDate FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?').get(activityId, key, n);
+      const b = row ? { start: row.startDate, end: row.endDate } : goals.periodBounds(plan.startDate, n);
       if (row && String(row.mainGoalText || '').trim()) { written.push({ n, start: b.start, text: row.mainGoalText }); continue; }
       if (b.end < today || (row && proposedBefore(activityId, row.id))) continue;
       todo.push({ n, start: b.start, end: b.end });

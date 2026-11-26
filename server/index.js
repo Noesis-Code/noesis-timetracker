@@ -32,6 +32,10 @@ try { require('./lib/profilecolors-staging').applyProfileColorsOnStaging(); } ca
 try { require('./lib/scenarios-staging').seedScenariosOnStaging(); } catch (e) { console.error('[scenarios-staging]', e.message); }
 // Staging seulement (sauf SEED_STATS_DEMO=0) : (re)crée l'activité « Exemple statistiques (test) » (+ une confidentielle).
 try { require('./lib/stats-demo-staging').seedStatsDemoOnStaging(); } catch (e) { console.error('[stats-demo-staging]', e.message); }
+// Staging seulement (sauf SEED_OBJECTIFS_DEMO=0) : objectifs de démonstration (arbre des objectifs de la page 1), idempotent.
+try { require('./lib/seed-staging').seedDemoObjectivesOnStaging(); } catch (e) { console.error('[objectifs-demo]', e.message); }
+try { require('./lib/seed-staging').seedCompteAOnStaging(); } catch (e) { console.error('[compte-a]', e.message); }
+try { require('./lib/seed-staging').seedCompteBOnStaging(); } catch (e) { console.error('[compte-b]', e.message); }
 // Cale les plans sur la grille de l'année (période 1 = semaine du 1er janvier). Idempotent.
 try { const r = require('./lib/goals').migratePlansToYearGrid(); if (r.length) console.log('[year-grid] ' + r.length + ' plan(s) recalé(s)'); } catch (e) { console.error('[year-grid]', e.message); }
 try { const r = require('./lib/subprojectmigration').migrateSubProjectsToPoles(); if (r.length) console.log('[subproject-migration] ' + r.length + ' activité(s) migrée(s)'); } catch (e) { console.error('[subproject-migration]', e.message); }
@@ -60,7 +64,10 @@ app.set('trust proxy', 1);
 // Site de la compagnie (31 oct. 2026) : compagnienoesis.com et www.compagnienoesis.com servent une page de présentation (site/index.html), jamais l'application.
 const SITE_HOSTS = ['compagnienoesis.com', 'www.compagnienoesis.com'];
 app.use((req, res, next) => {
+  if (require('./lib/legalpages').serve(req, res)) return; // pages légales publiques (tous les hôtes, GET seulement)
   if (!SITE_HOSTS.includes(req.hostname)) return next();
+  // Le lien de récupération de mot de passe (?reset=…) mène à l'application, pas à la page de présentation.
+  if (req.path === '/' && req.query && req.query.reset) return res.redirect(302, 'https://web-production-15a4a.up.railway.app/?reset=' + encodeURIComponent(String(req.query.reset)));
   if ((req.path !== '/' && req.path !== '/index.html') || (req.method !== 'GET' && req.method !== 'HEAD')) return res.status(404).type('text/plain').send('Introuvable');
   res.set('Cache-Control', 'public, max-age=300');
   res.sendFile(require('path').join(__dirname, '..', 'site', 'index.html'));
@@ -200,6 +207,13 @@ app.use('/api', require('./routes/statsactivityprogress'));
 // 12 septembre 2026) — 13 périodes de 4 semaines par activité, voir
 // server/lib/goals.js.
 app.use('/api', require('./routes/goals'));
+// Objectifs de la Feuille de route (contexte, proposition d'étapes, création après validation, liste, détail).
+app.use('/api', require('./routes/bilan')); // Bilan : moyenne des tâches réalisées, tâches urgentes par période, proportion réelle contre demandée
+app.use('/api', require('./routes/tachesrangement')); // Rangement des tâches : proposition unique (catégorie, objectif) et correction apprise
+app.use('/api', require('./routes/objectifsretard')); // avant routes/objectifs : « /objectifs/retard » ne doit pas être lu comme un :id
+app.use('/api', require('./routes/objectifs'));
+app.use('/api', require('./routes/responsables')); // responsables d'une activité (8 nov. 2026)
+app.use('/api', require('./routes/membres')); // appartenance d'un membre à une catégorie (19 nov. 2026)
 // Pôles/secteurs (gestion des catégories), extraits de routes/goals.js.
 app.use('/api', require('./routes/categories'));
 // Parcours d'achat de l'Offre 1 (8 septembre 2026) : démarrage du paiement
@@ -208,6 +222,8 @@ app.use('/api', require('./routes/categories'));
 app.use('/api', require('./routes/offercheckout'));
 app.use('/api', require('./routes/offer1access'));
 app.use('/api', require('./routes/strategy'));
+app.use('/api', require('./routes/repartitionmembres')); // Parts de tâches par membre d'une catégorie (après la Stratégie) : héritage, équilibrage proposé ligne par ligne
+app.use('/api', require('./routes/categoriestrategie')); // Panneau « Stratégie » par catégorie (activité, pôle, secteur) : questions facultatives, héritage, priment sur la lecture silencieuse
 // Confirmation du consentement parental (14 septembre 2026, point 5 du volet
 // Légal du chantier paiement/abonnements) — route PUBLIQUE, sans req.userId :
 // le représentant légal n'a pas de compte TimeTracker, voir l'en-tête de
@@ -221,6 +237,7 @@ app.use('/api', require('./routes/history'));
 app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/push'));
 app.use('/api', require('./routes/announcements'));
+app.use('/api', require('./routes/diag')); // mode diagnostic : mesures de mise en page, staging seulement
 // Sondages (3 septembre 2026, 11ᵉ discussion) — socle générique réutilisable
 // depuis plusieurs zones de l'app, voir server/lib/polls.js.
 app.use('/api', require('./routes/polls'));
@@ -241,11 +258,6 @@ app.use('/api', require('./routes/calendar'));
 app.use('/api', require('./routes/documenttasks'));
 app.use('/api', require('./routes/changeproposals'));
 app.use('/api', require('./routes/drive'));
-// Suggestion quotidienne (21 septembre 2026) — capacité du jour + sélection
-// de tâches, notification matinale déclenchée par
-// server/lib/dailysuggestioncron.js (démarré plus bas). Segment neuf et
-// indépendant, voir server/lib/dailysuggestion.js.
-app.use('/api', require('./routes/dailysuggestion'));
 app.use('/api', require('./routes/horaire')); // module « Horaire » (gestionnaire seul, refusé si le module est inactif : modulegate.js)
 
 // Le service worker ne doit JAMAIS être servi depuis le cache du navigateur :
@@ -321,12 +333,16 @@ app.use(require('./lib/errorlog').errorHandler);
 // sur toutes les interfaces (0.0.0.0), sinon le routeur du service ne voit
 // jamais l'application. Mettre NOESIS_HOST=0.0.0.0 permet aussi de tester
 // depuis un téléphone sur le même WiFi.
+// Un rejet de promesse ou une exception non attrapée ne doit jamais tuer le processus (Railway : « Application failed to respond » sur tous les points d'accès pendant le redémarrage) : on journalise et on continue.
+process.on('unhandledRejection', (reason) => { console.error('[processus] rejet non attrapé', reason); });
+process.on('uncaughtException', (err) => { console.error('[processus] exception non attrapée', err); });
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.NOESIS_HOST || (process.env.PORT ? '0.0.0.0' : 'localhost');
 app.listen(PORT, HOST, () => {
-  console.log(`Noèsis TimeTracker en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(`Noèsis en écoute sur http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`Version de l'app servie : ${APP_VERSION}`);
   require('./lib/envcheck').logAtStartup();
+  require('./lib/envcheck').logRecoveryAtStartup();
 
   // Rappels avant l'échéance d'un sous-projet (4 septembre 2026, discussion
   // "Calendrier des clôtures") : 3 jours avant, puis la veille.
@@ -344,13 +360,6 @@ app.listen(PORT, HOST, () => {
   // que les rappels d'échéance ci-dessus. Voir server/lib/goals.js.
   require('./lib/goals').startGoalsSweep();
 
-  // Rappels avant la fin d'une période d'objectif (15 septembre 2026,
-  // discussion "Objectifs — D : Calendrier & intégrations") : 3 jours avant,
-  // puis la veille — même mécanisme que les rappels d'échéance de
-  // sous-projets ci-dessus. Démarré après l'écoute, même principe. Voir
-  // server/lib/goalreminders.js.
-  require('./lib/goalreminders').startGoalReminders();
-
   // Sauvegarde chiffrée hors site (Cloudflare R2). Démarrée APRÈS l'écoute,
   // comme les rappels d'échéance ci-dessus : la première copie a lieu 2
   // minutes après le démarrage, jamais immédiatement.
@@ -363,11 +372,6 @@ app.listen(PORT, HOST, () => {
 
   // Surveillance du dossier Drive (16 oct. 2026) : DRIVE_SYNC_INTERVAL_MIN (défaut 30, 0 = désactivé).
   require('./lib/drivesync').startDriveSync();
-
-  // Suggestion quotidienne (21 septembre 2026) : notification matinale à
-  // heure fixe, démarrée après l'écoute comme les autres tâches planifiées
-  // ci-dessus. Voir server/lib/dailysuggestioncron.js.
-  require('./lib/dailysuggestioncron').startDailySuggestionCron();
 
   // Recalcul des objectifs d'après le temps réel (7 oct. 2026) : PROPOSITIONS seulement, une fois par nuit
   // (heure de Montréal). Désactivable : GOALS_RECALC_CRON=off. Voir server/lib/goalsrecalc.js.
