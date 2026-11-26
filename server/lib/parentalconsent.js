@@ -66,7 +66,7 @@ async function createOrReuse({ req, activityId, userId, guardianName, guardianEm
   const text = [
     `Bonjour ${guardianName},`,
     '',
-    `Un utilisateur de Noèsis TimeTracker t'a indiqué·e comme représentant légal pour souscrire à Expansion (${priceLabel}, résiliable à tout moment).`,
+    `Un utilisateur de Noèsis t'a indiqué·e comme représentant légal pour souscrire à Expansion (${priceLabel}, résiliable à tout moment).`,
     '',
     "La loi québécoise (art. 157 du Code civil du Québec) exige ton consentement exprès pour cet engagement financier récurrent avant qu'il ne soit activé, puisqu'il excède les besoins ordinaires et usuels d'un mineur.",
     '',
@@ -74,12 +74,12 @@ async function createOrReuse({ req, activityId, userId, guardianName, guardianEm
     '',
     `Ce lien expire le ${new Date(expiresAt).toLocaleDateString('fr-CA')}. Si tu ne reconnais pas cette demande, tu peux simplement l'ignorer : aucun abonnement ne sera créé sans ta confirmation.`,
     '',
-    'Noèsis Inc. — confidentialite.noesis@gmail.com',
+    'Noèsis Inc. — admin@compagnienoesis.com',
   ].join('\n');
 
   await mail.sendMail({
     to: guardianEmail,
-    subject: 'Consentement requis — abonnement Expansion de Noèsis TimeTracker',
+    subject: 'Consentement requis — abonnement Expansion de Noèsis',
     text,
   });
 

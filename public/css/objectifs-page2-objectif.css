@@ -1,7 +1,7 @@
 /* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
  *
  * scission de objectifs-page2.css en 2 fichiers exclusifs,
- * un par onglet (voir l'en-tête de js/objectifs-page2-taches.js). Déplacement
+ * un par onglet (voir l'en-tête de js/fenetre-activite.js). Déplacement
  * PUR : aucune règle changée. Contient le cadre de pôle (.goalsActivityHeader,
  * .goalsSwipeBtn), la grille (.goalsGrid*) et le rail tactile (.goalsScrub*).
  * Historique antérieur à la scission conservé ci-dessous (ancien en-tête :
@@ -252,7 +252,7 @@
 /* cadre du pôle = même verre que les boutons Tâches/Objectifs (jetons --glass-*). */
 :root #goalsActivitySwitcher .goalsActivityHeader {
   background: var(--glass-bg); border: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 1px 0 var(--glass-border);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 
@@ -280,7 +280,6 @@
 .goalsYearCol--vide .goalsGridHeadCell { background: var(--yearShade); color: var(--yearInk); border-color: transparent; font-weight: 600; }
 .goalsYearText { margin: 0; padding: 2px 8px 6px; font-size: 13px; font-weight: 700; line-height: 1.3; cursor: pointer; }
 .goalsYearField { width: 100%; box-sizing: border-box; resize: none; border: none; border-radius: 12px; background: var(--bg); color: var(--text); padding: 8px 10px; font: inherit; font-size: 13px; min-height: 44px; overflow: hidden; }
-.goalsYearSave { border: none; border-radius: 999px; background: var(--bg); color: var(--text); padding: 7px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .goalsYearCol--noPill.goalsYearCol--vide { padding: 3px; }
 .goalsYearCol--noPill 
@@ -289,4 +288,14 @@
 .goalsYearRow { display: flex; align-items: center; }
 .goalsYearRow .statsPeriodMenuItem { flex: 1 1 auto; }
 .goalsYearNew { font-weight: 700; }
-.goalsYearPickWrap .statsPeriodMenu { z-index: 30; background: var(--card) !important; }
+.goalsYearPickWrap .statsPeriodMenu { z-index: 30; }
+
+/* Années relatives autour de la grille : « Année N+1 · 2027 » au-dessus (futur), « Année N-1 » au-dessous (passé) ; l'année affichée en violet clair. */
+.goalsYearBands { margin: 0 0 8px; }
+.goalsYearBand { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-light); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.goalsYearBand.on { color: var(--text); cursor: default; }
+
+/* Sélecteur de pôle simplifié (28 oct. 2026) : texte seul « ‹ Entreprise › », sans cadre, fond, liseré ni pastille ; flèches discrètes aux extrémités (zone de toucher 44 px, R37). */
+:root #goalsActivitySwitcher #goalsActivityHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; min-height: 44px; }
+#goalsActivityHeader #goalsPoleDot { display: none; }
+#goalsActivityHeader .activityPageName { color: var(--poleColor, var(--text)); }

@@ -1,0 +1,121 @@
+// Pages web publiques des documents légaux (adresse exigée par l'App Store et Google Play).
+// Aucune copie du texte : il est lu à la volée dans public/index.html (français) et public/legal-en.js (anglais),
+// et le HTML généré est mis en cache tant que ces deux fichiers ne changent pas (date de modification).
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
+const INDEX = path.join(PUBLIC_DIR, 'index.html');
+const LEGAL_EN = path.join(PUBLIC_DIR, 'legal-en.js');
+
+// Pages de suppression du compte (exigées par Google Play) : texte propre, faits repris de la politique (sections 5 et 6bis).
+const MAIL = 'admin@compagnienoesis.com';
+const DELETE_FR = [
+  '<h3>Supprimer votre compte dans l’application</h3>',
+  '<p>Ouvrez Noèsis, allez dans Profil → Réglages, puis touchez le bouton « Supprimer mon compte » tout en bas et confirmez. L’effet est immédiat.</p>',
+  '<h3>Ou par courriel</h3>',
+  '<p>Écrivez à <a href="mailto:' + MAIL + '">' + MAIL + '</a> depuis l’adresse courriel de votre compte. Nous répondons dans un délai maximal de 30 jours.</p>',
+  '<h3>Ce qui est effacé</h3>',
+  '<p>Dès que vous supprimez votre compte, tout est effacé immédiatement et définitivement de la base de données vivante : votre profil, vos activités, votre historique, vos notes, vos pièces jointes, vos messages, vos liens avec d’autres personnes et votre adresse de calendrier. Il n’y a pas de période de grâce et pas de corbeille : la suppression est irréversible.</p>',
+  '<h3>Ce qui peut subsister</h3>',
+  '<p>Les sauvegardes chiffrées : une copie de vos renseignements, déjà chiffrée, peut subsister jusqu’à 12 mois dans ces sauvegardes avant d’être définitivement purgée par rotation automatique, même après la suppression de votre compte. Personne ne peut lire cette copie sans la clé de déchiffrement, qui n’est jamais transmise à notre fournisseur de sauvegarde.</p>',
+  '<p>Une activité partagée dont d’autres personnes restent membres continue d’exister, avec sa propriété transférée au membre restant le plus ancien ; les sessions chronométrées et messages des autres membres restent inchangés, seuls les vôtres sont retirés.</p>',
+  '<p class="hint">Détails : <a href="/confidentialite">Politique de confidentialité</a>, sections 5 et 6bis.</p>',
+].join('\n');
+const SUPPORT_FR = [
+  '<h3>Nous écrire</h3>',
+  '<p>Écris-nous à <a href="mailto:' + MAIL + '">' + MAIL + '</a> en décrivant ton problème. Nous répondons sous quelques jours ouvrables.</p>',
+  '<h3>Mot de passe oublié</h3>',
+  '<p>Sur l’écran de connexion, une fois ton nom d’utilisateur choisi, touche « Mot de passe oublié ? » et entre l’adresse courriel de ton compte : si un compte correspond, un lien t’est envoyé pour choisir un nouveau mot de passe.</p>',
+  '<h3>Retrouver tes données</h3>',
+  '<p>Dans Noèsis, va dans Profil → Réglages → « Exporter mes données » : le bouton « Télécharger mes données » te remet un fichier avec tout ce qui te concerne.</p>',
+  '<h3>Supprimer ton compte</h3>',
+  '<p>Les étapes sont sur la page <a href="/suppression-compte">Suppression du compte</a>.</p>',
+  '<h3>Confidentialité</h3>',
+  '<p>Consulte notre <a href="/confidentialite">politique de confidentialité</a>.</p>',
+].join('\n');
+const DELETE_EN = [
+  '<h3>Delete your account in the app</h3>',
+  '<p>Open Noèsis, go to Profile → Settings, then tap the “Delete my account” button at the very bottom and confirm. The effect is immediate.</p>',
+  '<h3>Or by email</h3>',
+  '<p>Write to <a href="mailto:' + MAIL + '">' + MAIL + '</a> from your account’s email address. We reply within 30 days at most.</p>',
+  '<h3>What is erased</h3>',
+  '<p>As soon as you delete your account, everything is erased immediately and permanently from the live database: your profile, your activities, your history, your notes, your attachments, your messages, your links with other people and your calendar address. There is no grace period and no trash: deletion is irreversible.</p>',
+  '<h3>What may remain</h3>',
+  '<p>Encrypted backups: a copy of your information, already encrypted, may remain for up to 12 months in these backups before being permanently purged by automatic rotation, even after your account is deleted. No one can read this copy without the decryption key, which is never sent to our backup provider.</p>',
+  '<p>A shared activity of which other people remain members continues to exist, with its ownership transferred to the oldest remaining member; the timed sessions and messages of the other members remain unchanged, only yours are removed.</p>',
+  '<p class="hint">Details: <a href="/en/privacy">Privacy Policy</a>, sections 5 and 6bis.</p>',
+].join('\n');
+
+// chemin -> modale source, langue, titre de la page
+const PAGES = {
+  '/confidentialite': { id: 'privacyPolicyModal', lang: 'fr', title: 'Politique de confidentialité' },
+  '/conditions': { id: 'legalTermsModal', lang: 'fr', title: 'Conditions d’utilisation' },
+  '/mentions-legales': { id: 'legalNoticesModal', lang: 'fr', title: 'Mentions légales' },
+  '/en/privacy': { id: 'privacyPolicyModal', lang: 'en', title: 'Privacy Policy' },
+  '/en/terms': { id: 'legalTermsModal', lang: 'en', title: 'Terms of Use' },
+  '/en/legal-notice': { id: 'legalNoticesModal', lang: 'en', title: 'Legal Notice' },
+  '/suppression-compte': { lang: 'fr', title: 'Suppression du compte', body: DELETE_FR },
+  '/assistance': { lang: 'fr', title: 'Assistance', body: SUPPORT_FR },
+  '/en/delete-account': { lang: 'en', title: 'Account deletion', body: DELETE_EN },
+};
+
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function frenchBody(html, id) {
+  const start = html.indexOf('<div id="' + id + '"');
+  if (start < 0) return null;
+  const open = '<div class="legalTermsBody">';
+  const b = html.indexOf(open, start);
+  if (b < 0) return null;
+  const from = b + open.length;
+  const end = html.indexOf('</div>', from); // le corps ne contient aucun div imbriqué
+  return end < 0 ? null : html.slice(from, end);
+}
+
+function englishDocs(src) {
+  const a = src.indexOf('var EN = {};');
+  const z = src.indexOf('var DOC_IDS');
+  if (a < 0 || z < 0) return {};
+  const ctx = {};
+  vm.runInNewContext(src.slice(a, z) + '\nthis.EN = EN;', ctx);
+  return ctx.EN || {};
+}
+
+const PAGE = (lang, title, body) => '<!doctype html>\n<html lang="' + lang + '">\n<head>\n<meta charset="utf-8">\n' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+  '<title>Noèsis — ' + esc(title) + '</title>\n<style>\n' +
+  'html{background:#0b0a0a}body{margin:0;background:#0b0a0a;color:#f3eee8;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}\n' +
+  'main{max-width:720px;margin:0 auto;padding:24px 16px 48px}h1{font-size:26px;margin:16px 0 24px}h3{font-size:18px;margin:32px 0 8px}\n' +
+  'p{margin:0 0 16px}a{color:#9c8cc8}.hint{color:#a59e96}.retour{display:inline-block;padding:12px 0}\n' +
+  '</style>\n</head>\n<body>\n<main>\n<a class="retour" href="/">← ' + (lang === 'en' ? 'Back' : 'Retour') + '</a>\n<h1>' + esc(title) + '</h1>\n' +
+  body + '\n</main>\n</body>\n</html>\n';
+
+let cache = { key: '', pages: {} };
+function build() {
+  const key = [INDEX, LEGAL_EN].map((f) => fs.statSync(f).mtimeMs).join('|');
+  if (cache.key === key) return cache.pages;
+  const html = fs.readFileSync(INDEX, 'utf8');
+  const en = englishDocs(fs.readFileSync(LEGAL_EN, 'utf8'));
+  const pages = {};
+  for (const [p, d] of Object.entries(PAGES)) {
+    const body = d.body || (d.lang === 'en' ? (en[d.id] && en[d.id].body) : frenchBody(html, d.id));
+    if (body) pages[p] = PAGE(d.lang, d.title, body);
+  }
+  cache = { key, pages };
+  return pages;
+}
+
+// Sert la page si le chemin en est une (GET/HEAD) ; renvoie true si traité.
+function serve(req, res) {
+  if ((req.method !== 'GET' && req.method !== 'HEAD') || !PAGES[req.path]) return false;
+  let page;
+  try { page = build()[req.path]; } catch (e) { page = null; }
+  if (!page) { res.status(500).type('text/plain').send('Indisponible'); return true; }
+  res.set('Cache-Control', 'public, max-age=300');
+  res.type('html').send(page);
+  return true;
+}
+
+module.exports = { serve, PATHS: Object.keys(PAGES) };

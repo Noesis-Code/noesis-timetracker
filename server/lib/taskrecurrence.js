@@ -5,6 +5,11 @@ const db = require('../db');
 
 const UNITS = ['day', 'week', 'month'];
 const MAX_EVERY = 365;
+// « X fois par semaine / mois / année » : recurEvery = X, recurUnit = perweek | permonth | peryear (répartition régulière dans le calendrier).
+// « Jours ouvrables » : recurUnit = workday (lundi à vendredi), seulement quand c'est écrit dans le titre.
+const PERIOD_UNITS = { perweek: 'week', permonth: 'month', peryear: 'year' };
+const MAX_TIMES = { perweek: 7, permonth: 31, peryear: 365 };
+const MAX_WORKDAYS = 30;
 
 function ensureColumns() {
   const cols = db.prepare('PRAGMA table_info(sub_project_items)').all().map((c) => c.name);
@@ -18,7 +23,10 @@ function normalize(rec) {
   if (rec === null || rec === undefined || rec === false || rec === '') return null;
   const every = Math.floor(Number(rec.every));
   const unit = String(rec.unit || '');
-  if (!UNITS.includes(unit) || !(every >= 1) || every > MAX_EVERY) {
+  const ok = unit === 'workday'
+    ? (every >= 1 && every <= MAX_WORKDAYS)
+    : (PERIOD_UNITS[unit] ? (every >= 1 && every <= MAX_TIMES[unit]) : (UNITS.includes(unit) && every >= 1 && every <= MAX_EVERY));
+  if (!ok) {
     throw Object.assign(new Error('Récurrence invalide.'), { statusCode: 400 });
   }
   return { every, unit };
@@ -40,8 +48,52 @@ function addInterval(iso, every, unit, anchorDay) {
   return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
 }
 
+// Dates AAAA-MM-JJ en calcul calendaire (UTC, sans heure).
+function isoMs(iso) { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); }
+function msIso(ms) { const t = new Date(ms); return t.getUTCFullYear() + '-' + pad(t.getUTCMonth() + 1) + '-' + pad(t.getUTCDate()); }
+function addDaysIso(iso, n) { return msIso(isoMs(iso) + n * 86400000); }
+function weekdayOf(iso) { return new Date(isoMs(iso)).getUTCDay(); } // 0 = dimanche
+function addWorkdays(iso, n) {
+  let d = iso;
+  for (let i = 0; i < n; i += 1) { do { d = addDaysIso(d, 1); } while (weekdayOf(d) === 0 || weekdayOf(d) === 6); }
+  return d;
+}
+function periodStart(iso, per) {
+  if (per === 'week') return addDaysIso(iso, -((weekdayOf(iso) + 6) % 7)); // lundi
+  if (per === 'month') return iso.slice(0, 8) + '01';
+  return iso.slice(0, 5) + '01-01';
+}
+function nextPeriodStart(start, per) {
+  if (per === 'week') return addDaysIso(start, 7);
+  const [y, m] = start.split('-').map(Number);
+  if (per === 'month') return m === 12 ? (y + 1) + '-01-01' : y + '-' + pad(m + 1) + '-01';
+  return (y + 1) + '-01-01';
+}
+// X dates réparties régulièrement dans la période (3 par mois : le 1er, le 11, le 21 ; 3 par semaine : lundi, mercredi, vendredi).
+function occurrencesInPeriod(start, per, times) {
+  const len = Math.round((isoMs(nextPeriodStart(start, per)) - isoMs(start)) / 86400000);
+  const out = [];
+  for (let i = 0; i < times; i += 1) { const d = addDaysIso(start, Math.floor((i * len) / times)); if (!out.includes(d)) out.push(d); }
+  return out;
+}
+// Première occurrence après la base, jamais dans le passé (on ne recrée pas du retard).
+function nextPerPeriod(baseIso, times, per, todayIso) {
+  let start = periodStart(baseIso, per);
+  for (let g = 0; g < 2000; g += 1) {
+    for (const d of occurrencesInPeriod(start, per, times)) if (d > baseIso && d >= todayIso) return d;
+    start = nextPeriodStart(start, per);
+  }
+  return addDaysIso(todayIso, 1);
+}
+
 // Prochaine échéance : base + intervalle, répété tant qu'elle est dans le passé (on ne recrée pas du retard).
 function nextDueDate(baseIso, every, unit, todayIso, anchorDay) {
+  if (unit === 'workday') {
+    let w = addWorkdays(baseIso, every);
+    for (let i = 0; i < 800 && w < todayIso; i += 1) w = addWorkdays(w, every);
+    return w;
+  }
+  if (PERIOD_UNITS[unit]) return nextPerPeriod(baseIso, every, PERIOD_UNITS[unit], todayIso);
   let next = addInterval(baseIso, every, unit, anchorDay);
   for (let i = 0; i < 800 && next < todayIso; i += 1) next = addInterval(next, every, unit, anchorDay);
   return next;
@@ -57,13 +109,41 @@ function anchorDayFromLabel(label) {
 }
 
 const WORD = '(?:r[ée]current(?:e|s|es)?)';
-const NUM = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, dix: 10 };
+const NUM = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10 };
+const WORKDAY_RE = /\b(?:(?:chaque|tous\s+les|every)\s+)?(?:jours?\s+ouvrables?|jours?\s+de\s+semaine|du\s+lundi\s+au\s+vendredi|weekdays?|business\s+days?|working\s+days?)\b/i;
+const TIMES_RE = /\b(\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)\s*(?:fois|x|times)\s+(?:par|\/|per|a|chaque)\s+(semaine|mois|an|ann[ée]e|week|month|year)\b/i;
 
-// Texte libre (mode Autonome) : la récurrence n'est créée QUE si le mot « récurrente » est écrit.
+// Fréquence écrite dans le titre (le mot « récurrente » n'est pas nécessaire) : « chaque jour ouvrable », « 3 fois par mois ».
+// Retourne { label (sans la fréquence), every, unit } ou null.
+function parseWorkOrTimes(text) {
+  const src = String(text || '');
+  let every = 0; let unit = ''; let re = null;
+  if (WORKDAY_RE.test(src)) { every = 1; unit = 'workday'; re = WORKDAY_RE; } else {
+    const m = TIMES_RE.exec(src);
+    if (!m) return null;
+    const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUM[m[1].toLowerCase()];
+    const p = /^(?:semaine|week)/i.test(m[2]) ? 'week' : (/^(?:mois|month)/i.test(m[2]) ? 'month' : 'year');
+    if (!(n >= 1)) return null;
+    if (n === 1) {
+      if (p === 'year') { every = 12; unit = 'month'; } else { every = 1; unit = p; }
+    } else {
+      unit = 'per' + p; every = n;
+      if (every > MAX_TIMES[unit]) return null;
+    }
+    re = TIMES_RE;
+  }
+  const label = src.replace(re, ' ').replace(/\b(?:r[ée]current(?:e|s|es)?)\b/ig, ' ').replace(/\(\s*\)/g, ' ')
+    .replace(/\s{2,}/g, ' ').replace(/^[\s,;:\-–—]+|[\s,;:\-–—]+$/g, '').trim();
+  return { label, every, unit };
+}
+
+// Texte libre : détecte le mot « récurrente » écrit (première étape de suggest() en mode Partiel).
 // Retourne { label (sans le mot ni la fréquence), every, unit } ou null. Sans fréquence : chaque semaine.
 function parseExplicit(text) {
   let label = String(text || '');
   if (!new RegExp('\\b' + WORD + '\\b', 'i').test(label)) return null;
+  const wt = parseWorkOrTimes(label);
+  if (wt) return wt;
   if (unsupportedFrequency(label)) return null; // « jour ouvrable », « 3 fois par semaine » : { every, unit } ne sait pas les dire, rien n'est créé de faux
   let every = 1; let unit = 'week';
   const patterns = [
@@ -93,6 +173,7 @@ function parseExplicit(text) {
 // Fréquences que { every, unit } ne sait PAS dire (proposer l'approximation la plus proche serait fausse : « 3 fois par semaine » ≠ « toutes les 3 semaines »,
 // « chaque jour ouvrable » ≠ chaque jour, « une fois » = pas de récurrence) : aucune proposition, la tâche reste simple.
 function unsupportedFrequency(label) {
+  if (parseWorkOrTimes(label)) return false; // « jour ouvrable » et « X fois par période » sont maintenant exprimables
   const t = String(label || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   if (/\b(?:jours?\s+ouvrables?|jours?\s+de\s+semaine|en\s+semaine|weekdays?|business\s+days?|working\s+days?)\b/.test(t)) return true;
   if (/\b(?:[2-9]|\d{2}|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)\s+(?:fois|x|times)\b|\b(?:twice|thrice)\b/.test(t)) return true;
@@ -100,23 +181,55 @@ function unsupportedFrequency(label) {
   return false;
 }
 
-async function suggest(label) {
+// Fréquence déduite de l'historique : même tâche (titre normalisé) terminée au moins 3 fois dans l'activité, écarts réguliers
+// (chacun à +-20 % de la médiane) proches d'une fréquence usuelle. null au moindre doute (on préfère ne rien proposer).
+const USUAL = [[1, 1, 'day'], [7, 1, 'week'], [14, 2, 'week'], [30, 1, 'month'], [91, 3, 'month'], [365, 12, 'month']];
+function frequencyFromDates(dates) {
+  const d = Array.from(dates || []).sort().slice(-6);
+  if (d.length < 3) return null;
+  const gaps = [];
+  for (let i = 1; i < d.length; i += 1) gaps.push(Math.round((isoMs(d[i]) - isoMs(d[i - 1])) / 86400000));
+  if (gaps.some((g) => g <= 0)) return null;
+  const sorted = gaps.slice().sort((a, b) => a - b);
+  const mid = sorted.length / 2;
+  const median = sorted.length % 2 ? sorted[Math.floor(mid)] : (sorted[mid - 1] + sorted[mid]) / 2;
+  if (gaps.some((g) => Math.abs(g - median) > 0.2 * median)) return null;
+  const hit = USUAL.find(([days]) => Math.abs(median - days) <= 0.2 * days);
+  return hit ? { every: hit[1], unit: hit[2] } : null;
+}
+function historySuggestion(label, activityIds) {
+  const tk = require('./taskkind');
+  const ids = Array.isArray(activityIds) ? activityIds : (activityIds == null ? [] : [activityIds]);
+  for (const id of ids) {
+    try { const f = frequencyFromDates(tk.doneDatesForTitle(id, label)); if (f) return f; } catch (e) { /* activité suivante */ }
+  }
+  return null;
+}
+// Ordre : (1) le texte ; (2) l'historique ; (3) l'IA, ignorée sous le seuil de confiance du classement (classify.minConfidence()). `activityId` : un id ou une liste.
+async function suggest(label, activityId) {
+  const wt = parseWorkOrTimes(label);
+  if (wt) return { every: wt.every, unit: wt.unit, label: wt.label };
   const explicit = parseExplicit(label);
   if (explicit) return { every: explicit.every, unit: explicit.unit, label: explicit.label };
   if (unsupportedFrequency(label)) return null;
+  const hist = historySuggestion(label, activityId);
+  if (hist) return hist;
   const classify = require('./goalstaskclassify');
   if (!classify.configured()) return null;
   try {
     const text = await classify.callModel(
       'Cette tâche est-elle de nature récurrente (à refaire régulièrement, ex. « payer le loyer », « faire la paie ») ? '
-      + 'Réponds UNIQUEMENT par un JSON {"every":nombre,"unit":"day"|"week"|"month"} si oui et si la fréquence est évidente, sinon par le mot NON.\n'
-      + 'Tâche : ' + String(label).slice(0, 300), 60, 'recurrence-tache');
+      + 'Réponds UNIQUEMENT par un JSON {"every":nombre,"unit":"day"|"week"|"month","confidence":0 à 100} si oui et si la fréquence est évidente '
+      + '(confidence = ta certitude en pourcentage), sinon par le mot NON.\n'
+      + 'Tâche : ' + String(label).slice(0, 300), 80, 'recurrence-tache');
     const m = String(text || '').match(/\{[^}]*\}/);
     if (!m) return null;
     const j = JSON.parse(m[0]);
     if (!Number.isInteger(Number(j.every))) return null; // « 1,5 » ou texte : pas de proposition approximative
+    const conf = Number(j.confidence);
+    if (!Number.isFinite(conf) || conf < classify.minConfidence()) return null; // doute : aucune proposition
     return normalize(j);
   } catch (e) { return null; }
 }
 
-module.exports = { UNITS, normalize, addInterval, nextDueDate, anchorDayFromLabel, parseExplicit, suggest, unsupportedFrequency };
+module.exports = { UNITS, PERIOD_UNITS, MAX_TIMES, parseWorkOrTimes, normalize, addInterval, nextDueDate, anchorDayFromLabel, parseExplicit, suggest, unsupportedFrequency, frequencyFromDates };

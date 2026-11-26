@@ -3,7 +3,6 @@
    RETOUR ARRIÈRE : supprimer la ligne <link ... verre-calme.css> d'index.html (ou git revert du commit « Verre calme »).
    Les éléments qui doivent rester lisibles/opaques (menus, infobulles, colonnes figées, interrupteurs) sont exclus. */
 #chronoRunning,
-#goalsTasksHistoryHeader,
 #profileSettingsPanel .settingsSectionHeader,
 #settingsPinSaveBtn,
 .activityGoalsCategoryAutoTaskBubble,
@@ -19,7 +18,6 @@
 .categoryDropdownTrigger,
 .categoryPickerBtn,
 .chatComposerRow textarea,
-.dailyPriorityItem,
 .discussionComposer textarea,
 .discussionMsg,
 .entryCard,
@@ -57,7 +55,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 
 /* ---- Volet 2 : menus de sélection, Statistiques, feuille de temps, zone d'écriture IA, épingles/pièces jointes ----
    Mêmes jetons ; menus et colonnes figées plus denses (--glass-calm-bg-strong) pour rester lisibles quand le contenu défile derrière. */
-:root .categoryDropdownMenu, :root .categoryPickerPanel, :root .statsPeriodMenu, :root .chartTooltip,
+:root .categoryDropdownMenu, :root .categoryPickerPanel, :root .chartTooltip,
 :root .tsFrozenCol, :root .tsCorner, :root .tsCalCorner, :root .tsDayLabel, :root .tsCalWeekLabel,
 :root .categoryDropdownTrigger, :root .categoryPickerBtn, :root .subProjectSelect {
   background: var(--glass-calm-bg-strong); box-shadow: inset 0 0 0 1px var(--glass-calm-line); -webkit-backdrop-filter: var(--glass-calm-blur-strong); backdrop-filter: var(--glass-calm-blur-strong);
@@ -152,7 +150,7 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
 
 /* ---- Volet 8 : boutons flèches, réglages, trombone et « Aujourd'hui » — fond beaucoup plus transparent, partout ---- */
 :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
-:root #statsPieTodayBtn,
+:root #statsPieTodayBtn, :root .saModeBtn,
 :root .menuBtn.attachMenuIconBtn, :root #profileDiscussionAttachBtn, :root .communityComposerRow .attachMenuIconBtn {
   background: var(--glass-calm-btn-bg) !important; border-color: var(--glass-calm-btn-line) !important; box-shadow: none !important;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
@@ -162,14 +160,14 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
    Tout élément de verre (bouton, champ, menu déroulant, case, rangée) situé DANS une zone de verre n'a plus de fond ni de flou propres :
    seul son liseré fin le distingue. La zone parente fournit seule la teinte. */
 :root :is(.statsSection, .activityRow, .settingsCard, .goalCard, .goalsActivityHeader, .historyEntry, .discussionMsg, .pollFormAdvanced, .entryCard,
-          .activityProgressCard, .goalsTasksGroup, .dailyPriorityItem, .goalWeeklyCard, .goalsCalendarRow,
+          .activityProgressCard, .goalsTasksGroup, .goalWeeklyCard, .goalsCalendarRow,
           .activityGoalsCategoryAutoTaskBubble, #chronoRunning)
   :is(.iconBtn, .menuBtn, .topIconBtn, input, select, textarea, .categoryDropdownTrigger, .categoryPickerBtn, .subProjectSelect,
       .attachmentRow, .historyRowIconBtn, .periodBtn, .themeBtn, .seekingTagBtn, .goalAssigneeChip):not(.btnBrique):not(.btn-primary):not([type="checkbox"]):not([type="radio"]) {
   background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 :root #tab-stats .sectionTitleRow .iconBtn, :root #tab-stats .sectionTitleRow .menuBtn,
-:root #statsPieTodayBtn, :root .menuBtn.attachMenuIconBtn { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; }
+:root #statsPieTodayBtn, :root .saModeBtn, :root .menuBtn.attachMenuIconBtn { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: transparent !important; }
 
 
 /* ---- Volet 9 bis (rectifié ) : une FENÊTRE ne compte pas comme une zone de verre ----
@@ -227,6 +225,8 @@ textarea { background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--g
   -webkit-backdrop-filter: var(--glass-blur) !important; backdrop-filter: var(--glass-blur) !important;
 }
 
+/* R51 : pas de trait sous le dernier membre (composants.css) ; !important seulement parce que la règle ci-dessous en pose un. */
+:root #communityMembersModalList > .activityRow:last-child { border-bottom: 0 !important; }
 /* Fenêtre membres : membres présents en lignes simples (filets fins, sans section), comme les enregistrements de l'historique. */
 :root #communityMembersModalList > .activityRow {
   background: transparent !important; border: none !important; border-bottom: 1px solid var(--sep) !important; border-radius: 0 !important;

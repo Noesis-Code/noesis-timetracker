@@ -16,7 +16,7 @@ Le processus serveur tourne à `America/Toronto` (`server/index.js`, pas en UTC)
 | Propositions de document (`changeproposals.js`, `documenttasks.js`) | « jamais avant aujourd'hui » | Toronto | téléphone |
 | Recalcul nocturne (`goalsrecalc.js`, cron 3 h 30 `America/Montreal`) | périodes passées | Montréal | Montréal (apply en requête : téléphone) |
 | Rappel de 6 h (`dailysuggestioncron.js`) | heure d'envoi + liste du jour | Toronto | **Toronto (inchangé)** |
-| Rappels d'échéance d'objectif / sous-projet (`goalreminders.js`, `duereminders.js`, balayage 30 min) | « jours restants » | Toronto | Toronto (inchangé) |
+| Rappels d'échéance de sous-projet (`duereminders.js`, balayage 30 min ; les rappels de fin de période d'objectif, `goalreminders.js`, ont été supprimés le 7 nov. 2026) | « jours restants » | Toronto | Toronto (inchangé) |
 | Bilans automatiques (`goals.js` balayage 6 h), abonnements (3 h, horaire), comptes inactifs | jour de balayage | Toronto | Toronto (inchangé) |
 | Plafonds et budget IA par jour/mois (`aibudget.js`, `aifeaturecaps.dayKey`) | jour du compteur | Montréal | Montréal |
 | Plafonds par jour de `silentspellfix.js`, `crosssectorinference.js`, `drivesync.js` (`drive_ai_usage.day`) | jour du compteur | **UTC** | Montréal (repli 30) |

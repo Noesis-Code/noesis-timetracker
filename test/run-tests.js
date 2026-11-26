@@ -63,6 +63,7 @@ const SUITE_FILES = [
   'langue-bascule-test.js',
   'chrono-deux-appareils-test.js',
   'offline-queue-test.js',
+  'objectif-hors-ligne-test.js',
   'offline-idempotence-test.js',
   'offline-rejeu-test.js',
   'stats-equivalence-test.js',
@@ -86,6 +87,17 @@ const SUITE_FILES = [
   'precision-repli-29-test.js',
   'precision-typo-test.js',
   'recurrence-ia-test.js',
+  'efficacite-rangement-test.js',
+  'tri-maintenance-test.js',
+  'aujourdhui-tri-test.js',
+  'rebalance-silencieux-test.js',
+  'retard-objectif-periode-test.js',
+  'retard-rangement-test.js',
+  'feuille-balayage-test.js',
+  'vue-taches-jour-test.js',
+  'reglages-categorie-test.js',
+  'reforme-test.js',
+  'recurrence-frequence-test.js',
   'saisie-manuelle-proposition-test.js',
   'apprentissage-usage-test.js',
   'estimation-partage-test.js',
@@ -100,6 +112,7 @@ const SUITE_FILES = [
   'intersecteurs-payload-test.js',
   'debit-sauvegardes-test.js',
   'signalement-test.js',
+  'signalement-publication-test.js',
   'guard-integrity.js',
   'aibudget-test.js',
   'changeproposals-test.js',
@@ -138,6 +151,10 @@ const SUITE_FILES = [
   'zone-fichier-test.js',
   'fonctionnel-chrono.js',
   'chrono-horloge-test.js',
+  'trustscore-test.js',
+  'compte-a-staging-test.js',
+  'compte-b-retard-test.js',
+  'compte-b-ouverture-test.js',
   'fonctionnel-taches.js',
   'fonctionnel-modules.js',
   'fonctionnel-secteurs.js',
@@ -153,6 +170,7 @@ const SUITE_FILES = [
   'categories-visibility-test.js',
   'category-delete-carry-test.js',
   'asset-version-test.js',
+  'pages-legales-test.js',
   'sw-bump-test.js',
   'apprentissage-e2e-test.js',
   'expansion-achat-staging-test.js',
@@ -171,7 +189,6 @@ const SUITE_FILES = [
   'export-test.js',
   'privacy-tables-test.js',
   'suppression-3-comptes-test.js',
-  'rappels-fuseau-test.js',
   'communaute-confidentialite-test.js',
   'fiabilite-basic-test.js',
   'feuille-mois-css-test.js',
@@ -180,6 +197,7 @@ const SUITE_FILES = [
   'importance-test.js',
   'inactive-accounts-test.js',
   'member-series-test.js',
+  'partage-taches-test.js',
   'modules-gating-test.js',
   'pin-lock-test.js',
   'silentspellfix-test.js',
@@ -199,6 +217,7 @@ const SUITE_FILES = [
   'expansion-acces-test.js',
   'expansion-sans-paiement-test.js',
   'expansion-checkout-securite-test.js',
+  'coques-sans-achat-test.js',
   'expansion-cycle-complet-test.js',
   'expansion-cron-dst-test.js',
   'migration-lasteventat-test.js',
@@ -429,6 +448,8 @@ async function main() {
   catch (e) { assert(false, 'accessibilité : attributs (test/a11y-attributs-test.js) échoue'); }
   try { await runChild('popups-croix-test.js'); assert(true, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) passe'); }
   catch (e) { assert(false, 'pop-up : croix ✕ nommée (test/popups-croix-test.js) échoue'); }
+  try { await runChild('diag-mesures-test.js'); assert(true, 'mode diagnostic : staging seulement, liste blanche, débit (test/diag-mesures-test.js) passe'); }
+  catch (e) { assert(false, 'mode diagnostic (test/diag-mesures-test.js) échoue'); }
   try { await runChild('interactions-test.js'); assert(true, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) passe'); }
   catch (e) { assert(false, 'interactions : Échap et zone 44 px des croix (test/interactions-test.js) échoue'); }
   try { await runChild('a11y-chrono-stats-test.js'); assert(true, 'accessibilité Chrono et Stats (test/a11y-chrono-stats-test.js) passe'); }
@@ -454,6 +475,8 @@ async function main() {
 
   try { await runChild('offline-queue-test.js'); assert(true, 'file hors ligne : cas limites (test/offline-queue-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : cas limites (test/offline-queue-test.js) échoue'); }
+  try { await runChild('objectif-hors-ligne-test.js'); assert(true, 'objectif créé hors ligne : clé unique et refus du serveur (test/objectif-hors-ligne-test.js) passe'); }
+  catch (e) { assert(false, 'objectif créé hors ligne : clé unique et refus du serveur (test/objectif-hors-ligne-test.js) échoue'); }
 
   try { await runChild('offline-idempotence-test.js'); assert(true, 'file hors ligne : idempotence (test/offline-idempotence-test.js) passe'); }
   catch (e) { assert(false, 'file hors ligne : idempotence (test/offline-idempotence-test.js) échoue'); }
@@ -513,7 +536,7 @@ async function main() {
   let prOk = true;
   try { await runChild('precision-taches-test.js'); } catch (e) { prOk = false; }
   assert(prOk, 'précision des tâches (test/precision-taches-test.js) passe');
-  for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['precision-objectifs-test.js', 'tâches générées à partir d\'objectifs (titres vagues, objectif recopié, durées)'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée'], ['precision-repli-29-test.js', 'rapport d\'acceptation (statuts mixtes), partage du temps (propriété 200 configs), estimation hebdomadaire = plan IA'], ['recurrence-ia-test.js', 'récurrences proposées par l\'IA et rapprochement objectif (faux client)']]) {
+  for (const [f, label] of [['precision-generees-test.js', 'validateur des tâches générées + saisie manuelle intacte'], ['precision-objectifs-test.js', 'tâches générées à partir d\'objectifs (titres vagues, objectif recopié, durées)'], ['saisie-manuelle-proposition-test.js', 'saisie manuelle : modifiée seulement par proposition validée'], ['precision-repli-29-test.js', 'rapport d\'acceptation (statuts mixtes), partage du temps (propriété 200 configs), estimation hebdomadaire = plan IA'], ['recurrence-ia-test.js', 'récurrences proposées par l\'IA et rapprochement objectif (faux client)'], ['efficacite-rangement-test.js', 'rangement selon le jour où le pôle avance et celui où il reporte'], ['tri-maintenance-test.js', 'tri des tâches : maintenance / développement, récurrence silencieuse, doublon, liste du jour'], ['aujourdhui-tri-test.js', 'page Aujourd\x27hui : activités dans l\x27ordre de l\x27application, paliers maintenance/développement'], ['reforme-test.js', 'tâches de réforme : critères, portée, ordre'], ['recurrence-frequence-test.js', 'récurrences X fois par période et jours ouvrables']]) {
     let ok = true;
     try { await runChild(f); } catch (e) { ok = false; }
     assert(ok, label + ' (test/' + f + ') passe');
@@ -589,9 +612,11 @@ async function main() {
   catch (e) { assert(false, 'limitation de débit et rétention des sauvegardes (test/debit-sauvegardes-test.js) échoue'); }
   try { await runChild('signalement-test.js'); assert(true, 'signalement de messages et mots bloqués (test/signalement-test.js) passe'); }
   catch (e) { assert(false, 'signalement de messages et mots bloqués (test/signalement-test.js) échoue'); }
+  try { await runChild('signalement-publication-test.js'); assert(true, 'signalement de publication et masquage après blocage (test/signalement-publication-test.js) passe'); }
+  catch (e) { assert(false, 'signalement de publication (test/signalement-publication-test.js) échoue'); }
   try { await runChild('guard-integrity.js'); assert(true, 'intégrité des fichiers : aucun vide/tronqué (test/guard-integrity.js) passe'); }
   catch (e) { assert(false, 'intégrité des fichiers (test/guard-integrity.js) échoue : ' + String(e.stdout || e.message).trim().split('\n').slice(0, 5).join(' | ')); }
-  for (const f of ['cal-externe-capacite-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'asset-version-test.js', 'sw-bump-test.js', 'garde-sources-test.js', 'composants-garde-test.js', 'regles-rangement-test.js', 'pas-de-titre-perso-test.js', 'compression-test.js', 'export-test.js', 'privacy-tables-test.js', 'journaux-confidentialite-test.js', 'horaire-generation-test.js', 'horaire-courriel-test.js','suppression-3-comptes-test.js', 'rappels-fuseau-test.js', 'communaute-confidentialite-test.js', 'fiabilite-basic-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'healthz-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'notif-liens-test.js', 'pin-lock-test.js', 'mot-de-passe-test.js', 'face-id-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'expansion-webhook-evenements-test.js', 'expansion-webhook-robustesse-test.js', 'expansion-remboursement-multi-test.js', 'expansion-securite-test.js', 'expansion-code-statut-test.js', 'expansion-i18n-test.js', 'expansion-achat-staging-test.js', 'expansion-repli-test.js', 'expansion-retour-checkout-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'fuseaux-invariance-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js', 'doublons-similarites-test.js', 'expansion-acces-test.js', 'expansion-checkout-securite-test.js', 'expansion-cycle-complet-test.js', 'expansion-cron-dst-test.js', 'migration-lasteventat-test.js', 'subscription-mails-refund-test.js', 'tests-orphelins-test.js', 'expansion-plan-course-test.js', 'migration-cancelatperiodend-test.js']) {
+  for (const f of ['bilan-temps-membres-test.js', 'nuances-poles-test.js', 'objectifs-regles-test.js', 'cal-externe-capacite-test.js', 'barre-bouton-action-test.js', 'capture-objectifs-horizon-test.js', 'categories-visibility-test.js', 'category-delete-carry-test.js', 'asset-version-test.js', 'fiche-responsables-test.js', 'sw-bump-test.js', 'garde-sources-test.js', 'composants-garde-test.js', 'regles-rangement-test.js', 'pas-de-titre-perso-test.js', 'compression-test.js', 'export-test.js', 'privacy-tables-test.js', 'journaux-confidentialite-test.js', 'horaire-generation-test.js', 'horaire-courriel-test.js','suppression-3-comptes-test.js', 'communaute-confidentialite-test.js', 'fiabilite-basic-test.js', 'feuille-mois-css-test.js', 'goalstatus-test.js', 'healthz-test.js', 'importance-test.js', 'inactive-accounts-test.js', 'member-series-test.js', 'modules-gating-test.js', 'notif-liens-test.js', 'pin-lock-test.js', 'mot-de-passe-test.js', 'saisie-test.js', 'face-id-test.js', 'silentspellfix-test.js', 'stats-profile-insights-test.js', 'stripe-webhook-idempotence-test.js', 'expansion-webhook-evenements-test.js', 'expansion-webhook-robustesse-test.js', 'expansion-remboursement-multi-test.js', 'expansion-securite-test.js', 'expansion-code-statut-test.js', 'expansion-i18n-test.js', 'expansion-achat-staging-test.js', 'expansion-repli-test.js', 'expansion-retour-checkout-test.js', 'structure-migration-test.js', 'subproject-migration-test.js', 'task-lock-test.js', 'year-anchor-test.js', 'periodes-libres-test.js', 'fuseaux-invariance-test.js', 'year-bound-test.js', 'zone-ia-secteur-periode-test.js', 'doublons-similarites-test.js', 'expansion-acces-test.js', 'expansion-checkout-securite-test.js', 'expansion-cycle-complet-test.js', 'expansion-cron-dst-test.js', 'migration-lasteventat-test.js', 'subscription-mails-refund-test.js', 'tests-orphelins-test.js', 'expansion-plan-course-test.js', 'migration-cancelatperiodend-test.js', 'objectifs-creation-test.js', 'rattachement-objectif-test.js', 'eval-objective-match-test.js', 'temps-membres-test.js', 'description-parent-test.js', 'activite-derniere-test.js', 'objectif-hebdo-test.js', 'objectif-case-test.js', 'objectif-niveau-parent-test.js', 'pole-couleurs-test.js', 'temps-budget-test.js', 'pole-rang-retire-test.js', 'moyenne-hebdo-test.js', 'numerotation-creation-test.js', 'placement-colonnes-test.js', 'activite-presel-test.js', 'jour-par-jour-test.js', 'etape-temps-test.js', 'niveau-trois-questions-test.js', 'niveau-heures-test.js', 'niveau-conditionnel-test.js', 'creation-prechargement-test.js', 'inf-titre-niveau-test.js', 'echeance-etape-test.js', 'echeance-demain-test.js', 'pole-sans-secteur-test.js', 'etiquette-test.js', 'arbre-entrer-case-test.js', 'arbre-propre-test.js', 'arbre-texte-passe-test.js', 'barre-suivant-test.js', 'popup-paysage-test.js', 'blocs-fixes-test.js', 'arbre-passe-test.js', 'arbre-masquer-activite-test.js', 'case-pastille-parent-test.js', 'objectifs-trou-test.js', 'plan-trou-panneau-test.js', 'objectifs-redessin-test.js', 'objectifs-sans-secteur-test.js', 'temps-cadence-cellule-test.js', 'cle-activite-premier-pole-test.js', 'allocation-test.js', 'arbre-heures-test.js', 'nature-phases-test.js', 'duree-facteur-test.js', 'objectifs-ecart-test.js', 'objectifs-ajuste-test.js', 'bilan-donnees-test.js', 'bilan-volet-test.js', 'bilan-blocs-test.js', 'estimateur-test.js', 'bilan-tri-test.js', 'bilan-modele-test.js', 'bilan-graphique-test.js', 'bilan-membre-test.js', 'inferieurs-hebdo-test.js', 'objectifs-inferieurs-test.js', 'objectifs-graves-test.js', 'objectifs-fusion-conflit-test.js', 'objectifs-absorption-test.js', 'arbre-fusion-test.js', 'objectifs-fusion-groupes-test.js', 'objectifs-resume-test.js', 'objectif-resume-champ-test.js', 'objectifs-export-test.js', 'objectifs-ordre-test.js', 'ia-gratuit-credit-test.js', 'ia-gratuit-contournements-test.js', 'ia-gratuit-global-test.js', 'durees-taches-test.js', 'calendrier-page3-test.js', 'stats-feuille-test.js', 'objectifs-algo-test.js', 'objectifs-algo-creation-test.js', 'objectifs-trou-minimum-test.js', 'objectifs-boucle-test.js', 'objectifs-reorganisation-test.js', 'objectifs-modification-reorg-test.js', 'objectifs-generer-inferieurs-test.js', 'titres-courts-test.js', 'taches-rangement-test.js', 'taches-apprentissage-test.js', 'taches-choix-test.js', 'taches-place-test.js', 'strategie-refus-test.js', 'categorie-strategie-test.js', 'strategie-modele-test.js', 'taches-responsable-test.js', 'repartition-parts-test.js', 'repartition-membres-test.js', 'fiche-repartition-3-test.js', 'arbre-couleur-descente-test.js', 'arbre-jauge-taches-test.js', 'barre-finitions-test.js', 'bouton-inactif-test.js', 'derniere-ligne-sans-trait-test.js', 'niveau-avance-chrono-test.js', 'objectifs-delais-test.js', 'objectifs-type-test.js', 'plus-paysage-test.js', 'membres-portee-test.js', 'membres-portee-endpoints-test.js', 'categories-responsables-test.js', 'membres-client-test.js', 'membre-taches-test.js', 'heures-taches-test.js', 'objectif-atteint-test.js', 'panneau-defile-test.js', 'bilan-defauts-test.js']) {
     try { await runChild(f); assert(true, 'test/' + f + ' passe'); }
     catch (e) { assert(false, 'test/' + f + ' échoue'); }
   }

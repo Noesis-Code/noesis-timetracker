@@ -1,0 +1,21 @@
+{
+  "name": "noesis-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Coque Android de Noèsis (Capacitor). Le contenu vient du serveur de production.",
+  "scripts": {
+    "sync": "cap sync android",
+    "build:debug": "cap sync android && cd android && ./gradlew assembleDebug",
+    "build:release": "cap sync android && cd android && ./gradlew bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.4.3",
+    "@capacitor/core": "7.4.3",
+    "@capacitor/ios": "7.4.3",
+    "@capacitor/keyboard": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "7.4.3"
+  }
+}

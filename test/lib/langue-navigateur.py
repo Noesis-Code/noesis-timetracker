@@ -45,9 +45,9 @@ with sync_playwright() as p:
     pg.evaluate("([k,v])=>localStorage.setItem(k,v)", ['noesis_profile', json.dumps(pj)])
     pg.reload(); pg.wait_for_timeout(2500)
     def grab(name): etats[name] = pg.evaluate(JS_TEXT)
-    # Chantier B : Stats n'est plus un onglet de la barre mais la page à gauche de Chrono (mêmes écrans, ouverte sans glissement) ; la barre est repliée en icônes seules.
+    # Les statistiques de temps vivent dans le volet Bilan ; la barre est repliée en icônes seules.
     def tab(name):
-        if name == 'stats': pg.evaluate("window.TMT.openStats('chrono')")
+        if name == 'stats': pg.evaluate("window.TMT.switchTab('bilan')")
         else: pg.click('.tabBtn[data-tab=%s]' % name)
         pg.wait_for_timeout(900)
     def click(sel, wait=500):
@@ -78,9 +78,9 @@ with sync_playwright() as p:
     click('#stopConfirmBtn', 900); grab('arrêt refusé')
     click('#stopCancelBtn', 500)
     infos['runningAfterCancel'] = pg.is_visible('#chronoRunning')
-    # 5. Statistiques : feuille de temps, périodes, répartition, graphique, filtre
+    # 5. Statistiques : feuille de temps, périodes, répartition, graphique
     tab('stats'); grab('statistiques')
-    for name, sel in (('menu période', '#tsPeriodBtn'), ('menu graphique', '#chartPeriodBtn'), ('filtre', '#statsVisBtn')):
+    for name, sel in (('menu période', '#tsPeriodBtn'), ('menu graphique', '#chartPeriodBtn')):
         if click(sel, 500): grab('statistiques ' + name); pg.keyboard.press('Escape'); click('#statsLabel', 200)
     for per in ('month', 'year'):
         click('#tsPeriodBtn', 300); click('#tsPeriodMenu [data-period=%s]' % per, 1000); grab('statistiques ' + per)

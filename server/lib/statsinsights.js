@@ -25,7 +25,7 @@ function woy(ps, w) { return goals.weekOfYear(periodIdxOf(ps), w); }
 function localDate(ts) {
   if (!ts) return null;
   const d = new Date(ts);
-  return Number.isNaN(d.getTime()) ? null : todayLocal(d);
+  return Number.isNaN(d.getTime()) ? null : require('./dates').userDayOf(d); // jour LOCAL de la requête (fuseau du téléphone), pas celui du serveur
 }
 function safe(fn) { try { return fn(); } catch (e) { console.error('[stats-insights]', e.message); return null; } }
 function niceMax(m) { const step = m <= 10 ? 5 : 10; return Math.max(step, Math.ceil(m / step) * step); }
@@ -157,16 +157,41 @@ function objectivesChart(today, allObjs, year, minY) {
   };
 }
 
+// ---- Confidentialité (20 nov. 2026) : dans une activité partagée, un simple membre ne voit que SES données ; un responsable, celles de la portée qu'il gère (portee.js) ; propriétaire / responsable d'activité = tout.
+// LIM est posé le temps d'un calcul synchrone par insightsForActivity ; null = aucune limite (activité non partagée ou portée « tout »).
+let LIM = null;
+function limiteFor(userId, activityId) {
+  if (!userId) return null;
+  const pt = require('./portee');
+  if (!pt.estPartagee(activityId)) return null;
+  const mg = pt.managed(userId, activityId);
+  return mg.all ? null : { userId, mg };
+}
+function tacheVisible(r) { return !LIM || LIM.mg.has(r.k) || r.doneBy === LIM.userId || r.plannedUserId === LIM.userId; }
+// Temps : un simple membre = ses seules entrées ; un responsable = les siennes + celles des catégories de sa portée. Renvoie un fragment SQL (sur time_entries) et ses arguments.
+function tempsLimite() {
+  if (!LIM) return { sql: '', args: [] };
+  const keys = Array.from(LIM.mg.keys);
+  return keys.length ? { sql: ' AND (userId = ? OR goalCategory IN (' + keys.map(() => '?').join(',') + '))', args: [LIM.userId].concat(keys) } : { sql: ' AND userId = ?', args: [LIM.userId] };
+}
+
 // ---- Données de base -----------------------------------------------------
 function loadScope(activityId, poleKey) {
   let poles = goals.categoriesForActivity(activityId);
-  if (poleKey) poles = poles.filter((p) => p.key === poleKey);
+  let onlySector = null;
+  if (poleKey) {
+    if (poles.some((p) => p.key === poleKey)) poles = poles.filter((p) => p.key === poleKey);
+    else { // Bilan : la clé d'un SECTEUR limite à ce secteur (son pôle reste le parent)
+      const row = db.prepare('SELECT parentKey FROM activity_goal_categories WHERE activityId = ? AND key = ? AND parentKey IS NOT NULL').get(activityId, poleKey);
+      if (row) { onlySector = poleKey; poles = poles.filter((p) => p.key === row.parentKey); } else poles = poles.filter((p) => p.key === poleKey);
+    }
+  }
   const keyToPole = {};
   const out = poles.map((p) => {
-    const keys = [p.key].concat((goals.secteursForPole(activityId, p.key) || []).map((s) => s.key));
+    const keys = onlySector ? [onlySector] : [p.key].concat((goals.secteursForPole(activityId, p.key) || []).map((s) => s.key));
     keys.forEach((k) => { keyToPole[k] = p.key; });
     // Temps : aussi celui des secteurs supprimés (gelés), qui reste compté dans leur pôle.
-    const timeKeys = keys.concat(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? AND removedAt IS NOT NULL').all(activityId, p.key).map((r) => r.key));
+    const timeKeys = onlySector ? keys : keys.concat(db.prepare('SELECT key FROM activity_goal_categories WHERE activityId = ? AND parentKey = ? AND removedAt IS NOT NULL').all(activityId, p.key).map((r) => r.key));
     return { key: p.key, label: p.label, keys, timeKeys, sectors: (goals.secteursForPole(activityId, p.key) || []).map((x) => ({ key: x.key, label: x.label })) };
   });
   return { poles: out, keyToPole };
@@ -174,10 +199,10 @@ function loadScope(activityId, poleKey) {
 
 function loadTasks(activityId, keyToPole) {
   const rows = db.prepare(`
-    SELECT i.id, i.label, i.done, i.doneBy, i.doneAt, i.dueDate, i.goalWeeklyId, sp.goalCategory AS k, sp.closesAt AS closesAt
+    SELECT i.id, i.label, i.done, i.doneBy, i.plannedUserId, i.doneAt, i.dueDate, i.goalWeeklyId, sp.goalCategory AS k, sp.closesAt AS closesAt
     FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory IS NOT NULL`).all(activityId);
-  return rows.filter((r) => keyToPole[r.k]).map((r) => ({
+  return rows.filter((r) => keyToPole[r.k] && tacheVisible(r)).map((r) => ({
     id: r.id, label: r.label, done: !!r.done, doneBy: r.doneBy, doneDay: r.done ? localDate(r.doneAt) : null,
     due: r.dueDate || null, weeklyId: r.goalWeeklyId, pole: keyToPole[r.k], key: r.k,
     closed: !!r.closesAt && r.closesAt < todayLocal(),
@@ -185,7 +210,7 @@ function loadTasks(activityId, keyToPole) {
 }
 
 function loadObjectives(activityId, keyToPole) {
-  const periods = db.prepare('SELECT * FROM goal_periods WHERE activityId = ?').all(activityId).filter((p) => keyToPole[p.category]);
+  const periods = db.prepare('SELECT * FROM goal_periods WHERE activityId = ?').all(activityId).filter((p) => keyToPole[p.category] && (!LIM || LIM.mg.has(p.category))); // objectifs d'une activité partagée : responsables, dans leur portée
   const weeklyStmt = db.prepare("SELECT * FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''");
   const out = [];
   periods.forEach((p) => {
@@ -203,8 +228,9 @@ function loadObjectives(activityId, keyToPole) {
 
 function minutesFor(activityId, keys, start, end) {
   if (!keys.length) return 0;
-  const row = db.prepare(`SELECT COALESCE(SUM(durationSeconds),0) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ?`)
-    .get(activityId, ...keys, start, end);
+  const tl = tempsLimite();
+  const row = db.prepare(`SELECT COALESCE(SUM(durationSeconds),0) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60${tl.sql}`)
+    .get(activityId, ...keys, start, end, ...tl.args);
   return Math.round(row.s / 60);
 }
 
@@ -243,8 +269,9 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
   const cur = viewRange(kind, today);
   const start = goals.addDays(cur.start, offset * len);
   const end = goals.addDays(start, len - 1);
-  const rows = db.prepare(`SELECT isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? GROUP BY isoDate`)
-    .all(activityId, ...keys, start, end);
+  const tl = tempsLimite();
+  const rows = db.prepare(`SELECT isoDate, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? AND goalCategory IN (${keys.map(() => '?').join(',')}) AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60${tl.sql} GROUP BY isoDate`)
+    .all(activityId, ...keys, start, end, ...tl.args);
   const byDay = {}; rows.forEach((r) => { byDay[r.isoDate] = Math.round(r.s / 60); });
   const days = []; const dates = [];
   for (let i = 0; i < len; i += 1) { const d = goals.addDays(start, i); dates.push(d); days.push(d > today ? null : (byDay[d] || 0)); }
@@ -261,20 +288,40 @@ function workedDays(activityId, scope, today, kind, offset, allTasks) {
   const doneDays = doneCount.map((n, i) => (dates[i] > today ? null : n));
   const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
   let label = fmt(start) + ' – ' + fmt(end);
+  if (kind === 'week') { const ay = anchorYearOf(start); label = 'S' + Math.min(52, Math.floor(goals.daysBetween(yearAnchor(ay), start) / 7) + 1); } // 23 nov. 2026 : semaine = numéro, comme les périodes
   if (kind !== 'week') { const ay = anchorYearOf(start); label = 'P' + (Math.floor(goals.daysBetween(yearAnchor(ay), start) / 28) + 1) + ' · ' + label; }
   return { kind: kind === 'week' ? 'week' : 'period', start, end, label, offset, minutes: days, doneDays, plannedDays: plannedCount, dates, canNext: offset < 0 };
 }
 
+// Seuil d'alerte de la carte « Capacité » : au-delà de 120 % (temps passé > 120 % du temps estimé), le bilan Garder / Alléger / Prolonger est proposé une fois par période.
+const CAPACITY_ALERT_PCT = 120;
+const DEFAULT_TASK_MINUTES = require('./taskminutes').DEFAULT_TASK_MINUTES;
+const ADVANCE_LATE_PCT = 20; // même seuil que le bilan (écart > 20 % : proposer le bilan)
 function tasksCards(ctx) {
   const { activityId, userId, today, scope, tasks, allTasks, range, view } = ctx;
-  const out = { onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, capacity: null, assignees: null, urgent: null };
+  const out = { workload: null, onTime: null, estimate: null, weekdays: null, remaining: null, postponed: null, rhythm: null, streak: null, busy: null, assignees: null, urgent: null };
   const doneIn = (t) => t.done && t.doneDay && inRange(t.doneDay, { start: range.start, end: range.end });
 
+  // Répartition des tâches (à temps / en retard / reportées) : SYNCHRONISÉE avec le graphique, donc sur la même portée (Année / Période / Semaine) ; le libellé de période suit.
   out.onTime = safe(() => {
-    const cur = onTimeFor(tasks, today, range);
-    if (!cur.total) return null;
-    const prev = range.prev ? onTimeFor(allTasks, today, range.prev) : null;
-    return { pct: cur.pct, prevPct: prev && prev.total ? prev.pct : null, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total };
+    const cur = onTimeFor(allTasks, ctx.today, range);
+    const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
+    const label = !range.start ? '' : (view === 'year' ? range.start.slice(0, 4) : fmt(range.start) + ' – ' + fmt(range.end));
+    return { pct: cur.pct, onTime: cur.onTime, late: cur.late, postponed: cur.postponed, total: cur.total, label, start: range.start, end: range.end };
+  });
+
+  // « Capacité » : temps réellement passé / temps estimé des tâches de la période courante (28 jours) ; au-delà de CAPACITY_ALERT_PCT, le client propose le bilan.
+  out.workload = safe(() => {
+    const per = viewRange('period', ctx.realToday), keys = scope.poles.reduce((acc, p) => acc.concat(p.timeKeys), []);
+    if (!keys.length) return null;
+    let est = 0, counted = 0;
+    allTasks.filter((t) => inRange(t.due, per)).slice(0, 300).forEach((t) => { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); est += e && e.minutes ? e.minutes : DEFAULT_TASK_MINUTES; counted += 1; }); // sans estimation connue : 30 min (valeur par défaut des tâches)
+    if (!counted) return null;
+    const until = per.end < ctx.realToday ? per.end : ctx.realToday;
+    const actual = minutesFor(activityId, keys, per.start, until);
+    const ay = anchorYearOf(per.start), n = Math.floor(goals.daysBetween(yearAnchor(ay), per.start) / 28) + 1;
+    const pct = Math.round(actual / est * 100);
+    return { pct, actualMin: actual, estimatedMin: est, periodStart: per.start, label: 'P' + n, alertAt: CAPACITY_ALERT_PCT, over: pct > CAPACITY_ALERT_PCT };
   });
 
   out.estimate = safe(() => {
@@ -341,13 +388,6 @@ function tasksCards(ctx) {
     return { minutesToday: m };
   });
 
-  out.capacity = safe(() => {
-    if (ctx.visitor) return null;
-    let weekly = 0;
-    scope.poles.forEach((p) => { weekly += goalsauto.capacityMinutesForMember(activityId, p.key, userId) || 0; });
-    return weekly > 0 ? { avgFreeMinutes: Math.round(weekly / 7) } : null;
-  });
-
   out.assignees = safe(() => {
     const names = {}; const list = [];
     scope.poles.forEach((p) => {
@@ -392,7 +432,7 @@ function weekSummary(activityId, tasks, weeklies) {
 // Partagé par la bulle et la feuille « Où ça glisse » : une seule base, donc un seul chiffre par semaine.
 function loadWeekIndex(activityId) {
   const wk = {};
-  db.prepare('SELECT id, startDate, category FROM goal_periods WHERE activityId = ?').all(activityId).forEach((p) => {
+  db.prepare('SELECT id, startDate, category FROM goal_periods WHERE activityId = ?').all(activityId).filter((p) => !LIM || LIM.mg.has(p.category)).forEach((p) => {
     db.prepare("SELECT id, weekIndex, status FROM goal_weekly WHERE periodId = ? AND TRIM(text) <> ''").all(p.id).forEach((w) => {
       const b = goals.weekBounds(p.startDate, w.weekIndex);
       wk[w.id] = { id: w.id, ps: p.startDate, w: w.weekIndex, start: b.start, end: b.end, category: p.category, status: w.status };
@@ -420,12 +460,54 @@ function unitEnd(o) { return o.kind === 'weekly' ? goals.weekBounds(o.periodStar
 
 function objectivesCards(ctx) {
   const { activityId, today, scope, tasks, objs, realToday, isCurrentYear } = ctx;
-  const out = { target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
+  const out = { advance: null, timeline: null, split: null, target: null, achieved: null, weeks: null, carried: null, linked: null, pressure: null };
+  // « Avancement » : par objectif (secteur, ou pôle sans secteur), la DURÉE des tâches restantes à faire comparée au temps que l'utilisateur va réellement passer d'ici la fin de la période,
+  // estimé d'après ses 4 dernières semaines de Chrono. Au-delà de ADVANCE_LATE_PCT (20 %) de temps manquant : « En retard » (même seuil que le bilan) ; en deçà : « À l'heure » ; sinon « En avance ».
+  out.advance = safe(() => {
+    const per = viewRange('period', realToday), weeksLeft = Math.max(1, goals.daysBetween(realToday, per.end) + 1) / 7, units = [];
+    scope.poles.forEach((p) => { if (p.sectors.length) p.sectors.forEach((s) => units.push({ key: s.key, label: s.label, keys: [s.key] })); else units.push({ key: p.key, label: p.label, keys: [p.key] }); });
+    const list = [];
+    units.forEach((u) => {
+      const open = (ctx.allTasks || []).filter((t) => u.keys.indexOf(t.key) >= 0 && !t.done && !t.closed && (!t.due || t.due <= per.end)).slice(0, 300);
+      if (!open.length) return;
+      let need = 0; open.forEach((t) => { const e = goals.estimateForGoal(activityId, t.key, 'weekly', t.label); need += e && e.minutes ? e.minutes : DEFAULT_TASK_MINUTES; });
+      const hist = minutesFor(activityId, u.keys, goals.addDays(realToday, -28), goals.addDays(realToday, -1));
+      if (!hist) return; // sans historique : rien à comparer
+      const avail = Math.round(hist / 4 * weeksLeft);
+      const state = need <= avail ? 'avance' : need <= avail * (1 + ADVANCE_LATE_PCT / 100) ? 'heure' : 'retard';
+      list.push({ key: u.key, label: u.label, needMin: need, availMin: avail, pct: Math.min(100, Math.round(avail / need * 100)), state });
+    });
+    return list.length ? { list, periodEnd: per.end, latePct: ADVANCE_LATE_PCT } : null;
+  });
+
+  // Avancement : une ligne PAR ACTIVITÉ sur un axe de temps commun (début le plus tôt -> fin la plus tardive) ; « fait » = semaines cochées / semaines prévues des objectifs en cours de l'activité.
+  out.timeline = safe(() => {
+    const rows = db.prepare('SELECT o.activityId, o.startDate, o.endDate, o.stepsJson, o.metaJson, a.name FROM user_objectives o JOIN activities a ON a.id = o.activityId WHERE o.userId = ? AND o.isMacro = 0').all(ctx.userId);
+    const by = {};
+    rows.forEach((r) => {
+      let meta = {}, periods = [];
+      try { meta = JSON.parse(r.metaJson || '{}'); periods = JSON.parse(r.stepsJson || '[]'); } catch (e) { return; }
+      if (meta.attainedAt || !r.startDate || !r.endDate) return;
+      const x = by[r.activityId] || (by[r.activityId] = { activityId: r.activityId, name: r.name, start: r.startDate, end: r.endDate, done: 0, total: 0 });
+      if (r.startDate < x.start) x.start = r.startDate;
+      if (r.endDate > x.end) x.end = r.endDate;
+      periods.forEach((p) => (p.weeks || []).forEach((w) => { x.total += 1; if (w.done) x.done += 1; }));
+    });
+    const list = Object.keys(by).map((k) => by[k]).sort((p, q) => (p.end < q.end ? 1 : p.end > q.end ? -1 : 0));
+    return list.length ? { today: realToday, list } : null;
+  });
+
   const started = objs.filter((o) => unitStart(o) <= today);
   const starts = Array.from(new Set(started.map(unitStart))).sort();
   const last = starts.length ? starts[starts.length - 1] : null;
   const prevS = starts.length > 1 ? starts[starts.length - 2] : null;
   const lastList = last ? started.filter((o) => unitStart(o) === last) : [];
+
+  // Répartition des objectifs (atteints / partiels / non atteints) : mêmes objectifs que le graphique (Périodiques ou Hebdomadaires selon son ⋮, même année).
+  out.split = safe(() => {
+    const a = started.filter((o) => o.status === 'atteint').length, p = started.filter((o) => o.status === 'partiel').length;
+    return { atteint: a, partiel: p, non: started.length - a - p, total: started.length, kind: ctx.okind, label: ctx.yearNum ? String(ctx.yearNum) : '' };
+  });
 
   const targetCore = (mine, keys) => {
     const targetMin = mine.reduce((s, o) => s + o.est, 0);
@@ -529,63 +611,15 @@ function objectivesCards(ctx) {
   return out;
 }
 
-// ---- Détail « Où ça glisse » (clic sur une bulle, sa propre page uniquement) ----------------------
-// Pour une semaine (weekIndex 1..4) ou une période entière (weekIndex absent) commençant à periodStart.
-// Tâches liées = sub_project_items.goalWeeklyId. Réalisées = faites ; Non accomplies = non faites ;
-// Ont glissé = non faites dont la date prévue est après la fin de la semaine ; Avancées = faites dans la semaine
-// mais liées à une semaine ultérieure. Ratio d'une semaine = règle du statut (goals.weeklyRatioFromTasks, minutes par tâche goals.weeklyTaskMinutes).
-function glisseDetail(activityId, periodStart, weekIndex) {
-  const realToday = todayLocal();
-  const scope = loadScope(activityId, null);
-  const tasks = loadTasks(activityId, scope.keyToPole);
-  const wk = loadWeekIndex(activityId);
-  const plabel = (d) => 'P' + (Math.floor(goals.daysBetween(yearAnchor(anchorYearOf(d)), d) / 28) + 1);
-  const fmt = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
-  const cache = {};
-  const minutes = (t) => {
-    const k = (t.weeklyId != null && wk[t.weeklyId] ? wk[t.weeklyId].category : t.key) + '|' + t.label;
-    if (!(k in cache)) cache[k] = goals.weeklyTaskMinutes(activityId, t.weeklyId != null && wk[t.weeklyId] ? wk[t.weeklyId].category : t.key, t.label);
-    return cache[k];
-  };
-  // Emplacement d'une date par rapport à la période de référence : semaine de la même période ou autre période.
-  const where = (d, ps) => (d <= goals.addDays(ps, 27) && d >= ps
-    ? { kind: 'week', n: Math.floor(goals.daysBetween(ps, d) / 7) + 1, wn: woy(ps, Math.floor(goals.daysBetween(ps, d) / 7) + 1), date: fmt(d) }
-    : { kind: 'period', label: plabel(d), date: fmt(d) });
-  const slot = (ref, ps) => (ref.ps === ps ? { kind: 'week', n: ref.w, wn: woy(ps, ref.w) } : { kind: 'period', label: plabel(ref.ps) });
-  const weekDetail = (w) => {
-    const ids = Object.keys(wk).filter((id) => wk[id].ps === periodStart && wk[id].w === w).map(Number);
-    const b = goals.weekBounds(periodStart, w);
-    const mine = tasks.filter((t) => t.weeklyId != null && ids.indexOf(t.weeklyId) >= 0);
-    const row = (t) => ({ label: t.label, minutes: minutes(t), week: w, weekOfYear: woy(periodStart, w) });
-    const done = mine.filter((t) => t.done);
-    const notDone = mine.filter((t) => !t.done);
-    const slipped = notDone.filter((t) => t.due && t.due > b.end).map((t) => Object.assign(row(t), { to: where(t.due, periodStart) }));
-    const ahead = tasks.filter((t) => t.done && t.doneDay && t.doneDay >= b.start && t.doneDay <= b.end && t.weeklyId != null && wk[t.weeklyId] && wk[t.weeklyId].start > b.end)
-      .map((t) => Object.assign(row(t), { from: slot(wk[t.weeklyId], periodStart) }));
-    // Même ratio que la bulle et que le statut automatique (weekSummary -> goals.weeklyRatioFromTasks).
-    const sm = weekSummary(activityId, tasks, ids.map((id) => wk[id]));
-    return { week: w, weekOfYear: woy(periodStart, w), start: b.start, end: b.end, started: b.start <= realToday, pct: sm ? sm.pct : null, status: sm ? sm.status : null, statusNote: sm ? sm.note : null, done: done.map(row), notDone: notDone.map(row), slipped, ahead };
-  };
-  const out = { periodStart, periodLabel: plabel(periodStart), periodEnd: goals.addDays(periodStart, 27), startLabel: fmt(periodStart), endLabel: fmt(goals.addDays(periodStart, 27)) };
-  if (weekIndex) {
-    return Object.assign(out, { mode: 'week' }, weekDetail(weekIndex));
-  }
-  const weeks = [1, 2, 3, 4].map(weekDetail);
-  const share = periodShare(activityId, tasks, wk, periodStart, realToday, () => true);
-  const tiles = weeks.map((wd) => ({ week: wd.week, weekOfYear: wd.weekOfYear, pct: wd.started && wd.pct != null ? wd.pct : null, status: wd.started && wd.pct != null ? wd.status : null, statusNote: wd.started && wd.pct != null ? wd.statusNote : null }));
-  const cat = (key) => weeks.reduce((a, wd) => a.concat(wd[key]), []);
-  return Object.assign(out, {
-    mode: 'period',
-    pct: share.pct,
-    tiles, slipped: cat('slipped'), notDone: cat('notDone'), ahead: cat('ahead'),
-  });
-}
-
 function yearOf(d) { return d ? Number(String(d).slice(0, 4)) : null; }
 
 function insightsForActivity(activityId, userId, poleKey, yearParam, opts) {
-  const prevMemo = goals.beginEstimateMemo();
-  try { return insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts); } finally { goals.endEstimateMemo(prevMemo); }
+  const lim = limiteFor(userId, activityId);
+  // Un responsable de pôle/secteur ne peut pas viser une catégorie hors de sa portée (comme memberStats) ; un simple membre n'a, de toute façon, que ses données.
+  if (lim && poleKey && lim.mg.roots.length && !lim.mg.has(poleKey)) { const e = new Error('Cette catégorie est hors de ta portée.'); e.statusCode = 403; e.errCode = 'DONNEES_RESERVEES_RESPONSABLES'; throw e; }
+  const prevMemo = goals.beginEstimateMemo(), prevLim = LIM;
+  LIM = lim;
+  try { return insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts); } finally { LIM = prevLim; goals.endEstimateMemo(prevMemo); }
 }
 
 function insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts) {
@@ -593,6 +627,7 @@ function insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts) {
   const realToday = todayLocal();
   const cur = Number(realToday.slice(0, 4));
   const scope = loadScope(activityId, poleKey || null);
+  if (LIM) scope.poles = scope.poles.filter((p) => p.keys.some((k) => LIM.mg.has(k)) || LIM.mg.roots.length === 0); // responsable limité : seulement les pôles de sa portée (un simple membre garde la structure, sans données des autres)
   const allTasks = loadTasks(activityId, scope.keyToPole);
   const allObjs = loadObjectives(activityId, scope.keyToPole);
   const ys = new Set();
@@ -615,7 +650,7 @@ function insightsForActivityRaw(activityId, userId, poleKey, yearParam, opts) {
   const tasks = allTasks.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
   const kindObjs = okind === 'all' ? allObjs : allObjs.filter((o) => o.kind === (okind === 'weekly' ? 'weekly' : 'period'));
   const objs = year === 'all' ? kindObjs : kindObjs.filter((o) => yearOf(o.end) === year);
-  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, okind, visitor: !!opts.visitor, woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
+  const ctx = { activityId, userId, today, realToday, scope, tasks, allTasks, objs, range, view: scopeName, offset: off, okind, visitor: !!opts.visitor, toff: Math.max(-520, Math.min(0, parseInt(opts.toff, 10) || 0)), woff: Math.max(-520, Math.min(0, parseInt(opts.woff, 10) || 0)), yearNum: year === 'all' ? null : year, isCurrentYear: year === 'all' || year === cur };
   let minY = cur;
   allObjs.forEach((o) => { minY = Math.min(minY, anchorYearOf(o.periodStart)); });
   years.forEach((y) => { minY = Math.min(minY, y); });
@@ -652,21 +687,25 @@ function visitorInsights(activityId, ownerId, yearParam, opts) {
 // Membres seulement (la route garde). Agrégats uniquement : aucun titre de tâche. Responsable d'une tâche =
 // celui qui l'a faite, sinon la personne à qui elle est planifiée (plannedUserId). Même portée que les cartes
 // (taskRange : année / période / semaine / tout).
-function memberStats(activityId, scopeParam, yearParam, poleKey) {
+function memberStats(activityId, scopeParam, yearParam, poleKey, viewerId) {
+  // Confidentialité (19 nov. 2026), activité partagée : un simple membre ne voit que SES données ; un responsable, celles de la portée qu'il gère.
+  const pt = require('./portee'), vs = viewerId && pt.estPartagee(activityId) ? pt.managed(viewerId, activityId) : null, limited = !!vs && !vs.all;
   const realToday = todayLocal();
   const cur = Number(realToday.slice(0, 4));
   const scopeName = scopeParam === 'period' || scopeParam === 'week' ? scopeParam : (scopeParam === 'all' ? 'all' : 'year');
   const year = scopeName === 'all' ? 'all' : cur;
   const range = taskRange(scopeName === 'all' ? 'year' : scopeName, year, realToday);
-  const scope = loadScope(activityId, poleKey ? String(poleKey) : null); // filtre « pôle » de la fenêtre Activité (clé inconnue / 'none' => aucune tâche)
+  const scope = loadScope(activityId, poleKey ? String(poleKey) : null);
+  if (limited) scope.poles = scope.poles.filter((p) => p.keys.some((k) => vs.has(k))); // filtre « pôle » de la fenêtre Activité (clé inconnue / 'none' => aucune tâche)
   const planned = {};
   db.prepare(`SELECT i.id, i.plannedUserId FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE sp.activityId = ? AND sp.goalCategory IS NOT NULL AND i.plannedUserId IS NOT NULL`).all(activityId).forEach((r) => { planned[r.id] = r.plannedUserId; });
   const undated = scopeName === 'year' || scopeName === 'all';
-  const loaded = loadTasks(activityId, scope.keyToPole);
+  const respOfRaw = (t) => (t.done ? (t.doneBy || planned[t.id]) : planned[t.id]);
+  const loaded = loadTasks(activityId, scope.keyToPole).filter((t) => !limited || vs.has(t.key) || respOfRaw(t) === viewerId);
   const tasks = loaded.filter((t) => inRange(t.due, range) || inRange(t.doneDay, range) || (undated && !t.due && !t.doneDay));
   const members = db.prepare(`SELECT u.id AS id, u.name AS name, u.lastName AS lastName, u.color AS color, u.avatar AS avatar
-    FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY am.joinedAt, u.id`).all(activityId);
+    FROM activity_members am JOIN users u ON u.id = am.userId WHERE am.activityId = ? ORDER BY am.joinedAt, u.id`).all(activityId).filter((m) => !limited || vs.roots.length > 0 || m.id === viewerId);
   const by = {};
   members.forEach((m) => { by[m.id] = { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, avatar: m.avatar || null, assigned: 0, done: 0, withDue: 0, onTime: 0, late: 0 }; });
   let total = 0; let totalDone = 0;
@@ -705,15 +744,42 @@ function memberStats(activityId, scopeParam, yearParam, poleKey) {
   }
   const buckets = {}; members.forEach((m) => { buckets[m.id] = new Array(n).fill(0); });
   doneTasks.forEach((t) => { const i = idx(t.doneDay); if (i >= 0) buckets[respOf(t)][i] += 1; });
-  let max = 0;
-  const seriesMembers = members.map((m) => {
-    let acc = 0; const values = [];
-    for (let i = 0; i < n; i += 1) { acc += buckets[m.id][i]; values.push(i <= todayIndex ? acc : null); }
-    max = Math.max(max, acc);
-    return { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, values };
+  // « Qui fait quoi » (partage des tâches, 8 nov. 2026) : heures enregistrées et tâches faites PAR case (pas cumulées), une paire de courbes par membre.
+  const hours = {}; members.forEach((m) => { hours[m.id] = new Array(n).fill(0); });
+  db.prepare('SELECT userId, isoDate, goalCategory AS c, SUM(durationSeconds) AS s FROM time_entries WHERE activityId = ? GROUP BY userId, isoDate, goalCategory').all(activityId).forEach((r) => {
+    if (!hours[r.userId] || !r.isoDate) return;
+    if (limited && r.userId !== viewerId && !vs.has(r.c)) return;
+    const i = idx(r.isoDate); if (i >= 0) hours[r.userId][i] += r.s / 3600;
   });
-  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out,
-    series: { labels, todayIndex, noToday, max: niceMax(max), members: seriesMembers } };
+  let max = 0; let maxHours = 0; let maxTasks = 0;
+  const seriesMembers = members.map((m) => {
+    let acc = 0; const values = []; const tasksPer = []; const hoursPer = [];
+    for (let i = 0; i < n; i += 1) {
+      acc += buckets[m.id][i]; values.push(i <= todayIndex ? acc : null);
+      tasksPer.push(i <= todayIndex ? buckets[m.id][i] : null); hoursPer.push(i <= todayIndex ? round1(hours[m.id][i]) : null);
+      if (i <= todayIndex) { maxTasks = Math.max(maxTasks, buckets[m.id][i]); maxHours = Math.max(maxHours, hours[m.id][i]); }
+    }
+    max = Math.max(max, acc);
+    return { userId: m.id, name: m.name, lastName: m.lastName || '', color: m.color || null, values, tasks: tasksPer, hours: hoursPer };
+  });
+  // Grille « Contribution » : tâches FAITES par membre, par pôle (total du pôle, secteurs compris) et par secteur. Comptes seulement, aucun titre de tâche.
+  const grid = { poles: scope.poles.map((p) => ({ key: p.key, label: p.label, sectors: p.sectors })), cells: {} };
+  members.forEach((m) => { grid.cells[m.id] = {}; });
+  tasks.forEach((t) => {
+    if (!t.done) return;
+    const row = grid.cells[respOf(t)]; if (!row) return;
+    row[t.pole] = (row[t.pole] || 0) + 1;
+    if (t.key !== t.pole) row[t.key] = (row[t.key] || 0) + 1;
+  });
+  return { scope: scopeName, total: { tasks: total, done: totalDone, remaining: total - totalDone }, members: out, grid,
+    series: { labels, todayIndex, noToday, max: niceMax(max), maxHours: niceMax(maxHours), maxTasks: niceMax(maxTasks), members: seriesMembers } };
 }
 
-module.exports = { insightsForActivity, visitorInsights, glisseDetail, memberStats };
+// Bornes d'une portée Tout / Année / Période / Semaine (mêmes grilles que memberStats) ; Tout = sans borne. Partage des tâches (lib/partagetaches.js).
+function scopeRange(scopeParam) {
+  if (scopeParam === 'all') return { start: null, end: null };
+  const r = viewRange(scopeParam === 'period' || scopeParam === 'week' ? scopeParam : 'year', todayLocal());
+  return { start: r.start, end: r.end };
+}
+
+module.exports = { insightsForActivity, visitorInsights, memberStats, scopeRange, CAPACITY_ALERT_PCT, ADVANCE_LATE_PCT };

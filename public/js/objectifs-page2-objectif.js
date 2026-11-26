@@ -1,30 +1,19 @@
-/* Noèsis TimeTracker — Objectifs, PAGE 2 — onglet « OBJECTIFS » (arbre périodique)
+/* Noèsis TimeTracker — Feuille de route : arbre périodique de l'activité
  *
- * scission physique de objectifs-page2.js en 2 fichiers
- * exclusifs, un par onglet de la Page 2 (décision d'Emilien). Voir l'en-tête
- * de objectifs-page2-taches.js pour la répartition complète et le contrat
- * minimal entre les 2 fichiers. Ce fichier contient :
- *   - le cadre de pôle #goalsActivityHeader (‹ pôle ›, balayage) ;
- *   - la grille périodique comparative (#goalsGridScroll/#goalsGridHead/
- *     #goalsGrid), l'ajout de catégorie (« page + »), la navigation vers les
- *     réglages de catégorie ;
+ * Contenu de la fenêtre d'une activité (coque : fenetre-activite.js, chargé AVANT ce fichier). Ce fichier contient :
+ *   - le cadre de pôle #goalsActivityHeader (‹ pôle ›, balayage), inséré juste avant #goalsObjectifsView ;
+ *   - la grille périodique comparative (#goalsGridScroll/#goalsGridHead/#goalsGrid), l'ajout de catégorie (« page + »),
+ *     la navigation vers les réglages de catégorie ;
  *   - le rail tactile (#goalsScrubZone/#goalsScrubLabel).
- * Déplacement PUR : aucune logique modifiée. Ce fichier est chargé APRÈS
- * objectifs-page2-taches.js, qui crée la coque de la fenêtre : il y insère
- * son cadre de pôle juste avant #goalsPage2ModeSwitch et son contenu dans
- * l'emplacement #goalsObjectifsView (masqué tant que l'onglet Tâches est
- * actif — c'est objectifs-page2-taches.js, setGoalsPage2Mode(), qui bascule).
- * Points d'entrée exportés vers app.js/objectifs-page3.js en bas de fichier ;
- * TMT.resetGoalsObjectifsState() est appelée par openGoalsForActivity()
- * (objectifs-page2-taches.js) à chaque ouverture/changement d'activité.
+ * Points d'entrée exportés vers app.js/objectifs-page3.js en bas de fichier ; TMT.resetGoalsObjectifsState() est appelée par
+ * openGoalsForActivity() (fenetre-activite.js) à chaque ouverture/changement d'activité.
  */
 (function () {
   'use strict';
   var TMT = window.TMT = window.TMT || {};
 
-  // Cadre de pôle : inséré entre l'en-tête fixe et la bascule Tâches/Objectifs
-  // (créés par objectifs-page2-taches.js, chargé avant ce fichier).
-  document.getElementById('goalsPage2ModeSwitch').insertAdjacentHTML('beforebegin', `
+  // Cadre de pôle : inséré juste avant l'emplacement #goalsObjectifsView (créé par fenetre-activite.js, chargé avant ce fichier).
+  document.getElementById('goalsObjectifsView').insertAdjacentHTML('beforebegin', `
 
         <!-- demande directe d'Emilien : le cadre du pôle
              sélectionné (#goalsActivityHeader) remonte ICI, entre l'en-tête
@@ -243,8 +232,6 @@
 
   var $ = TMT.$,
       api = TMT.api,
-      subProjectShade = TMT.subProjectShade,
-      SUB_PROJECT_SHADE_COUNT = TMT.SUB_PROJECT_SHADE_COUNT,
       eclairciPourLisibilite = TMT.eclairciPourLisibilite,
       readableTextOn = TMT.readableTextOn,
       switchTab = TMT.switchTab,
@@ -367,7 +354,7 @@
   function updateGoalsScrubVisibility() {
     var zone = $('goalsScrubZone');
     if (!zone) return;
-    var visible = !(TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen());
+    var visible = true;
     zone.classList.toggle('hidden', !visible);
     if (!visible) hideGoalsScrub();
     else goalsScrubTick(true);
@@ -588,9 +575,9 @@
     poles.forEach(function (p, i) { if (p.key === TMT.currentGoalsSelectedPoleKey) index = i; });
     if (index === -1) index = 0;
     TMT.currentGoalsPoleIndex = index;
-    var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+    var shade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
     applyGoalsHeaderState(header, false, poles[index], shade); // cadre = PÔLE sur toutes les pages
-    if (TMT.rerenderGoalsTasksOverview) TMT.rerenderGoalsTasksOverview();
+    header.style.setProperty('--poleColor', shade); // le nom du pôle prend la couleur du pôle (R16), jamais celle d'un secteur
   }
 
 
@@ -610,8 +597,6 @@
     TMT.currentGoalsSelectedPoleKey = p.key;
     renderGoalsPoleSwitcher();
     if (changed) reloadGoalsGridForPole(p.key);
-    // Page du milieu (mensuel) ouverte : elle suit le pôle affiché (période en cours).
-    if (changed && TMT.isGoalsMonthOpen && TMT.isGoalsMonthOpen() && TMT.prepareGoalsMonth) TMT.prepareGoalsMonth();
   }
 
 
@@ -641,7 +626,7 @@
   // nom de catégorie
   // CENTRÉ et encadré dans un cadre coloré — une NUANCE de la couleur de
   // l'activité, une nuance différente par catégorie, même mécanisme que les
-  // 5 nuances des sous-projets (subProjectShade(), plus haut dans ce
+  // 5 nuances des sous-projets (TMT.poleColor(), plus haut dans ce
   // fichier) plutôt qu'une nouvelle échelle de couleurs. Couleur 100%
   // automatique (cadré avec Emilien, AskUserQuestion) : plus de champ
   // `color` côté serveur, tout se calcule ici à partir de
@@ -730,7 +715,7 @@
     if (y < prevY) {
       TMT.pruneGoalsYears().then(function () { renderGoalsYearPicker(); });
     }
-    renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid();
+    renderGoalsYearPicker(); renderGoalsGridHead(); renderGoalsGrid(); renderGoalsYearBands();
     // Les secteurs diffèrent selon l'année : recharge les colonnes de l'année choisie.
     var pk = TMT.currentGoalsSelectedPoleKey;
     if (pk && TMT.reloadGoalsGridForPole) TMT.reloadGoalsGridForPole(pk);
@@ -765,6 +750,27 @@
       row.appendChild(b);
       menu.appendChild(row);
     });
+    renderGoalsYearBands();
+  }
+  // Années RELATIVES : au-dessus de la grille les années futures (la plus lointaine en haut), au-dessous les années passées ; l'année affichée est « Année N ». Toucher une ligne affiche cette année.
+  function relYear(y) { var d = y - goalsCurrentYear(); return d === 0 ? 'N' : (d > 0 ? 'N+' + d : 'N' + d); }
+  function renderGoalsYearBands() {
+    var scroll = $('goalsGridScroll'); if (!scroll || !scroll.parentNode) return;
+    ['goalsYearBandsTop', 'goalsYearBandsBottom'].forEach(function (id) { var o = $(id); if (o) o.remove(); });
+    if (!TMT.goalsYears || TMT.goalsYearsFor !== TMT.currentGoalsActivityId || goalsHasNoRealCategory(activeGoalsCategories())) return;
+    var ty = goalsTreeYearNow(), ys = (TMT.goalsYears.years || []).slice().sort(function (a, b) { return b - a; });
+    function row(y, shown) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'goalsYearBand cmpSepRow' + (shown ? ' on' : '');
+      var s = document.createElement('span'); s.textContent = t('Année') + ' ' + relYear(y) + ' · ' + y; b.appendChild(s);
+      if (!shown) { var c = document.createElement('span'); c.className = 'cmpChev'; c.setAttribute('aria-hidden', 'true'); b.appendChild(c); b.addEventListener('click', function () { selectGoalsYear(y); }); }
+      return b;
+    }
+    var top = document.createElement('div'), bottom = document.createElement('div');
+    top.id = 'goalsYearBandsTop'; bottom.id = 'goalsYearBandsBottom'; top.className = bottom.className = 'goalsYearBands';
+    ys.filter(function (y) { return y > ty; }).forEach(function (y) { top.appendChild(row(y, false)); });
+    top.appendChild(row(ty, true));
+    ys.filter(function (y) { return y < ty; }).forEach(function (y) { bottom.appendChild(row(y, false)); });
+    scroll.parentNode.insertBefore(top, scroll); scroll.parentNode.insertBefore(bottom, scroll.nextSibling);
   }
   document.addEventListener('click', function (e) {
     var btn = e.target.closest && e.target.closest('#goalsYearPickBtn');
@@ -859,7 +865,7 @@
         var fit = function () { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
         ta.addEventListener('input', fit);
         var ok = document.createElement('button');
-        ok.type = 'button'; ok.className = 'goalsYearSave'; ok.textContent = t('Enregistrer');
+        ok.type = 'button'; ok.className = 'cmpBtn'; ok.textContent = t('Enregistrer');
         ok.addEventListener('click', function () {
           ok.disabled = true;
           api('PUT', '/api/activities/' + TMT.currentGoalsActivityId + '/goals/year-goals/' + encodeURIComponent(c.key), { text: ta.value, year: goalsTreeYearNow() })
@@ -930,7 +936,7 @@
         var span = document.createElement('span');
         span.className = 'goalsGridHeadCell';
         span.textContent = t(c.label);
-        var shade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+        var shade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
         // (discussion "Objectifs — Titres des catégories"),
         // demande d'Emilien : « je laisse la couleur noire à l'intérieur et
         // mets le titre de la catégorie en couleur » — fond transparent (la
@@ -975,7 +981,7 @@
     } else if (!hasNoRealCategory && isPoleFallbackColumn) {
       // Pôle sans secteur : l'objectif de l'année reste possible, sans titre de secteur.
       var poleCat = categories[0];
-      var poleShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+      var poleShade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
       head.appendChild(buildGoalsYearColumn(poleCat, null, poleShade));
       loadGoalsYearGoals(); loadGoalsYears();
     }
@@ -1255,7 +1261,7 @@
     var grid = $('goalsGrid');
     if (!grid || !TMT.currentGoalsAllPlannings) return;
     grid.innerHTML = '';
-    grid.style.setProperty('--poleTree', subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT));
+    grid.style.setProperty('--poleTree', TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0));
     var byCategory = TMT.currentGoalsAllPlannings.byCategory || {};
     var categories = activeGoalsCategories();
     // même garde que renderGoalsGridHead()
@@ -1343,7 +1349,7 @@
             // je souhaite qu'on ait l'impression qu'on a creusé les lettres
             // à travers la bulle. » — effet "texte gravé" : la bulle est
             // remplie en APLAT de la nuance automatique de la catégorie
-            // (même fonction subProjectShade() que le badge d'en-tête,
+            // (même fonction TMT.poleColor() que le badge d'en-tête,
             // jamais une simple bordure comme avant ce passage), le texte
             // prend exactement la couleur du fond d'écran (var(--bg), PAS
             // readableTextOn() — Emilien veut la couleur du fond, pas un
@@ -1352,7 +1358,7 @@
             // dessus. La bordure reprend la même nuance que le fond (plus
             // aucun contour visible, bulle pleine comme la maquette de
             // référence envoyée par Emilien).
-            var filledShade = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+            var filledShade = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
             cell.style.background = filledShade;
             cell.style.borderColor = filledShade;
             txt.style.color = 'var(--bg)';
@@ -1383,7 +1389,7 @@
 
           if (p) {
             cell.addEventListener('click', (function (category, periodNumber) {
-              return function () { TMT.openGoalsDetail(category, periodNumber); };
+              return function () { if (TMT.ouvrirCalendrierTaches) TMT.ouvrirCalendrierTaches({ activityId: TMT.currentGoalsActivityId, poleKey: TMT.currentGoalsSelectedPoleKey, secteurKey: category, periodNumber: periodNumber }); }; // le calendrier vit dans la vue Tâches
             })(c.key, p.periodNumber));
           } else {
             cell.disabled = true;
@@ -1402,7 +1408,7 @@
         marker.setAttribute('aria-label', t('Période') + ' ' + periodIndex);
         if (mState !== 'past') marker.textContent = String(periodIndex);
         if (mState === 'current') {
-          var poleColor = subProjectShade(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0, SUB_PROJECT_SHADE_COUNT);
+          var poleColor = TMT.poleColor(TMT.currentGoalsActivityColor, TMT.currentGoalsPoleIndex || 0);
           marker.style.background = poleColor;
           marker.style.color = readableTextOn(poleColor);
         }
@@ -1457,36 +1463,11 @@
   });
 
 
-  // Balayage horizontal sur le sélecteur de pôle — mêmes seuils que le
-  // geste de retour tactile de Réglages (≥60px, plus
-  // horizontal que vertical) pour rester cohérent dans toute l'app.
-  (function bindGoalsSwipe() {
-    var header = $('goalsActivityHeader');
-    if (!header) return;
-    var startX = null;
-    var startY = null;
-    header.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    }, { passive: true });
-    header.addEventListener('touchend', function (e) {
-      if (startX == null) return;
-      var touch = e.changedTouches[0];
-      var dx = touch.clientX - startX;
-      var dy = touch.clientY - startY;
-      startX = null;
-      startY = null;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
-      // Droite → gauche (dx négatif) : pôle SUIVANT.
-      // Gauche → droite (dx positif) : pôle PRÉCÉDENT.
-      openGoalsForPole(TMT.currentGoalsPoleIndex + (dx < 0 ? 1 : -1));
-    }, { passive: true });
-  })();
+  // Balayage du sélecteur de pôle : composant commun .cmpNav (R46, composants.js), qui actionne les flèches ci-dessus.
 
 
   // Remise à zéro de l'état de la grille à chaque ouverture/changement
-  // d'activité — appelée par openGoalsForActivity() (objectifs-page2-taches.js),
+  // d'activité — appelée par openGoalsForActivity() (fenetre-activite.js),
   // à l'emplacement exact où ces lignes vivaient avant la scission.
   TMT.resetGoalsObjectifsState = function () {
     // Repart de la période en cours à chaque changement d'activité : la

@@ -13,7 +13,7 @@ PROPOSITIONS seulement : rien n'est retiré. Sources : `docs/audits/audit-chrono
 | 7 | Réglages | Sections « Sécurité » et « Supprimer mon compte » | Deux sections pour la gestion du compte | Les fusionner en une |
 | 8 | Réglages | « Partage » et « Aide et suggestions » | Chevauchent Profil (partage) et le canal de feedback | Déplacer « Partage » au Profil |
 | 9 | Réglages | Section « Modules » | Le seul chemin pour désactiver un module ; utile seulement si peu de modules | Garder si Émilien tient aux modules ; sinon retirer et afficher les modules du palier |
-| 10 | Code | `bindSubProjectDrag` et UI sous-projets masquée depuis le 17 sept. | Code mort (CLAUDE.md) | Retirer le code (pas les données) |
+| 10 | Code | UI sous-projets masquée depuis le 17 sept. (`bindSubProjectDrag` déjà retiré) | Reste du code sous-projets inutilisé | Retirer le reste du code (pas les données) |
 | 11 | Code | Sélecteur d'activité répété (`caSubProjectBtn/Menu`) réutilisé pour le filtre Stats | Classe de sous-projets pour une autre fonction | Renommer ou supprimer avec le point 3 |
 
 Non vérifié : états en cours (chrono lancé), Communauté, Profil, Trade Tracker (passes d'audit suivantes, voir `docs/regles/boucle-veille.md`).

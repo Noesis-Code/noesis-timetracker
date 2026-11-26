@@ -71,6 +71,8 @@ Chacun dirige sa propre discussion Claude sur le même dépôt. Pour ne pas s'é
 
 ## Vérification visuelle (UI)
 
+**Règle (5 nov. 2026, Émilien)** : tout écran dont le CSS est touché, y compris indirectement (composant ou règle partagée), est capturé à 390 px avant de dire « fait ». Une modification d'un composant commun se vérifie sur chacun des écrans qui l'utilisent.
+
 `NOESIS_DATA_DIR=$D RAILWAY_ENVIRONMENT_NAME=staging node scripts/dev-seed.js` (affiche l'id d'Emilien), puis `NOESIS_DATA_DIR=$D PORT=3999 node server/index.js &`, puis `python3 scripts/visual-check.py <id> <dossier> [dark|light]` et lire les PNG. Pour un écran précis, copier le script et cliquer jusqu'à lui. Toute retouche de design se vérifie en capture avant de rendre la main.
 
 Toute modification d'interface suit `DESIGN.md` (lexique de design) ; relire ce fichier avant de coder et signaler tout écart. L'application n'a PAS de mode clair : sombre uniquement.
@@ -90,14 +92,14 @@ Fichiers très partagés (un seul agent à la fois dessus, sinon conflits de mer
 | Communauté | onglet Communauté, `server/lib/community.js`, `routes/community.js` | ne pas renommer `.barList/.barRow/...` |
 | Paramètres & Profil | Réglages, page Profil, onboarding, consentement légal, `server/routes/profile.js` | |
 | Notifications | `server/lib/push.js`, `routes/push.js`, adressage `?notif=type&...` (`focusWhenReady`, `.notifHighlight`) | le contenu de chaque notif reste au domaine propriétaire |
-| Objectifs — Page 1 (capture, logique métier) | `public/js/objectifs-page1.js`, `css/objectifs-page1.css`, `server/lib/goalscaptureplace.js`, `goalsdailypriority.js`, `dailysuggestioncron.js`, `crosssectorinference.js`, `goalsweeklyauto.js`, planification pure de `goals.js` | |
+| Objectifs — Page 1 (capture, logique métier) | `public/js/objectifs-page1.js`, `css/objectifs-page1.css`, `server/lib/goalscaptureplace.js`, `crosssectorinference.js`, `goalsweeklyauto.js`, planification pure de `goals.js` | |
 | Objectifs — Page 2 Arbre périodique | `public/js/objectifs-page2-objectif.js`, `css/objectifs-page2-objectif.css` | |
-| Objectifs — Page 2 Tâches quotidiennes | `public/js/objectifs-page2-taches.js`, `css/objectifs-page2-taches.css` | pas de réordonnancement manuel des tâches du jour |
+| Feuille de route — fenêtre d'une activité (coque) | `public/js/fenetre-activite.js`, `css/fenetre-activite.css` | tâches du jour = volet Tâches (`aujourdhui.js`) ; pas de réordonnancement manuel des tâches du jour |
 | Objectifs — Page 3 Calendrier | `public/js/objectifs-page3.js`, `css/objectifs-page3.css`, `server/lib/calendarfeed.js`, `goalreminders.js`, `externalcalendar.js`, `routes/calendar.js` | `#goalsDetailPage` z-index 101 (au-dessus de la Page 2) |
 | Objectifs — Pôles/secteurs/tâches | gestion pôles/secteurs de `goals.js`/`routes/goals.js`, `goalstasks.js`, `goalstaskclassify.js`, panneau « gérer mes catégories », fenêtre Activité (Tâches/Discussion) | seuls les pôles portent une couleur, jamais les secteurs |
 | Objectifs — Planification IA | `goalsauto.js`, `scripts/apply-offre1-*.js` | |
 | Capture hors ligne | `public/offline-queue.js`, `public/sw.js`, `manifest.webmanifest` | |
-| Sous-projets | `server/lib/subprojects.js` & co, `routes/subprojects*.js` | UI masquée depuis le 17 sept. ; `bindSubProjectDrag` = code mort à retirer |
+| Sous-projets | `server/lib/subprojects.js` & co, `routes/subprojects*.js` | UI masquée depuis le 17 sept. |
 | Offre 1 / Paiement | `offerdelivery.js`, `subscriptioncron.js`, `stripe.js`, `routes/offercheckout.js`, `stripewebhook.js` | Stripe jamais testé en live |
 | Design — coquille | `.topbar`/`.tabbar`, clavier virtuel, viewport, écran de chargement, `theme-palette.js` | |
 | Design — cohérence UX | technique commune transverse (fermetures, glisser-déposer, confirmations, icônes, boutons d'envoi dans la zone) | jamais la logique propre d'un écran |
@@ -113,4 +115,5 @@ Hors dépôt : Horaires / client Jacopo (produit séparé, en pause).
 - Une seule technique d'interaction par fonction : fermeture d'un plein écran = croix ✕ ; réordonnancement = glisser-déposer ; bouton d'envoi DANS la zone d'écriture.
 - Le gate d'installation PWA (`isStandaloneMode()`) ne se déclenche qu'à la création/récupération d'un profil.  Depuis le 29 oct. 2026 (Émilien) : jamais sur ordinateur (accès direct sans installer), seulement téléphone et tablette.
 - **Tâches générées par la barre d'ajout (30 oct. 2026, décision d'Émilien)** : 5 tâches générées au plus à la fois, sauf si l'utilisateur précise le nombre souhaité dans sa demande ; la liste défile, le bouton Enregistrer reste fixe.
+- **Placement et report des tâches (10 nov. 2026, ordre d’Émilien — exception à « une saisie manuelle ne change que par proposition validée »)** : ils ne dépendent QUE de l’importance (classement unique des paliers de `taskkind.js`, 120 % de la capacité de la semaine) ; une date saisie à la main n’est pas protégée ; la maintenance urgente (palier 0) et la réforme passent en premier du classement, sans autre cas particulier. Voir `docs/objectifs/retard.md`.
 - **Connecteur IA libre (21 oct. 2026, décision d'Émilien)** : un compte gratuit peut faire toute l'organisation d'Expansion avec SA propre IA via « Connecter mon IA » (outils d'écriture gratuits, compte du jeton seulement, journal, retrait réversible, limite de débit) ; seule l'IA INTÉGRÉE payée par Noèsis reste payante (E3 ajustée). Voir `docs/expansion/connecteur-ia-libre.md`.

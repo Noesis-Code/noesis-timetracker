@@ -1,24 +1,15 @@
-/* Statistiques — page 2 « tâches réalisées ».
- * Même mécanisme que la Page 2 du volet Objectifs (objectifs-page2-taches.js :
- * setGoalsPage2Mode) : balayage droite → gauche, défilement latéral animé de
- * 280 ms, points en bas au milieu, aucun bouton d'onglet. La page actuelle de
- * #tab-stats (#statsPage1) reste la page 1. UNE activité à la fois (puces en
- * haut). Données : GET /api/stats/activity-progress (lecture seule,
- * server/lib/statsactivityprogress.js ; définition d'« objectif atteint » dans
- * l'en-tête de ce fichier serveur). Couleurs de pôle : nuances automatiques de
- * l'activité (TMT.subProjectShade) ; jamais de couleur propre aux secteurs. */
+/* Statistiques : cartes d'information réutilisables (Bilan et profil d'un autre utilisateur) et glissement continu (TMT.slidePager).
+ * Bilan : une carte à la fois, peinte par cfg.paint (TMT.bilanCardInstance) ; les tableaux de temps de #statsPage1 sont empilés dans la page Bilan (TMT.bilanShow / bilanHide,
+ * contenu : js/bilan-blocs.js). Profil visité : deux pages (temps | tâches et objectifs), lecture seule (TMT.createVisitorStats, TMT.visitorStats).
+ * Données : GET /api/stats/activity-insights et /api/stats/profile-insights (lecture seule ; définition d'« objectif atteint » dans server/lib/statsactivityprogress.js).
+ * Couleurs de pôle : nuances automatiques de l'activité (TMT.poleColor) ; jamais de couleur propre aux secteurs. */
 (function () {
   'use strict';
   var TMT = window.TMT;
-  var zone = document.getElementById('tab-stats');
   var page1 = document.getElementById('statsPage1');
-  var page2 = document.getElementById('statsAvancePage');
   var pages = document.getElementById('statsPages');
-  var dots = document.getElementById('statsPageDots');
-  if (!TMT || !zone || !page1 || !page2 || !pages) return;
+  if (!TMT || !page1 || !pages) return;
   var tr = function (s, v) { return typeof window.t === 'function' ? window.t(s, v) : s; };
-
-  var page = 1;
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -26,7 +17,9 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  var GREEN = '#4CAF50', RED = '#E74C3C', GREY = '#4b4470', ORANGE = '#C2694A';
+  // R12 : vert / jaune / rouge sémantiques lus dans les jetons (--good, --partial, --danger), jamais en dur.
+  function tok(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  var GREEN = tok('--good'), YELLOW = tok('--partial'), RED = tok('--danger'), ORANGE = '#C2694A';
 
   // ---------- Glissement continu (une technique pour les pages Temps | Tâches | Objectifs, propre page ET profil visité) ----------
   // Même technique que la Page 2 de la feuille de route (bindPage2ModeSwipe) : la page voisine est posée en absolu à côté de la courante
@@ -40,6 +33,8 @@
     zone.style.touchAction = 'pan-y';
     function hScroller(e0) {
       for (var e = e0; e && e !== zone; e = e.parentElement) {
+        // zone qui contient un défilement horizontal HORS de la ligne du toucher (arbre des objectifs : repères du temps, bandeau du haut) : data-hscroll="sélecteur" désigne ce défilement, la même règle s'applique (aucun passage de page dans le sens du défilement, retour seulement depuis le bord gauche)
+        if (e.getAttribute && e.getAttribute('data-hscroll')) { var hz = e.querySelector(e.getAttribute('data-hscroll')); if (hz && hz.scrollWidth > hz.clientWidth + 1) { var hox = getComputedStyle(hz).overflowX; if (hox === 'auto' || hox === 'scroll') return hz; } }
         if (e.scrollWidth > e.clientWidth + 1) {
           var ox = getComputedStyle(e).overflowX;
           if (ox === 'auto' || ox === 'scroll') return e;
@@ -52,7 +47,7 @@
       g = null;
       if (e.touches.length !== 1) return;
       var tg = e.target;
-      if (!tg.closest || tg.closest('input, textarea, select, .statsPeriodMenu, .saChips')) return;
+      if (!tg.closest || tg.closest('input:not([type=checkbox]), textarea, select, .statsPeriodMenu, .saChips')) return;
       var mods = document.querySelectorAll('.communityMembersModal:not(.hidden)'); // une fenêtre ouverte AU-DESSUS (pas celle qui contient la zone) bloque le geste
       for (var mi = 0; mi < mods.length; mi++) if (mods[mi].contains(tg) && !mods[mi].contains(zone)) return; // seule une fenêtre qui reçoit réellement le toucher bloque le geste (un sélecteur resté « ouvert » hors écran bloquait le glissement des Nouvelles tâches)
       var sc = hScroller(tg);
@@ -95,7 +90,8 @@
       if (!s0.drag) { if (s0.swallow && e.stopPropagation) e.stopPropagation(); return; }
       if (e.stopPropagation) e.stopPropagation();
       var d = s0.drag, dt = Math.max(1, Date.now() - s0.t), mv = Math.abs(d.x);
-      var commit = !cancelled && (mv > d.w * 0.25 || (mv >= 20 && mv / dt >= 0.35));
+      // Seuil commun à toutes les vues de la page (même facilité de balayage partout) : 56 px, ou 20 px avec un peu d'élan.
+      var commit = !cancelled && (mv >= Math.min(56, d.w * 0.25) || (mv >= 20 && mv / dt >= 0.2));
       var ease = 'transform .22s cubic-bezier(.22,.8,.3,1)';
       d.cur.style.transition = ease; d.nb.style.transition = ease;
       d.cur.style.transform = 'translateX(' + (commit ? -d.dir * d.w : 0) + 'px)';
@@ -126,14 +122,6 @@
   var activityId = null, data = null, loadSeq = 0, built = false;
   var els = {}, bodies = {}, datas = { t: null, o: null };
   function activities() { return cfg.activities(); }
-  function activityColor() {
-    var a = activities().filter(function (x) { return String(x.id) === String(activityId); })[0];
-    return (a && a.color) || '#674EA7';
-  }
-  function poleColor(index) {
-    try { return TMT.subProjectShade(activityColor(), index, TMT.SUB_PROJECT_SHADE_COUNT); } catch (e) { return activityColor(); }
-  }
-
   // ---------- Construction (une fois) ----------
   // refonte (maquette validée) — deux onglets Tâches | Objectifs,
   // graphique « Chemin parcouru et à parcourir » (Année/Mois/Semaine), cartes
@@ -141,7 +129,7 @@
   // Données : GET /api/stats/activity-insights (server/lib/statsinsights.js) ;
   // une donnée absente (null) masque simplement sa carte.
   var DEF_O = visitor ? 'all' : 'weekly'; // défaut Objectifs : « Tout » sur un profil visité, Hebdomadaires sur sa propre page
-  var tab = 't', view = 'year', oview = DEF_O, adding = false, draft = [], dayOff = 0, wOff = 0, pPage = null; // pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
+  var tab = 't', view = 'year', oview = DEF_O, adding = false, draft = [], dayOff = 0, wOff = 0, tOff = 0, pPage = null; // tOff : semaine de « Tâches faites à la date prévue » (0 = en cours). pPage : page de 4 périodes de « Où ça glisse » (null = auto). wOff : période des objectifs hebdo (0 = en cours, -N = en arrière). dayOff : 0 = période / semaine en cours, -N = N périodes / semaines en arrière
   // « Tout » : profil visité seulement, premier choix du menu ⋮.
   var VIEWS = [['year', 'Année'], ['period', 'Période'], ['week', 'Semaine']];
   var OVIEWS = [['periodic', 'Périodiques'], ['weekly', 'Hebdomadaires']];
@@ -154,176 +142,22 @@
     els.msg = el('p', 'hint hidden');
     // Une page par onglet (Tâches | Objectifs) : les deux voisines coexistent pendant le glissement (slidePager).
     bodies.t = el('div', 'saBody'); bodies.o = el('div', 'saBody hidden'); els.body = bodies.t;
-    // Sélecteur Tâches | Objectifs (27 oct. 2026) : une seule page de statistiques ; le profil visité garde son propre glissement.
-    if (!visitor) {
-      els.sel = el('div', 'periodSwitch cmpSeg saSel');
-      [['t', 'Tâches'], ['o', 'Objectifs']].forEach(function (k) {
-        var b = el('button', 'periodBtn' + (tab === k[0] ? ' active' : ''), tr(k[1])); b.type = 'button'; b.dataset.tab = k[0];
-        b.addEventListener('click', function () { goTab(k[0]); });
-        els.sel.appendChild(b);
-      });
-    }
-    [els.chips, els.sel, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
+    if (cfg.paint) return; // Bilan : une carte à la fois, peinte par cfg.paint ; ni page, ni feuille du bas
+    [els.chips, els.yearRow, els.msg, bodies.t, bodies.o].forEach(function (e) { if (e) page2.appendChild(e); });
     if (visitor) { bodies.t.classList.add('saVisitor'); bodies.o.classList.add('saVisitor'); }
-    // Feuille du bas (charge restante par secteur) : même fenêtre qu'avant (communityMembersModal), fermeture ✕.
-    var m = el('div', 'communityMembersModal hidden'); if (!visitor) m.id = 'statsAvanceModal';
-    var card = el('div', 'communityMembersModalCard cmpGlass');
-    var head = el('div', 'saModalHead');
-    var title = el('div', 'saModalTitle');
-    var close = el('button', 'cmpClose', '✕'); close.type = 'button'; close.setAttribute('aria-label', tr('Fermer'));
-    head.appendChild(title); head.appendChild(close);
-    var sub = el('p', 'meta saModalSub');
-    var list = el('div', 'statsSection saCard');
-    // En-tête FIXE (titre, ✕, sous-titre, bloc mTop) ; seule la liste défile en dessous.
-    var fixed = el('div', 'saModalFixed'), top = el('div', 'saModalTop'), scroll = el('div', 'saModalScroll');
-    card.classList.add('saSheetCard');
-    fixed.appendChild(head); fixed.appendChild(sub); fixed.appendChild(top);
-    scroll.appendChild(list);
-    card.appendChild(fixed); card.appendChild(scroll);
-    m.appendChild(card); document.body.appendChild(m);
-    els.modal = m; els.mTitle = title; els.mSub = sub; els.mList = list; els.mTop = top; els.mScroll = scroll;
-    close.addEventListener('click', hideSheet);
-    m.addEventListener('click', function (e) { if (e.target === m) hideSheet(); });
   }
-  function hideSheet() { if (els.modal) els.modal.classList.add('hidden'); }
-  function openSheet(p, index) {
-    els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
-    els.mSub.textContent = tr('{a} / {b} tâches restantes', { a: p.remaining, b: p.total });
-    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
-    els.mList.innerHTML = '';
-    els.mList.appendChild(el('p', 'sectionTitle', tr('Charge restante par secteur')));
-    var rows = p.sectors || [];
-    if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
-    rows.forEach(function (sc) {
-      var share = sc.total ? (sc.total - sc.remaining) * 100 / sc.total : 100;
-      var r = el('div', 'saPoleRow');
-      var top = el('div', 'saPoleTop');
-      top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
-      top.appendChild(el('span', 'meta', sc.remaining + ' / ' + sc.total));
-      var b = el('div', 'saBar'), fill = el('div', 'saBarFill');
-      fill.style.width = Math.round(share) + '%'; fill.style.background = poleColor(index);
-      b.appendChild(fill); r.appendChild(top); r.appendChild(b);
-      els.mList.appendChild(r);
-    });
-    els.modal.classList.remove('hidden');
-  }
-  // Un pôle n'est cliquable que s'il a au moins un vrai secteur (l'entrée « pôle hors secteur » seule ne compte pas).
-  function hasSectors(p) { return !visitor && !!(p && p.sectors && p.sectors.some(function (x) { return x.label; })); }
-  // Feuille « par secteur » des cartes Objectifs : kind = 'target' | 'achieved'.
-  function openObjSheet(p, index, kind) {
-    els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(dotEl(poleColor(index))); els.mTitle.appendChild(el('span', null, p.label));
-    els.mSub.textContent = kind === 'target' ? fmtMin(p.doneMin) + ' / ' + fmtMin(p.targetMin) : '';
-    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
-    els.mList.innerHTML = '';
-    els.mList.appendChild(el('p', 'sectionTitle', tr(kind === 'target' ? 'Temps cible contre temps fait par secteur' : 'Objectifs atteints par secteur')));
-    var rows = p.sectors || [];
-    if (!rows.length) els.mList.appendChild(el('p', 'hint', '—'));
-    rows.forEach(function (sc) {
-      var r = el('div', 'saPoleRow'), top = el('div', 'saPoleTop'), b = el('div', 'saBar');
-      top.appendChild(el('span', null, sc.label || tr('Pôle (hors secteur)')));
-      if (kind === 'target') {
-        var ok = sc.doneMin >= sc.targetMin, share = sc.targetMin ? Math.min(100, sc.doneMin * 100 / sc.targetMin) : 0;
-        top.appendChild(el('span', 'meta', fmtMin(sc.doneMin) + ' / ' + fmtMin(sc.targetMin)));
-        var f = el('div', 'saBarFill'); f.style.width = Math.round(share) + '%'; f.style.background = ok ? GREEN : RED; b.appendChild(f);
-      } else {
-        var tot = Math.max(1, (sc.atteint || 0) + (sc.partiel || 0) + (sc.non || 0));
-        top.appendChild(el('span', 'meta', sc.atteint + ' / ' + tot));
-        b.style.display = 'flex';
-        [[sc.atteint, GREEN], [sc.partiel, GREY], [sc.non, RED]].forEach(function (x) { var f = el('div', 'saBarFill'); f.style.width = (x[0] * 100 / tot) + '%'; f.style.background = x[1]; b.appendChild(f); });
-      }
-      r.appendChild(top); r.appendChild(b); els.mList.appendChild(r);
-    });
-    els.modal.classList.remove('hidden');
-  }
-  // Détail d'une bulle « Où ça glisse » (sa propre page seulement) : GET /api/stats/activity-insights/glisse.
-  function fmtSlot(x) { return x.kind === 'week' ? tr('S{n}', { n: x.wn || x.n }) : x.label; }
-  function glisseSection(title, color, rows, right) {
-    var sec = el('div', 'saGsec');
-    var h = el('h4', null, tr(title)); h.style.color = color; h.appendChild(el('em', null, String(rows.length)));
-    sec.appendChild(h);
-    var box = el('div'); sec.appendChild(box);
-    var expanded = false;
-    var draw = function () {
-      box.innerHTML = '';
-      rows.slice(0, expanded ? rows.length : 3).forEach(function (r) {
-        var d = el('div', 'saGrow');
-        d.appendChild(el('span', null, r.label));
-        var small = el('small', null, right(r)); if (color !== GREEN && color !== RED) small.style.color = color;
-        d.appendChild(small); box.appendChild(d);
-      });
-      if (!expanded && rows.length > 3) {
-        var more = el('button', 'saGmore', tr(rows.length - 3 > 1 ? '+ {n} autres' : '+ {n} autre', { n: rows.length - 3 })); more.type = 'button';
-        more.addEventListener('click', function () { expanded = true; draw(); });
-        box.appendChild(more);
-      }
-    };
-    draw();
-    return sec;
-  }
-  function openGlisse(periodStart, week) {
-    TMT.api('GET', '/api/stats/activity-insights/glisse?activityId=' + encodeURIComponent(activityId) + '&periodStart=' + encodeURIComponent(periodStart) + (week ? '&week=' + week : '')).then(function (g) { renderGlisse(g); }, function () {});
-  }
-  function renderGlisse(g) {
-    var pn = String(g.periodLabel || '').replace(/^P/, '');
-    var isW = g.mode === 'week', ok = g.pct != null && (isW ? g.status === 'atteint' : g.pct >= 80), col = ok ? GREEN : RED;
-    els.mTitle.innerHTML = '';
-    els.mTitle.appendChild(el('span', null, isW ? tr('Semaine {n} · {p}', { n: g.weekOfYear || g.week, p: g.periodLabel }) : tr('Période {n} · {a} – {b}', { n: pn, a: g.startLabel, b: g.endLabel })));
-    els.mSub.textContent = '';
-    els.mTop.innerHTML = ''; els.mScroll.scrollTop = 0;
-    els.mList.innerHTML = '';
-    var big = el('div', 'saRow1'), bg = el('span', 'saBig', g.pct != null ? g.pct + ' %' : '–'); bg.style.color = g.pct != null ? col : '';
-    big.appendChild(bg); big.appendChild(el('span', 'saSmall', tr(isW ? 'du temps prévu réalisé' : 'des semaines atteintes')));
-    els.mTop.appendChild(big);
-    if (isW && g.pct != null) els.mTop.appendChild(bar([[g.pct, GREEN], [100 - g.pct, RED]]));
-    els.mTop.appendChild(el('p', 'saGexp', tr(isW
-      ? 'Le chiffre = temps estimé des tâches liées à l’objectif de la semaine qui sont faites, divisé par le temps estimé de toutes ces tâches (même règle que le statut). 90 % ou plus : atteint (vert) · 75 % ou plus : partiel · sinon non atteint (rouge).'
-      : 'Le chiffre = part des semaines atteintes dans la période (les semaines à venir ne comptent pas). Chaque case montre le temps fait de la semaine : vert si atteinte (90 % ou plus). Touche une semaine pour voir ses tâches.')));
-    if (isW && g.statusNote) els.mTop.appendChild(el('p', 'saGexp', tr('Statut posé à la main : {s}.', { s: tr(g.statusNote === 'atteint' ? 'atteint' : (g.statusNote === 'partiel' ? 'partiel' : 'non atteint')) })));
-    if (!isW) {
-      var wkw = el('div', 'saTiles'); wkw.style.gridTemplateColumns = 'repeat(4,1fr)';
-      g.tiles.forEach(function (x) {
-        var t = el('button', 'saTile saGlass saTileBtn'), has = x.pct != null; t.type = 'button';
-        if (has) t.style.borderColor = x.status === 'atteint' ? GREEN : RED; else { t.style.opacity = '.5'; t.disabled = true; }
-        t.appendChild(el('small', null, tr('S{n}', { n: x.weekOfYear || x.week })));
-        var b = el('b', null, has ? x.pct + ' %' : '–'); if (has) b.style.color = x.status === 'atteint' ? GREEN : RED; t.appendChild(b);
-        if (has) t.addEventListener('click', function () { openGlisse(g.periodStart, x.week); });
-        wkw.appendChild(t);
-      });
-      els.mTop.appendChild(wkw);
-    }
-    var mins = function (r) { return fmtMin(r.minutes); };
-    var from = function (r) { return tr('S{n}', { n: r.weekOfYear || r.week }); };
-    var secs = isW ? [
-      ['Réalisées', GREEN, g.done, mins],
-      ['Non accomplies', RED, g.notDone, mins],
-      ['Ont glissé', ORANGE, g.slipped, function (r) { return r.to.kind === 'week' ? tr('→ semaine {n} · {d}', { n: r.to.wn || r.to.n, d: r.to.date }) : tr('→ {p} · {d}', { p: r.to.label, d: r.to.date }); }],
-      ['Avancées', '#8b6fd6', g.ahead, function (r) { return tr('prévue {a} → faite {b}', { a: fmtSlot(r.from), b: tr('S{n}', { n: r.weekOfYear || r.week }) }); }]
-    ] : [
-      ['Ont glissé', ORANGE, g.slipped, function (r) { return from(r) + ' → ' + fmtSlot(r.to); }],
-      ['Non accomplies', RED, g.notDone, from],
-      ['Avancées', '#8b6fd6', g.ahead, function (r) { return fmtSlot(r.from) + ' → ' + from(r); }]
-    ];
-    secs.forEach(function (x) { if (x[2] && x[2].length) els.mList.appendChild(glisseSection(x[0], x[1], x[2], x[3])); });
-    els.modal.classList.remove('hidden');
-  }
-
   // Remise à zéro quand on quitte / revient sur la page : le graphique revient à « Année », rien n'est persisté.
   function isDirty() { return yearSel !== null || tab !== 't' || view !== 'year' || oview !== DEF_O || adding || dayOff !== 0 || wOff !== 0 || pPage !== null; }
   function resetTransient() {
     var wasOff = yearSel !== null || dayOff !== 0 || wOff !== 0 || view !== 'year' || oview !== DEF_O || tab !== 't';
-    yearSel = null; setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null; hideSheet();
+    yearSel = null; setTab('t'); view = 'year'; oview = DEF_O; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
     if (wasOff && built && activityId != null && cfg.isShown()) { load(); return; }
     if (built && data) render();
   }
 
   // ---------- Utilitaires ----------
   function fmtMin(m) {
-    m = Math.max(0, Math.round(Number(m) || 0));
-    if (m < 60) return m + ' min';
-    var h = Math.floor(m / 60), r = m % 60;
-    return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '');
+    return TMT.ui.heures(Number(m) || 0); // UN SEUL format d'heures (composants.js)
   }
   function fmtNum(n) { return String(Math.round(n * 10) / 10).replace('.', ','); }
   function sgn(n, unit) { return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n) + (unit || ''); }
@@ -461,7 +295,9 @@
     var v = views && views[isT && cv === 'all' ? 'year' : cv];
     var card = el('div', 'saCard saGlass');
     var hd = el('div', 'saHd');
-    var h = el('p', 'sectionTitle', tr(isT ? 'Tâches' : 'Objectifs') + ' ');
+    var h = el('div', 'saHeadLeft');
+    if (visitor) h.appendChild(el('p', 'sectionTitle', tr(isT ? 'Tâches' : 'Objectifs') + ' '));
+    else { var swb = el('button', 'iconBtn saModeBtn', tr(isT ? 'Tâches' : 'Objectifs')); swb.type = 'button'; swb.setAttribute('aria-label', tr('Basculer : tâches ou objectifs')); swb.addEventListener('click', function () { goTab(isT ? 'o' : 't'); }); h.appendChild(swb); }
     var cur = VS.filter(function (x) { return x[0] === cv; })[0];
     if (cur) h.appendChild(el('span', 'meta', '· ' + tr(cur[1])));
     hd.appendChild(h);
@@ -493,30 +329,29 @@
     return card;
   }
 
+  // ---------- Avancement : une ligne par objectif en cours = nom, pourcentage, barre fine à la couleur de son activité ----------
+  function timelineBody(d) {
+    var a = d.objectives && d.objectives.timeline;
+    if (!a || !a.list || !a.list.length) return el('p', 'hint cmpEmpty', tr('Aucun objectif en cours.'));
+    var cache = (TMT.getActivitiesCache && TMT.getActivitiesCache()) || [], colorOf = function (id) { var x = cache.filter(function (c) { return String(c.id) === String(id); })[0]; return (x && x.color) || '#674EA7'; };
+    var w = el('div', 'saTl');
+    a.list.forEach(function (r) {
+      var pct = r.total ? Math.round(r.done * 100 / r.total) : 0, row = el('div', 'saTlRow'), top = el('div', 'saTlTop'), bar = el('div', 'saTlBar'), fill = el('i', 'saTlFill');
+      top.appendChild(el('span', 'saTlName', r.name)); top.appendChild(el('span', 'saTlPct', pct + ' %'));
+      fill.style.width = pct + '%'; fill.style.background = colorOf(r.activityId); bar.appendChild(fill);
+      row.appendChild(top); row.appendChild(bar); w.appendChild(row);
+    });
+    return w;
+  }
+
   // ---------- Cartes d'information ----------
   // Chaque définition : key, title, def (par défaut, non supprimable), body(d) -> noeud ou null (donnée absente).
   var CARDS = {
     t: [
-      { key: 'onTime', def: true, title: 'Tâches faites à la date prévue', body: function (d) {
-        var o = d.tasks && d.tasks.onTime; if (!o) return null;
-        var delta = has(o.prevPct) ? Math.round(o.pct - o.prevPct) : null, tot = Math.max(1, o.total || (o.onTime + o.late + o.postponed));
-        var w = document.createElement('div');
-        w.appendChild(bigRow(o.pct + ' %', null, delta ? badge(Math.abs(delta) + ' pts', delta > 0, true) : null));
-        w.appendChild(bar([[o.onTime * 100 / tot, GREEN], [o.late * 100 / tot, RED], [o.postponed * 100 / tot, GREY]]));
-        w.appendChild(legend([[GREEN, tr('à temps') + ' ' + o.onTime], [RED, tr('retard') + ' ' + o.late], [GREY, tr('reportées') + ' ' + o.postponed]]));
-        return w; } },
-      { key: 'estimate', def: true, title: 'Durée estimée contre durée réelle', body: function (d) {
-        var a = d.tasks && d.tasks.estimate; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var dp = Math.round(r.deltaPct || 0);
-          w.appendChild(row(plain(r.label), plain(fmtMin(r.estimatedMin) + ' → ' + fmtMin(r.actualMin)), colored(sgn(dp, ' %'), dp <= 0)));
-        });
-        return w; } },
       { key: 'weekdays', def: true, title: 'Jours où tu travailles vraiment', body: function (d) {
         var a = d.tasks && d.tasks.weekdays; if (!a || !a.minutes || !a.minutes.length) return null;
         var mx = Math.max.apply(null, a.minutes.map(function (m) { return m || 0; })), w = document.createElement('div');
-        var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
+        var nav = el('div', 'cmpNav cmpNav--sm cmpNav--fixed saDaysNav'); nav.style.setProperty('--nav-label-w', '150px');
         var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente'));
         var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
         prev.addEventListener('click', function () { dayOff = (a.offset || 0) - 1; load(); });
@@ -530,131 +365,18 @@
           var col = el('div', 'saDayCol'), d = dn[i], pv = pl[i] || 0;
           if (pv) { var pb = el('span', 'saDayPlan'); pb.style.height = (pv * 100 / top) + '%'; col.appendChild(pb); }
           if (d == null) { col.classList.add('future'); }
-          else { var b = el('i'); b.style.height = d ? (d * 100 / top) + '%' : '3px'; b.style.background = !d ? '#2b2e35' : (pv && d < pv ? RED : GREEN); col.appendChild(b); }
+          else { var b = el('i'); b.style.height = d ? (d * 100 / top) + '%' : '3px'; b.style.background = !d ? 'var(--track-bg)' : (pv && d < pv ? RED : GREEN); col.appendChild(b); }
           days.appendChild(col);
           lab.appendChild(el('span', null, a.minutes.length > 7 ? String(Number((a.dates[i] || '').slice(8, 10))) : tr(['L', 'M', 'M', 'J', 'V', 'S', 'D'][i])));
         });
-        w.appendChild(days); w.appendChild(lab); return w; } },
-      { key: 'remaining', def: true, title: 'Charge restante par pôle', body: function (d) {
-        var r = d.tasks && d.tasks.remaining; if (!r) return null;
-        var w = document.createElement('div');
-        w.appendChild(bigRow(r.count + ' ' + tr(r.count > 1 ? 'tâches' : 'tâche'), '≈ ' + fmtMin(r.minutes)));
-        (r.poles || []).forEach(function (p, i) {
-          var doneShare = p.total ? (p.total - p.remaining) * 100 / p.total : 100, ok = doneShare >= 50;
-          var rw = row(poleName(p.label, poleColor(i)), bar([[doneShare, ok ? GREEN : RED]]), colored(p.remaining + ' / ' + p.total + (hasSectors(p) ? ' ›' : ''), ok));
-          if (hasSectors(p)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openSheet(p, i); }); }
-          w.appendChild(rw);
-        });
-        return w; } },
-      { key: 'postponed', title: 'Tâches reportées plusieurs fois', body: function (d) {
-        var a = d.tasks && d.tasks.postponed; if (!a || !a.length) return null;
-        var ul = el('ul', 'saLst');
-        a.forEach(function (p) { var li = el('li'); li.appendChild(el('span', null, p.label)); li.appendChild(el('b', null, p.count + ' ' + tr(p.count > 1 ? 'reports' : 'report'))); ul.appendChild(li); });
-        return ul; } },
-      { key: 'rhythm', title: 'Rythme de réalisation', body: function (d) {
-        var r = d.tasks && d.tasks.rhythm; if (!r || !has(r.perWorkedDay)) return null;
-        return bigRow(fmtNum(r.perWorkedDay), tr('tâche par jour travaillé')); } },
-      { key: 'streak', title: 'Série en cours', body: function (d) {
-        var r = d.tasks && d.tasks.streak; if (!r || !has(r.days)) return null;
-        return bigRow(String(r.days), tr(r.days > 1 ? 'jours de suite avec une tâche faite' : 'jour de suite avec une tâche faite')); } },
-      { key: 'busy', title: 'Agenda occupé', body: function (d) {
-        var b = d.tasks && d.tasks.busy; if (!b || !has(b.minutesToday)) return null;
-        var w = document.createElement('div');
-        w.appendChild(bigRow(fmtMin(b.minutesToday), tr("pris aujourd'hui")));
-        w.appendChild(bar([[b.minutesToday * 100 / 480, 'var(--purple)']])); return w; } },
-      { key: 'capacity', title: 'Capacité par jour', body: function (d) {
-        var c = d.tasks && d.tasks.capacity; if (!c || !has(c.avgFreeMinutes)) return null;
-        return bigRow(fmtMin(c.avgFreeMinutes), tr('libres en moyenne')); } },
-      { key: 'assignees', title: 'Responsable habituel', body: function (d) {
-        var a = d.tasks && d.tasks.assignees; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r) { w.appendChild(row(plain(r.label), plain(r.name))); });
-        return w; } },
-      { key: 'urgent', title: 'Urgence et échéances', body: function (d) {
-        var u = d.tasks && d.tasks.urgent; if (!u || !has(u.count)) return null;
-        return bigRow(String(u.count), tr('tâches à échéance sous {n} jours', { n: u.withinDays })); } }
+        w.appendChild(days); w.appendChild(lab); return w; } }
     ],
     o: [
-      { key: 'target', def: true, title: 'Temps cible contre temps fait', body: function (d) {
-        var a = d.objectives && d.objectives.target; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var ok = r.doneMin >= r.targetMin, share = r.targetMin ? r.doneMin * 100 / r.targetMin : 0;
-          var rw = row(poleName(r.label, poleColor(i)), bar([[share, ok ? GREEN : RED]]), colored(fmtMin(r.doneMin) + ' / ' + fmtMin(r.targetMin) + (hasSectors(r) ? ' ›' : ''), ok));
-          if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'target'); }); }
-          w.appendChild(rw);
-        });
-        return w; } },
-      { key: 'achieved', def: true, title: 'Objectifs atteints', body: function (d) {
-        var a = d.objectives && d.objectives.achieved; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var tot = Math.max(1, (r.atteint || 0) + (r.partiel || 0) + (r.non || 0)), dp = Math.round(r.deltaPts || 0);
-          var rw = row(poleName(r.label, poleColor(i)), bar([[r.atteint * 100 / tot, GREEN], [r.partiel * 100 / tot, GREY], [r.non * 100 / tot, RED]]), badge(sgn(dp, ' pts'), dp >= 0, true));
-          if (hasSectors(r)) { rw.classList.add('saRwTap'); rw.setAttribute('role', 'button'); rw.addEventListener('click', function () { openObjSheet(r, i, 'achieved'); }); }
-          w.appendChild(rw);
-        });
-        w.appendChild(legend([[GREEN, tr('atteint')], [GREY, tr('partiel')], [RED, tr('non')]]));
-        return w; } },
-      { key: 'weeks', def: true, title: 'Où ça glisse', body: function (d) {
-        var a = d.objectives && d.objectives.weeks; if (!a || !a.list || !a.list.length) return null;
-        var w = document.createElement('div');
-        if (a.mode === 'weekly') {
-          var nav = el('div', 'cmpNav cmpNav--sm saDaysNav');
-          var prev = el('button', 'cmpNavArrow', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', tr('Période précédente')); prev.disabled = !a.canPrev;
-          var next = el('button', 'cmpNavArrow', '›'); next.type = 'button'; next.setAttribute('aria-label', tr('Période suivante')); next.disabled = !a.canNext;
-          prev.addEventListener('click', function () { if (a.canPrev) { wOff = (a.offset || 0) - 1; load(); } });
-          next.addEventListener('click', function () { if (a.canNext) { wOff = Math.min(0, (a.offset || 0) + 1); load(); } });
-          nav.appendChild(prev); nav.appendChild(el('span', 'cmpNavLabel', a.label)); nav.appendChild(next);
-          w.appendChild(nav);
-        }
-        var items = a.list;
-        if (a.mode === 'periodic') {
-          // Pas de période à venir. Dernière période = tout à droite, puis 4 par 4 en remontant ; au début de l'année la dernière page se cale sur P1-P4 (jamais une période seule).
-          var vis = a.list.filter(function (c) { return !c.future; }), n = vis.length, wins = [], e = n - 1;
-          while (e >= 0) { var st = e - 3; if (st <= 0) { wins.push([0, Math.min(3, n - 1)]); break; } wins.push([st, e]); e = st - 1; }
-          var np = wins.length, pg = Math.max(0, Math.min(np - 1, pPage || 0));
-          items = vis.slice(wins[pg][0], wins[pg][1] + 1);
-          var pn = el('div', 'cmpNav cmpNav--sm saDaysNav');
-          var pv = el('button', 'cmpNavArrow', '‹'); pv.type = 'button'; pv.setAttribute('aria-label', tr('Période précédente')); pv.disabled = pg >= np - 1;
-          var nx = el('button', 'cmpNavArrow', '›'); nx.type = 'button'; nx.setAttribute('aria-label', tr('Période suivante')); nx.disabled = pg <= 0;
-          pv.addEventListener('click', function () { if (pg < np - 1) { pPage = pg + 1; load(); } });
-          nx.addEventListener('click', function () { if (pg > 0) { pPage = pg - 1; load(); } });
-          pn.appendChild(pv); pn.appendChild(el('span', 'cmpNavLabel', items[0].label + (items.length > 1 ? ' – ' + items[items.length - 1].label : ''))); pn.appendChild(nx);
-          w.appendChild(pn);
-        }
-        var g = el('div', 'saTiles');
-        g.style.gridTemplateColumns = 'repeat(4,1fr)';
-        items.forEach(function (wk) {
-          var has = wk.pct != null, ok = has && (wk.status ? wk.status === 'atteint' : wk.pct >= 80), click = !visitor && has && wk.periodStart;
-          var t = el(click ? 'button' : 'div', 'saTile saGlass' + (click ? ' saTileBtn' : '')); if (click) t.type = 'button';
-          if (click) t.addEventListener('click', function () { openGlisse(wk.periodStart, wk.week || null); });
-          if (has) t.style.borderColor = ok ? GREEN : RED; else t.style.opacity = wk.future ? '.4' : '.6';
-          t.appendChild(el('small', null, wk.label));
-          var b = el('b', null, has ? Math.round(wk.pct) + ' %' : '–'); if (has) b.style.color = ok ? GREEN : RED; t.appendChild(b); g.appendChild(t);
-        });
-        w.appendChild(g);
-        return w; } },
-      { key: 'carried', def: true, title: 'Objectifs reportés qui s’accumulent', body: function (d) {
-        var c = d.objectives && d.objectives.carried; if (!c || !has(c.count)) return null;
-        var dl = Math.round(c.delta || 0);
-        return bigRow(String(c.count), null, dl ? badge(sgn(dl), dl < 0, true) : null, c.count > 0 ? RED : GREEN); } },
-      { key: 'linked', title: 'Tâches liées terminées avant la fin de semaine', body: function (d) {
-        var l = d.objectives && d.objectives.linked; if (!l || !has(l.pct)) return null;
-        var ok = l.pct >= 70, w = document.createElement('div');
-        w.appendChild(bigRow(Math.round(l.pct) + ' %', null, null, ok ? GREEN : RED));
-        w.appendChild(bar([[l.pct, ok ? GREEN : RED]])); return w; } },
-      { key: 'pressure', title: 'Pression entre pôles', body: function (d) {
-        var a = d.objectives && d.objectives.pressure; if (!a || !a.length) return null;
-        var w = document.createElement('div');
-        a.forEach(function (r, i) {
-          var g = Number(r.gap) || 0;
-          w.appendChild(row(poleName(r.label, poleColor(i)), plain(r.state), colored(g ? sgn(Math.round(g)) : '0', g <= 0)));
-        });
-        return w; } }
+      { key: 'advance', def: true, title: 'Avancement', body: function (d) { return timelineBody(d); } }
     ]
   };
 
+  CARDS.t.forEach(function (c) { c.tab = 't'; }); CARDS.o.forEach(function (c) { c.tab = 'o'; });
   function infoStore(k) { return 'tmt.statsInfo.' + k; }
   function loadAdded(k) {
     try { var a = JSON.parse(localStorage.getItem(infoStore(k)) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
@@ -662,7 +384,7 @@
   function saveAdded(k, arr) { try { localStorage.setItem(infoStore(k), JSON.stringify(arr)); } catch (e) { /* stockage indisponible */ } }
 
   // Cartes à peu d'informations : deux par ligne (une seule restante = pleine largeur).
-  var HALF = { rhythm: 1, streak: 1, busy: 1, capacity: 1, assignees: 1, urgent: 1, carried: 1, linked: 1 };
+  var HALF = {};
   function fillHalfRuns() {
     var run = [];
     var flush = function () { if (run.length % 2 === 1) run[run.length - 1].classList.add('saFull'); run = []; };
@@ -677,7 +399,7 @@
     hd.appendChild(el('h3', null, tr(def.title)));
     if (removable) {
       var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer'));
-      x.addEventListener('click', function () { askRemove(def); });
+      x.addEventListener('click', function () { if (typeof removable === 'function') removable(); else askRemove(def); });
       hd.appendChild(x);
     }
     c.appendChild(hd); c.appendChild(node);
@@ -686,14 +408,14 @@
 
   function askRemove(def) {
     var go = function () {
-      var arr = loadAdded(tab).filter(function (k) { return k !== def.key; });
-      saveAdded(tab, arr); render();
+      var arr = loadAdded(def.tab).filter(function (k) { return k !== def.key; });
+      saveAdded(def.tab, arr); render();
     };
     if (typeof TMT.confirmDelete !== 'function') { go(); return; }
     var name = tr(def.title);
     TMT.confirmDelete({
       title: tr('Retirer cette information ?'),
-      text: tr('« {name} » ne sera plus affichée dans l’onglet {tab}. Tu pourras la rajouter à tout moment.', { name: name, tab: tr(tab === 't' ? 'Tâches' : 'Objectifs') }),
+      text: tr('« {name} » ne sera plus affichée dans l’onglet {tab}. Tu pourras la rajouter à tout moment.', { name: name, tab: tr(def.tab === 't' ? 'Tâches' : 'Objectifs') }),
       onConfirm: function () { go(); return Promise.resolve(); }
     });
     var b = document.getElementById('categoryRemoveDeleteTasksBtn');
@@ -712,11 +434,12 @@
   function setTab(t) { // change d'onglet sans recharger (les points globaux suivent via cfg.onTab)
     if (tab === t) return;
     tab = t; adding = false; draft = []; dayOff = 0; wOff = 0; pPage = null;
-    if (els.sel) Array.prototype.forEach.call(els.sel.children, function (b) { b.classList.toggle('active', b.dataset.tab === t); });
+    tOff = 0;
     if (cfg.onTab) cfg.onTab(tab);
   }
   function goTab(t) {
     if (tab === t) return;
+    if (!visitor) { tab = t; if (cfg.onTab) cfg.onTab(tab); render(); return; } // page unique : tâches et objectifs mélangés, seul le graphique change
     slideDir = t === 'o' ? 1 : -1;
     if (datas[t] && activityId != null && !visitor) { var d0 = datas[t]; setTab(t); data = d0; render(); load(true); return; } // contenu déjà reçu : affiché tout de suite, rafraîchi ensuite sans reconstruire s'il est identique
     setTab(t);
@@ -725,9 +448,11 @@
   }
   function render() {
     if (!built) return;
+    if (cfg.paint) { cfg.paint(data); return; }
     var sd = slideDir; slideDir = 0;
-    els.body = bodies[tab];
-    bodies[tab].classList.remove('hidden'); bodies[tab === 't' ? 'o' : 't'].classList.add('hidden');
+    var bt = visitor ? tab : 't';
+    els.body = bodies[bt];
+    bodies[bt].classList.remove('hidden'); bodies[bt === 't' ? 'o' : 't'].classList.add('hidden');
     if (sd && typeof els.body.animate === 'function') els.body.animate([{ transform: 'translateX(' + (sd * 40) + '%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 240, easing: 'cubic-bezier(.22,.8,.3,1)' });
     renderCore();
   }
@@ -744,7 +469,7 @@
     var defs = CARDS[tab], added = loadAdded(tab);
     if (visitor) {
       // Profil visité : cartes fixes, lecture seule (liste blanche aussi côté serveur).
-      var fixed = tab === 't' ? ['onTime', 'rhythm', 'streak'] : ['achieved', 'weeks'];
+      var fixed = []; /* profil visité : plus de cartes fixes (Répartition et « Où ça glisse » retirées, 14 nov. 2026) : seul le graphique reste */
       fixed.forEach(function (k) {
         var c = defs.filter(function (x) { return x.key === k; })[0], n = c && c.body(data);
         if (n) els.body.appendChild(infoCard(c, n, false));
@@ -752,29 +477,30 @@
       fillHalfRuns();
       return;
     }
-    defs.filter(function (c) { return c.def; }).forEach(function (c) {
-      var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, false));
-    });
+    // Page unique : le bouton Tâches | Objectifs ne change que le graphique ; toutes les cartes (tâches ET objectifs) restent affichées.
+    var all = CARDS.t.concat(CARDS.o), byKey = function (k) { return all.filter(function (x) { return x.key === k; })[0]; };
+    var put = function (c, removable) { var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, removable)); };
+    put(byKey('advance'), false); /* l'Avancement juste sous le graphique */
+    all.filter(function (c) { return c.def && c.key !== 'advance'; }).forEach(function (c) { put(c, false); });
+    var addedAll = all.filter(function (c) { return !c.def && loadAdded(c.tab).indexOf(c.key) >= 0; });
     if (!adding) {
-      defs.filter(function (c) { return !c.def && added.indexOf(c.key) >= 0; }).forEach(function (c) {
-        var n = c.body(data); if (n) els.body.appendChild(infoCard(c, n, true));
-      });
+      addedAll.forEach(function (c) { put(c, true); });
       var add = el('button', 'cmpAdd'); add.type = 'button';
       add.appendChild(el('b', null, '+')); add.appendChild(document.createTextNode(tr('Ajouter une information')));
-      add.addEventListener('click', function () { adding = true; draft = added.slice(); render(); });
+      add.addEventListener('click', function () { adding = true; draft = addedAll.map(function (c) { return c.tab + ':' + c.key; }); render(); });
       els.body.appendChild(add);
       fillHalfRuns();
       return;
     }
-    defs.filter(function (c) { return !c.def; }).forEach(function (c) {
+    all.filter(function (c) { return !c.def; }).forEach(function (c) {
       var n = c.body(data); if (!n) return;
-      var sel = draft.indexOf(c.key) >= 0;
+      var id = c.tab + ':' + c.key, sel = draft.indexOf(id) >= 0;
       var g = el('div', 'saGh' + (sel ? ' sel' : '') + (HALF[c.key] ? ' saHalf' : '')); g.setAttribute('role', 'button'); g.setAttribute('aria-pressed', sel ? 'true' : 'false');
       var inner = el('div', 'saGin'); inner.appendChild(infoCard(c, n, false)); g.appendChild(inner);
       g.addEventListener('click', function () {
-        var i = draft.indexOf(c.key);
-        if (i >= 0) draft.splice(i, 1); else draft.push(c.key);
-        g.classList.toggle('sel', i < 0); g.setAttribute('aria-pressed', i < 0 ? 'true' : 'false');
+        var k = draft.indexOf(id);
+        if (k >= 0) draft.splice(k, 1); else draft.push(id);
+        g.classList.toggle('sel', k < 0); g.setAttribute('aria-pressed', k < 0 ? 'true' : 'false');
       });
       els.body.appendChild(g);
     });
@@ -782,7 +508,10 @@
     var cancel = el('button', 'saCancel', tr('Annuler')); cancel.type = 'button';
     cancel.addEventListener('click', function () { adding = false; draft = []; render(); });
     var apply = el('button', 'saApply', tr('Appliquer')); apply.type = 'button';
-    apply.addEventListener('click', function () { saveAdded(tab, draft.slice()); adding = false; draft = []; render(); });
+    apply.addEventListener('click', function () {
+      ['t', 'o'].forEach(function (k) { saveAdded(k, draft.filter(function (x) { return x.indexOf(k + ':') === 0; }).map(function (x) { return x.slice(2); })); });
+      adding = false; draft = []; render();
+    });
     acts.appendChild(cancel); acts.appendChild(apply); els.body.appendChild(acts);
     fillHalfRuns();
   }
@@ -792,8 +521,8 @@
     activities().forEach(function (a) {
       var b = el('button', 'saChip' + (String(a.id) === String(activityId) ? ' on' : ''));
       b.type = 'button';
-      b.style.setProperty('--chipEdge', a.color || '#674EA7');
-      var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
+      b.style.setProperty('--chipEdge', a.color || tok('--purple'));
+      var d = el('span', 'saChipDot'); d.style.background = a.color || tok('--purple');
       b.appendChild(d); b.appendChild(el('span', null, a.name));
       b.addEventListener('click', function () { if (String(a.id) !== String(activityId)) { activityId = a.id; adding = false; draft = []; pPage = null; yearSel = null; datas = { t: null, o: null }; renderYear(null); renderChips(); load(); } });
       els.chips.appendChild(b);
@@ -802,11 +531,11 @@
 
   function buildQs(t, dOff, wo) {
     var all = t === 't' ? view === 'all' : oview === 'all';
-    return (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dOff ? '&offset=' + dOff : '') + (wo ? '&woff=' + wo : '');
+    return (all ? '&year=all' : (!visitor && yearSel !== null ? '&year=' + encodeURIComponent(yearSel) : '')) + '&scope=' + (view === 'all' ? 'year' : view) + '&kind=' + oview + (dOff ? '&offset=' + dOff : '') + (wo ? '&woff=' + wo : '') + (tOff && !visitor ? '&toff=' + tOff : '');
   }
   // Précharge l'autre onglet (état par défaut : décalages à 0) pour que le glissement ait toujours sa voisine à montrer.
   function prefetchOther() {
-    if (activityId == null) return;
+    if (activityId == null || !visitor) return; // propre page : une seule page, rien à précharger
     var o = tab === 't' ? 'o' : 't', seq = loadSeq;
     cfg.fetch(activityId, buildQs(o, 0, 0)).then(function (r) {
       if (seq !== loadSeq || tab === o || !r.data) return;
@@ -860,7 +589,21 @@
       if (!visitor && data && datas[tab] && activityId != null) { if (!els.body.firstChild) { data = datas[tab]; render(); } load(true); return; } // déjà chargée : montrée telle quelle (le glissement n'attend plus le réseau), rafraîchie en arrière-plan
       load();
     },
-    reset: resetTransient, hideSheet: hideSheet, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
+    // BILAN : une carte d'information d'UNE activité (mode cfg.paint). key : 'graph' (courbe tâches et objectifs), 'advance', 'weekdays', 'capacity'. remover : croix rouge (retirer).
+    paintFor: function (aid) { activityId = aid; load(); },
+    moveDays: function (n) { dayOff = n; load(); }, // BILAN : décale la période des « Jours où tu travailles vraiment » (utilisé pour additionner toutes les activités)
+    bodyFor: function (key, d) { var c = d && CARDS.t.concat(CARDS.o).filter(function (k) { return k.key === key; })[0]; return c ? c.body(d) : null; }, // contenu seul d'une carte (sans cadre)
+    cardFor: function (key, d, remover) {
+      if (!d) return null;
+      if (key === 'graph') {
+        var g = chartCard(d);
+        if (remover) { var x = el('button', 'cmpRemove cmpRemove--corner'); x.type = 'button'; x.setAttribute('aria-label', tr('Retirer')); x.addEventListener('click', remover); g.appendChild(x); }
+        return g;
+      }
+      var c = CARDS.t.concat(CARDS.o).filter(function (k) { return k.key === key; })[0], n = c && c.body(d);
+      return n ? infoCard(c, n, remover || false) : null;
+    },
+    reset: resetTransient, isDirty: isDirty, getTab: function () { return tab; }, setTab: setTab, goTab: goTab, commitTab: commitTab,
     bodyOf: function (t) { build(); return bodies[t]; }, otherReady: function () { return !!datas[tab === 't' ? 'o' : 't']; },
     forget: function () { activityId = null; data = null; if (built) { els.chips.innerHTML = ''; els.yearRow.innerHTML = ''; els.yearRow.classList.add('hidden'); bodies.t.innerHTML = ''; bodies.o.innerHTML = ''; datas = { t: null, o: null }; } }
   };
@@ -885,7 +628,7 @@
       if (ph === 2 && vuser) {
         if (!vinst) vinst = TMT.createVisitorStats(p2, vuser, setDots);
         vinst.setTab(n === 3 ? 'o' : 't'); vinst.open();
-      } else if (vinst) { vinst.hideSheet(); vinst.reset(); }
+      } else if (vinst) { vinst.reset(); }
       setDots();
       to.classList.remove('hidden');
       if (typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
@@ -916,7 +659,7 @@
           return {
             cur: i === 0 ? p1 : p2, nb: t === 0 ? p1 : p2, host: wrap,
             start: function () { if (t > 0) { if (!vinst) vinst = TMT.createVisitorStats(p2, vuser, setDots); vinst.setTab('t'); vinst.open(); } },
-            commit: function () { vpage = t === 0 ? 1 : 2; if (t === 0 && vinst) { vinst.hideSheet(); vinst.reset(); } setDots(); }
+            commit: function () { vpage = t === 0 ? 1 : 2; if (t === 0 && vinst) { vinst.reset(); } setDots(); }
           };
         }
         if (!vinst || !vinst.otherReady()) return null;
@@ -933,15 +676,15 @@
     };
   })();
 
-  var inst = createInstance({
-    root: page2,
-    activities: function () { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; },
-    isShown: function () { return page === 2; },
-    onTab: function () { setDots(); },
-    fetch: function (aid, qs) {
-      return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + qs).then(function (d) { return { data: d }; });
-    }
-  });
+  // BILAN : une instance par carte d'information d'une activité (dessin dans cfg.paint, aucune page, aucune feuille).
+  TMT.bilanCardInstance = function (paint, cat) { // cat : pôle ou secteur choisi dans le Bilan (null = toute l'activité)
+    return createInstance({
+      root: document.createElement('div'), paint: paint,
+      activities: function () { return (TMT.getActivitiesCache && TMT.getActivitiesCache()) || []; },
+      isShown: function () { return true; }, onTab: function () {},
+      fetch: function (aid, qs) { return TMT.api('GET', '/api/stats/activity-insights?activityId=' + encodeURIComponent(aid) + (cat ? '&poleKey=' + encodeURIComponent(cat) : '') + qs).then(function (d) { return { data: d }; }); }
+    });
+  };
   // Profil d'un AUTRE utilisateur : même code, lecture seule. Voir TMT.createVisitorStats (app.js : page de visite).
   TMT.createVisitorStats = function (root, userId, onTab) {
     var acts = [];
@@ -957,261 +700,16 @@
     });
     return v;
   };
-  // Quitter l'onglet Statistiques (la page 2 reste « courante » mais cachée) remet aussi le graphique sur « Année ».
-  new MutationObserver(function () { if (!zone.offsetParent && inst.isDirty()) inst.reset(); })
-    .observe(zone, { attributes: true, attributeFilter: ['class', 'style'] });
-  function closeModal() { inst.hideSheet(); inst.reset(); }
-
-  // ---------- Pages de statistiques à GAUCHE de Chrono et de la Feuille de route (chantier B, 20 oct. 2026) ----------
-  // L'onglet Stats n'existe plus dans la barre : #tab-stats reste le conteneur, mais on y arrive en glissant vers la droite.
-  //   contexte « chrono » : [ Chrono | Statistiques (temps) | Statistiques des activités partagées ]  (chantier Chrono : statistiques À DROITE du chrono)
-  //   contexte « goals »  : [ Feuille de route (page 1) | Tâches | Objectifs | Groupe ]  (26 oct. 2026 : statistiques À DROITE de la page 1)
-  // Les écrans eux-mêmes (feuille de temps, répartition, graphique, cartes Tâches/Objectifs) ne changent pas.
-  var ctx = 'chrono';
-  var sharedEl = document.getElementById('statsSharedPage');
-  var sharedOn = false; // contexte « chrono » : 3e page (activités partagées) affichée à la place de la page Temps
-  var groupEl = document.getElementById('statsGroupPage');
-  var groupOn = false; // contexte « goals » : page Groupe (Tâches par membre) affichée à la place de la page Tâches/Objectifs
-  function showing(id) { var e = document.getElementById(id); return !!e && !e.classList.contains('hidden'); }
-  function modOnId(id) { return !TMT.modules || TMT.modules.isOn(id); }
-  TMT.statsContext = function () { return ctx; };
-  TMT.setStatsContext = function (c) {
-    ctx = c === 'goals' ? 'goals' : 'chrono';
-    setSharedPage(false, { noAnim: true }); // on arrive toujours sur la page Temps (ou Tâches), jamais sur la 3e page
-    setGroupPage(false, { noAnim: true });
-    if (ctx === 'goals' && page === 2) { inst.setTab('t'); inst.open(); } // déjà sur la page tâches/objectifs : on repart de Tâches, données fraîches
-    else setStatsPage(ctx === 'goals' ? 2 : 1, { noAnim: true });
-    setDots();
+  // ---------- Volet Bilan : les tableaux de #statsPage1 (Feuille de temps, Répartition, Graphique) et les informations ajoutées sont empilés dans UNE colonne qui défile ----------
+  var bilanOn = false;
+  TMT.bilanShow = function () {
+    bilanOn = true; pages.classList.add('bilanStack');
+    if (TMT.bilanBlocs) TMT.bilanBlocs.open(); // vue Toutes : page 1 ; une activité : zone de la fenêtre Chrono, le reste s'ajoute
   };
-
-  // ---------- Points de pagination (un seul jeu, #statsPageDots, posé hors des onglets) ----------
-  var DOT_LABELS = { chrono: ['Chrono', 'Statistiques', 'Activités partagées'], goals: ['Feuille de route', 'Statistiques', 'Groupe'] }; // 27 oct. 2026 : Tâches et Objectifs ne font plus qu'une page (sélecteur Tâches | Objectifs dans la page)
-  var dotsKey = '', dotsTimer = 0;
-  function place() {
-    if (showing('tab-stats')) return { ctx: ctx, idx: ctx === 'goals' ? (groupOn ? 2 : 1) : (sharedOn ? 2 : 1) };
-    if (showing('tab-chrono')) return { ctx: 'chrono', idx: 0 };
-    if (showing('tab-goals') && showing('goalsCapturePage')) return { ctx: 'goals', idx: 0 };
-    return null;
-  }
-  function paintDots() {
-    dotsTimer = 0;
-    if (!dots || !inst) return;
-    var pl = place();
-    if (!pl || (pl.ctx === 'goals' && !modOnId('stats-tasks')) || (pl.ctx === 'chrono' && !modOnId('stats'))) { dots.classList.add('hidden'); return; }
-    dots.classList.remove('hidden');
-    var labels = DOT_LABELS[pl.ctx].slice(0, pl.ctx === 'chrono' ? (sharedAvailable() ? 3 : 2) : (groupAvailable() ? 3 : 2)); // sans partage : une page de moins
-    if (dotsKey !== pl.ctx + labels.length) {
-      dotsKey = pl.ctx + labels.length; dots.innerHTML = '';
-      labels.forEach(function (lab) {
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'goalsDotBtn'; b.setAttribute('aria-label', tr(lab));
-        b.appendChild(el('span', 'goalsDot')); dots.appendChild(b);
-      });
-    }
-    Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle('on', i === pl.idx); });
-  }
-  function setDots() { if (!dotsTimer) dotsTimer = window.requestAnimationFrame(paintDots); }
-  if (dots) dots.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('.goalsDotBtn'); if (!b) return;
-    var i = Array.prototype.indexOf.call(dots.children, b), pl = place();
-    if (!pl || i === pl.idx) return;
-    if (pl.ctx === 'chrono') {
-      if (i === 0) TMT.switchTab('chrono');
-      else if (showing('tab-stats')) setSharedPage(i === 2);
-      else TMT.openStats('chrono', i === 2 ? 3 : 1);
-      return;
-    }
-    if (i === 0) { TMT.switchTab('goals'); return; }
-    if (i === 2) { if (showing('tab-stats')) setGroupPage(true); else TMT.openStats('goals', 4); return; }
-    if (showing('tab-stats')) { if (groupOn) setGroupPage(false); } else TMT.openStats('goals', 2);
-  });
-  // Les points suivent les onglets et l'écran de capture (ouvrir/fermer une page, glissement, notification…).
-  (function () {
-    var mo = new MutationObserver(setDots);
-    Array.prototype.forEach.call(document.querySelectorAll('.tab, #goalsCapturePage'), function (n) { mo.observe(n, { attributes: true, attributeFilter: ['class'] }); });
-  })();
-
-  // ---------- 3e page du Chrono : statistiques des activités partagées ----------
-  // Même modèle que les statistiques de tâches et d'objectifs : puces d'activité en haut (seulement les activités partagées), puis les blocs
-  // Répartition par membre et Graphique (déplacés tels quels depuis la fenêtre Activité ; données et dessin : app.js, TMT.selectSharedStats).
-  var ssChips = document.getElementById('ssChips'), ssEmpty = document.getElementById('ssEmpty'), ssBody = document.getElementById('ssBody');
-  var ssActId = null;
-  function groupAvailable() { return !!groupEl && modOnId('sharing'); }
-  function sharedAvailable() { return !!sharedEl && modOnId('stats') && modOnId('sharing'); }
-  function sharedActivities() {
-    return ((TMT.getActivitiesCache && TMT.getActivitiesCache()) || []).filter(function (a) { return a.membersCount > 1; });
-  }
-  function selectedShared(list) { return list.filter(function (a) { return String(a.id) === String(ssActId); })[0] || null; }
-  function renderSsChips(list) {
-    ssChips.innerHTML = '';
-    list.forEach(function (a) {
-      var b = el('button', 'saChip' + (String(a.id) === String(ssActId) ? ' on' : ''));
-      b.type = 'button';
-      b.style.setProperty('--chipEdge', a.color || '#674EA7');
-      var d = el('span', 'saChipDot'); d.style.background = a.color || '#674EA7';
-      b.appendChild(d); b.appendChild(el('span', null, a.name));
-      b.addEventListener('click', function () {
-        if (String(a.id) === String(ssActId)) return;
-        ssActId = a.id; renderSsChips(list); TMT.selectSharedStats(a);
-      });
-      ssChips.appendChild(b);
-    });
-    var on = ssChips.querySelector('.saChip.on');
-    if (on && on.offsetLeft + on.offsetWidth > ssChips.clientWidth) ssChips.scrollLeft = on.offsetLeft + on.offsetWidth - ssChips.clientWidth + 8; // puce choisie visible
-  }
-  function openShared() {
-    var list = sharedActivities();
-    if (!selectedShared(list)) {
-      var pref = list.filter(function (a) { return String(a.id) === String(TMT.currentGoalsActivityId); })[0];
-      ssActId = pref ? pref.id : (list[0] ? list[0].id : null);
-    }
-    ssEmpty.classList.toggle('hidden', list.length > 0);
-    ssBody.classList.toggle('hidden', list.length === 0);
-    renderSsChips(list);
-    var a = selectedShared(list);
-    if (a && TMT.selectSharedStats) TMT.selectSharedStats(a);
-  }
-  TMT.sharedStatsRefresh = function () { if (sharedOn) openShared(); };
-  // Glissement animé entre deux pages internes de #statsPages (même technique que setStatsPage).
-  function slideInternal(from, to, dir) {
-    to.classList.remove('hidden');
-    if (typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
-    var r = from.getBoundingClientRect(), pr = pages.getBoundingClientRect();
-    from.style.cssText += ';position:absolute;left:' + (r.left - pr.left) + 'px;top:' + (r.top - pr.top) + 'px;width:' + r.width + 'px;pointer-events:none;';
-    pages.style.overflowX = 'hidden';
-    var ao = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
-    to.animate([{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'translateX(0)' }], ao);
-    var out = from.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], ao);
-    out.onfinish = function () {
-      ['position', 'left', 'top', 'width', 'pointerEvents'].forEach(function (k) { from.style[k] = ''; });
-      from.classList.add('hidden'); out.cancel();
-      to.getAnimations().forEach(function (a) { a.cancel(); });
-      pages.style.overflowX = '';
-    };
-  }
-  function setSharedPage(on, opts) {
-    opts = opts || {};
-    if (!sharedEl || on === sharedOn) return;
-    if (on && !sharedAvailable()) return;
-    var base = page === 1 ? page1 : page2;
-    sharedOn = on;
-    if (on) openShared();
-    setDots();
-    var from = on ? base : sharedEl, to = on ? sharedEl : base;
-    if (opts.noAnim) { to.classList.remove('hidden'); from.classList.add('hidden'); return; }
-    slideInternal(from, to, on ? 1 : -1);
-  }
-  TMT.setSharedPage = setSharedPage;
-  // Page Groupe (Tâches par membre) : glissement animé depuis / vers la page Tâches-Objectifs.
-  function setGroupPage(on, opts) {
-    opts = opts || {};
-    if (!groupEl || on === groupOn) return;
-    if (on && !groupAvailable()) return;
-    groupOn = on;
-    if (on && TMT.groupStats) TMT.groupStats.open();
-    setDots();
-    var from = on ? page2 : groupEl, to = on ? groupEl : page2;
-    if (opts.noAnim) { to.classList.remove('hidden'); from.classList.add('hidden'); return; }
-    slideInternal(from, to, on ? 1 : -1);
-  }
-  TMT.setGroupPage = setGroupPage;
-  function groupNeighbor(on) {
-    return {
-      cur: on ? page2 : groupEl, nb: on ? groupEl : page2, host: pages,
-      start: function () { if (on && TMT.groupStats) TMT.groupStats.open(); },
-      commit: function () { groupOn = on; setDots(); }
-    };
-  }
-  // Voisine du glissement continu : page Temps <-> 3e page (même objet que les autres voisines internes de slidePager).
-  function sharedNeighbor(on) {
-    return {
-      cur: on ? page1 : sharedEl, nb: on ? sharedEl : page1, host: pages,
-      start: function () { if (on) openShared(); },
-      commit: function () { sharedOn = on; setDots(); }
-    };
-  }
-
-  // ---------- Changement de page interne (Tâches | Objectifs) : même animation que setGoalsPage2Mode ----------
-  // Modules (js/modules.js) : page 1 = « stats » (Temps), pages 2-3 = « stats-tasks » (Tâches, Objectifs).
-  function pageOn(n) { return modOnId(n === 1 ? 'stats' : 'stats-tasks'); }
-  function setStatsPage(n, opts) {
-    opts = opts || {};
-    if (!pageOn(n)) return;
-    var ph = n === 1 ? 1 : 2;
-    if (ph === page) { if (ph === 2) inst.goTab(n === 3 ? 'o' : 't'); return; }
-    var from = page === 1 ? page1 : page2, to = ph === 1 ? page1 : page2;
-    var dir = ph > page ? 1 : -1;
-    page = ph;
-    closeModal();
-    if (ph === 2) { inst.setTab(n === 3 ? 'o' : 't'); inst.open(); }
-    setDots();
-    to.classList.remove('hidden');
-    if (opts.noAnim || typeof to.animate !== 'function') { from.classList.add('hidden'); return; }
-    var r = from.getBoundingClientRect(), pr = pages.getBoundingClientRect();
-    from.style.cssText += ';position:absolute;left:' + (r.left - pr.left) + 'px;top:' + (r.top - pr.top) + 'px;width:' + r.width + 'px;pointer-events:none;';
-    pages.style.overflowX = 'hidden';
-    var ao = { duration: 280, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'both' };
-    to.animate([{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'translateX(0)' }], ao);
-    var out = from.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], ao);
-    out.onfinish = function () {
-      from.style.position = ''; from.style.left = ''; from.style.top = ''; from.style.width = ''; from.style.pointerEvents = '';
-      from.classList.add('hidden'); out.cancel();
-      to.getAnimations().forEach(function (a) { a.cancel(); });
-      pages.style.overflowX = '';
-    };
-  }
-  TMT.setStatsPage = setStatsPage;
-
-  // Glissement continu (slidePager, mêmes gardes que la Page 2 de la feuille de route : champs, zones défilant horizontalement,
-  // fenêtres ouvertes). Vers la droite = page à gauche ; vers la gauche = retour vers Chrono / Feuille de route.
-  // Voisine « externe » : un autre onglet complet glisse à côté de celui-ci (le conteneur commun devient le repère de position).
-  function external(curEl, nbEl, start, target) {
-    var host = curEl.parentElement;
-    function done() { host.style.position = ''; }
-    return {
-      cur: curEl, nb: nbEl, host: host,
-      start: function () { host.style.position = 'relative'; if (start) start(); },
-      commit: function () { done(); TMT.switchTab(target, target === 'stats' ? { prepared: true } : undefined); },
-      cancel: done
-    };
-  }
-  function curIdx() { return ctx === 'goals' ? (groupOn ? 1 : 0) : 0; }
-  slidePager({
-    zone: zone,
-    swallow: function (dir) { return ctx === 'chrono' ? (sharedOn && dir > 0) : (dir > 0 && curIdx() === (groupAvailable() ? 1 : 0)); },
-    neighbor: function (dir) {
-      var i = curIdx(), t = i + dir;
-      if (ctx === 'chrono') {
-        if (sharedOn) return dir < 0 ? sharedNeighbor(false) : null; // 3e page : retour vers Temps
-        if (dir > 0) return sharedAvailable() ? sharedNeighbor(true) : null; // glisser de droite à gauche : page des activités partagées
-        return external(zone, document.getElementById('tab-chrono'), null, 'chrono'); // glisser de gauche à droite : retour au Chrono
-      }
-      if (t < 0) return external(zone, document.getElementById('tab-goals'), function () { if (TMT.showGoalsCapturePage) TMT.showGoalsCapturePage(); }, 'goals'); // retour à la page 1, à gauche
-      if (t > 1) return null;
-      if (t === 1) return groupAvailable() ? groupNeighbor(true) : null; // page Groupe, tout à droite
-      return groupNeighbor(false); // de Groupe vers Statistiques (Tâches | Objectifs : sélecteur dans la page)
-    }
-  });
-  // Arrivée sur la page de statistiques depuis Chrono ou depuis la page 1 de la Feuille de route (glisser vers la gauche dans les deux cas).
-  var chronoZone = document.getElementById('tab-chrono'), goalsZone = document.getElementById('tab-goals');
-  if (chronoZone) slidePager({
-    zone: chronoZone,
-    neighbor: function (dir) {
-      if (dir < 0 || !modOnId('stats')) return null; // le Chrono est la page la plus à gauche : on ne va qu'à droite, vers les statistiques
-      return external(chronoZone, zone, function () { TMT.enterStats('chrono'); }, 'stats');
-    }
-  });
-  // Préchauffage : dès que le doigt se pose sur la page 1, la page Statistiques charge et se dessine (cachée) ; le glissement la trouve prête au lieu de la charger pendant le geste.
-  var lastWarm = 0;
-  if (goalsZone) goalsZone.addEventListener('touchstart', function () {
-    if (Date.now() - lastWarm < 30000 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return;
-    lastWarm = Date.now(); inst.open();
-  }, { passive: true });
-  if (goalsZone) slidePager({
-    zone: goalsZone,
-    neighbor: function (dir) {
-      if (dir < 0 || !modOnId('stats-tasks') || !showing('goalsCapturePage') || showing('goalsDetailPage')) return null; // les statistiques sont à droite de la page 1
-      return external(goalsZone, zone, function () { TMT.enterStats('goals'); }, 'stats');
-    }
-  });
-  setDots();
+  TMT.bilanPage1 = function (on) { if (bilanOn) page1.classList.toggle('hidden', !on); };
+  TMT.bilanHide = function () {
+    if (!bilanOn) return;
+    if (TMT.bilanBlocs) TMT.bilanBlocs.close();
+    bilanOn = false; pages.classList.remove('bilanStack'); page1.classList.remove('hidden');
+  };
 })();

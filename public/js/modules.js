@@ -32,7 +32,8 @@
   function tabOn(tab) {
     if (tab === 'chrono') return on('stats');
     if (tab === 'stats') return on('stats') || on('stats-tasks');  // « Temps » off : l'onglet Stats ne garde que les stats des tâches (ensemble B)
-    if (tab === 'goals') return on('roadmap');
+    if (tab === 'bilan') return on('stats') || on('stats-tasks');
+    if (tab === 'tasks' || tab === 'objectives' || tab === 'goals') return on('roadmap'); // « goals » = ancien identifiant du volet Feuille de route
     if (tab === 'community') return on('community');
     if (tab === 'trade') return !!state && state.trade === true;
     if (tab === 'horaire') return !!state && state.horaire === true;
@@ -57,7 +58,7 @@
   // Calendrier et Assistant IA se rattachent à « Tâches et objectifs » ; partage et notifications restent actifs (noyau), sans interrupteur.
   var ROWS = [
     { label: 'Chrono', ids: ['stats'], anchor: 'stats', bundle: true },
-    { label: 'Feuille de route', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
+    { label: 'Tâches et objectifs', ids: ['roadmap', 'stats-tasks', 'calendar', 'ai'], anchor: 'roadmap', bundle: true },
     { label: 'Horaire', ids: ['horaire'], anchor: 'horaire', bundle: true },
     { label: 'Communauté et profil', ids: ['community', 'profile'], anchor: 'community', bundle: false }
   ];
@@ -87,7 +88,54 @@
     });
   }
 
-  function paint() { if (box && state) render(box, state, put, ROWS.filter(function (r) { return r.anchor !== 'horaire' || horaireAllowed; })); }
+  // Réglages > Modules = l'UNIQUE endroit pour ajouter, retirer et ordonner les volets de la barre (18 nov. 2026, Émilien) : l'ordre de haut en bas = l'ordre de gauche à droite.
+  // Une ligne par volet de la barre : poignée ≡ (glisser-déposer, TMT.ui.groupDrag) et interrupteur (éteint = le volet quitte la barre ; Chrono, Feuille de route et Horaire
+  // coupent leur module, au moins l'un des trois reste, le serveur refuse sinon). « Ajouter un volet » (composant .cmpAdd) en haut déroule les volets absents.
+  var TAB_ROWS = { chrono: ROWS[0], tasks: { label: 'Tâches' }, objectives: { label: 'Objectifs' }, horaire: ROWS[2], community: ROWS[3], bilan: { label: 'Bilan' }, trade: { label: 'Trade Tracker' } };
+  var addOpen = false;
+  function addButton(label, onClick) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'cmpAdd';
+    var plus = document.createElement('b'); plus.textContent = '+'; b.appendChild(plus); b.appendChild(document.createTextNode(tr(label)));
+    b.addEventListener('click', onClick); return b;
+  }
+  function paint() {
+    var nb = TMT.navBar;
+    if (!box || !state || !nb) return;
+    box.innerHTML = '';
+    var absent = nb.addable();
+    if (!absent.length) addOpen = false;
+    else {
+      var add = addButton('Ajouter un volet', function () { addOpen = !addOpen; paint(); });
+      add.setAttribute('aria-expanded', addOpen ? 'true' : 'false'); box.appendChild(add);
+      if (addOpen) absent.forEach(function (tab) {
+        box.appendChild(addButton(TAB_ROWS[tab].label, function () { setMsg(''); nb.add(tab).then(function (r) { if (r && r.ok) addOpen = false; else setMsg((r && r.message) || ''); paint(); }); }));
+      });
+    }
+    var rows = document.createElement('div'); rows.className = 'modulesRows';
+    nb.order().forEach(function (tab) {
+      var r = TAB_ROWS[tab]; if (!r) return;
+      var row = document.createElement('div'); row.className = 'notifRow'; row.dataset.tab = tab;
+      var handle = document.createElement('span'); handle.className = 'activityDragHandle'; handle.textContent = '≡'; handle.setAttribute('aria-hidden', 'true');
+      var label = document.createElement('span'); label.className = 'notifRowLabel modulesRowLabel'; label.textContent = tr(r.label);
+      var sw = document.createElement('label'); sw.className = 'toggleSwitch';
+      var inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = true; inp.setAttribute('role', 'switch'); inp.setAttribute('aria-label', tr(r.label));
+      var track = document.createElement('span'); track.className = 'toggleSwitchTrack';
+      inp.addEventListener('change', function () {
+        if (nb.mayRemove && !nb.mayRemove(tab)) { setMsg(tr('Garde au moins un volet.')); paint(); return; } // au moins un des volets Chrono, Tâches, Objectifs (ou Horaire) reste dans la barre
+        if (r.ids) { var patch = {}; r.ids.forEach(function (id) { patch[id] = false; }); put(patch); }
+        else { nb.remove(tab); paint(); }
+      });
+      sw.appendChild(inp); sw.appendChild(track);
+      row.appendChild(handle); row.appendChild(label); row.appendChild(sw); rows.appendChild(row);
+      TMT.ui.groupDrag(handle, row, {
+        list: box, groupSel: '.modulesRows', rowsWrap: function (g) { return g; }, rowSel: '.notifRow', wrap: rows,
+        lineClass: 'catDropLine', targetClass: 'catDropTarget',
+        onReorder: function (list) { nb.setOrder(list.map(function (x) { return x.dataset.tab; })); },
+        onMoveTo: function () {}
+      });
+    });
+    box.appendChild(rows);
+  }
 
   // Création du compte (26 oct. 2026) : choix de Chrono, Feuille de route, Horaire, Communauté dans `target` (tout coché par défaut), au moins un des trois premiers ; `onChange(valide)` à chaque changement.
   // Monté avant que le profil existe (aucun appel serveur) ; save() enregistre via PUT une fois le profil créé et marque le choix fait.
@@ -157,7 +205,7 @@
     // Active le module d'un volet ajouté par le « + » de la barre (26 oct. 2026, Émilien : chaque volet s'ajoute comme Trade Tracker).
     // Même retour que setTrade : { ok } ou { ok: false, message }.
     setTab: function (tab) {
-      var ids = { chrono: ['stats'], goals: ['roadmap', 'stats-tasks'], community: ['community', 'profile'], horaire: ['horaire'] }[tab];
+      var ids = { chrono: ['stats'], tasks: ['roadmap', 'stats-tasks'], objectives: ['roadmap', 'stats-tasks'], community: ['community', 'profile'], horaire: ['horaire'] }[tab];
       if (tab === 'trade') return TMT.modules.setTrade(true);
       if (!ids) return Promise.resolve({ ok: true });
       var patch = {}; ids.forEach(function (id) { patch[id] = true; });

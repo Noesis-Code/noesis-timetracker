@@ -40,9 +40,16 @@ const P = {
   ai_tokens: { cols: ['userId'], erase: 'cascade', exp: 'NON: jetons de connexion IA, secret (empreinte)' },
   ai_token_notifs: { cols: [], erase: 'via', exp: 'NON: journal technique d\'un jeton' },
   ai_write_log: { cols: ['userId'], erase: 'cascade', exp: 'NON: journal technique des écritures de l\'IA du compte (copies de tâches), effacé avec le compte' },
+  diag_mesures: { cols: ['userId'], erase: 'cascade', exp: 'NON: mesures de mise en page (staging, sans donnée personnelle), 50 dernières' },
   ai_usage_log: { cols: ['userId'], erase: 'explicit', exp: 'NON: compteurs de coût IA, aucun contenu' },
   announcement_seen: { cols: ['userId'], erase: 'cascade', exp: 'NON: marqueur de lecture technique' },
   blocks: { cols: ['blockerId', 'blockedId'], erase: 'cascade', exp: 'blockedUsers' },
+  communities: { cols: ['ownerId'], erase: 'cascade', exp: 'communities' },
+  community_members: { cols: ['userId'], erase: 'cascade', exp: 'communities' },
+  community_posts: { cols: ['userId'], erase: 'cascade', exp: 'communityPosts' },
+  network_contacts: { cols: ['ownerId'], erase: 'cascade', exp: 'networkContacts' },
+  network_notes: { cols: ['ownerId'], erase: 'cascade', exp: 'networkNotes' },
+  network_edges: { cols: ['ownerId'], erase: 'cascade', exp: 'networkEdges' },
   calendar_export_excluded: { cols: ['userId'], erase: 'cascade', exp: 'NON: réglage d\'affichage du calendrier' },
   calendar_feed_tokens: { cols: ['userId'], erase: 'cascade', exp: 'calendarFeed' },
   change_proposals: { cols: ['userId'], erase: 'explicit', exp: 'NON: propositions IA transitoires' },
@@ -52,15 +59,44 @@ const P = {
   follows: { cols: ['followerId', 'followeeId'], erase: 'cascade', exp: 'follows' },
   goal_capacity_overrides: { cols: ['userId'], erase: 'cascade', exp: 'goalCapacityOverrides' },
   goal_classify_examples: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du classement IA (remise à zéro par l\'API)' },
+  goal_objective_examples: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rattachement tâche → objectif (remise à zéro par l\'API)' },
+  category_strategies: { cols: ['updatedBy'], erase: 'explicit', exp: 'NON: stratégie partagée de la catégorie (le lien auteur seul est retiré)' },
+  task_proposal_refus: { cols: ['userId'], erase: 'explicit', exp: 'NON: refus techniques de propositions de tâches (alimentent « à ignorer », effacés avec le compte)' },
+  task_rangement_corrections: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique du rangement des tâches (remise à zéro par l\'API, effacé avec le compte)' },
+  rangement_consentement: { cols: ['userId'], erase: 'explicit', exp: 'NON: preuve du consentement à l\'amélioration anonyme du modèle (effacée avec le compte)' },
+  paliers_delais: { cols: ['userId'], erase: 'explicit', exp: 'NON: délais réels entre paliers pour personnaliser les durées (remise à zéro par l\'API, effacé avec le compte)' },
+  member_scopes: { cols: ['userId'], erase: 'explicit', exp: 'NON: pôle ou secteur auquel appartient un membre (effacée avec le compte)' },
+  category_managers: { cols: ['userId'], erase: 'explicit', exp: 'NON: responsables d\'une catégorie (effacée avec le compte)' },
+  hour_allocations: { cols: ['userId'], erase: 'explicit', exp: 'NON: heures allouées par la personne à ses activités (effacées avec le compte)' },
+  objectif_ajuste_refus: { cols: ['userId'], erase: 'explicit', exp: 'NON: refus mémorisé d\'un ajustement d\'objectif' },
+  objectif_ajuste_info: { cols: ['userId'], erase: 'explicit', exp: 'NON: information d\'ajustement d\'objectif' },
+  objectif_ecart_refus: { cols: ['userId'], erase: 'explicit', exp: 'NON: refus mémorisé d\'une alerte d\'écart' },
+  objectif_famille_inconnue: { cols: ['userId'], erase: 'explicit', exp: 'NON: apprentissage technique de l\'estimation' },
+  objectif_temps_reel: { cols: ['userId'], erase: 'explicit', exp: 'NON: temps réel vs prévu (apprentissage technique de l\'estimation)' },
+  retard_rangees: { cols: ['userId'], erase: 'explicit', exp: 'NON: marqueur technique du rangement des tâches en retard' },
+  task_day_plan: { cols: ['userId'], erase: 'explicit', exp: 'NON: jour planifié d\'une tâche (technique)' },
+  task_share_pct: { cols: ['userId'], erase: 'cascade', exp: 'NON: ancien bloc « Part des tâches » (migré vers les parts par catégorie)' },
+  activity_managers: { cols: ['userId'], erase: 'explicit', exp: 'NON: liste des responsables d\'une activité (effacée avec le compte)' },
+  member_time_changes: { cols: ['memberId'], erase: 'cascade', exp: 'NON: historique des temps prévus d\'un membre (effacé avec le compte)' },
   goal_overload_dismissals: { cols: ['userId'], erase: 'explicit', exp: 'NON: alerte de surcharge écartée' },
   goal_period_assignees: { cols: ['userId'], erase: 'cascade', exp: 'goalPeriods' },
   goal_period_due_reminders: { cols: ['userId'], erase: 'cascade', exp: 'NON: journal d\'envoi de rappels' },
   goal_recalc_proposals: { cols: ['userId'], erase: 'explicit', exp: 'NON: propositions de recalcul transitoires' },
+  objectifs_resume_annuel: { cols: ['userId'], erase: 'explicit', exp: 'NON: résumé dérivé des objectifs (recalculable), effacé avec le compte' },
+  objectif_retards: { cols: ['userId'], erase: 'explicit', exp: 'NON: état de retard d\'un objectif de période, recalculé à chaque ouverture, effacé avec le compte' },
+  objectifs_ordre: { cols: ['userId'], erase: 'explicit', exp: 'objectiveColumnOrder' },
+  user_objectives: { cols: ['userId'], erase: 'explicit', exp: 'objectives' },
+  fusion_absorption: { cols: ['userId'], erase: 'explicit', exp: 'fusionAbsorptions' },
+  objectifs_refus: { cols: ['userId'], erase: 'explicit', exp: 'objectiveRefusals' },
+  objectifs_supprimes: { cols: ['userId'], erase: 'explicit', exp: 'objectivesDeleted' },
   goal_time_caps: { cols: ['userId'], erase: 'explicit', exp: 'goalTimeCaps' },
   goal_weekly: { cols: ['assignedUserId'], erase: 'setnull', exp: 'goalWeekly' },
   idempotency_keys: { cols: ['userId'], erase: 'explicit', exp: 'NON: clés techniques de capture hors ligne' },
   inactive_account_log: { cols: ['userId'], erase: 'kept', exp: 'NON: journal d\'avis/suppression, id seul sans nom ni courriel, conservé exprès (preuve de suppression)' },
   member_time_overrides: { cols: ['memberId'], erase: 'explicit', exp: 'NON: estimation de temps posée par l\'activité' },
+  category_shares: { cols: ['userId'], erase: 'cascade', exp: 'NON: part de tâches du membre dans une catégorie de l\'activité' },
+  category_share_refusals: { cols: ['userId'], erase: 'cascade', exp: 'NON: refus mémorisé d\'une proposition d\'équilibrage des parts' },
+  task_share_wanted: { cols: ['userId'], erase: 'cascade', exp: 'NON: temps voulu du membre pour le partage des tâches de l\'activité' },
   message_reports: { cols: ['reporterId'], erase: 'explicit', exp: 'NON: signalement de modération' },
   note_attachments: { cols: ['userId'], erase: 'cascade', exp: 'noteAttachments' },
   parental_consent_requests: { cols: ['userId'], erase: 'cascade', exp: 'NON: coordonnées du tuteur (tiers)' },
@@ -88,9 +124,9 @@ for (const t of ['horaire_employees', 'horaire_positions', 'horaire_qualificatio
 for (const t of ['horaire_availabilities', 'horaire_rotation', 'horaire_schedules', 'horaire_assignments', 'horaire_covers', 'horaire_timeoff']) P[t] = { cols: ['userId'], erase: 'cascade', exp: 'NON: horaire éphémère, table toujours vide (mémoire seule, jamais stockée)' };
 P.horaire_refused_threads = { cols: ['userId'], erase: 'cascade', exp: 'NON: empreinte SHA-256 d\'un fil de courriel refusé (90 jours), aucun contenu lisible' };
 // Tables sans aucune colonne qui désigne un compte (contenu d'activité, journaux globaux, jetons de webhooks...).
-const NON_PERSONAL = new Set(['activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
+const NON_PERSONAL = new Set(['task_share_pct_migre', 'hour_allocations_migration', 'task_share_minutes','activities_rebuild', 'activity_billing_cycles', 'activity_goal_categories', 'activity_goal_plans', 'activity_offre1',
   'announcements', 'generation_quality_log', 'goal_cross_sector_suggestions', 'goal_periods', 'goal_year_goals', 'goal_years', 'inactive_account_runs',
-  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations']);
+  'poll_options', 'plan_activation_attempts', 'stripe_webhook_events', 'sub_project_item_queue', 'ai_alerts_sent', 'passkey_challenges', 'horaire_migrations', 'objectifs_signaux', 'ai_free_cost', 'rangement_motifs', 'paliers_delais_globaux', 'rangement_exemples_connecteur']);
 
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
 const info = (t) => db.prepare(`PRAGMA table_info(${t})`).all();
@@ -165,6 +201,10 @@ for (const [t, d] of Object.entries(P)) {
     try { insertFor(t, d.cols, id, tag); } catch (e) { assert(false, `semis ${t} : ${e.message}`); }
   }
 }
+// Communautés : les lignes de B visent la communauté de B (celle de A disparaît avec A, ses membres avec elle : voulu).
+for (const t of ['community_members', 'community_posts']) db.prepare(`UPDATE ${t} SET communityId = (SELECT id FROM communities WHERE ownerId = ?) WHERE userId = ?`).run(B.id, B.id);
+// Réseau personnel : les notes et liens de B visent le contact de B (celui de A disparaît avec A, ses notes avec lui : voulu).
+db.prepare('UPDATE network_notes SET contactId = (SELECT id FROM network_contacts WHERE ownerId = ?) WHERE ownerId = ?').run(B.id, B.id);
 // pièce jointe de discussion de A avec un vrai fichier sur disque
 const filesDir = path.join(process.env.NOESIS_DATA_DIR, 'discussion-files');
 fs.mkdirSync(filesDir, { recursive: true });

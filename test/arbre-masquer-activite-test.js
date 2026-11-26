@@ -1,0 +1,26 @@
+// « Arbre des objectifs » (18 nov. 2026) : masquer une activité de l'arbre = réglage personnel ; ses objectifs restent en base et reviennent au rétablissement.
+process.env.TZ = 'America/Montreal';
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-arbre-masque-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+delete process.env.ANTHROPIC_API_KEY;
+let failed = 0; const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db'), O = require('../server/lib/objectifs');
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'u1', datetime('now'))").run();
+const mkAct = (name) => { const id = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES (?, 'u1', '')").run(name).lastInsertRowid); db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, 'u1', '#A04B52', '')").run(id); return id; };
+const T = require('../server/lib/dates').userToday(), add = (n) => O.addDays(T, n);
+const a1 = mkAct('Alpha'), a2 = mkAct('Beta');
+const o = O.creer('u1', { title: 'Objectif Beta', activityId: a2, level: 'activite', startDate: T, endDate: add(300), weekTasks: [] });
+assert(o && o.id, 'objectif créé sur Beta');
+let s = O.structure('u1');
+assert(s.activities.length === 2 && s.hidden.length === 0, 'défaut : toutes les activités dans l\'arbre, aucune masquée');
+const hide = (id, v) => db.prepare('UPDATE activity_members SET treeHidden = ? WHERE activityId = ? AND userId = ?').run(v, id, 'u1');
+hide(a2, 1);
+s = O.structure('u1');
+assert(s.hidden.length === 1 && s.hidden[0] === a2, 'Beta masquée : listée dans hidden');
+assert(!O.contexte('u1', { text: 'x' }).activities.some((a) => a.id === a2), 'Beta absente du choix de l\'activité à la création');
+assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE activityId = ?').get(a2).n === 1, 'objectif de Beta gardé en base');
+hide(a2, 0);
+s = O.structure('u1');
+assert(s.hidden.length === 0 && O.contexte('u1', { text: 'x' }).activities.some((a) => a.id === a2), 'rétablie : Beta revient');
+assert(db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE activityId = ?').get(a2).n === 1, 'objectif toujours présent');
+console.log(failed ? '\n' + failed + ' échec(s)' : 'arbre-masquer-activite-test OK'); process.exit(failed ? 1 : 0);

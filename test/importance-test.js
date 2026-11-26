@@ -39,7 +39,7 @@ assert(p && p.moves.map((m) => m.id).join() === '2', 'la plus récente mais impo
 assert(p && !p.moves.some((m) => m.id === 3), 'tâche importante jamais décalée');
 const man = { dueDateAuto: 0 };
 const pin = overload.computeProposal({ today, budgetMinutes: 120, tasks: [mk(1, 30, man), mk(2, 30, man), mk(3, 90, man)] });
-assert(pin === null, 'dates saisies manuellement jamais déplacées');
+assert(pin && pin.moves.map((m) => m.id).join() === '2', 'dates saisies manuellement : AUCUNE protection (ordre d’Émilien, 10 nov. 2026), la moins importante est décalée comme les autres');
 
 // --- serveur : aucune écriture avant apply
 const { seedStagingData } = require('../server/lib/seed-staging');
@@ -59,11 +59,8 @@ const ids = [];
 for (let i = 0; i < n; i += 1) ids.push(Number(ins.run(spId, sec ? sec.id : null, 'tâche ' + i, d0).lastInsertRowid));
 const snap = () => JSON.stringify(db.prepare('SELECT id, dueDate FROM sub_project_items ORDER BY id').all());
 const before = snap();
-const prop = overload.getProposal(user.id, act.id);
-assert(prop.overloaded && prop.moves.length > 0 && prop.moves.every((m) => m.importance && m.to > m.from), 'plan proposé avec importance et dates');
-assert(snap() === before, 'aucune écriture avant validation');
-const res = overload.applyProposal(user.id, act.id, prop.signature);
-assert(res.applied === prop.moves.length && snap() !== before, 'écriture seulement après apply');
+const res = overload.rebalance(user.id, act.id, { force: true });
+assert(res.applied > 0 && snap() !== before, 'rééquilibrage silencieux : les tâches posées par le moteur sont décalées (plus de proposition à valider)');
 
 console.log(failed ? failed + ' échec(s)' : 'OK');
 process.exit(failed ? 1 : 0);

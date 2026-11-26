@@ -23,24 +23,24 @@
 '<p class="hint">Version 1.2 — in effect on October 10, 2026.</p>\n' +
 '\n' +
 '<h3>1. Purpose and acceptance</h3>\n' +
-'<p>These General Terms of Use (the “Terms”) govern access to and use of the Noèsis TimeTracker application and related services (the “Services”), published by Noèsis Inc. (the “Company”). By creating an account or using the Services, the User acknowledges having read, understood and accepted these Terms.</p>\n' +
+'<p>These General Terms of Use (the “Terms”) govern access to and use of the Noèsis application and related services (the “Services”), published by Noèsis Inc. (the “Company”). By creating an account or using the Services, the User acknowledges having read, understood and accepted these Terms.</p>\n' +
 '<p>The Services are offered to persons residing in Canada. They are not offered to, or promoted to, residents of other jurisdictions; by creating an Account, the User declares that they reside in Canada.</p>\n' +
 '<p>The provisions of this document specific to Users residing in France or the European Union (articles 7 and 12) are drafted in anticipation of a future expansion of the Services beyond Canada; they are not operative for as long as the Services remain offered exclusively to residents of Canada.</p>\n' +
 '\n' +
 '<h3>2. Identification of the Company</h3>\n' +
 '<p>Noèsis Inc. (legal name: Compagnie Noèsis inc.) is a business corporation incorporated in Québec on September 8, 2026, registered under Québec enterprise number (NEQ) 1182542432.</p>\n' +
 '<p>These Terms bind the Company itself. Its founders, directors and officers are not personally parties to them and cannot be held personally liable for the obligations described herein.</p>\n' +
-'<p>For any question regarding these Terms: compagnie.noesis@gmail.com.</p>\n' +
+'<p>For any question regarding these Terms: admin@compagnienoesis.com.</p>\n' +
 '\n' +
 '<h3>3. Definitions</h3>\n' +
-'<p>“Services”: all the features offered by Noèsis TimeTracker, including the Free Offer (and, once built and launched, Offer 1 — see article 4.2).</p>\n' +
+'<p>“Services”: all the features offered by Noèsis, including the Free Offer (and, once built and launched, Offer 1 — see article 4.2).</p>\n' +
 '<p>“Account”: the personal space created by the User to access the Services; one Account corresponds to a single responsible person.</p>\n' +
 '<p>“User”: any individual or business/organization holding an Account.</p>\n' +
 '<p>“Content”: any data, information or message transmitted by the User in connection with the Services, including in the Community.</p>\n' +
 '<p>“Subscription”: paid access to Offer 1, once it has been launched.</p>\n' +
 '\n' +
 '<h3>4. Description of the Services</h3>\n' +
-'<p><strong>4.1 Free Offer.</strong> The Free Offer includes time tracking (TimeTracker), with a breakdown of activity by day, week, month and year, organization into sub-projects, statistics, as well as access to the Community (polls, posts, subscriptions between users) and to the optional calendar. The Free Offer also includes an artificial intelligence assistant that proposes a classification of tasks (see the Privacy Policy). The assistant’s proposals may be inaccurate, incomplete or misleading: the User must verify them before relying on them. It is the only offer active at the September 11, 2026 launch.</p>\n' +
+'<p><strong>4.1 Free Offer.</strong> The Free Offer includes time tracking, with a breakdown of activity by day, week, month and year, organization into sub-projects, statistics, as well as access to the Community (polls, posts, subscriptions between users) and to the optional calendar. The Free Offer also includes an artificial intelligence assistant that proposes a classification of tasks (see the Privacy Policy). The assistant’s proposals may be inaccurate, incomplete or misleading: the User must verify them before relying on them. It is the only offer active at the September 11, 2026 launch.</p>\n' +
 '<p><strong>4.2 Offer 1 (paid) — not applicable at the September 11, 2026 launch.</strong> This section describes an offer that does not yet exist in the application. It is kept here in anticipation and will become operative only on the day Offer 1 is actually built and launched — not before. Offer 1 would give access to identification forms and to the analysis generated from those forms, including a roadmap automatically regenerated every six months. It would be subscribed to per activity. Envisaged price: $20 per month per activity.</p>\n' +
 '<p><strong>4.3 Scheduling module.</strong> The scheduling module lets the manager of an establishment enter their staff and availabilities and generate a schedule according to fixed rules. It includes a CSV export, which the User imports into Dayforce personally (the application does not connect to Dayforce), and a text of instructions the User can copy for the AI of their choice (the application sends nothing to an AI). The User remains responsible for their staff’s information and for the use of the AI they choose (see the Privacy Policy, section 4.8). Availabilities, leave and generated schedules are not saved: they are kept only in the server’s memory during the session.</p>\n' +
 '\n' +
@@ -64,13 +64,13 @@
 '<p>Any substantial amendment will be communicated to the User by an individual email sent to the Account address, at least 30 days before it takes effect, in accordance with section 11.2 of the Consumer Protection Act. This email describes the new clause and the one it replaces, states the effective date and reminds the User that a User who refuses a substantial amendment may terminate their Account free of charge before that date.</p>\n' +
 '\n' +
 '<h3>9. Intellectual property</h3>\n' +
-'<p>The Noèsis TimeTracker application, its structure, its features and its editorial content remain the exclusive property of the Company.</p>\n' +
+'<p>The Noèsis application, its structure, its features and its editorial content remain the exclusive property of the Company.</p>\n' +
 '\n' +
 '<h3>10. User content and Community</h3>\n' +
 '<p>The Community allows the User to exchange private messages, visible only to their recipient, and public messages, visible only to other subscribers, and to publish polls. The User remains solely responsible for the Content they publish and warrants that it does not violate any applicable law or the rights of any third party.</p>\n' +
 '<p>By publishing Content in connection with the Services, the User grants the Company a non-exclusive, royalty-free, worldwide licence to host, reproduce, display and transmit this Content solely to the extent necessary for the operation of the Services, in particular its display to the relevant recipients or subscribers. This licence ends when the Content is deleted, subject to copies retained for backup or legal compliance purposes.</p>\n' +
 '<p>The Company applies proactive moderation of the public messages in the Community, without necessarily waiting for a report. This reading, carried out manually by an officer of the Company, is solely intended to detect Content contrary to these Terms or to the law; it involves no assessment of the opinion, value or quality of the Content, and the Company does not select, rank or highlight any Content according to its interest or point of view. Content so detected may be removed and its author’s Account suspended.</p>\n' +
-'<p>Private messages exchanged between Users are not subject to any proactive monitoring or reading by the Company. They are examined only following a report, sent by email to compagnie.noesis@gmail.com or by any other reporting means made available in the application.</p>\n' +
+'<p>Private messages exchanged between Users are not subject to any proactive monitoring or reading by the Company. They are examined only following a report, sent by email to admin@compagnienoesis.com or by any other reporting means made available in the application.</p>\n' +
 '<p>With respect to the Content published by its Users, the Company acts as a host. Its liability for such Content can be engaged only if, having been informed by a sufficiently precise report of its unlawful nature, it fails to act promptly to remove it or block access to it.</p>\n' +
 '\n' +
 '<h3>11. No holding of third-party funds</h3>\n' +
@@ -85,14 +85,14 @@
 '<p><strong>Users residing in France or the European Union (in anticipation, not operative).</strong> No clause hereof shall remove or reduce the right to compensation of a User residing in France or the European Union in the event of a breach by the Company of any of its obligations.</p>\n' +
 '\n' +
 '<h3>13. Termination</h3>\n' +
-'<p>The User may terminate their Account at any time, directly from their Account settings or by making a request to compagnie.noesis@gmail.com. The Company may suspend or terminate an Account in the event of a serious or repeated breach of these Terms, subject to prior notice except in cases of urgency.</p>\n' +
+'<p>The User may terminate their Account at any time, directly from their Account settings or by making a request to admin@compagnienoesis.com. The Company may suspend or terminate an Account in the event of a serious or repeated breach of these Terms, subject to prior notice except in cases of urgency.</p>\n' +
 '\n' +
 '<h3>14. Language of the contract</h3>\n' +
 '<p>In accordance with the Charter of the French language (as amended by Law 96), the French version of these Terms is the one that prevails. Any version in another language is offered for convenience only and binds the User only if they expressly consent to it after having received the French version.</p>\n' +
 '\n' +
 '<h3>15. Governing law and remedies</h3>\n' +
 '<p>These Terms are governed by the law applicable in the province of Québec. Subject to the consumer User’s right to bring an action before the court of their own domicile where the law allows it, any dispute falls within the jurisdiction of the competent courts of the judicial district of Montréal. No clause hereof has the effect of depriving the consumer User of their right to bring an action before the competent courts, including a class action, or of compelling them to mandatory arbitration, in accordance with section 11.1 of the Consumer Protection Act.</p>\n' +
-'<p>Before any legal action, the parties undertake to attempt in good faith to resolve amicably any dispute arising from these Terms, by means of a written communication sent to compagnie.noesis@gmail.com describing the dispute, followed by a negotiation period of at least thirty (30) days. This amicable attempt in no way deprives the consumer User of their right to bring an action before the competent courts at any time, nor does it affect the limitation periods applicable to them.</p>\n' +
+'<p>Before any legal action, the parties undertake to attempt in good faith to resolve amicably any dispute arising from these Terms, by means of a written communication sent to admin@compagnienoesis.com describing the dispute, followed by a negotiation period of at least thirty (30) days. This amicable attempt in no way deprives the consumer User of their right to bring an action before the competent courts at any time, nor does it affect the limitation periods applicable to them.</p>\n' +
 '\n' +
 '<h3>16. Miscellaneous provisions</h3>\n' +
 '<p><strong>Severability —</strong> If a provision of these Terms is held to be invalid, illegal or unenforceable, that provision is deemed severed from these Terms, without affecting the validity or enforceability of the other provisions.</p>\n' +
@@ -102,7 +102,7 @@
 '<p><strong>Force majeure —</strong> The Company cannot be held liable for a delay or failure in performance resulting from a cause beyond its reasonable control, in particular a failure of a hosting provider, a natural disaster or a government decision.</p>\n' +
 '\n' +
 '<h3>17. Contact details</h3>\n' +
-'<p>For any question regarding these Terms: compagnie.noesis@gmail.com.</p>\n'
+'<p>For any question regarding these Terms: admin@compagnienoesis.com.</p>\n'
   };
 
   /* ------------------------------------------------------------------
@@ -114,16 +114,16 @@
 '<p class="hint">Version 3.7 — in effect on October 10, 2026.</p>\n' +
 '\n' +
 '<h3>Who this service is for</h3>\n' +
-'<p>Noèsis TimeTracker is offered to persons residing in Canada. The service is not offered to, or promoted to, residents of the European Union or of other jurisdictions. If you are not in Canada, this service is not intended for you. It is intended for individuals and for businesses or organizations established in Canada that open a business account (in particular for the Schedule module).</p>\n' +
+'<p>Noèsis is offered to persons residing in Canada. The service is not offered to, or promoted to, residents of the European Union or of other jurisdictions. If you are not in Canada, this service is not intended for you. It is intended for individuals and for businesses or organizations established in Canada that open a business account (in particular for the Schedule module).</p>\n' +
 '\n' +
 '<h3>In brief</h3>\n' +
-'<p>Noèsis TimeTracker is an application that lets you time your activities and track their totals. To work, it needs to know who you are and to keep what you time.</p>\n' +
+'<p>Noèsis is an application that lets you time your activities and track their totals. To work, it needs to know who you are and to keep what you time.</p>\n' +
 '<p>We collect the minimum: your name, your telephone number, an email address, and what you yourself record in the application. We do not resell any of your information and we do not disclose it to any advertiser. If you consent by a separate checkbox, Noèsis may use it to analyze usage, write to you for commercial purposes and target its own campaigns (section 2.4), and keep a copy of it on an encrypted storage medium held by Noèsis (section 4.7). There are no advertising trackers in the application. Your first and last name can be seen even before login: typing at least 3 characters of a name on the login screen is enough to display up to 5 full identities, and the number of possible searches is limited. You consent to this by a separate checkbox, ticked at sign-up. Once logged in to their own account, any other registered member can also see your profile photo, the number of projects you follow and what you are looking for (if you state it): this is the application’s basic directory function. Everything else — your activities, your totals, your notes — is private by default. Nothing is visible to others until you decide so. Your telephone number and email address are never visible by default: you can choose to share one, the other, or both with your accepted subscribers, each remaining off until you turn it on yourself. To help you classify your tasks, an artificial intelligence provided by Anthropic may use what you enter in the application to organize it, but never your name, first name, email, telephone number, photo, PIN code, conversations or posts (section 4.6). You can delete your account at any time: everything is then erased. Your information is hosted in the Netherlands, with our infrastructure provider.</p>\n' +
 '<p>The rest of this document details each of these points.</p>\n' +
 '\n' +
 '<h3>1. Who is responsible for your information</h3>\n' +
-'<p>The Noèsis TimeTracker application is operated by Noèsis Inc. (legal name: Compagnie Noèsis inc., NEQ 1182542432), a business corporation incorporated in Québec, whose head office is located in Montréal, Québec.</p>\n' +
-'<p>In accordance with the Act respecting the protection of personal information in the private sector (Québec), the person in charge of the protection of personal information is Émilien Morel-Obaton, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — compagnie.noesis@gmail.com. For persons residing in another province or territory of Canada, the Personal Information Protection and Electronic Documents Act (PIPEDA), or the applicable provincial law, also applies.</p>\n' +
+'<p>The Noèsis application is operated by Noèsis Inc. (legal name: Compagnie Noèsis inc., NEQ 1182542432), a business corporation incorporated in Québec, whose head office is located in Montréal, Québec.</p>\n' +
+'<p>In accordance with the Act respecting the protection of personal information in the private sector (Québec), the person in charge of the protection of personal information is Émilien Morel-Obaton, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — admin@compagnienoesis.com. For persons residing in another province or territory of Canada, the Personal Information Protection and Electronic Documents Act (PIPEDA), or the applicable provincial law, also applies.</p>\n' +
 '<p>This is the address to write to for any question about this policy, to exercise your rights, or to report a problem.</p>\n' +
 '\n' +
 '<h3>2. What we collect, and why</h3>\n' +
@@ -220,7 +220,7 @@
 '<p><strong>No system is perfectly secure</strong>. In the event of an incident presenting a risk of serious injury, we will inform the Commission d’accès à l’information and the persons affected, as the law requires. For persons residing outside Québec, we will likewise inform the Office of the Privacy Commissioner of Canada where there is a real risk of significant harm. We record all incidents in a register.</p>\n' +
 '\n' +
 '<h3>8. Minors</h3>\n' +
-'<p>Noèsis TimeTracker is not intended for persons under 16.</p>\n' +
+'<p>Noèsis is not intended for persons under 16.</p>\n' +
 '<p>A paid offer is planned for the future with additional age and parental consent conditions — see the terms of use. It does not yet exist in the application at the time of publication of this policy.</p>\n' +
 '\n' +
 '<h3>9. If this policy changes</h3>\n' +
@@ -229,7 +229,7 @@
 '<h3>10. Contact us</h3>\n' +
 '<p>For any question, request or complaint regarding your personal information:</p>\n' +
 '<p>Émilien Morel-Obaton, Vice-President of Noèsis Inc. — Person in charge of the protection of personal information</p>\n' +
-'<p>compagnie.noesis@gmail.com</p>\n' +
+'<p>admin@compagnienoesis.com</p>\n' +
 '<p>You may also contact the Commission d’accès à l’information du Québec directly — cai.gouv.qc.ca — or, if you reside outside Québec, the Office of the Privacy Commissioner of Canada — priv.gc.ca.</p>\n'
   };
 
@@ -242,13 +242,13 @@
 '<p class="hint">Version 1.2 — in effect on October 10, 2026.</p>\n' +
 '\n' +
 '<h3>Identification of the operator</h3>\n' +
-'<p>The Noèsis TimeTracker application is operated by <strong>Noèsis Inc.</strong> (legal name: Compagnie Noèsis inc.), a business corporation incorporated in Québec on September 8, 2026, whose head office is located in Montréal, Québec, Canada.</p>\n' +
+'<p>The Noèsis application is operated by <strong>Noèsis Inc.</strong> (legal name: Compagnie Noèsis inc.), a business corporation incorporated in Québec on September 8, 2026, whose head office is located in Montréal, Québec, Canada.</p>\n' +
 '<p>Québec enterprise number (NEQ): <strong>1182542432</strong>.</p>\n' +
 '<p>Noèsis Inc. is a business corporation incorporated in Québec. The founders, Gaspard and Émilien Morel-Obaton, are its officers and shareholders and no longer personally assume, in an individual capacity, the responsibilities relating to the application.</p>\n' +
-'<p>Contact: compagnie.noesis@gmail.com</p>\n' +
+'<p>Contact: admin@compagnienoesis.com</p>\n' +
 '\n' +
 '<h3>Person in charge of the protection of personal information</h3>\n' +
-'<p>In accordance with section 3.1 of the <em>Act respecting the protection of personal information in the private sector</em>, the person in charge of the protection of personal information is <strong>Émilien Morel-Obaton</strong>, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — compagnie.noesis@gmail.com.</p>\n' +
+'<p>In accordance with section 3.1 of the <em>Act respecting the protection of personal information in the private sector</em>, the person in charge of the protection of personal information is <strong>Émilien Morel-Obaton</strong>, Vice-President of Noèsis Inc., to whom this function has been delegated in writing — admin@compagnienoesis.com.</p>\n' +
 '<p>This person is responsible for ensuring compliance with the law, responding to requests for access, rectification and deletion, and handling confidentiality incidents.</p>\n' +
 '\n' +
 '<h3>Hosting</h3>\n' +
@@ -264,8 +264,8 @@
   EN.governanceModal = {
     title: 'Governance of personal information',
     body:
-'<p>Noèsis collects the minimum of information, does not sell it, hosts it with contractually bound providers and lets you view, correct or delete it. To reach the person in charge of the protection of personal information, make a request or file a complaint, write to compagnie.noesis@gmail.com. We aim to respond within 15 days; the law gives us 30 days. If you are not satisfied with the response, you may contact the Commission d’accès à l’information du Québec.</p>\n' +
-'<p class="hint">Last updated: October 30, 2026</p>\n'
+'<p>Noèsis collects the minimum of information, does not sell it, hosts it with contractually bound providers and lets you view, correct or delete it. To reach the person in charge of the protection of personal information, make a request or file a complaint, write to admin@compagnienoesis.com. We aim to respond within 15 days; the law gives us 30 days. If you are not satisfied with the response, you may contact the Commission d’accès à l’information du Québec.</p>\n' +
+'<p class="hint">Last updated: November 2, 2026</p>\n'
   };
 
   var DOC_IDS = ['legalTermsModal', 'privacyPolicyModal', 'legalNoticesModal', 'governanceModal'];
@@ -294,7 +294,7 @@
     { pick: '#openLegalNoticesBtn', en: ['Read the legal notices'] },
     { pick: '#openLegalTermsBtn', en: ['Read the terms of use'] },
     { pick: '#openPrivacyPolicyBtn', parentHint: true,
-      en: ['How Noèsis TimeTracker works, what it does with your information, and the rules for using the service.'] },
+      en: ['How Noèsis works, what it does with your information, and the rules for using the service.'] },
     // Invitation marketing
     { pick: '#marketingInviteModal .sectionTitle', en: ['A question about your data'] },
     { pick: '#marketingInviteModal .marketingInviteBody',
@@ -313,7 +313,7 @@
         'Avoid writing sensitive information (health, finances, private life) in your tasks, notes and attachments if you do not want it to be transmitted.',
         'Anthropic may process this information anywhere in the world, under the data processing contract concluded with Noèsis. It may not use it to train its models. It deletes it from its servers within 30 days. The list of its subprocessors is public: anthropic.com/subprocessors. Noèsis’s proposals may be inaccurate: verify them.',
         'You keep the decision. In Settings, AI management tab, you can change or turn off Noèsis’s help at any time: “Partial” or “Off” (no data transmitted to Anthropic).',
-        'Questions or requests about your information: compagnie.noesis@gmail.com. The details are in section 4.6 of our ', 'Privacy Policy', '.'
+        'Questions or requests about your information: admin@compagnienoesis.com. The details are in section 4.6 of our ', 'Privacy Policy', '.'
       ] },
     { pick: '#aiNoticeAck', en: ['I understand'] }
   ];

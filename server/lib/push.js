@@ -212,9 +212,8 @@ function sendToUsers(userIds, payload) {
 //
 // 28 septembre 2026 (discussion Notifications, décisions d'Emilien) : une
 // publication porte aussi &authorId=.. et ouvre le PROFIL de l'auteur,
-// onglet Publications (plus le flux Suivi) ; le rappel de 6 h
-// (dailysuggestioncron.js) est attendu sous la forme
-// /?notif=dailypriority&activityId=..&taskId=.. (écran Tâches, Page 2).
+// onglet Publications (plus le flux Suivi). Le rappel de 6 h
+// « dailypriority » a été supprimé le 2 nov. 2026 (décision d'Émilien).
 // Voir noesis-timetracker-notifications-deep-link.md.
 //
 // Les anciennes adresses (`notif=community`/`notif=profile`) restent comprises

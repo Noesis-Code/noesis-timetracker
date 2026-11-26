@@ -44,9 +44,9 @@
 // fichier.
 // 29 septembre 2026 (scission de la Page 2 Objectifs en 2 fichiers exclusifs,
 // demande d'Emilien) : v6 → v7 ; objectifs-page2.js/.css remplacés par
-// objectifs-page2-taches.js/.css et objectifs-page2-objectif.js/.css.
+// fenetre-activite.js/.css et objectifs-page2-objectif.js/.css.
 // 2 oct. 2026 : v9 → v10, ajout de stats-avance.js/.css (Statistiques, page 2).
-const CACHE_VERSION = 'noesis-v870';
+const CACHE_VERSION = 'noesis-v1511';
 
 // File d'attente des tâches capturées hors ligne (voir l'en-tête de
 // public/offline-queue.js). Chargée ici pour que Background Sync puisse la
@@ -64,23 +64,37 @@ const SHELL = [
   '/styles.css',
   '/app.js',
   '/js/objectifs-page1.js',
-  '/js/objectifs-page2-taches.js',
+  '/js/objectifs-liaison.js',
+  '/js/objectifs-creer.js',
+  '/js/responsables-ui.js',
+  '/js/membres-ui.js',
+  '/js/objectifs-arbre.js',
+  '/js/objectifs-retard.js',
+  '/js/fenetre-activite.js',
+  '/js/taches-ligne.js',
   '/js/objectifs-page2-objectif.js',
   '/js/objectifs-offre1-code.js',
-  '/js/strategie.js',
-  '/css/strategie.css',
+  '/js/geo-villes.js',
   '/js/objectifs-document-taches.js',
+  '/js/calendrier-numeros.js',
   '/js/objectifs-page3.js',
   '/js/axis-lock.js',
   '/js/a11y-popups.js',
+  '/js/diag-mesures.js',
   '/js/stats-avance.js',
   '/js/bureau.js',
+  '/js/filtre-niveau.js',
   '/js/aujourdhui.js',
   '/js/activite-stats-taches.js',
   '/js/connexion-ia.js',
   '/js/modules.js',
   '/css/objectifs-page1.css',
-  '/css/objectifs-page2-taches.css',
+  '/css/objectifs-creer.css',
+  '/css/objectifs-arbre.css',
+  '/css/objectifs-retard.css',
+  '/css/fenetre-activite.css',
+  '/css/taches-ligne.css',
+  '/css/taches-ligne.css',
   '/css/objectifs-page2-objectif.css',
   '/css/objectifs-offre1-code.css',
   '/css/objectifs-document-taches.css',
@@ -95,6 +109,7 @@ const SHELL = [
   '/css/aujourdhui.css',
   '/js/horaire.js',
   '/css/composants.css',
+  '/js/saisie.js',
   '/js/composants.js',
   '/js/passkey.js',
   '/css/verre-calme.css',

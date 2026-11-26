@@ -21,17 +21,12 @@ const goalsweeklyauto = require('../lib/goalsweeklyauto');
 // server/lib/crosssectorinference.js pour le cadrage complet) : chaîné après
 // goalsweeklyauto ci-dessous, jamais un hook indépendant.
 const crosssectorinference = require('../lib/crosssectorinference');
-// Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
-// priorisées, voir server/lib/goalsdailypriority.js.
-const goalsdailypriority = require('../lib/goalsdailypriority');
 // Chantier Objectifs — C (fusion sous-projet → catégorie, section Tâches,
 // 17 septembre 2026) — voir server/lib/goalstasks.js.
 const goalstasks = require('../lib/goalstasks');
-const goalsoverload = require('../lib/goalsoverload');
 const goalscarryover = require('../lib/goalscarryover');
 const timecaps = require('../lib/timecaps');
 const goalscapacity = require('../lib/goalscapacity');
-const goalsrecalc = require('../lib/goalsrecalc');
 // Chantier Objectifs — C (bulle IA de classement automatique, 17 septembre
 // 2026) — voir server/lib/goalstaskclassify.js.
 const goalstaskclassify = require('../lib/goalstaskclassify');
@@ -58,7 +53,7 @@ function requireMembership(userId, activityId) {
 }
 
 function handleGoalsError(res, err) {
-  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message });
+  if (err && err.statusCode) return res.status(err.statusCode).json(err.taskCount !== undefined ? { error: err.message, taskCount: err.taskCount } : { error: err.message, code: err.errCode || undefined });
   console.error('[goals]', err);
   return res.status(500).json({ error: 'Erreur serveur' });
 }
@@ -325,13 +320,8 @@ router.put('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
     // parallèle, pour ne jamais avoir deux appels IA concurrents sur le même
     // événement.
     // Les objectifs hebdomadaires suivent le mode « gestion de l'IA ».
-    // Autonome : remplissage automatique (comme avant). Partiel : le client demande la proposition
-    // (POST …/weekly-proposals) et l'utilisateur valide. Absence ou mode jamais choisi : rien.
-    const modeRow = db.prepare('SELECT aiMode FROM users WHERE id = ?').get(userId);
-    const fill = modeRow && modeRow.aiMode === 'autonome'
-      ? goalsweeklyauto.generateForPeriod(activityId, userId, category, periodNumber)
-      : Promise.resolve();
-    fill
+    // Partiel : le client demande la proposition (POST …/weekly-proposals) et l'utilisateur valide. Absence ou mode jamais choisi : rien.
+    Promise.resolve()
       .then(() => crosssectorinference.evaluateCrossSectorLinks(activityId, category, { type: 'main_goal', text, periodNumber }))
       .catch(() => {});
   } catch (err) {
@@ -390,6 +380,21 @@ router.post('/activities/:id/goals/periods/:periodNumber/weekly-proposals', asyn
   }
 });
 
+// Dates d'une période (périodes libres) : début et fin choisis ; la grille de 13 périodes reste le défaut proposé.
+router.put('/activities/:id/goals/periods/:periodNumber/dates', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  const activityId = Number(req.params.id);
+  const periodNumber = Number(req.params.periodNumber);
+  if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
+  const check = requireMembership(userId, activityId);
+  if (check.error) return res.status(check.error.status).json(check.error.body);
+  try {
+    const r = goals.setPeriodDates(activityId, resolveCategory(activityId, req.body.category), periodNumber, String(req.body.startDate || ''), String(req.body.endDate || ''));
+    res.json({ ok: true, startDate: r.startDate, endDate: r.endDate, kind: r.kind, weeksCount: r.weeks });
+  } catch (err) { handleGoalsError(res, err); }
+});
+
 // Suppression d'un objectif périodique / hebdomadaire (corbeille du formulaire de modification).
 router.delete('/activities/:id/goals/periods/:periodNumber/main', (req, res) => {
   const userId = req.userId;
@@ -411,7 +416,7 @@ router.delete('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (
   const activityId = Number(req.params.id);
   const periodNumber = Number(req.params.periodNumber);
   const weekIndex = Number(req.params.weekIndex);
-  if (!periodNumber || periodNumber < 1 || !weekIndex || weekIndex < 1 || weekIndex > 4) return res.status(400).json({ error: 'Période ou semaine invalide.' });
+  if (!periodNumber || periodNumber < 1 || !weekIndex || weekIndex < 1 || weekIndex > 53) return res.status(400).json({ error: 'Période ou semaine invalide.' });
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
@@ -427,7 +432,7 @@ router.put('/activities/:id/goals/periods/:periodNumber/weekly/:weekIndex', (req
   const periodNumber = Number(req.params.periodNumber);
   const weekIndex = Number(req.params.weekIndex);
   if (!periodNumber || periodNumber < 1) return res.status(400).json({ error: 'Période invalide.' });
-  if (!weekIndex || weekIndex < 1 || weekIndex > 4) return res.status(400).json({ error: 'Semaine invalide (1 à 4).' });
+  if (!weekIndex || weekIndex < 1 || weekIndex > 53) return res.status(400).json({ error: 'Semaine invalide.' });
 
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
@@ -529,6 +534,12 @@ router.post('/activities/:id/goals/categories/:key/tasks', (req, res) => {
     return res.status(400).json({ error: 'Catégorie invalide pour cette activité.' });
   }
 
+  // Décision d'Émilien (20 nov. 2026) : même refus qu'à la modification (aujourd'hui = ok).
+  if (req.body.dueDate != null && req.body.dueDate !== '' && !require('../lib/dates').isRealDay(req.body.dueDate)) return res.status(400).json({ error: require('../lib/dates').DATE_INVALIDE });
+  if (typeof req.body.dueDate === 'string' && req.body.dueDate && req.body.dueDate < require('../lib/dates').userToday()) {
+    return res.status(400).json({ error: 'Pas de date dans le passé.' });
+  }
+
   try {
     const item = goalstasks.addCategoryTask(activityId, userId, req.params.key, req.body.label, { dueDate: req.body.dueDate });
     res.status(201).json(item);
@@ -555,7 +566,7 @@ router.get('/activities/:id/goals/tasks/overview', (req, res) => {
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
   try {
-    res.json(goalstasks.tasksOverviewForActivity(activityId, req.query.today));
+    res.json(goalstasks.tasksOverviewForActivity(activityId, req.query.today, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }
@@ -570,73 +581,11 @@ router.get('/activities/:id/goals/tasks/archives', (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
   try {
-    res.json(goalstasks.archivesForActivity(activityId));
+    res.json(goalstasks.archivesForActivity(activityId, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }
 });
-
-// Surcharge quotidienne : plan PROPOSÉ,
-// jamais appliqué sans validation. Logique : server/lib/goalsoverload.js.
-function overloadRoute(fn) {
-  return (req, res) => {
-    const userId = req.userId;
-    if (!userId) return res.status(400).json({ error: 'userId requis.' });
-    const activityId = Number(req.params.id);
-    const check = requireMembership(userId, activityId);
-    if (check.error) return res.status(check.error.status).json(check.error.body);
-    try {
-      res.json(fn(userId, activityId, req.body || {}, req.query || {}));
-    } catch (err) {
-      handleGoalsError(res, err);
-    }
-  };
-}
-router.get('/activities/:id/goals/overload', overloadRoute((u, a, b, q) => goalsoverload.getProposal(u, a, q.pole || undefined)));
-router.post('/activities/:id/goals/overload/apply', overloadRoute((u, a, b) => goalsoverload.applyProposal(u, a, b.signature, b.poleKey || undefined)));
-router.post('/activities/:id/goals/overload/dismiss', overloadRoute((u, a, b) => goalsoverload.dismissProposal(u, a, b.poleKey || undefined)));
-
-// Report entre périodes (liste « Non réalisées », tout proposé) et cible irréaliste
-// (choix de l'utilisateur). Logique : server/lib/goalscarryover.js.
-router.get('/activities/:id/goals/unfinished', overloadRoute((u, a, b, q) => ({
-  ...goalscarryover.unfinished(u, a, q.pole || undefined), realism: goalscarryover.realismAll(u, a, q.pole || undefined),
-})));
-router.post('/activities/:id/goals/unfinished/apply', overloadRoute((u, a, b) => goalscarryover.applyCarry(u, a, b, b.poleKey || undefined)));
-router.post('/activities/:id/goals/realism', overloadRoute((u, a, b) => goalscarryover.applyRealism(u, a, b)));
-
-// Recalcul d'après le temps réel : propositions en attente (créées par le job nocturne
-// server/lib/goalsrecalc.js), appliquées ou écartées par l'utilisateur seulement.
-router.get('/activities/:id/goals/recalc', overloadRoute((u, a, b, q) => ({ proposals: goalsrecalc.listPending(u, a, q.pole || undefined) })));
-function recalcDecision(fn) {
-  return (req, res) => {
-    const userId = req.userId;
-    if (!userId) return res.status(400).json({ error: 'userId requis.' });
-    const activityId = Number(req.params.id);
-    const check = requireMembership(userId, activityId);
-    if (check.error) return res.status(check.error.status).json(check.error.body);
-    try { res.json(fn(userId, activityId, req.params.pid)); } catch (err) { handleGoalsError(res, err); }
-  };
-}
-router.post('/activities/:id/goals/recalc/:pid/apply', recalcDecision(goalsrecalc.apply));
-
-// Plafonds de temps facultatifs (max/jour, max/semaine) d'un pôle ou secteur,
-// avec la moyenne historique en lecture seule. Logique : server/lib/timecaps.js.
-function timecapsRoute(fn) {
-  return (req, res) => {
-    const userId = req.userId;
-    if (!userId) return res.status(400).json({ error: 'userId requis.' });
-    const activityId = Number(req.params.id);
-    const check = requireMembership(userId, activityId);
-    if (check.error) return res.status(check.error.status).json(check.error.body);
-    try {
-      res.json(fn(userId, activityId, req.params.key, req.body || {}));
-    } catch (err) {
-      handleGoalsError(res, err);
-    }
-  };
-}
-router.get('/activities/:id/goals/timecaps/:key', timecapsRoute((u, a, k) => timecaps.getCaps(u, a, k)));
-router.put('/activities/:id/goals/timecaps/:key', timecapsRoute((u, a, k, b) => timecaps.setCaps(u, a, k, b)));
 
 // ---------------------------------------------------------------------------
 // 17 septembre 2026 (discussion C, cadré avec Emilien via AskUserQuestion,
@@ -659,6 +608,15 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
   const check = requireMembership(userId, activityId);
   if (check.error) return res.status(check.error.status).json(check.error.body);
 
+  // Date et exécutant facultatifs (file hors ligne de la barre « Nouvelle tâche… », 20 nov. 2026) : refus AVANT toute création, jamais de changement silencieux.
+  const dueDate = typeof req.body.dueDate === 'string' ? req.body.dueDate : '';
+  if (dueDate && !require('../lib/dates').isRealDay(dueDate)) return res.status(400).json({ error: require('../lib/dates').DATE_INVALIDE });
+  if (dueDate && dueDate < require('../lib/dates').userToday()) return res.status(400).json({ error: 'Pas de date dans le passé.' });
+  const plannedUserId = req.body.plannedUserId ? String(req.body.plannedUserId) : '';
+  if (plannedUserId && !db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activityId, plannedUserId)) {
+    return res.status(400).json({ error: "Ce membre n'appartient pas à cette activité." });
+  }
+
   // Clé d'idempotence (capture hors ligne) : même clé rejouée => tâche déjà créée, sans doublon.
   const rawKey = req.get('Idempotency-Key');
   const idemKey = rawKey ? String(rawKey).slice(0, 100) : null;
@@ -673,7 +631,7 @@ router.post('/activities/:id/goals/categories/auto-task', async (req, res) => {
     if (flightId && idemInFlight.has(flightId)) {
       return res.status(200).json(await idemInFlight.get(flightId));
     }
-    const work = goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label);
+    const work = goalstaskclassify.addTaskWithAutoCategory(activityId, userId, req.body.label, { dueDate: dueDate || undefined, plannedUserId: plannedUserId || undefined });
     if (flightId) { idemInFlight.set(flightId, work); const clear = () => idemInFlight.delete(flightId); work.then(clear, clear); }
     const item = await work;
     if (idemKey) {
@@ -720,40 +678,6 @@ router.put('/activities/:id/goals/tasks/:itemId/category', (req, res) => {
 
   try {
     const item = goalstasks.moveCategoryTask(activityId, userId, Number(req.params.itemId), req.body.categoryKey);
-    res.json(item);
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// 28 septembre 2026 (C. Objectifs — Page 1, panneau Historique, 3e demande
-// d'Emilien le même jour) — réaffectation complète (activité/pôle/secteur/
-// jour) d'une tâche depuis l'Historique. Jamais scopée à une seule activité
-// dans son URL, à la différence de la route ci-dessus (Objectifs — Tâches,
-// fenêtre Activité, toujours la même activité) : ici, changer d'activité est
-// justement le but. Toute la logique (garde de la nouvelle activité +
-// déplacement + jour) vit dans goalstasks.js#reassignHistoryTask, fonction
-// dédiée, jamais moveCategoryTask elle-même — cette route ne fait que
-// vérifier la session et relayer. Corps attendu : { activityId, categoryKey,
-// dueDate? } — dueDate absent => on n'y touche pas (voir le commentaire de
-// reassignHistoryTask).
-router.put('/goals/tasks/:itemId/reassign', (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const newActivityId = Number(req.body.activityId);
-  if (!newActivityId) return res.status(400).json({ error: 'activityId requis.' });
-  if (typeof req.body.categoryKey !== 'string' || !req.body.categoryKey) {
-    return res.status(400).json({ error: 'categoryKey requis.' });
-  }
-
-  try {
-    const item = goalstasks.reassignHistoryTask(
-      userId,
-      Number(req.params.itemId),
-      newActivityId,
-      req.body.categoryKey,
-      'dueDate' in req.body ? req.body.dueDate : undefined,
-    );
     res.json(item);
   } catch (err) {
     handleGoalsError(res, err);
@@ -842,7 +766,7 @@ router.get('/goals/capture/badges', (req, res) => {
       out[a.id] = goalstasks.unseenCountsForActivity(a.id);
       // X/Y des tâches du jour, affiché sur la puce de la page 1.
       try {
-        const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today);
+        const ov = goalstasks.tasksOverviewForActivity(a.id, req.query.today, userId);
         out[a.id].daily = { done: ov.done, total: ov.total };
       } catch (e) { out[a.id].daily = { done: 0, total: 0 }; }
     });
@@ -876,6 +800,12 @@ router.get('/goals/today', (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(400).json({ error: 'userId requis.' });
   try { res.json(require('../lib/goalstoday').tasksToday(userId, req.query.today, req.query.day)); } catch (err) { handleGoalsError(res, err); }
+});
+// Archive d'Aujourd'hui : tâches faites des 7 derniers jours, toutes activités (jamais supprimées de la base).
+router.get('/goals/archive', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(400).json({ error: 'userId requis.' });
+  try { res.json(require('../lib/goalstoday').archiveAll(userId)); } catch (err) { handleGoalsError(res, err); }
 });
 
 router.get('/goals/tasks/history', (req, res) => {
@@ -945,31 +875,6 @@ router.post('/activities/:id/goals/tasks/:itemId/mark-seen', (req, res) => {
       return res.status(400).json({ error: "Cette tâche n'appartient pas à cette activité." });
     }
     res.json(subprojects.markItemSeen(item.id));
-  } catch (err) {
-    handleGoalsError(res, err);
-  }
-});
-
-// Brief B (22 septembre 2026, Aiguillage) — liste quotidienne de tâches
-// priorisées, voir server/lib/goalsdailypriority.js. Toujours une
-// PROPOSITION à valider par l'utilisateur (règle verrouillée) — cette route
-// ne fait que CALCULER, jamais n'applique ni n'écrit quoi que ce soit ;
-// aucune persistance ce chantier-ci (la surface de validation/ajustement
-// revient à Objectifs — Planification IA, voir le commentaire de tête de
-// goalsdailypriority.js). Couvre toute l'activité, tous pôles/secteurs
-// confondus (le planning reste propre à l'activité, jamais global à la
-// personne — règle 1 de goals.js).
-router.get('/activities/:id/goals/daily-priority', async (req, res) => {
-  const userId = req.userId;
-  if (!userId) return res.status(400).json({ error: 'userId requis.' });
-  const activityId = Number(req.params.id);
-
-  const check = requireMembership(userId, activityId);
-  if (check.error) return res.status(check.error.status).json(check.error.body);
-
-  try {
-    await require('../lib/externalcalendar').refreshBusy(userId, goalsdailypriority.todayLocal());
-    res.json(goalsdailypriority.computeDailyPriorityList(activityId, userId));
   } catch (err) {
     handleGoalsError(res, err);
   }

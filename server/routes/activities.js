@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const textlimits = require('../lib/textlimits');
+require('../lib/responsables'); // crée la table activity_managers (exclure un membre le retire des responsables)
 const { paletteFor, isInPalette } = require('../lib/theme');
 const { notifyActivityInvite } = require('../lib/push');
 // ⚠️ 3 septembre 2026 — débordement signalé par la discussion "Activité —
@@ -19,7 +20,7 @@ function membershipCount(activityId) {
 }
 
 function serializeActivity(a, userId) {
-  var membership = db.prepare('SELECT color, notifyEnabled, confidential FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
+  var membership = db.prepare('SELECT color, notifyEnabled, confidential, treeHidden FROM activity_members WHERE activityId = ? AND userId = ?').get(a.id, userId);
   var owner = a.ownerId ? db.prepare('SELECT name FROM users WHERE id = ?').get(a.ownerId) : null;
   return {
     id: a.id,
@@ -28,8 +29,10 @@ function serializeActivity(a, userId) {
     requiresNote: !!a.requiresNote,
     active: !!a.active,
     isOwner: a.ownerId === userId,
+    isActivityManager: require('../lib/portee').isActivityManager(userId, a.id), // propriétaire ou responsable d'activité : peut inviter dans toute l'activité
     ownerName: owner ? owner.name : null,
     membersCount: membershipCount(a.id),
+    canManage: (() => { const P = require('../lib/portee'); if (!P.estPartagee(a.id)) return true; const m = P.managed(userId, a.id); return m.all || m.roots.length > 0; })(), // responsable (propriétaire inclus) ou activité à un seul membre ; un simple membre : false
     // notifyEnabled (10 septembre 2026, refonte de la section Notifications
     // de Réglages) : PERSONNEL, comme color juste au-dessus — voir
     // server/db.js. Un membre sans ligne activity_members (ne devrait pas
@@ -38,6 +41,7 @@ function serializeActivity(a, userId) {
     notifyEnabled: membership ? !!membership.notifyEnabled : true,
     // Publique (false, défaut) / Confidentielle (true) — personnel à chaque membre.
     confidential: membership ? !!membership.confidential : false,
+    treeHidden: membership ? !!membership.treeHidden : false, // masquée de l'arbre des objectifs (personnel ; les objectifs restent)
   };
 }
 
@@ -195,6 +199,9 @@ router.put('/activities/:id', (req, res) => {
       .run(req.body.notifyEnabled ? 1 : 0, activity.id, userId);
   }
 
+  // Arbre des objectifs : personnel, uniquement pour MOI et pour CETTE activité (la ligne est celle de l'appelant, vérifiée par appartenance ci-dessus).
+  if (req.body.treeHidden !== undefined) db.prepare('UPDATE activity_members SET treeHidden = ? WHERE activityId = ? AND userId = ?').run(req.body.treeHidden ? 1 : 0, activity.id, userId);
+
   // Confidentialité — chaque membre règle sa propre part.
   if (req.body.confidential !== undefined) {
     db.prepare('UPDATE activity_members SET confidential = ? WHERE activityId = ? AND userId = ?')
@@ -220,6 +227,11 @@ router.post('/activities/:id/invite', (req, res) => {
   const membership = db.prepare('SELECT 1 FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, userId);
   if (!membership) return res.status(403).json({ error: "Tu ne fais pas partie de cette activité." });
 
+  // Portée (19 nov. 2026) : `scopeKey` (pôle ou secteur) invite SEULEMENT dans cette catégorie ; absent = activité entière. Un responsable invite dans sa catégorie ou en dessous ; sans scopeKey, seul un membre de portée activité invite.
+  const scopeKey = req.body.scopeKey == null || req.body.scopeKey === '' ? null : String(req.body.scopeKey);
+  try { if (scopeKey && scopeKey !== '_') require('../lib/portee').membresDe(userId, activity.id, scopeKey); } catch (e) { return res.status(e.statusCode || 400).json({ error: e.message }); }
+  if (!require('../lib/portee').peutInviter(userId, activity.id, scopeKey)) return res.status(403).json({ error: 'Tu ne peux pas inviter ici : seuls les responsables invitent dans leur pôle ou secteur.', code: 'INVITATION_RESERVEE_RESPONSABLES' });
+
   const pseudo = (req.body.pseudo || '').trim();
   if (!pseudo) return res.status(400).json({ error: 'Le pseudo de la personne à inviter est requis.' });
 
@@ -234,8 +246,8 @@ router.post('/activities/:id/invite', (req, res) => {
   const pending = db.prepare("SELECT 1 FROM activity_invites WHERE activityId = ? AND toUserId = ? AND status = 'pending'").get(activity.id, target.id);
   if (pending) return res.status(409).json({ error: `${target.name} a déjà une invitation en attente pour cette activité.` });
 
-  db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt) VALUES (?, ?, ?, 'pending', ?)")
-    .run(activity.id, userId, target.id, new Date().toISOString());
+  db.prepare("INSERT INTO activity_invites (activityId, fromUserId, toUserId, status, createdAt, scopeKey) VALUES (?, ?, ?, 'pending', ?, ?)")
+    .run(activity.id, userId, target.id, new Date().toISOString(), scopeKey && scopeKey !== '_' ? scopeKey : null);
 
   // Notification push à la personne invitée (1er septembre 2026) — jusqu'ici,
   // seule la pastille rouge de l'icône "avion en papier" le signalait, et
@@ -273,6 +285,9 @@ router.post('/activities/:id/separate', (req, res) => {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la séparer.' });
   }
  
+  let nouveauProprietaire = null;
+  try { nouveauProprietaire = require('../lib/portee').exigerSuccesseur(activity.id, userId); } catch (e) { return res.status(e.statusCode || 500).json({ error: e.message, code: e.errCode }); } // propriétaire sans responsable : il ne part pas
+
   const clash = db.prepare(`
     SELECT a.id FROM activities a JOIN activity_members m ON m.activityId = a.id
     WHERE m.userId = ? AND a.name = ? COLLATE NOCASE AND a.id != ?
@@ -317,10 +332,8 @@ router.post('/activities/:id/separate', (req, res) => {
     // S'il en était le propriétaire, transfert automatique (comme pour une
     // suppression) — il restait forcément au moins un autre membre puisque
     // l'activité était partagée (>= 2 membres) avant cette opération.
-    if (activity.ownerId === userId) {
-      const remaining = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? ORDER BY joinedAt ASC').all(activity.id);
-      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(remaining[0].userId, activity.id);
-    }
+    if (activity.ownerId === userId) db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(nouveauProprietaire, activity.id); // le plus ancien responsable d'activité (portee.js)
+    require('../lib/portee').oublier(activity.id, userId);
  
     db.exec('COMMIT');
   } catch (e) {
@@ -383,6 +396,9 @@ router.delete('/activities/:id/members/:memberId', (req, res) => {
 
   db.exec('BEGIN');
   try {
+    db.prepare('DELETE FROM activity_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // exclure un membre le retire des responsables
+    db.prepare('DELETE FROM category_managers WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et des responsables de catégorie (retour à l'héritage)
+    db.prepare('DELETE FROM member_scopes WHERE activityId = ? AND userId = ?').run(activity.id, targetId); // ... et de ses appartenances par catégorie
     // Nouvelle activité personnelle pour la personne exclue, même logique que
     // "Séparer" (voir plus haut) : elle garde son historique déjà enregistré.
     const info = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, createdAt) VALUES (?, ?, 1, ?, ?)')
@@ -551,10 +567,17 @@ router.delete('/activities/:id', (req, res) => {
   const membership = db.prepare('SELECT * FROM activity_members WHERE activityId = ? AND userId = ?').get(activity.id, userId);
   if (!membership) return res.status(403).json({ error: "Tu ne fais pas partie de cette activité." });
 
+  // Règle produit (9 nov. 2026, Émilien) : la dernière activité d'un compte ne se supprime jamais (un compte en a toujours une). Aucune donnée n'est touchée ; seule la suppression du compte retire tout.
+  const activeCount = db.prepare('SELECT COUNT(*) AS n FROM activity_members m JOIN activities a ON a.id = m.activityId WHERE m.userId = ? AND a.active = 1').get(userId).n;
+  if (activeCount <= 1) return res.status(400).json({ error: 'Il te faut au moins une activité : celle-ci ne peut pas être supprimée.' });
+
   const runningForUser = db.prepare('SELECT 1 FROM running_timers WHERE userId = ? AND activityId = ?').get(userId, activity.id);
   if (runningForUser) {
     return res.status(409).json({ error: 'Arrête le chrono en cours sur cette activité avant de la supprimer.' });
   }
+
+  let nouveauProprietaire = null;
+  try { nouveauProprietaire = require('../lib/portee').exigerSuccesseur(activity.id, userId); } catch (e) { return res.status(e.statusCode || 500).json({ error: e.message, code: e.errCode }); } // propriétaire sans responsable : il ne part pas
 
   const keepHistory = req.query.keepHistory === '1' || req.query.keepHistory === 'true';
 
@@ -585,9 +608,10 @@ router.delete('/activities/:id', (req, res) => {
         db.prepare('DELETE FROM activities WHERE id = ?').run(activity.id);
       }
     } else if (activity.ownerId === userId) {
-      // Transfert automatique de la propriété vers le membre restant le plus ancien.
-      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(remaining[0].userId, activity.id);
+      // Transfert automatique de la propriété vers le plus ancien responsable d'activité (portee.js ; sans responsable, le départ a été refusé plus haut).
+      db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(nouveauProprietaire, activity.id);
     }
+    require('../lib/portee').oublier(activity.id, userId);
 
     db.exec('COMMIT');
   } catch (e) {

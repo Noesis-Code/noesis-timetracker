@@ -28,6 +28,7 @@ const minute = new Map(); // tokenId -> horodatages
 // true si l'écriture est permise (par minute et par 24 h, par jeton).
 // Comptes sans plafond d'écritures (31 oct. 2026, demande d'Émilien : « lever la limite pour mon compte uniquement ») : ids séparés par des virgules dans MCP_SANS_LIMITE_USER_IDS.
 function unlimited(userId) {
+  if (process.env.RAILWAY_ENVIRONMENT_NAME === 'staging') return true; // staging = environnement de test d'Émilien : aucune limite d'écritures (11 nov. 2026)
   return !!userId && String(process.env.MCP_SANS_LIMITE_USER_IDS || '').split(',').map((x) => x.trim()).filter(Boolean).includes(String(userId));
 }
 function takeWriteSlot(tokenId, now) {

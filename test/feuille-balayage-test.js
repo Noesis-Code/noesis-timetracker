@@ -1,0 +1,39 @@
+// Feuille de route : le balayage vers les statistiques existe sur la vue « Tâches » de la page 1 et sur la vue « Objectifs » (liste des activités), pas dans une activité,
+// et le pager de l'activité compte 3 points (page 1, Objectifs, Calendrier), sans page « Tâches de l'activité ».
+const fs = require('fs');
+const path = require('path');
+const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', 'js', f), 'utf8');
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const stats = read('stats-avance.js');
+assert(!/zone: goalsZone/.test(stats), 'plus de balayage sur la page 1 de la Feuille de route (18 nov. 2026)');
+assert(!/ctx: 'goals', idx: 0/.test(stats), 'plus de points de pagination sur la Feuille de route');
+assert(!/noFollow/.test(stats), 'le contenu suit le doigt (aucun mode sans suivi) : sélecteur, liste et barre glissent d\'un bloc avec la page Statistiques');
+const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+assert(!/fromGoalsStats|keepGoalsView/.test(app) && /if \(TMT\.resetGoalsPage1View\) TMT\.resetGoalsPage1View\(goalsView\)/.test(app), 'arrivée dans la Feuille de route : toujours Tâches par défaut (plus de page de statistiques à gauche, donc plus de vue à conserver)');
+const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
+assert(/#goalsCapturePage\) \{[^}]*overflow-x: clip[^}]*touch-action: pan-y/.test(css), 'Tâches et Objectifs : contenu fixe horizontalement (pas de défilement latéral)');
+const css2 = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'aujourdhui.css'), 'utf8');
+assert(/\.tasksPopList \{[^}]*overflow-x: hidden/.test(css2), 'liste de tâches : aucun défilement latéral natif (la liste ne se décale plus seule, le balayage part)');
+assert(/input:not\(\[type=checkbox\]\)/.test(stats), 'un balayage qui commence sur une case à cocher reste possible');
+const p2 = read('fenetre-activite.js');
+assert(!/GOALS_PAGE2_ORDER|setGoalsPage2Mode/.test(p2) && p2.includes('goalsObjectifsView'), 'dans l activité : Objectifs seul, plus de bascule de pages (le calendrier est dans la vue Tâches)');
+assert(!p2.includes('data-dot='), 'plus de points de pagination sur la page 2 de la Feuille de route');
+assert(/openGoalsForActivity|setGoalsPage2Mode\('goals', \{ noAnim: true \}\)/.test(p2), 'une activité s\'ouvre sur Objectifs');
+assert(!/keepGoalsView/.test(stats), 'plus de pager Statistiques : rien à signaler au retour vers la Feuille de route');
+const today = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'aujourdhui.js'), 'utf8'), page1 = read('objectifs-page1.js'), creer = read('objectifs-creer.js'), compo = read('composants.js');
+assert(/resetSort: function/.test(today) && /todayView\.resetSort\(\)/.test(page1) && !/localStorage\.getItem\(SORT_KEY\)/.test(today), 'arrivée dans la Feuille de route : toujours Tâches + tri Aujourd\'hui (tri mémorisé ignoré)');
+assert(/ui\.dockKeyboard = dockKeyboard/.test(compo) && /TMT\.ui\.dockKeyboard\(dock, ui\.text\)/.test(today) && /TMT\.ui\.dockKeyboard\(dock, panelBody\)/.test(creer), 'barres « Nouvelle tâche » et « Nouvel objectif » : même code de positionnement au-dessus du clavier');
+const axis = read('axis-lock.js');
+assert(/THRESHOLD = 10, BIAS = 1\.6/.test(axis) && /même facilité de balayage sur toutes les vues de la page/.test(axis), 'règle : même facilité de balayage sur toutes les vues de la page (axe tolérant, un seul réglage pour tous les pagers)');
+assert(/mv >= Math\.min\(56, d\.w \* 0\.25\)/.test(stats), 'seuil de bascule commun à Tâches, Objectifs et Chrono : 56 px (ou 20 px avec de l\'élan)');
+assert(/#tab-goals:not\(\.hidden\) \{ min-height: calc\(100dvh/.test(css2), 'zone de geste : toute la hauteur de l\'écran, même sous un contenu court');
+const creerCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'objectifs-creer.css'), 'utf8');
+assert(/goBack/.test(creer) && /objBack/.test(creer) && !/panel\.addEventListener\('touchend'/.test(creer) && /\.objStepBtn \{ position: relative; justify-content: center; \}/.test(creerCss), 'panneau de création : plus de balayage entre les étapes, flèche de retour en haut à gauche, bouton violet centré');
+assert(/dock\.classList\.add\('expSave'\)/.test(creer) && /tr\('Suivant'\)/.test(creer) && /tr\('Terminer'\)/.test(creer) && /n \+ '\/' \+ total\(\)/.test(creer), 'barre d\'objectif : un seul bouton d\'avancement « Suivant » / « Terminer » avec n/total (plus de Valider séparé)');
+assert(/Génère automatiquement tes tâches avec Noèsis/.test(creer) && /offer1SoonBadge[^}]*display: none/.test(creerCss), 'bouton d\'offre Expansion dans le parcours ; carte promo retirée de la vue Objectifs');
+const creerJs = read('objectifs-creer.js');
+assert(/dock\.classList\.add\('expSave'\)/.test(creerJs) && /tr\('Suivant'\)/.test(creerJs) && /tr\('Terminer'\)/.test(creerJs) && /n \+ '\/' \+ total\(\)/.test(creerJs), 'barre d\'objectif : un seul bouton d\'avancement « Suivant » / « Terminer » avec n/total (plus de Valider séparé)');
+assert(/Génère automatiquement tes tâches avec Noèsis/.test(creerJs) && /offer1SoonBadge[^}]*display: none/.test(creerCss), 'bouton d\'offre Expansion dans le parcours ; carte promo retirée de la vue Objectifs');
+if (failed) { console.log('\nfeuille-balayage-test : ' + failed + ' échec(s)'); process.exit(1); }
+console.log('\nfeuille-balayage-test : OK');

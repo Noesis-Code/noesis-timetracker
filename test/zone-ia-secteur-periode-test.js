@@ -22,12 +22,9 @@ for (const f of ['styles.css', 'css/objectifs-page1.css', 'css/verre-calme.css']
 check(overflows.length > 0 && overflows.every((v) => v !== 'hidden'), 'zone IA : aucune règle overflow:hidden');
 check(overflows.includes('auto') || overflows.includes('scroll'), 'zone IA : overflow auto (défilement)');
 
-// #71 : l'ouverture d'une période fixe le secteur cliqué et redessine les bulles de secteur.
-const p3 = read('js/objectifs-page3.js');
-const open = /function openGoalsDetail\(category, periodNumber\) \{([\s\S]*?)\n  \}/.exec(p3);
-check(!!open, '#71 : openGoalsDetail trouvée');
-const body = open ? open[1] : '';
-check(/applyGoalsMonthState\(category, periodNumber\)/.test(body), '#71 : état du mois posé avec la catégorie cliquée');
-check(/currentGoalsSelectedSecteurKey = category/.test(/function applyGoalsMonthState[\s\S]*?\n  \}/.exec(p3)[0]), '#71 : secteur sélectionné = secteur cliqué');
-check(body.indexOf('setGoalsPage2Mode') < body.indexOf('renderGoalsMonthSectors()'), '#71 : bulles de secteur redessinées après le changement de page');
+// #71 : la page mensuelle (page 3) est retirée (7 nov. 2026) : cliquer une période ou un secteur ouvre le calendrier de la vue Tâches, sur CE secteur (TMT.ouvrirCalendrierTaches, secteurKey = secteur cliqué).
+const p3 = read('js/objectifs-page3.js'), p2o = read('js/objectifs-page2-objectif.js');
+check(!p3.includes('function openGoalsDetail') && !(p3 + p2o).includes('TMT.openGoalsDetail'), '#71 : plus de page 3 (openGoalsDetail retirée)');
+check(p2o.includes('ouvrirCalendrierTaches({ activityId: TMT.currentGoalsActivityId, poleKey: TMT.currentGoalsSelectedPoleKey, secteurKey: category'), '#71 : toucher une période ouvre le calendrier des Tâches sur le secteur cliqué');
+check(p3.includes('TMT.currentGoalsSelectedSecteurKey = category'), '#71 : secteur sélectionné = secteur cliqué (calendrier intégré)');
 process.exit(bad ? 1 : 0);

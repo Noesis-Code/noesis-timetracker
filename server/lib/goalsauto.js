@@ -154,25 +154,21 @@ function getCapacityOverrideRow(activityId, category, userId) {
 function periodDerivedWeeklyMinutes(activityId, category) {
   const plan = goals.getPlan(activityId, category);
   if (!plan) return null;
-  const n = goals.periodNumberForDate(plan.startDate, todayLocal());
-  const row = db.prepare('SELECT mainGoalEstimateMinutes AS m FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
+  const n = goals.periodNumberFor(activityId, category, plan.startDate, todayLocal());
+  const row = db.prepare('SELECT mainGoalEstimateMinutes AS m, startDate, endDate FROM goal_periods WHERE activityId = ? AND category = ? AND periodNumber = ?')
     .get(activityId, category, n);
-  return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.WEEKS_PER_PERIOD)) : null;
+  return row && row.m > 0 ? Math.max(1, Math.round(row.m / goals.weeksInPeriod(row))) : null;
 }
 
-// Plafonné par le max hebdomadaire (facultatif) du pôle/secteur, s'il existe.
+// Capacité hebdomadaire d'une personne dans une catégorie (plus de plafond de catégorie depuis le 20 nov. 2026).
 function capacityMinutesForMember(activityId, category, userId) {
-  // C'est le MAXIMUM qui compte, pas la moyenne — Noèsis vise le maximum sans
-  // le dépasser. Max hebdo posé : la capacité EST ce max (borné par le max de la période, s'il y en a un).
-  const cap = require('./timecaps').weeklyCapFor(userId, activityId, category);
-  if (cap != null) {
-    const derived = periodDerivedWeeklyMinutes(activityId, category);
-    return Math.max(1, derived != null ? Math.min(derived, cap) : cap);
-  }
   return uncappedCapacityMinutesForMember(activityId, category, userId);
 }
 
 function uncappedCapacityMinutesForMember(activityId, category, userId) {
+  // 20 nov. 2026 : la capacité de la personne = SA PART des heures des objectifs en cours de la catégorie (objectifs-capacite.js) ; sans heure d'objectif, l'ancienne chaîne ci-dessous reste le repli.
+  const share = require('./objectifs-capacite').weeklyShareMinutes(activityId, category, userId);
+  if (share != null) return share;
   const derived = periodDerivedWeeklyMinutes(activityId, category);
   if (derived != null) return derived;
   const row = getCapacityOverrideRow(activityId, category, userId);
@@ -187,10 +183,8 @@ function uncappedCapacityMinutesForMember(activityId, category, userId) {
     const all = real.concat(new Array(RECENT_WEEKS_WINDOW - real.length).fill(row.minutes));
     return Math.max(1, Math.round(all.reduce((s, m) => s + m, 0) / all.length));
   }
-  if (history.length) {
-    return Math.max(1, Math.round(history.reduce((s, m) => s + m, 0) / history.length));
-  }
-  return fallbackCapacityMinutes(activityId);
+  // Sans capacité définie (ni max, ni période, ni ajustement) : défaut unique 30 h/semaine (weekplanner), plus la moyenne Chrono.
+  return require('./weekplanner').DEFAULT_WEEKLY_CAPACITY_MINUTES;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +250,7 @@ function nextFreeSlot(activityId, category, planStartDate, periodNumber, weekInd
     const occupied = db.prepare('SELECT 1 FROM goal_weekly WHERE periodId = ? AND weekIndex = ?').get(period.id, wi);
     if (!occupied) return { period, weekIndex: wi };
     wi += 1;
-    if (wi > goals.WEEKS_PER_PERIOD) {
+    if (wi > goals.weeksInPeriod(period)) {
       pn += 1;
       wi = 1;
     }
@@ -280,7 +274,7 @@ function reorganizeForMember(activityId, category, userId, items) {
     };
   });
 
-  let periodNumber = goals.periodNumberForDate(plan.startDate, todayLocal());
+  let periodNumber = goals.periodNumberFor(activityId, category, plan.startDate, todayLocal());
   let weekIndex = 1;
   let placedCount = 0;
   let bucket = [];
@@ -311,7 +305,7 @@ function reorganizeForMember(activityId, category, userId, items) {
 
     periodNumber = slot.period.periodNumber;
     weekIndex = slot.weekIndex + 1;
-    if (weekIndex > goals.WEEKS_PER_PERIOD) {
+    if (weekIndex > goals.weeksInPeriod(slot.period)) {
       periodNumber += 1;
       weekIndex = 1;
     }

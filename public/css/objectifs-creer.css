@@ -1,0 +1,275 @@
+/* Feuille de route, vue « Objectifs » (4 nov. 2026) : liste d'objectifs, barre « Nouvel objectif… », fenêtres de création et de détail.
+ * Voir public/js/objectifs-creer.js. Composants communs réutilisés : .cmpSeg, .cmpNav, .cmpBtn, .cmpBlockTitle, .cmpGlass, .cmpSend (barre .tasksDock),
+ * .goalTaskEditModal, .aiModeChoice, .toggleSwitch, .tasksPopRow/.tasksPopCheck, .goalMainProgressTrack. Aucune couleur nouvelle : jetons de composants.css. */
+#goalsActivitiesView { padding-bottom: calc(var(--tabbar-h, 76px) + 120px); } /* le bas de la liste reste lisible au-dessus de la barre fixe */
+.objView { display: flex; flex-direction: column; }
+.objView .hidden, .objModal .hidden { display: none; }
+
+/* État vide : icône cible, un titre, deux phrases */
+.objEmpty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 16px; text-align: center; }
+.objEmptyTitle { margin: 0; font-size: 15px; font-weight: 700; color: var(--text); }
+.objEmpty .hint { margin: 0; }
+
+/* Liste */
+.objList { display: flex; flex-direction: column; gap: 12px; }
+.objCard { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--radius-xl); cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+.objCard:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+.objCardHead { display: flex; align-items: center; gap: 12px; }
+.objCardTitle { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.objMeta { font-size: 13px; color: var(--text-light); overflow-wrap: anywhere; }
+.objPeriod { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+.objNone { text-align: center; }
+.objDot { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--purple); vertical-align: middle; } /* couleur de l'activité (donnée, R16), posée en JS */
+.objDotBtn { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 12px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; }
+.objDotBtn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.objBar { margin: 4px 0; }
+.objActsTitle { margin-top: 24px; }
+
+/* Fenêtres */
+.objModal .goalTaskEditCard { width: 100%; max-width: var(--obj-pop-w); }
+/* Paysage (19 nov. 2026, Émilien) : le panneau de création / modification / 4 semaines / fiche (zone d'écriture .objDock) prend la même largeur et les mêmes marges que le pop-up des heures, centré ; le portrait ne change pas */
+@media (orientation: landscape) and (max-height: 500px) { .objDock.tasksDock { width: min(var(--obj-pop-w), calc(100% - 32px)); } }
+/* 19 nov. 2026 (Émilien) : les pop-ups de l'arbre suivent la recette commune des pop-ups (DESIGN.md) : liseré standard (.goalTaskEditCard), sans contour violet ni trait sous le titre (héritages de .aiModeModal) */
+:root .objModal.aiModeModal .goalTaskEditCard { box-shadow: var(--shadow-elevated); }
+.objModal.aiModeModal .goalTaskEditHeader { border-bottom: 0; }
+.objModalTitle { flex: 1; min-width: 0; }
+.objModalTitle .sectionTitle { margin: 0; overflow-wrap: anywhere; }
+.objSub { margin: 4px 0 0; }
+.objScroll { padding-bottom: 8px; }
+.objField { margin-bottom: 16px; }
+.objDurRow { display: flex; align-items: center; gap: 12px; }
+.objDurRow .cmpSeg { flex: 1; margin: 0; }
+.objAmount { flex: none; width: 64px; box-sizing: border-box; text-align: center; }
+.objCustom { margin-top: 8px; }
+.objDates { margin: 4px 0 0; }
+.objDatePick { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.objLink { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--violet-soft); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.objDates .objLink { min-height: 0; padding: 0; }
+.objMore { align-self: flex-start; }
+.objChoice .objDot { margin-right: 12px; }
+/* Activité + pôles + secteurs : un seul bloc visuel collé (même largeur, sans espace) ; flèche R21 à droite des cartes qui déroulent */
+.objAct { display: flex; flex-direction: column; }
+.objAct > .objChoice { border-radius: 0; }
+.objAct > .objChoice:first-child { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.objAct > .objChoice:last-child { border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+.objAct > .objChoice:only-child { border-radius: var(--radius-xl); }
+.objAct > .objChoice.objSub { padding-left: 32px; } /* secteur : un cran (16 px) à droite de son pôle */
+.objChoice.objHasChev { flex-direction: row; align-items: center; }
+.objChoice.objHasChev .aiModeChoiceTitle { flex: 1; min-width: 0; }
+.objNote { margin-bottom: 16px; padding: 12px 16px; border-radius: var(--radius-lg); background: var(--seg-active-bg); box-shadow: inset 0 0 0 1px var(--glass-border); }
+.objNote .hint { margin: 0; color: var(--text); }
+.objFoot { flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
+.objFoot:empty { display: none; }
+.objMsg { min-height: 0; margin: 0; }
+.objMsg:empty { display: none; }
+.objMsg.tasksMsg:not(:empty) { display: block !important; white-space: normal; text-align: left; padding: 0; margin-top: 8px; } /* les messages des fenêtres d'Objectifs (« Rien à proposer… », erreurs) restent visibles : la règle « aucun texte sous la barre d'ajout » (aujourdhui.css) ne vise que la barre d'ajout des tâches */
+
+/* Étapes proposées */
+.objSwitchRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-bottom: 8px; }
+.objSwitchLabel { font-size: 14px; color: var(--text); }
+.objPeriods { display: flex; flex-direction: column; }
+.objStep { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; padding: 12px 16px; border-radius: var(--radius-lg); }
+.objStepHead { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.objStepToggle { cursor: pointer; }
+.objStepName { font-size: 15px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+:root:root .objStep input, :root:root .objTaskRow input { width: 100%; min-width: 0; box-sizing: border-box; padding: 4px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; } /* R40 : champ transparent posé dans une carte de verre */
+:root:root .objTaskRow input { font-weight: 500; }
+.objWeeks { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.objWeek { display: flex; align-items: center; gap: 8px; min-width: 0; border-bottom: 1px solid var(--sep); }
+.objWeekNo { flex: none; font-size: 13px; color: var(--text-light); }
+:root:root .objWeek input { font-size: 14px; font-weight: 500; }
+.objTaskRow { align-items: center; padding: 8px 4px; }
+.objTaskRow .tasksPopCheck { cursor: default; }
+.objTaskRow .tasksPopCheck::after { display: none; }
+
+/* Détail */
+:root:root .objField input.objAmount { flex: none; width: 64px; padding-left: 8px; padding-right: 8px; text-align: center; }
+:root:root .objField input.objCustom { width: 96px; }
+/* Filtre des objectifs = le tri de l'onglet Tâches : même ligne (.tasksTopRow), posée dans le flux au lieu de l'espace sous les onglets. */
+.objRare { position: relative; margin-top: 24px; padding: 12px 40px 12px 12px; border-radius: var(--radius-lg); } /* actions rares du détail, séparées (R4) */
+.objNote { background: var(--glass-bg); } /* verre commun, pas de teinte violette */
+/* Épingle (TMT.ui.attachBtn, choices) : le menu s'ouvre vers le haut depuis la barre du bas ; dans la fenêtre, à droite du champ Objectif. */
+.objDock .statsPeriodMenu { top: auto; bottom: 44px; left: 0; right: auto; min-width: 200px; }
+.objTitleRow { display: flex; align-items: center; gap: 8px; }
+.objTitleRow input { flex: 1; min-width: 0; }
+.objPinBtn { position: static; flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--text-light); cursor: pointer; }
+.objTitleRow .statsPeriodMenu { top: 44px; left: auto; right: 0; min-width: 200px; }
+.objDock .attachMenuWrap { display: inline-flex; }
+/* Panneau des paramètres (gabarit .tasksPropose du panneau d'ajout de tâche) : pied de message, fourchette en petit, date imposée. */
+.objPanelFoot { flex: none; }
+.objPanelFoot:empty { display: none; }
+.objRange { margin: 0; font-size: 13px; }
+.objOffer { align-self: flex-start; margin-bottom: 8px; }
+/* Coques iOS/Android : aucun élément d'achat ni de facturation d'Expansion (le statut des abonnements reste affiché) */
+html.coqueNative .objOffer, html.coqueNative #offer1Section, html.coqueNative #offer1CancelBtn, html.coqueNative #offer1CheckoutModal { display: none; }
+.objDock .tasksPropose .objField:last-child { margin-bottom: 0; }
+.objDock .tasksPropose { max-height: min(55vh, 440px, calc(var(--dock-vh, 100vh) - 140px)); } /* le panneau reste dans la zone visible, clavier ouvert */
+/* Hauteur des pop-ups de l'arbre (19 nov. 2026, Émilien) : la hauteur SUIT le contenu (replié : tout visible, aucun défilement ; déplié : le pop-up grandit) ; plafond = l'espace réellement disponible : écran visible moins le bouton du bas (52 px + 8 px, bas 16 px / zone de sécurité) et 16 px en haut. Le défilement interne n'apparaît qu'au-delà. Règle unique (R29). */
+.objDock.objDockBar .tasksPropose { max-height: calc(var(--dock-vh, 100dvh) - max(16px, env(safe-area-inset-bottom)) - 60px - max(16px, env(safe-area-inset-top))); }
+/* Pop-ups centrés de l'arbre (heures, retard, fusion, confirmations) : même principe, hauteur = contenu, plafond = écran moins 16 px de marge de chaque côté (le padding de .goalTaskEditModal) au lieu de 85vh. */
+:root .objModal.goalsPlacementModal .goalTaskEditCard { max-height: calc(100dvh - 32px); }
+/* Barre devenue UN bouton d'avancement (.tasksDock.expSave : même gabarit que « Enregistrer » d'Expansion, violet du bouton principal, R1) : « Suivant » / « Terminer » centré, n/total discret à droite. */
+.objStepBtn { position: relative; justify-content: center; }
+.objStepPos { display: none; position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 500; opacity: .7; font-variant-numeric: tabular-nums; }
+/* Expansion : plus de carte promo dans la vue Objectifs ; ne reste que la gestion (abonnements, résilier, code). */
+#offer1Section .offer1SoonBadge, #offer1Section .offer1PromoText, #offer1Section .offer1PromoSub, #offer1Section #offer1CheckoutOpenBtn { display: none; }
+#offer1Section .offer1Promo { background: none; border: 0; box-shadow: none; padding: 0; }
+#offer1Section { margin: 24px 0 0; }
+.objDock .tasksPropose { touch-action: pan-y; overscroll-behavior-x: none; } /* le geste horizontal appartient au panneau (étape suivante / précédente), jamais à la navigation du navigateur */
+
+/* Étape « Temps » : lignes d'information + UN curseur d'heures par semaine (curseur natif, couleur d'accent = violet de l'app). */
+/* Étape « Temps » : tableaux (R22 lignes d'un bord à l'autre par .cmpList ; R11 violet = modifiable ; R33 aucun carré ni pointillé) ; lecture seule en blanc / gris sable */
+/* Tableau « Déplacer » : TITRES (niveau, Avant, Après, Total) en blanc ; NOMS et HEURES des lignes en gris sable ; « Total » séparé par un trait plus marqué (jetons existants). */
+.objTNote { margin: 12px 0 0; }
+/* Réglage « jour par jour » (modification d'un objectif, volet « Avancé ») : L M M J V S D + Total ; en-têtes et Total en blanc, Passé en gris sable, Prévu violet (boutons-texte sans rectangle). */
+.objDayRow { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)) 40px; align-items: center; min-height: 44px; font-size: 13px; }
+.objDayCell { text-align: center; color: var(--text-light); min-width: 0; }
+.objDayRow > .objDayCell:first-child { text-align: left; }
+.objDayHead .objDayCell, .objDayTotal { color: var(--text); }
+.objDayRow .objTEdit { text-align: center; font-size: 13px; }
+/* Valeur modifiable = texte violet NU (aucun rectangle : ni fond, ni bordure, ni cadre), bouton-texte qui ouvre le sélecteur de durée standard. Zone de toucher 44 px (R7, R25). */
+.objCenterChoices .objChoice { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 64px; } /* écran « D'où vient ce temps ? » : le texte de chaque carte est centré (horizontalement et verticalement) */
+.objCenterChoices .aiModeChoiceTitle { justify-content: center; text-align: center; }
+/* Tableau « Chrono / Objectif » (objTable) : lignes-bandes en flex ; trait vertical continu entre Chrono et Objectif (12 px de marge de chaque côté), de l'en-tête jusqu'au bas de « Total » ; trait horizontal plus marqué au-dessus de « Total ». Jetons existants. */
+.objGrid { position: relative; display: flex; flex-direction: column; }
+.objGrid::before { content: ''; position: absolute; top: 0; bottom: 0; right: 124px; width: 1px; background: var(--sep); } /* continu de l'en-tête jusqu'au bas de « Total » (jamais en dessous) */
+.objGridHead, .objGridRow, .objGridTotal { display: flex; align-items: center; min-height: 44px; }
+.objGridHead { min-height: 32px; font-size: 13px; color: var(--text); }
+.objGridRow + .objGridRow { border-top: 1px solid var(--sep); }
+.objGridTotal { border-top: 1px solid var(--text-light); color: var(--text); font-weight: 600; font-size: 14px; }
+.objGridName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text-light); }
+.objGridChrono { flex: none; width: 56px; margin-right: 12px; text-align: right; font-size: 14px; color: var(--text-light); }
+.objGridObj { flex: none; width: 112px; margin-left: 12px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 14px; color: var(--text-light); }
+.objGridHead .objGridName, .objGridHead .objGridChrono, .objGridHead .objGridObj { font-size: 13px; color: var(--text); }
+.objGridSlash { color: var(--text-light); }
+.objGridApres { color: var(--text); }
+.objGridObj .objTEdit { width: auto; min-width: 44px; padding: 0 2px; text-align: center; }
+.objGridTotal .objGridName, .objGridTotal .objGridChrono { color: var(--text); }
+.objGridSub { font-size: 13px; color: var(--text); } /* pop-up des heures : petite ligne sous le nom (nombre de tâches) */
+button.objTEdit { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; text-align: right; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--purple); font: inherit; cursor: pointer; -webkit-appearance: none; appearance: none; }
+button.objTEdit { outline: none; -webkit-tap-highlight-color: transparent; }
+button.objTEdit:hover, button.objTEdit:active, button.objTEdit:focus { background: none; border: 0; box-shadow: none; outline: none; }
+button.objTEdit:focus-visible { box-shadow: 0 1px 0 0 var(--purple); } /* clavier seulement : un trait fin sous le chiffre, rien d'autre */
+.objTPages .tasksPage { padding-bottom: 8px; }
+.objTimeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--text-light); }
+.objTimeRow b { color: var(--text); font-weight: 600; }
+
+/* Pop-up « Mes objectifs » : une ligne par objectif = nom + activité(s) en petit (13 px, gris sable) ; séparateur plein largeur (R22). */
+.objRowName { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.objList { gap: 0; padding-bottom: 1px; } /* le trait de la dernière ligne reste dans la zone défilante (hauteur fractionnaire) */
+
+
+.objHoursVal { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; color: var(--purple); } /* R54 : heure ou pourcentage modifiable = violet, « h » inclus */
+:root .objTimeRow input.objNumIn:not(:disabled), :root .objHoursVal input:not(:disabled) { color: var(--purple); } /* R54 : toute heure, tout pourcentage ou nombre modifiable de la Stratégie est violet */
+:root .objTimeRow input.objNumIn:not(:disabled)::placeholder, :root .objHoursVal input:not(:disabled)::placeholder { color: var(--purple); opacity: .6; }
+.objHoursVal input { width: 64px; min-height: 44px; padding: 0 12px; box-sizing: border-box; text-align: right; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: inherit; font: inherit; }
+.objDock .tasksProposeHead .tasksProposeKicker { flex: 1; min-width: 0; }
+.objBack { margin-left: -12px; }
+.objDesc { margin: 8px 0 0; font-size: 14px; color: var(--text); white-space: pre-wrap; }
+.objPlain { margin: 0; font-size: 14px; color: var(--text); }
+
+.objGuideHead { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; box-sizing: border-box; padding: 0; border: 0; border-bottom: 1px solid var(--sep); border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; } /* titre calé à gauche, ligne fine d'un bord à l'autre (R22, même trait que .cmpSep) */
+.objGuideHead .cmpBlockTitle { margin: 0; padding: 0; }
+.objGuideHead .cmpChev { margin-left: 0; }
+.objGuideRow { margin: 0 0 8px; }
+.objGuideRow.open .objGuideHead { margin-bottom: 16px; }
+.objGuideRow .cmpSeg { margin-bottom: 8px; }
+.objGuideQ { margin-bottom: 16px; }
+.objGuide { margin-bottom: 16px; }
+.objGuideTxt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.objGuideTxt .hint { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.objGuideRight { flex: none; white-space: nowrap; margin: 0 0 0 auto; color: var(--grey-violet); }
+.objField .cmpSeg > :disabled { opacity: .4; cursor: default; }
+.objDueRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.objDueInput { flex: none; width: auto; min-height: 44px; padding: 0 12px; }
+.objDueLabel { font-size: 14px; }
+:root:root .objDueRow .objDueInput { -webkit-appearance: none; appearance: none; width: auto; min-width: 168px; box-sizing: border-box; text-align: left; min-height: 44px; padding: 0 12px; font-size: 16px; color: var(--text); background: var(--glass-calm-bg); box-shadow: inset 0 0 0 1px var(--glass-calm-line); border: 0; border-radius: 999px; outline: 0; }
+@keyframes objSlideIn { from { transform: translateX(48px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.objSlide { animation: objSlideIn .25s ease-out; }
+/* Fenêtre de création : textes gris un peu plus lisibles sur le verre transparent (même teinte, plus claire ; aucune couleur nouvelle) */
+.objDock .tasksPropose { --text-light: color-mix(in srgb, var(--text) 78%, transparent); }
+/* Les pages glissantes défilent à la verticale quand la liste dépasse (sinon « Ajouter une activité » était coupé) */
+.objDock .tasksPages { overflow-x: hidden; overflow-y: auto; }
+
+/* Page « Ton niveau » (10 nov. 2026) : trois questions en accordéon, même format que la Description (.objGuideRow / .objGuideHead), quatre réponses en .cmpSeg 2 × 2 */
+.objNivTitle { padding: 0 0 4px; }
+.objNivSub { margin: 0 0 24px; }
+.objNivAns { color: var(--purple); } /* réponse choisie, à droite du titre replié (13 px comme .hint) */
+/* Étape « Objectifs inférieurs » : lignes au format des groupes de la Description (.objGuideRow / .objGuideHead) ; dépliée, la ligne forme une section en verre calme (jetons existants) */
+.objRecap { margin: 0 0 24px; }
+.objRecap::before { display: none; }
+.objRecap .objGridName { flex: none; width: 96px; }
+.objRecapVal { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--text); }
+.objInf { position: relative; margin: 0 0 16px; }
+.objInf .objGridChrono { width: 48px; margin-right: 8px; font-size: 13px; }
+.objInf .objGridObj { width: 96px; margin-left: 8px; font-size: 13px; }
+.objInfHdr, .objInfTotal { padding: 0 32px 0 36px; } /* 12 px de plus de chaque côté : comme les lignes, dont le contenu est en retrait de 12 px (la section dépliée a ainsi de la marge pour son liseré) */
+.objInfHdr .objGridChrono, .objInfTotal .objGridChrono { margin-right: 25px; } /* aligne l'en-tête et le total sur les lignes (espace + petit trait + espace) */
+.objInfRow .objGuideHead { gap: 8px; padding: 0 12px; box-sizing: border-box; } /* le trait sous la ligne va d'un bord à l'autre (R22) ; le contenu est en retrait de 12 px */
+.objInfCb { flex: none; width: 16px; }
+.objInfBar { flex: none; width: 1px; } /* simple espace qui réserve la place de la barre (dessinée une fois par .objInf::before) */
+.objInfRow:nth-last-child(2) .objGuideHead { border-bottom-color: transparent; } /* pas de trait fin sous le dernier objectif : il ne reste que le trait marqué du Total */
+.objInfSub { display: block; margin: 0; font-size: 13px; }
+.objInfRow .objGuideTxt { flex: 1 1 auto; }
+.objInfRow.open { margin: 0 0 8px; padding: 0 0 4px; box-shadow: var(--glass-shadow); border-radius: var(--radius-lg); } /* dépliée : une SECTION visible autour de la ligne et de son contenu : même verre que le panneau (aucun fond ni flou propre, R31), liseré fin aux coins arrondis */
+.objInfRow.open .objGuideHead { border-bottom-color: transparent; margin-bottom: 8px; }
+.objInfOff { opacity: .5; }
+.objInfMuted .objGuideHead .cmpBlockTitle, .objInfMuted .objGridApres { color: var(--text-light); }
+.objInfBody { margin: 0 12px 12px 36px; }
+.objInfSubs .objGridName { flex: 1 1 auto; width: auto; color: var(--text-light); }
+.objInfSubs .objRecapVal { flex: none; color: var(--text-light); }
+.objAdvHead { justify-content: flex-end; border: 0; } .objAdvHead .cmpBlockTitle { color: var(--purple); text-decoration: none; } /* « Avancé » (Description) et « Passer » (Niveau) : MÊME style, à droite, violet, sans trait */
+.objAdvBody .objGuideRow.open > .objGuideHead { border-bottom-color: transparent; } /* sous « Avancé » (Description, Niveau) : une question dépliée n'a plus de trait sous son titre ; repliée, le trait est celui de toujours */
+.objGuideFlat .cmpSeg { margin-bottom: 8px; } /* les trois questions visibles de la Description : même rythme que dans un groupe déplié */
+/* Poignée et glisser-déposer des lignes de la fenêtre des sous-objectifs (reprises de l’ancienne fenêtre de redessin) */
+.objRdGrab { min-width: 30px; min-height: 44px; display: grid; place-items: center; color: var(--purple); font-size: 18px; line-height: 1; touch-action: none; }
+.objRdDrag { background: color-mix(in srgb, var(--purple) 14%, transparent); border-radius: 10px; }
+.objRdDrop { box-shadow: 0 0 0 2px var(--purple); border-radius: 10px; }
+/* Création d'un objectif : le bouton Suivant / Terminer prend la place de la barre des volets (même bas, mêmes 16 px latéraux, même hauteur 52 px ; zone de sécurité gardée) ; elle revient à la fermeture. */
+:root.objBarOn .tabbar { visibility: hidden; }
+.objDock.objDockBar { bottom: max(16px, env(safe-area-inset-bottom)); }
+.objDock.objDockBar .objStepBtn { height: 52px; }
+
+/* Fiche d’une catégorie, menu Responsables (18 nov. 2026) : une ligne par responsable, croix officielle .cmpRemove--corner en haut à droite (R32), séparateur .cmpSepRow (R22). */
+.objDock .tasksProposeBody { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; } /* le tableau standard .retTable sort du bord (marge négative) : le défilant porte la marge du panneau (12 px) pour que rien ne dépasse, sinon le contenu de la fiche défilait de côté */
+.objDock .retTable { margin-left: -12px; margin-right: -12px; }
+.catStrategieBody { padding-bottom: 0; } /* la hauteur d'un pop-up suit son contenu : même espace en bas (panneau 12 px) qu'en haut */
+.catStrategieBody .msg { margin: 0; min-height: 0; } .catStrategieBody .msg:empty, .tasksPropose .objPanelFoot:has(> .objMsg:empty) { display: none; } /* message vide, pied vide : aucun espace réservé sous le dernier bloc */
+.catStrategieBody .repPct { color: var(--text); } /* pourcentage calculé (lecture seule), dans le tableau standard .retTable (composants.css) */
+.respRow { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 40px 8px 4px; box-sizing: border-box; font-size: 15px; color: var(--text); }
+.respRow .respLevel { margin: 0; }
+
+/* Pop-up des 4 semaines (19 nov. 2026) : une ligne = un titre, trois questions à puces se déplient dessous ; aucun trait sous la dernière ligne (R51) ; titre sans bulle, « + » et ✕ standards */
+.objSemGen { margin-bottom: 4px; flex: none; }
+.objSemGen:empty { display: none; }
+.objSemGenBtn { width: 100%; min-height: 44px; border: 0; border-radius: 999px; background: var(--brique); color: var(--mine-violet-text); font: inherit; font-size: 15px; cursor: pointer; } /* violet quand on peut toucher, violet pâle sinon */
+.objSemGenBtn:disabled { opacity: .45; cursor: default; }
+.objSemList { flex: none; border: 1px solid var(--glass-border); background: var(--glass-bg); border-radius: var(--radius-xl); overflow: hidden; }
+.objSemRow { border-bottom: 1px solid var(--sep); }
+.objSemRow:last-child { border-bottom: 0; }
+.objSemHead { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px 0 12px; color: var(--text); cursor: pointer; }
+.objSemNo { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--track-bg); color: var(--text-light); font-size: 13px; font-weight: 700; }
+.objSemTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.objSemTitle.empty { color: var(--text-light); }
+:root .objSemHead input.objSemTitleIn { flex: 1; min-width: 0; min-height: 44px; padding: 0; font: inherit; font-size: 16px; color: var(--text); background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; outline: 0; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.objSemBody { padding: 0 12px 12px 52px; }
+.objSemQ { margin: 8px 0 0; font-size: 13px; color: var(--text-light); }
+.objSemChips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.objSemChip { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.objSemChip.on { background: var(--brique); border-color: var(--brique); color: var(--mine-violet-text); }
+/* Frise Avant / Après de la dernière étape (modifications proposées fusionnées avec les objectifs inférieurs, 19 nov. 2026) : violet existant, aucune nouvelle couleur */
+.objRdFrise { margin: 0 0 12px; }
+.objRdLab { display: block; font-size: 13px; margin: 8px 0 2px; opacity: .7; }
+.objRdLane { position: relative; height: 14px; border-radius: 4px; box-shadow: var(--glass-shadow); }
+.objRdBar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; background: var(--purple); }
+.objRdBar.off { opacity: .3; }
+.objRdRow { gap: 8px; padding: 8px 0; align-items: center; }
+.objSemRow.past { opacity: .4; pointer-events: none; }
+.objSemRow.weekOpen > .objSemHead { background: var(--glass-bg); color: var(--text); } /* ligne ouverte : verre standard (R14), plus de fond plein de la couleur du pôle */
+.objSemRow.weekOpen > .objSemHead .objSemNo { color: var(--text); }
+:root .objSemRow.weekOpen > .objSemHead input.objSemTitleIn { color: var(--text); }
+.objSemRow.weekOpen > .objSemHead input.objSemTitleIn::placeholder { color: var(--text-light); opacity: 1; }
+.objFxWrap { border: 1px solid transparent; border-radius: 22px; padding: 8px 12px; margin: 0 -12px; } /* à « Fixe » : cadre (trait fin, coins arrondis) autour de Souple / Fixe et de l'échéance (19 nov. 2026) */
+.objFxWrap.fixed { border-color: var(--sep); }
+.objResumeField { margin-top: 16px; }
+.objResumeBox { padding: 0; } .objResumeBox textarea { width: 100%; box-sizing: border-box; min-height: 112px; }

@@ -8,7 +8,7 @@ const db = require('../db');
 const goals = require('./goals');
 const weekplanner = require('./weekplanner');
 
-const DEFAULT_TASK_MINUTES = 30; // même valeur que documenttasks.js
+const DEFAULT_TASK_MINUTES = require('./taskminutes').DEFAULT_TASK_MINUTES; // point unique : taskminutes.js
 const MAX_PROPOSALS = 10;
 
 // Retourne [{ target:'task', targetId, field:'date', before, after, reason }] (aucune écriture).
@@ -18,7 +18,7 @@ function compute(userId, activityId) {
   const today = goals.todayLocal(), monday = goals.mostRecentMonday(today);
   const wk = [0, 1, 2].map((n) => goals.addDays(monday, n * 7)); // semaine en cours, suivante, et celle qui peut recevoir un report
   const end = goals.addDays(wk[2], 6);
-  const rows = db.prepare(`SELECT i.id, i.dueDate, sp.activityId AS act FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
+  const rows = db.prepare(`SELECT i.id, i.dueDate, i.medianMinutes, sp.activityId AS act FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId
     WHERE i.done = 0 AND i.dueDate >= ? AND i.dueDate <= ? AND (i.plannedUserId IS NULL OR i.plannedUserId = ?)
     AND sp.activityId IN (SELECT activityId FROM activity_members WHERE userId = ?) ORDER BY i.dueDate, i.id`).all(today, end, userId, userId);
   const weeks = wk.map((k) => ({ weekKey: k, items: [] }));
@@ -28,7 +28,7 @@ function compute(userId, activityId) {
     if (!w) return;
     byId.set(String(r.id), { id: r.id, due: d, mine: r.act === activityId });
     // Importance décroissante = ordre d'échéance (le plus tard déborde d'abord) ; hors activité = jamais déplacé.
-    w.items.push({ id: String(r.id), minutes: DEFAULT_TASK_MINUTES, ownerUserId: userId, importance: 1000 - w.items.length, pinned: r.act !== activityId });
+    w.items.push({ id: String(r.id), minutes: require('./taskminutes').taskMinutes(r), ownerUserId: userId, importance: 1000 - w.items.length, pinned: r.act !== activityId });
   });
   const plan = weekplanner.planWeeks({ weeks, capacities: { [userId]: cap.minutes }, members: [userId], carryLimitWeeks: 1 });
   const out = [];

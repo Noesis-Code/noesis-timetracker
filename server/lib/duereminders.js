@@ -208,7 +208,7 @@ function runDueReminders(now) {
           // s'empilent, mais un même rappel ré-émis remplace le précédent au
           // lieu de s'ajouter.
           tag: 'subproject-due-' + sp.id + '-' + toSend,
-          url: '/?notif=subproject&activityId=' + activity.id + '&subProjectId=' + sp.id,
+          url: '/?notif=activity&activityId=' + activity.id,
         });
         sent += 1;
 

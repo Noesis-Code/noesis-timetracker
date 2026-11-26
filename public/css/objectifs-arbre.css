@@ -1,0 +1,244 @@
+/* Écran « Objectifs » = l'arbre sur la MÊME grille que l'arbre périodique de la page 2 : on réutilise ses classes (.goalsGrid, .goalsGridRow, .goalsGridCell--empty/--filled, .goalsRowMarker,
+   .goalsGridScroll de css/objectifs-page2-objectif.css) ; ce fichier ne porte que ce qui est propre à la vue d'ensemble (colonnes = activités, états, dépliage, bulles fixes, glisser-déposer). */
+.objArbre { position: fixed; top: var(--ar-top, 160px); bottom: var(--ar-bot, 150px); left: var(--ar-left, 16px); right: var(--ar-right, 16px); display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 0; } /* posé en CSS entre l'en-tête et le haut RÉEL de la barre du bas : bas des titres = haut de la barre − 8 px (gouttière), quel que soit l'appareil */
+/* Tant que l'arbre est affiché la page ne défile pas : aucun élastique, rien ne se déplace sous le doigt. */
+html.arbreOn, html.arbreOn body { overflow: hidden; overscroll-behavior: none; } /* correctif « A » (18 nov. 2026) : plus de height:100% (sur iPhone installé, innerHeight perdait 48 px = zone de sécurité haute) */ /* verrou du défilement SANS sortir le corps du flux (plus de position: fixed : sur iPhone elle décalait toute la page vers le haut, 18 nov. 2026) ; le défilement est ramené à 0 par le JS à l'ouverture */
+/* BANDE NOIRE EN BAS (iPhone, zone de sécurité basse), onglet Objectifs seulement (18 nov. 2026) : le corps fixe peut laisser à découvert la bande sous la barre des volets, qui montrait le noir uni de <html> (et le voile noir de #app::after). Le fond de <html> porte donc le MÊME halo violet que les autres onglets (.cmpHalo : cercle flou ancré en bas), et le voile noir est retiré ici (aucun rebond à couvrir : overscroll désactivé). */
+html.arbreOn { background: var(--black); }
+html.arbreOn::before { content: ''; position: fixed; z-index: -1; pointer-events: none; left: 0; right: 0; bottom: 0; height: 260px; background: radial-gradient(circle 260px at 50% calc(100% + 70px), var(--halo), transparent); } /* même halo qu'avant, sans « fixed » dans le background de <html> (correctif « A ») */
+html.arbreOn #app::after { display: none; }
+.arZoomRow { flex: none; margin: 0 0 4px; display: flex; align-items: center; min-height: 26px; }
+.arZoomRow .arBackNav { margin: 0; }
+.arScroll { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.arColumn { display: flex; flex-direction: column; height: 100%; width: 100%; }
+/* Repères du temps (.arRail) à gauche, grille, heures à droite : UN tableau dans la zone qui défile horizontalement (.arHScroll). */
+.arBody { display: flex; align-items: stretch; min-height: 100%; }
+.arRail { position: relative; flex: none; width: calc(var(--ar-mw, 46px) + 10px); }
+.arHScroll { container-type: inline-size; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; }
+.arHInner { width: max-content; min-width: 100%; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; }
+.arGridArea { display: block; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; } /* un seul conteneur de défilement : les repères du temps et les heures défilent avec le tableau, alignés sur leur rangée */
+/* Bulles = dernière rangée de l'arbre : mêmes marges et mêmes largeurs que les rangées de la grille ; jamais fixes ni flottantes. */
+.arBaseWrap { flex: none; width: max-content; min-width: calc(100% - var(--ar-mw, 46px) - 74px); margin: 0 64px 0 calc(var(--ar-mw, 46px) + 10px); box-sizing: border-box; padding: 8px 4px 8px 0; } /* alignées sur les colonnes : décalage = repères à gauche, colonne « Heures » à droite */
+.arBaseRow { align-items: center; }
+.arBaseRow::before { display: none; }
+.arBaseWrap .arSpacer { position: static; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); visibility: hidden; }
+.arTbl { display: flex; align-items: stretch; width: max-content; min-width: 100%; margin-top: auto; } /* repères, grille et heures forment UN tableau qui défile d'un bloc */
+.arTbl > .arGrid { flex: 1 0 auto; min-width: 0; margin-top: 0; }
+.arGrid { width: max-content; min-width: 100%; padding: 2px 4px 0 0; box-sizing: border-box; margin-top: auto; } /* ancré en BAS : la dernière rangée touche les bulles, les cases du futur s'empilent vers le haut */
+.arGrid .goalsGridRow { width: max-content; min-width: 100%; }
+.arGrid .goalsGridRow:has(.arDragging) { z-index: 6; }
+/* Repères à gauche (ils défilent avec le tableau) : numéro cerclé (à venir), pastille pleine (courante), point (passé) ; l'année sous le repère. */
+:is(.arGrid, .arRail) .goalsRowMarker { position: relative; top: auto; transform: none; flex: 0 0 var(--ar-mw, 20px); width: var(--ar-mw, 20px); margin-left: calc(-1 * var(--ar-pl, 26px)); align-self: center; background: var(--bg); }
+/* L'unique ligne « Aujourd'hui » : dans la gouttière entre deux rangées (le futur au-dessus, le passé au-dessous). */
+/* Cartes = cases remplies de la page 2, à la couleur de l'activité (R16) : pâle = en cours, vif = réalisé, contour pointillé = à venir. */
+.arCard { box-shadow: none; text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.arCard .goalsGridCellText { display: flex; flex-direction: column; gap: 2px; }
+.arCardName { font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; word-break: normal; hyphens: manual; } /* jamais coupé au milieu d'un mot, sauf un mot plus long que la ligne */
+.arCardMeta { font-size: 12px; font-weight: 400; opacity: .72; line-height: 1.25; }
+.arCard.arPicked { box-shadow: 0 0 0 2px var(--purple); }
+.arEnter { animation: arEnter .22s ease-out; }
+@keyframes arEnter { from { opacity: 0; } to { opacity: 1; } } /* fondu seulement : jamais de décalage, les bulles restent exactement sous leur colonne */
+@media (prefers-reduced-motion: reduce) { .arEnter { animation: none; } }
+.arToast { position: fixed; left: 16px; right: 16px; z-index: 45; margin: 0 auto; max-width: 420px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--card); color: var(--text); font-size: 13px; text-align: center; box-shadow: var(--shadow-card); pointer-events: none; }
+.arToast.hidden { display: none; }
+.arBubble { position: relative; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--track-bg); border-radius: var(--radius-md); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; pointer-events: auto; box-sizing: border-box; } /* comme les cartes de l'arbre périodique : même rayon, contour plein de la couleur de l'activité */
+
+.arBubble span { overflow-wrap: anywhere; }
+/* Lier / délier (appui long + glisser) : carte tirée, cible violette, zone « Délier » transitoire à la place de la barre (.cmpAdd sans « + »). */
+.arNode.arDragging { z-index: 7; opacity: .9; box-shadow: var(--shadow-pop); }
+.arNode.arDropTarget { box-shadow: 0 0 0 2px var(--purple); }
+.arNode.arDropBad { opacity: .45; }
+/* Case vide = le gris NEUTRE de l'arbre périodique (aucune teinte d'activité) ; touchable sur toute sa surface (ajouter un objectif). */
+.arHole { cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+.arHole:disabled { cursor: default; opacity: 1; }
+/* Tous les objectifs ont le même cadre (bordure fine de la couleur de l'activité, posée en ligne : pleine, ou pointillée pour « à venir ») ; l'état = la teinte. */
+.arBackNav { margin: 0 0 4px; }
+.objArbre { touch-action: pan-x pan-y; } /* le pincer est le zoom par niveau de l'arbre, jamais le zoom du navigateur */
+.arGrid .goalsGridCell--filled.arCard { border-color: var(--ar-c) !important; border-width: 2px !important; }
+/* Macro : carte large NEUTRE (jetons existants : blanc cassé et gris du thème, jamais la couleur d'une activité), même cadre de 2 px ; un trait par colonne concernée la relie à ses enfants. */
+.arGrid .goalsGridCell--filled.arMacro { --ar-c: transparent; background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
+.arGrid .goalsGridCell--filled.arMacro.ar-done { background: var(--text); }
+.arGrid .goalsGridCell--filled.arMacro.ar-future { background: color-mix(in srgb, var(--text) 85%, var(--bg)); color: var(--bg); }
+.arMacro .arCardMeta { overflow-wrap: anywhere; }
+
+.arMacroRow { margin-top: 0; margin-bottom: calc(8px - var(--goalsGridGap)); } /* rangée du macro : dans SA période, collée (8 px) à la rangée des cases de cette période, jamais entre deux périodes */
+/* Carte concernée par la fusion : elle tremble (keyframes des volets) et reste allumée. */
+.arExtending .arExtSelf { animation: tabJiggle .26s ease-in-out infinite alternate; }
+.arGap { pointer-events: none; }
+/* L'arbre tient dans l'écran (hauteur = jusqu'à la barre « Nouvel objectif… ») : seule la grille défile en vertical, les colonnes et leurs bulles en horizontal ; un geste commencé dans l'arbre ne fait jamais défiler la page. */
+.arGridArea { overscroll-behavior: none; }
+.arScroll { overscroll-behavior: none; } /* aucun rebond, aucun vide sous les bulles */
+/* Repères : le rond d'une période garde son numéro ; l'ovale (bloc de 5 ans, année) est le MÊME composant, pilule de même hauteur, texte centré. */
+:is(.arGrid, .arRail) .goalsRowMarker:not(.goalsRowMarker--ovale) { flex-basis: 20px; width: 20px; margin-right: calc(var(--ar-mw, 20px) - 20px); }
+.goalsRowMarker--ovale { border-radius: 999px; font-size: 13px; padding: 0; height: 20px; width: auto; justify-content: center; white-space: nowrap; }
+.goalsRowMarker--ovale.goalsRowMarker--future { opacity: 1; box-shadow: inset 0 0 0 1px currentColor; }
+.goalsRowMarker--ovale.goalsRowMarker--current { box-shadow: none; }
+.arSummary { text-align: left; }
+.arSummary .goalsGridCellText { display: flex; flex-direction: column; gap: 3px; }
+.arSummary .arCardName { font-size: 13px; font-weight: 600; }
+.arSummaryText { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+/* Rangées d'années et de blocs : compactes (gouttière réduite, cases moins hautes, repère ovale plus bas) ; les cases restent des cases grises, les cadres identiques. */
+.arGrid.arCompact { --goalsGridGap: 14px; }
+.arGrid .goalsGridCell { min-height: var(--ar-row-min, 84px); } /* hauteur = contenu, bornée (grille R6) : 64 px au moins ; jamais liée à la hauteur de l'écran */
+.arGrid.arCompact .goalsGridCell { min-height: 40px; }
+.arGrid .goalsGridCell--filled { max-height: 120px; overflow: hidden; } /* une très longue description n'étire jamais la case */
+.arGrid .arCardName { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.arGrid .arCardMeta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.arGrid.arCompact .arCardName { -webkit-line-clamp: 5; }
+.arGrid.arCompact .goalsGridCell--filled .goalsGridCellText { padding: 0 4px; }
+.arGrid .arCard > .goalsGridCellText { padding-left: 4px; padding-right: 4px; word-break: normal; overflow-wrap: break-word; } /* titre jusqu'aux bords : plus d'icône en permanence */
+.arGrid .arCardName { font-size: 13px; }
+.arGrid.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
+/* Mode Étendre : colonnes incluses surlignées (contour violet), les autres atténuées. */
+.arExtOn { box-shadow: 0 0 0 2px var(--purple); }
+.arExtOff { opacity: .3; }
+/* Mode Étendre : TOUT l'arbre s'assombrit ; seules les colonnes reliables (et celles déjà choisies) restent allumées ; repères et en-tête éteints aussi. */
+.arExtending .arZoomRow, .arExtending .arMacro:not(.arExtSelf) { opacity: .3; }
+.arExtending .goalsRowMarker { opacity: .5; }
+/* Calendrier ouvert depuis l'arbre : on reste dans le secteur d'où l'on vient (ni pôle ni secteur à changer) ; seul le mois change. */
+html.calFromTree #goalsNextPoleBtn, html.calFromTree #goalsMonthSectors { display: none !important; } /* la flèche ‹ du cadre du pôle devient le retour à l’arbre */
+/* Onglet Objectifs : la ligne de retour et le crayon se rapprochent du sélecteur « Tâches | Objectifs » (seul l'écart de 16 px sous le sélecteur est retiré ; l'onglet Tâches ne change pas) ; l'arbre récupère la hauteur. */
+#goalsCapturePage:has(#goalsActivitiesView:not(.hidden)) .goalsPage1Switch { margin-bottom: 0; }
+.arRail .goalsRowMarker { position: absolute; left: 0; margin: 0; transform: none; flex: none; align-self: auto; }
+.arRail.arCompact .goalsRowMarker--ovale { height: 18px; line-height: 18px; }
+/* Règle de l'arbre périodique (.goalsGridScroll--locked) : une ou deux colonnes = aucun défilement horizontal, le balayage part vers la page voisine. */
+.arHScroll.goalsGridScroll--locked { overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; }
+.arBubble.arExtOn { box-shadow: none; } /* titre choisi : rempli de la couleur (script), jamais de contour violet */
+
+/* Aucun trait entre objectifs (un tableau, pas un arbre) ; la couche .arLinks ne porte plus que les séparateurs pointillés .arSep. */
+.arGrid .goalsGridCell::before, .arGrid .goalsGridRow::before { display: none; }
+.arHInner { position: relative; }
+.arLinks { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Arbres les plus macro (blocs de 5 ans et années) : la grille COMBLE toute la hauteur libre entre l'en-tête et la barre du bas (rangées qui se partagent la hauteur, CSS pur) ; une carte pleine garde sa taille de contenu (64 à 120 px, texte coupé, centrée dans sa rangée), les cases vides prennent le reste ; titres collés en bas. Arbre des périodes : hauteur naturelle, défilement vertical. */
+.arGrid.arCompact { flex: 1 1 auto; margin-top: 0; padding-top: 0; }
+.arGrid.arCompact { justify-content: space-between; } /* aucune rangée vide : la marge restante est répartie entre les rangées (jamais de vide) */
+.arGrid.arCompact .goalsGridRow { flex: 0 0 auto; } /* une rangée remplie a la hauteur de son contenu (64 à 120 px, texte coupé) : plus de texte, plus haute */
+.arGrid.arCompact .goalsGridRow.arEmptyRow { flex: 1 1 0; min-height: 40px; max-height: 96px; } /* seules les rangées VIDES se partagent ÉQUITABLEMENT le reste */
+.arGrid.arCompact .goalsGridCell--filled { min-height: var(--ar-row-min, 84px); align-self: center; }
+.arSepStart { margin-left: 10px; } /* gouttière doublée (2 × 10 px, valeur de la grille R6) à l'endroit du séparateur */
+.arSep { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--text-light); opacity: .45; pointer-events: none; } /* séparateur neutre entre deux groupes d'activités reliées */
+
+/* ARBRE PROPRE (18 nov. 2026, Émilien) : hors édition une case vide n'affiche RIEN, sauf le NOMBRE d'objectifs dessous (grand, gris, sans pastille) ; en édition, un grand PLUS gris à bords carrés prend sa place. */
+.arHoleCount { color: var(--ar-hole-mark); font-size: 30px; font-weight: 600; line-height: 1; pointer-events: none; }
+.arHolePlus { display: none; color: var(--ar-hole-mark); line-height: 0; pointer-events: none; }
+.arHolePlus svg { display: block; flex: none; width: 30px; height: 30px; } /* même plus en portrait et en paysage : jamais redimensionné par la case */
+.arEdit .arHoleCount { display: none; }
+.arEdit .arHolePlus { display: block; }
+/* Colonne de droite « Heures » : lecture seule ; violet = heures réglées sur la ligne, gris = reprend la ligne du dessus (aucune nouvelle couleur) */
+.arRailR { position: relative; flex: none; width: 64px; box-sizing: border-box; padding-left: 6px; } /* cellule de 58 px, 6 px d'écart avec la grille (maquette) */
+.arRailR .arHrs { position: absolute; left: 6px; right: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--sep); border-radius: 12px; background: none; font: inherit; font-size: 13px; font-weight: 400; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-light); white-space: nowrap; } /* contour arrondi 12 px, texte centré ; gris = reprend la ligne du dessus */
+.arRailR .arHrs.set { color: var(--purple); border-color: var(--purple); font-weight: 600; } /* violet, contour violet = heures réglées sur cette ligne */
+/* Fil d'Ariane : on touche le niveau voulu pour remonter ; jetons existants seulement */
+.arCrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 44px; font-size: 14px; }
+.arCrumb { min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--violet-soft); font: inherit; cursor: pointer; }
+.arCrumbNow { color: var(--text); font-weight: 600; }
+.arCrumbSep { color: var(--text-light); }
+.arRailR button.arHrs { cursor: pointer; }
+
+/* Cases plus grandes (18 nov. 2026) : à tous les niveaux, la grille comble la hauteur libre (de la bascule à la barre des volets) ; les rangées se la partagent, les cases s'étirent (zone de toucher agrandie). Au-delà de la hauteur, la grille défile comme avant. */
+.arTbl { flex: 1 1 auto; margin-top: 0; }
+.arGrid:not(.arCompact) { flex: 1 1 auto; display: flex; flex-direction: column; }
+.arGrid .goalsGridRow:not(.arMacroRow), .arGrid.arCompact .goalsGridRow.arEmptyRow { flex: 1 1 0; min-height: var(--ar-row-min, 84px); max-height: none; } /* toutes les rangées de cases ont la MÊME hauteur */
+.arGrid .goalsGridCell, .arGrid.arCompact .goalsGridCell--filled { align-self: stretch; }
+.arGrid .goalsGridCell--filled { max-height: none; }
+.arGrid.arCompact { justify-content: flex-start; }
+.arCard > .cmpEdit { display: none; position: absolute; top: 4.5px; right: 4.5px; width: 20px; height: 20px; color: var(--link-blue); } /* centre = celui de la croix de retrait / du « + » (8 px + 6,5 px de l'angle) ; zone de toucher 44 px par ::after */ /* le crayon Modifier (R15) au même endroit que le « + » : zone de toucher de 44 px */
+/* MODE PAYSAGE (18 nov. 2026) : téléphone tourné, l'arbre prend tout l'écran ; en-tête, bascule Tâches | Objectifs et barre des volets sont masqués (on tourne pour revenir), zones de sécurité respectées par le JS (env(safe-area-inset-*)). */
+@media (orientation: landscape) and (max-height: 500px) {
+  html.arbreOn .topbar, html.arbreOn .tabbar, html.arbreOn #goalsPage1Switch { display: none; }
+  html.arbreOn .arGrid .goalsGridRow:not(.arMacroRow), html.arbreOn .arGrid.arCompact .goalsGridRow.arEmptyRow { min-height: 44px; } /* l'arbre complet tient dans la hauteur réduite (R7 : 44 px au moins) */
+  html.arbreOn .arGrid .goalsGridCell, html.arbreOn .arGrid.arCompact .goalsGridCell--filled { min-height: 44px; }
+  html.arbreOn .arGrid, html.arbreOn .arGrid.arCompact { --goalsGridGap: 8px; } /* gouttière verticale réduite : plus de lignes à la fois */
+}
+/* COLONNE DES DATES (18 nov. 2026) : PORTRAIT seulement : large comme un repère de 2 caractères (20 px, horizontal) ; les repères de PLUS de 2 caractères (« 26/30 », « 2027 ») sont TOURNÉS (lus de bas en haut), 13 px, zone de toucher de 44 px au moins. En PAYSAGE : tous horizontaux, largeur naturelle. */
+@media not ((orientation: landscape) and (max-height: 500px)) {
+  .arRail .goalsRowMarker--long, .arRail.arCompact .goalsRowMarker--long { writing-mode: vertical-rl; transform: rotate(180deg); width: var(--ar-mw, 20px); height: auto; min-height: 44px; padding: 8px 0; font-size: 13px; line-height: 1; white-space: nowrap; }
+}
+.arGridArea { padding-bottom: var(--ar-pad, 0px); box-sizing: border-box; } /* défile derrière la barre des volets (verre) ; la dernière rangée reste visible en fin de course */
+/* PÉRIODES PASSÉES (18 nov. 2026) : le repère est un POINT gris uni (même gris que les cases vides, aucun halo noir derrière) ; les cases vides passées sont beaucoup plus pâles que celles du présent et du futur (même jeton, opacité réduite). */
+:is(.arGrid, .arRail) .goalsRowMarker--past { background: transparent; box-shadow: none; }
+.arRail .goalsRowMarker--past::before { background: color-mix(in srgb, var(--poleTree, var(--track-bg)) 22%, var(--track-bg)); }
+.arGrid .arPastRow .goalsGridCell--empty { opacity: .35; }
+/* ESPACEMENT UNIQUE (18 nov. 2026) : l'écart entre deux bulles est celui des objectifs pluriannuels (14 px en hauteur, 10 px en largeur), à TOUS les niveaux ; les rangées ne s'étirent plus pour combler la hauteur : cases plus hautes, écart constant. */
+.arGrid, .arGrid.arCompact { --goalsGridGap: 14px; }
+/* BULLES DE TITRE : toutes de même hauteur et de même largeur (celle de la colonne), un peu plus bas sous la grille, texte coupé proprement. */
+.arBaseRow { align-items: stretch; }
+.arBaseWrap { padding-top: 16px; }
+.arBubble { height: 72px; min-height: 72px; padding: 8px; gap: 6px; }
+.arBubble span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: normal; word-break: normal; hyphens: manual; font-size: 13px; }
+.arBubble { padding: 8px 1px; } /* le mot « Développement » tient sur une ligne : jamais coupé au milieu */
+.arBubble span { letter-spacing: -.04em; font-weight: 600; }
+/* TRANSITION DE ZOOM : toucher une case pour descendre = on entre dans la bulle (courte, depuis le point touché). */
+.arZoomIn { animation: arZoomIn .22s ease-out; transform-origin: var(--ar-zx, 50%) var(--ar-zy, 50%); }
+@keyframes arZoomIn { from { transform: scale(.88); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .arZoomIn { animation: none; } }
+/* Paysage : bulles plus basses (48 px, 2 lignes) et marge réduite pour garder le plus de lignes visibles. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html.arbreOn .arBubble { height: 48px; min-height: 48px; }
+  html.arbreOn .arBubble span { -webkit-line-clamp: 2; }
+  html.arbreOn .arBaseWrap { padding-top: 8px; padding-bottom: 8px; } /* rangée des titres = 8 + 48 + 8 = 64 px : assez haute pour le « + » de 52 px posé sous la colonne des heures (l'espace s'adapte au bouton, jamais l'inverse) */
+  html.arbreOn .arZoomRow { margin-bottom: 0; }
+}
+
+/* Niveau SECTEUR (18 nov. 2026, choix d'Émilien : proposition A) : le titre n'est plus entouré ; un TRAIT COURT de la couleur du pôle sous le nom le distingue du titre de pôle (contour). Les cartes ne changent pas. */
+/* Portrait : l'année à deux chiffres (« 27 ») est un peu plus petite pour tenir à l'aise dans sa pastille (demande d'Émilien, 18 nov. 2026) ; paysage et libellés verticaux inchangés. */
+@media (orientation: portrait) { .goalsRowMarker--ovale:not(.goalsRowMarker--long) { font-size: 11px; } }
+/* Colonne des dates (18 nov. 2026, choix d'Émilien) : du texte simple, SANS contour ; seule la période courante garde sa pastille pleine (blanche). */
+:is(.arGrid, .arRail) .goalsRowMarker.goalsRowMarker--future { box-shadow: none; opacity: 1; }
+/* Cases vides SANS fond ; titres du bas centrés, transparents, contour seul ; heures non affichées = bouton sans contour (18 nov. 2026, Émilien). */
+.arGrid .goalsGridCell--empty { background: none; outline: 1px dashed color-mix(in srgb, var(--text-light) 45%, transparent); outline-offset: -2px; } /* cases vides : pointillé très faible, SANS fond, à tous les niveaux (outline : la grille impose !important sur les bordures) */
+.arBubble { justify-content: center; text-align: center; background: transparent; }
+.arRailR .arHrs:empty::before { content: '–'; } /* heures non affichées : un petit tiret gris = « touche la date pour voir » */
+/* Niveau SECTEUR (18 nov. 2026, Émilien) : le TITRE garde la bulle du pôle mais son CONTOUR est en pointillé. */
+.arLvlSecteur .arBubble { border-style: none; outline: var(--cmp-dashed); outline-color: var(--ar-c, currentColor); outline-offset: -2px; } /* même pointillé 1 px et même retrait que les cases vides (jeton --cmp-dashed) en COULEUR DU SECTEUR (--ar-c posé par le script) ; outline car la couleur du contour est posée en ligne par le script */
+.arRailR .arHrs { border: 0; } .arRailR .arHrs.set { border: 0; } /* colonne des heures sans cadre (18 nov. 2026) */
+/* EN ÉDITION seulement (18 nov. 2026, Émilien) : le crayon Modifier standard (R15, EDIT_SVG), au même endroit, est du MÊME GRIS que le grand « + » des cases vides (jeton --ar-edit-mark = les mêmes 22 % du gris sable, posés sur le fond de l'app pour rester lisibles sur une carte pleine, y compris sur la jauge) ; le bouton reste la zone de toucher de 44 px. Plus de trou dans la carte. */
+.arEdit .arCard > .cmpEdit { display: block; color: var(--ar-edit-mark); }
+.arEdit .arCard > .cmpEdit svg { width: 18px; height: 18px; }
+.arEdit.arExtending .arCard > .cmpEdit { display: none; }
+/* JAUGE du niveau SECTEUR : la partie pleine (bas) est de la couleur du pôle (nuance de son pôle, fond posé par le script) ; contour COMPLET plein de 1 px de la même teinte (outline : la grille impose des bordures transparentes en !important), sans fond pour le vide ; 100 % = carte pleine comme un pôle. */
+.arGrid .goalsGridCell--filled.arGauge { overflow: visible; background-origin: border-box; border-color: transparent !important; outline: 1px solid var(--ar-c); outline-offset: -1px; }
+/* TEXTE DES CARTES (18 nov. 2026, Émilien) : titre CENTRÉ (horizontal et vertical), poids LÉGER, sur toute la largeur et la hauteur utiles, 5 lignes visibles au moins (13 px, jamais sous 12 px) ; la rangée est assez haute pour les 5 lignes (jeton --ar-row-min). */
+.objArbre { --ar-hole-mark: color-mix(in srgb, var(--text-light) 22%, transparent); --ar-edit-mark: color-mix(in srgb, var(--text-light) 22%, var(--bg)); --ar-row-min: 84px; --ar-past-op: .45; --ar-past-sat: .5; }
+/* Le titre REMPLIT la boîte de texte (posé en absolu : un -webkit-box enfant d'un flex perd son line-clamp), centré en vertical par -webkit-box-pack ; les marges latérales sont portées par le titre (4 px, 24 px en édition pour le crayon). */
+.arGrid .arCard > .goalsGridCellText { display: block; position: relative; flex: 1 1 auto; align-self: stretch; padding: 0; text-align: center; container-type: size; } /* container-type: size : le titre lit la hauteur de la carte (cqh) ; le titre couvre toute la carte (le dégradé de jauge s'y cale), sa marge verticale ramène la zone de texte à 5 lignes EXACTES (aucune 6e ligne ne dépasse), centrée */
+.arGrid .arCard.arMacro > .goalsGridCellText { position: static; flex: none; padding: 0 4px; }
+.arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText) { position: absolute; left: 4px; right: 4px; top: 50%; transform: translateY(-50%); box-sizing: border-box; padding: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; text-align: center; font-size: 13px; font-weight: 300; line-height: 1.15; } /* la boîte a la hauteur de son texte (1 à 5 lignes) et se centre dans la carte ENTIÈRE : même marge en haut et en bas, même marge à gauche et à droite */
+.arEdit .arGrid .arCard:not(.arMacro) :is(.arCardName, .arSummaryText) { left: 24px; right: 24px; } /* marges SYMÉTRIQUES : le titre reste centré dans la carte, le crayon se superpose */
+.arGrid .arMacro .arCardName { -webkit-line-clamp: 5; text-align: center; font-weight: 300; font-size: 13px; line-height: 1.15; }
+.arGrid .arCardMeta { text-align: center; font-weight: 300; }
+/* TEXTE EN CREUX : le texte d'une carte pleine est de la couleur du FOND de l'app (--bg, posée par le script) : technique retenue = couleur unie, la seule fiable sur Safari iOS (un vrai masque de texte ne l'est pas). */
+/* NIVEAU SECTEUR : le texte suit la jauge. La boîte du titre couvre toute la carte (pas de marge verticale) : un dégradé net à p % (--ar-p) découpé dans les lettres (background-clip: text) = fond sous p % (partie remplie, en creux), couleur du secteur au-dessus (partie vide). 0 % = tout en couleur du secteur, 100 % = tout en creux. */
+.arGauge .arCardName { background: linear-gradient(0deg, var(--bg) var(--ar-p, 0%), var(--ar-c) var(--ar-p, 0%)) 0 50% / 100% 100cqh no-repeat; /* dégradé aussi haut que la CARTE (100cqh), recalé sur elle quelle que soit la hauteur du texte */ -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+/* OBJECTIFS PASSÉS : cartes (secteur, pôle, activité, fusionnées) beaucoup plus ternes ; le présent et le futur gardent leur éclat. */
+.arGrid .arPastRow .goalsGridCell--filled { opacity: var(--ar-past-op); filter: saturate(var(--ar-past-sat)); }
+/* Objectifs créés sans réseau (20 nov. 2026) : la zone « À classer » des tâches, réutilisée telle quelle (verre commun .cmpGlass), POSÉE par-dessus le haut de l'arbre (une ligne par objectif, 64 px au plus) : elle ne pousse jamais la grille. */
+.objArbre > .activityGoalsCategoryAutoTaskOffline { flex: none; order: -1; margin: 0 0 8px; max-height: none; overflow: visible; } /* hauteur de son contenu, au-dessus de la grille dans la colonne : elle ne recouvre plus rien */
+.objArbre > .activityGoalsCategoryAutoTaskOffline .activityGoalsCategoryAutoTaskOfflineRow { white-space: normal; overflow-wrap: anywhere; }
+.objArbre > .activityGoalsCategoryAutoTaskOffline .activityGoalsCategoryAutoTaskOfflineRow.isFailed { color: var(--text-light); }
+
+/* GROUPE FUSIONNÉ (24 nov. 2026) : la macro au milieu de ses cases absorbées « mortes ». Le bloc fait la largeur exacte des colonnes liées ; aucune case ne déforme la grille. */
+.arGrid .arFuse { --g: 10px; display: flex; gap: var(--g); align-self: stretch; }
+.arGrid .arFuse > .goalsGridCell { box-sizing: border-box; flex: 0 0 calc((100% - (var(--k) - 1) * var(--g)) / var(--k)) !important; width: auto !important; min-width: 0; }
+.arGrid .arFuse > .goalsGridCell { border-radius: 12px; }
+.arGrid .arDead { display: flex; align-items: center; justify-content: center; border: 0 !important; outline: 0 !important; background: color-mix(in srgb, var(--ar-c) 30%, transparent) !important; pointer-events: none; cursor: default; opacity: 1 !important; }
+.arGrid .arDead b { font-weight: 600; font-size: 30px; line-height: 1; color: color-mix(in srgb, var(--ar-c) 45%, var(--ar-hole-mark)); } /* même format que le nombre des cases vides (.arHoleCount) + une touche de la couleur de la macro */
+/* ligne de la fusion : cases collées, couture fine ; coins extérieurs 12 px, côtés qui se touchent 4 px */
+.arGrid .arFuseGlue { --g: 2px; }
+.arGrid .arFuseGlue > .goalsGridCell { border-radius: 4px; }
+.arGrid .arFuseGlue > .goalsGridCell:first-child { border-radius: 12px 4px 4px 12px; }
+.arGrid .arFuseGlue > .goalsGridCell:last-child { border-radius: 4px 12px 12px 4px; }
+.arGrid .arDead.arDeadGrey { background: color-mix(in srgb, var(--text-light) 20%, transparent) !important; } /* absorbée sans objectif de la macro sur la ligne : gris des pointillés, sans couleur */
+.arGrid .arDead.arDeadGrey b { color: color-mix(in srgb, var(--text-light) 40%, transparent); } /* gris sans teinte de pôle (la macro n'a pas d'objectif sur la ligne) */
+.arGrid .arDead.arDive { pointer-events: auto; cursor: pointer; font: inherit; }
+/* titre d'une macro : centré en hauteur et en largeur dans sa case */
+.arGrid .arCard.arMacro { position: relative; }
+.arGrid .arCard.arMacro > .goalsGridCellText { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 6px; flex: none; container-type: normal; } /* remplit la case : titre visible ET centré (hauteur jamais nulle) */
+.arGrid .arCard.arMacro .arCardName { margin: 0; max-width: 100%; text-align: center; }
+/* fusion de SECTEURS : deux cases collées, SANS remplissage, contour plein sur chaque case (clair ; gris quand le secteur qui absorbe n'a pas d'objectif sur la ligne) */
+.arGrid .arFuseSect { --ar-line: color-mix(in srgb, var(--text) 75%, transparent); }
+.arGrid .arFuseSect.arFuseGrey { --ar-line: color-mix(in srgb, var(--text-light) 45%, transparent); }
+.arGrid .arFuse.arFuseSect > .goalsGridCell { background: none !important; box-shadow: none !important; border: 0 !important; outline: 1.5px solid var(--ar-line) !important; outline-offset: -1.5px; color: var(--text); }
+.arGrid .arFuse.arFuseSect > .arMacro .arCardName { color: var(--text); }
+/* 4 semaines, au-dessus de la fusion : la case du secteur dominant sans objectif périodique reste EN POINTILLÉS (case vide) ; la case absorbée à côté : contour gris plein */
+.arGrid .arFuse.arFuseSect.arFuseGrey > .goalsGridCell--empty { outline: 1px dashed color-mix(in srgb, var(--text-light) 45%, transparent) !important; outline-offset: -2px; }

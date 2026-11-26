@@ -116,7 +116,13 @@ function tr(req, fr, en) {
   return /^\s*en\b/i.test(String(req.get('accept-language') || '')) ? en : fr;
 }
 
-router.post('/offer/checkout', requireAuth, async (req, res) => {
+// Coques natives iOS/Android (en-tête posé par public/js/native-shell.js) : aucun paiement externe (Apple 3.1.1, Google Play). L'achat se fait sur le site web.
+function refuseCoque(req, res, next) {
+  if (req.get('x-tmt-coque')) return res.status(403).json({ error: tr(req, 'Cette action n’est pas disponible dans l’application.', 'This action is not available in the app.') });
+  next();
+}
+
+router.post('/offer/checkout', requireAuth, refuseCoque, async (req, res) => {
   const userId = req.userId;
   const user = db.prepare('SELECT id, email, phone, stripeCustomerId FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
@@ -271,7 +277,7 @@ router.post('/offer/checkout', requireAuth, async (req, res) => {
 // Portail client Stripe : URL de gestion de l'abonnement (moyen de paiement,
 // résiliation). Réservé à un profil déjà client Stripe ; retour à l'origine de
 // la requête (jamais une URL fournie par le client).
-router.post('/offer/portal', requireAuth, async (req, res) => {
+router.post('/offer/portal', requireAuth, refuseCoque, async (req, res) => {
   const user = db.prepare('SELECT stripeCustomerId FROM users WHERE id = ?').get(req.userId);
   if (!user) return res.status(404).json({ error: 'Profil introuvable.' });
   if (!stripe.secretKeyConfigured()) return res.status(503).json({ error: tr(req, 'Paiement indisponible pour le moment.', 'Payment is unavailable right now.') });
@@ -318,7 +324,7 @@ router.post('/offer/portal', requireAuth, async (req, res) => {
 // l'appartenance à l'activité compte pour rouvrir les formulaires).
 // Paiement ouvert ? Clés Stripe présentes ET (staging OU OFFER_CHECKOUT_OPEN=1). Sinon le bouton reste « À venir ».
 router.get('/offer/available', (req, res) => {
-  res.json({ available: stripe.checkoutOpen() });
+  res.json({ available: !req.get('x-tmt-coque') && stripe.checkoutOpen() });
 });
 
 router.get('/offer/subscriptions', requireAuth, (req, res) => {

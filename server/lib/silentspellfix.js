@@ -70,6 +70,7 @@ async function fixText(text, account) {
     const src = String(text == null ? '' : text).trim();
     if (!src || src.length > MAX_LEN || !enabled()) return null;
     if (!caller && !classify.configured()) return null;
+    if (account && require('./aibudget').isAbsent(account)) return null; // mode IA « Absent » : aucune correction, aucun appel
     const memoKey = src.replace(/\s+/g, ' '); // espaces multiples = même titre : une seule correction payée
     if (cache.has(memoKey)) return cache.get(memoKey);
     let out = await (caller || callModelForFix)(src);

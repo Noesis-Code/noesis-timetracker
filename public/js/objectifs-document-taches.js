@@ -27,8 +27,7 @@
     return out + (t && t.moved ? ' · déplacée (semaine pleine)' : '');
   }
 
-  // 28 oct. 2026 (Émilien) : la consigne IA s'écrit dans l'UNIQUE zone d'écriture du bas de la page d'une activité (objectifs-page2-taches.js,
-  // TMT.docTasksSubmit / docTasksAddFiles) ; le « + » en verre (avec Expansion) ouvre cette fenêtre centrée : résultats, Modifications proposées, Nouvelles tâches, Drive.
+  // 28 oct. 2026 (Émilien) : la consigne IA s'écrit dans la zone d'écriture de l'onglet Tâches (TMT.docTasksPrefill) ; le « + » en verre (avec Expansion) ouvre cette fenêtre centrée : résultats, Modifications proposées, Nouvelles tâches, Drive.
   document.getElementById('content').insertAdjacentHTML('beforeend', `
     <div id="docTasksPage" class="docTasksPop hidden" role="dialog" aria-label="Ajouter des tâches">
      <div class="docTasksPopCard cmpGlass">
@@ -72,10 +71,10 @@
       </div>
     </div>`);
 
-  (function () { // pastilles des documents joints : au-dessus de la zone d'écriture du bas
-    var dock = document.getElementById('goalsTaskDock'), ch = document.createElement('div');
+  (function () { // pastilles des documents joints : dans la fenêtre « Ajouter des tâches »
+    var ch = document.createElement('div');
     ch.id = 'docTasksFiles'; ch.className = 'docTasksFilesBox';
-    (dock || document.getElementById('docTasksPage')).appendChild(ch);
+    var body = document.querySelector('#docTasksPage .docTasksBody'); body.insertBefore(ch, body.firstChild);
   })();
 
   // Clic ailleurs : la liste des dossiers connectés se réenroule (phase de capture : avant tout re-rendu).
@@ -95,12 +94,13 @@
   }
   TMT.docTasksZoneSet = zoneSet;
   // Attend que l'abonnement soit confirmé (la réponse « Expansion ? » arrive après l'ouverture de la page de l'activité), puis appelle cb.
-  function whenZone(cb) {
+  function whenZone(cb, onFail) {
     var tries = 60;
     (function wait() {
       var z = $('docTasksPage');
       if (z && essorOn) { cb(z); return; }
       if (tries-- > 0) setTimeout(wait, 100);
+      else if (onFail) onFail('La zone « Ajouter des tâches » ne s’est pas ouverte : vérifie qu’Expansion est actif sur cette activité, puis réessaie.');
     })();
   }
   function open() { whenZone(function (z) { z.classList.remove('hidden'); }); }
@@ -110,12 +110,12 @@
   TMT.docTasksAddFiles = function (list) { whenZone(function () { addFiles(list); }); };
   // Zone libre IA (onglet Aujourd'hui) : ouvre la page de l'activité choisie, joint les fichiers et lance la proposition
   // (l'IA propose, l'utilisateur coche ; rien n'est écrit avant « Ajouter les tâches cochées »).
-  TMT.docTasksPrefill = function (activityId, text, list) {
+  TMT.docTasksPrefill = function (activityId, text, list, onFail) {
     TMT.currentGoalsActivityId = String(activityId);
     openForActivity(String(activityId), function () {
       files = (list || []).slice(); renderFiles();
       submit(String(text || '').slice(0, 1500));
-    });
+    }, onFail);
   };
   function actId() { return TMT.currentGoalsActivityId; }
   function msg(t) { $('docTasksMsg').textContent = t || ''; }
@@ -146,7 +146,7 @@
     var instruction = String(text || '').trim();
     if (!instruction) { msg('Écris une consigne.'); return; }
     $('docTasksPage').classList.remove('hidden');
-    busy = true; pendingMode = false; msg('L’IA lit le document…'); $('docTasksResults').innerHTML = '';
+    busy = true; pendingMode = false; msg(''); $('docTasksResults').innerHTML = '';
     var req = driveFile
       ? TMT.api('POST', '/api/drive/propose', { activityId: Number(actId()), fileId: driveFile.id, instruction: instruction })
       : TMT.api('POST', '/api/activities/' + actId() + '/document-tasks/propose', { instruction: instruction, files: files });
@@ -203,7 +203,7 @@
     if (!q) { box.innerHTML = '<p class="hint">Écris les premières lettres du nom.</p>'; return; }
     var m = folderList.filter(function (f) { return norm(f.name).indexOf(q) === 0; }).slice(0, 8);
     box.innerHTML = m.length ? m.map(function (f) { return '<button type="button" class="docTasksPick" data-d="folder" data-id="' + esc(f.id) + '">' + FOLDER_ICON + esc(f.name) + '</button>'; }).join('')
-      : '<p class="hint">' + (folderLoading ? 'Recherche…' : 'Aucun dossier ne commence par ces lettres.') + '</p>';
+      : '<p class="hint">' + (folderLoading ? '' : 'Aucun dossier ne commence par ces lettres.') + '</p>';
   }
   function searchFolders() {
     var q = folderQuery.trim(), seq = ++folderSeq;
@@ -230,11 +230,12 @@
         + (s.isOwner === false ? '' : '<button type="button" class="docTasksLink docTasksDiscLink" data-d="disconnect">Déconnecter Drive</button>') + '</div>'
         + (foldersOpen && n ? '<div id="docTasksFoldersBody" class="docTasksFoldersInline"></div>' : '');
   }
+  var TRASH_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>'; // exception demandée par Émilien (31 oct. 2026) : corbeille d'origine, en bas à gauche, pour ce seul écran
   var FOLDER_ICON = '<svg class="docTasksFolderIco" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
   var folderExpanded = {};
   function folderFilesHtml(f) {
     var fs = driveList.filter(function (x) { return x.folderId === f.id; });
-    if (!fs.length) return '<div class="docTasksFolderFiles"><p class="docTasksMeta">' + (driveList.length ? 'Aucun fichier lisible.' : 'Chargement…') + '</p></div>';
+    if (!fs.length) return '<div class="docTasksFolderFiles"><p class="docTasksMeta">' + (driveList.length ? 'Aucun fichier lisible.' : '') + '</p></div>';
     return '<div class="docTasksFolderFiles">' + fs.slice(0, 60).map(function (x) { return (driveSt && driveSt.isOwner === false ? '<div class="docTasksFileRow">' + esc(x.path || x.name) + '</div>' : '<button type="button" class="docTasksFileRow" data-d="file" data-id="' + esc(x.id) + '">' + esc(x.path || x.name) + '</button>'); }).join('') + '</div>';
   }
   function renderFoldersPop() {
@@ -254,13 +255,11 @@
     var dflt = (syncSt && syncSt.defaultInstruction) || 'Extrais toutes les tâches écrites dans le document';
     $('docTasksFsTitle').innerHTML = FOLDER_ICON + esc(f.name || 'Dossier');
     $('docTasksFsBody').innerHTML = '<div class="docTasksPauseRow"><span>Mettre en pause</span><label class="toggleSwitch"><input type="checkbox" id="docTasksFsPause" aria-label="Mettre en pause"' + (f.paused ? ' checked' : '') + '><span class="toggleSwitchTrack"></span></label></div>'
-      + (f.paused ? '<p class="docTasksMeta">Surveillance en pause : ce dossier n’est plus analysé.</p>' : '')
       + '<label class="docTasksMeta" for="docTasksFsInstr">Consigne permanente (facultative)</label>'
       + '<textarea id="docTasksFsInstr" class="docTasksInstr" rows="2" maxlength="1500" placeholder="' + esc(dflt.replace(/[\s.…]+$/, '') + '…') + '">' + esc(f.instruction) + '</textarea>'
       + (fsConfirm
         ? '<div class="docTasksConfirm">Ne plus surveiller ce dossier ? <button type="button" class="docTasksLink" data-f="removeYes">Retirer</button> <button type="button" class="docTasksLink" data-f="removeNo">Annuler</button></div>'
-        : '<div class="docTasksFsActions">' + (fsNew ? '<button type="button" class="docTasksCancelBtn" data-f="cancelNew">Annuler</button>' : '') + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
-      + (!fsNew && !fsConfirm ? '<button type="button" class="cmpRemove cmpRemove--corner" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller"></button>' : '')
+        : '<div class="docTasksFsActions">' + (fsNew ? '' : '<button type="button" class="historyRowIconBtn danger docTasksFolderIconBtn docTasksTrashLeft" data-f="remove" aria-label="Ne plus surveiller ce dossier" title="Ne plus surveiller">' + TRASH_ICON + '</button>') + (fsNew ? '<button type="button" class="docTasksCancelBtn" data-f="cancelNew">Annuler</button>' : '') + '<button type="button" class="docTasksApplyBtn" data-f="save">Enregistrer</button></div>')
       + '<div class="docTasksCancelRow"><button type="button" class="docTasksLink" data-f="run">Synchroniser maintenant</button></div>'
       + (fsMsg ? '<p class="msg">' + esc(fsMsg) + '</p>' : '');
   }
@@ -308,7 +307,7 @@
     }
     if (!s.connected) {
       html = '<div class="docTasksDriveRow"><button type="button" class="docTasksDriveBtn" data-d="connect">Connecter Drive</button>'
-        + '<p class="docTasksConsent">En connectant Drive, tu autorises TiMeTracker à lire (lecture seule) les fichiers des dossiers que tu choisis (10 au maximum), uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois les dossiers choisis, TiMeTracker les surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
+        + '<p class="docTasksConsent">En connectant Drive, tu autorises Noèsis à lire (lecture seule) les fichiers des dossiers que tu choisis (10 au maximum), uniquement pour que l’IA te propose des tâches. Rien n’est modifié ni conservé. Une fois les dossiers choisis, TiMeTracker les surveille en continu pour y repérer les nouvelles tâches ; tu règles le mode (ajout automatique ou validation) et tu peux te déconnecter à tout moment, ce qui arrête et efface toute la surveillance.</p></div>';
     } else if (driveView === 'folders') {
       html = '<div class="docTasksDriveRow"><div class="docTasksDriveHead"><span>Choisis un dossier</span><button type="button" class="cmpClose" data-d="closeFolders" aria-label="Fermer">✕</button></div>'
         + '<input type="text" id="docTasksFolderQ" class="docTasksInstr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Écris le nom du dossier…" value="' + esc(folderQuery) + '">'
@@ -393,7 +392,6 @@
     var html = '<div class="docTasksSyncRow">';
     html += '<div class="docTasksMeta">Dernière vérification : ' + esc(ago(s.lastCheckedAt)) + '</div>';
     var fl = (driveSt && driveSt.folders) || [];
-    if (fl.length && fl.every(function (x) { return x.paused; })) html += '<div class="docTasksWarn">Surveillance en pause : aucun dossier n’est analysé.</div>';
     if (s.aiBlocked && s.aiResumesOn) html += '<div class="docTasksWarn">' + esc(s.aiMessage) + '</div>';
     else if (s.capReached) html += '<div class="docTasksWarn">Plafond de ' + s.maxCallsPerDay + ' analyses IA par jour atteint : la surveillance reprendra demain.</div>';
     if (syncMsg) html += '<p class="msg">' + esc(syncMsg) + '</p>';
@@ -449,9 +447,9 @@
 
   // Retour de Google (?drive=connected&activityId=N) : on rouvre la page Ajouter de cette activité.
   // Ouvre la page Ajouter de l'activité (retour de Google, ou notification ?notif=drivesync).
-  function openForActivity(aid, then) {
+  function openForActivity(aid, then, onFail) {
     aid = String(aid || '');
-    if (!/^\d+$/.test(aid)) return;
+    if (!/^\d+$/.test(aid)) { if (onFail) onFail('Activité introuvable.'); return; }
     var tries = 120;
     (function poll() {
       if (TMT.switchTab && TMT.openGoalsPeriodFromNotification && TMT.getActivitiesCache && (TMT.getActivitiesCache() || []).length) {
@@ -460,13 +458,15 @@
           TMT.openGoalsPeriodFromNotification(aid, null, null);
           var t2 = 60;
           (function wait() {
-            if (String(TMT.currentGoalsActivityId) === aid) { if (then) whenZone(then); else open(); return; }
+            if (String(TMT.currentGoalsActivityId) === aid) { if (then) whenZone(then, onFail); else open(); return; }
             if (t2-- > 0) setTimeout(wait, 100);
+            else if (onFail) onFail('La page de l’activité ne s’est pas ouverte : réessaie.');
           })();
         }, 300);
         return;
       }
       if (tries-- > 0) setTimeout(poll, 100);
+      else if (onFail) onFail('Les activités ne sont pas chargées : réessaie dans un instant.');
     })();
   }
   TMT.openDocTasksForActivity = function (aid) { openForActivity(aid); };
@@ -480,14 +480,14 @@
 
   function render(r) {
     var host = $('docTasksResults');
-    if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">Aucune tâche proposée.</p>'; return; }
+    if (!proposals.length) { pendingMode = false; host.innerHTML = '<p class="hint">L’IA n’a trouvé aucune tâche à proposer (photo trop floue, ou rien de lisible). Reprends la photo de plus près, ou écris la liste dans la consigne.</p>'; return; }
     var html = proposals.map(function (t, i) {
-      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+      var meta = [t.categoryLabel, dayOrWeekLabel(t), t.minutes ? TMT.ui.heures(t.minutes) : ''].filter(Boolean).join(' · ');
       var pick = '';
       if (t.toChoose && categories.length) {
         pick = '<div class="docTasksMeta">Catégorie à choisir : <select class="docTasksCat" data-c="' + i + '">'
           + categories.map(function (c) { return '<option value="' + esc(c.key) + '"' + (c.key === t.key ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></div>';
-        meta = [dayOrWeekLabel(t), t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+        meta = [dayOrWeekLabel(t), t.minutes ? TMT.ui.heures(t.minutes) : ''].filter(Boolean).join(' · ');
       }
       return '<div class="docTasksRowWrap"><label class="docTasksRow"><input type="checkbox" data-i="' + i + '" checked><span>' + esc(t.title) + '<div class="docTasksMeta">' + esc(meta) + '</div></span></label>' + pick + '</div>';
     }).join('');
@@ -515,7 +515,7 @@
   function cToast(t) { $('docTasksChangesToast').textContent = t || ''; }
   function showVal(field, v) {
     if (v === '' || v == null) return '—';
-    if (field === 'time') return v + ' min';
+    if (field === 'time') return TMT.ui.heures(Number(v));
     return v;
   }
   function renderChanges() {
@@ -556,7 +556,7 @@
   }
   var pmeta = { poles: {}, secteurs: {}, order: {}, poleIdx: {}, weeks: {}, periods: {}, existing: {} };
   var PBATCH = 200; // plafond du serveur par appel de résolution
-  function fmtH(m) { m = Math.round(m || 0); var h = Math.floor(m / 60), r = m % 60; return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : ''); }
+  function fmtH(m) { return TMT.ui.heures(m || 0); } // UN SEUL format d'heures (composants.js)
   function nTasks(n) { return isCh() ? n + (n > 1 ? ' modifications' : ' modification') : n + (n > 1 ? ' tâches' : ' tâche'); }
   function isoAdd(iso, n) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return '';
@@ -611,12 +611,12 @@
     return 'S' + Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
   }
   // PARCOURS EN 3 ÉCRANS dans le pop-up (Sommaire › Un pôle › Un secteur), glissement horizontal, points en bas.
-  // Seul l'écran visible est rendu. Couleur d'un pôle = nuance automatique de l'app (TMT.subProjectShade), jamais pour un secteur.
+  // Seul l'écran visible est rendu. Couleur d'un pôle = nuance automatique de l'app (TMT.poleColor), jamais pour un secteur.
   var nav = { s: 0, p: null, g: null }, pcolors = {};
   function poleColor(pk) {
     if (pcolors[pk]) return pcolors[pk];
     var base = TMT.currentGoalsActivityColor || '#674EA7', c = base;
-    try { c = TMT.subProjectShade(base, pmeta.poleIdx[pk] || 0, TMT.SUB_PROJECT_SHADE_COUNT) || base; } catch (e) {}
+    try { c = TMT.poleColor(base, pmeta.poleIdx[pk] || 0) || base; } catch (e) {}
     return (pcolors[pk] = c);
   }
   function mkGrp(id, label) { return { id: id, label: label, flat: [], weeks: {}, wlist: [] }; }
@@ -701,7 +701,7 @@
   function taskHtml(l) {
     if (isCh()) return changeHtml(l);
     var t = l.task, day = dayOrWeekLabel({ day: t.day, week: t.week, noRoom: t.noRoom });
-    var sub = [day, t.minutes ? t.minutes + ' min' : ''].filter(Boolean).join(' · ');
+    var sub = [day, t.minutes ? TMT.ui.heures(t.minutes) : ''].filter(Boolean).join(' · ');
     var h = '<div class="ptTask' + (l.ok ? '' : ' ptNo') + '" data-tid="' + t.id + '"><input type="checkbox" data-tid="' + t.id + '" aria-label="Sélectionner"' + (l.ok ? '' : ' disabled') + '><div class="ptBody"><div class="ptLabel ptTaskTitle">' + esc(t.title) + '</div>';
     if (sub) h += '<div class="ptSub">' + esc(sub) + '</div>';
     if (t.moved) h += '<div><span class="ptFlag">déplacée (semaine pleine)</span></div>';
@@ -767,7 +767,7 @@
     for (var i = 0; i <= nav.s && nav.s > 0; i++) html += '<button type="button" class="goalsDotBtn' + (i === nav.s ? ' on' : '') + '" data-dot="' + i + '" aria-label="Écran ' + (i + 1) + '"' + (i === nav.s ? ' aria-current="true"' : '') + '><span class="goalsDot"></span></button>';
     d.innerHTML = html;
   }
-  // Glissement : même technique que les autres écrans glissants (stats-avance.js, setStatsPage) — l'écran d'arrivée `to`
+  // Glissement : même technique que les autres écrans glissants (stats-avance.js, slidePager) — l'écran d'arrivée `to`
   // entre de dir*100 % à 0, l'écran de départ `from` (posé en absolu) sort de 0 à -dir*100 %. Un seul écran rendu à la fois.
   var pview = null;
   function panes() { return pview ? pview.children : []; }
@@ -959,7 +959,7 @@
     })();
   });
   $('docTasksChangesFind').addEventListener('click', function () {
-    if (busy) return; busy = true; cToast('L’IA cherche…');
+    if (busy) return; busy = true; cToast('');
     cApi('POST', '/generate', {}).then(function (r) {
       busy = false; changes = normCh(r.proposals || []); renderChanges();
       cToast(r.aiBlocked ? r.message : r.capReached ? 'Plafond IA du jour atteint.' : (r.configured === false ? 'IA non configurée.' : (r.failed ? 'L’IA n’a pas répondu.' : (r.added ? r.added + ' nouvelle(s) proposition(s).' : 'Rien de nouveau à proposer.'))));
@@ -983,7 +983,7 @@
     var picked = [];
     Array.prototype.forEach.call($('docTasksResults').querySelectorAll('input[data-i]:checked'), function (c) {
       var t = proposals[Number(c.getAttribute('data-i'))];
-      if (t) picked.push({ title: t.title, key: t.key, week: t.week, day: t.day, minutes: t.minutes });
+      if (t) picked.push({ title: t.title, key: t.key, week: t.week, day: t.day, minutes: t.minutes, minMinutes: t.minMinutes, maxMinutes: t.maxMinutes });
     });
     if (!picked.length) { msg('Coche au moins une tâche.'); return; }
     if (busy) return; busy = true;

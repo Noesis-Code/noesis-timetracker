@@ -9,8 +9,8 @@ const { checkPasswordStrength, makePinRecord } = require('../lib/auth');
 const reset = require('../lib/passwordreset');
 const { sendMail } = require('../lib/mail');
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const GENERIC = { ok: true, message: 'Si un compte correspond à ce courriel, un lien vient d’y être envoyé.' };
+const { isValidEmail } = require('../../public/js/saisie');
+const GENERIC = { ok: true, message: 'Un lien vient d’être envoyé.' };
 
 // Fenêtres glissantes en mémoire (une seule instance).
 const hits = new Map();
@@ -35,22 +35,33 @@ function baseUrl(req, env = process.env) {
 router.post('/password/forgot', async (req, res) => {
   if (limited('ip:' + (req.ip || 'inconnu'), 10, 15 * 60 * 1000)) return res.status(429).json({ error: 'Trop de demandes. Réessaie dans quelques minutes.' });
   const email = String((req.body && req.body.email) || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Adresse email invalide.' });
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Indique une adresse courriel valide (ex. nom@domaine.com).' });
   if (limited('mail:' + email, 3, 60 * 60 * 1000)) return res.json(GENERIC); // au plus 3 courriels par heure pour une même adresse
   const base = baseUrl(req);
   const users = db.prepare('SELECT id, name FROM users WHERE LOWER(email) = ?').all(email);
+  if (!users.length) console.log('[password/forgot] aucun profil correspondant');
   if (base) {
     for (const u of users) {
       try {
+        console.log('[password/forgot] envoi demandé (profil id ' + u.id + ')');
         const link = base + '/?reset=' + reset.issue(u.id);
-        await sendMail({
+        const nom = String(u.name || '').replace(/[&<>"]/g, '');
+        const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#222;max-width:480px">'
+          + '<p>Bonjour ' + nom + ',</p>'
+          + '<p>Tu as demandé à changer ton mot de passe Noèsis.</p>'
+          + '<p style="margin:24px 0"><a href="' + link + '" style="background:#7c6bb0;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:10px;display:inline-block;font-weight:bold">Choisir un nouveau mot de passe</a></p>'
+          + '<p style="font-size:14px;color:#555">Le bouton est valable une heure. Si tu n’as pas fait cette demande, ignore ce courriel : ton mot de passe actuel reste valable.</p>'
+          + '<p style="font-size:14px;color:#555">L’équipe Noèsis</p></div>';
+        const sent = await sendMail({
           to: email,
           subject: 'Noèsis : change ton mot de passe',
+          html,
           text: 'Bonjour ' + (u.name || '') + ',\n\nTu as demandé à changer ton mot de passe Noèsis. Ouvre ce lien dans l’heure qui suit :\n\n' + link
             + '\n\nSi tu n’as pas fait cette demande, ignore ce courriel : ton mot de passe actuel reste valable.\n\nL’équipe Noèsis',
         });
+        console.log('[password/forgot] envoyé (Resend id ' + (sent && sent.id) + ')');
       } catch (e) {
-        console.error('[password/forgot] envoi impossible :', e && e.message ? e.message : e); // jamais de jeton ni de lien dans les journaux
+        console.error('[password/forgot] échec de l’envoi (profil id ' + u.id + ') : ' + (e && e.message ? e.message : e)); // jamais de jeton ni de lien dans les journaux
       }
     }
   } else {

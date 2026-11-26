@@ -87,8 +87,8 @@ router.post('/import/history', (req, res) => {
   `);
   const insertActivity = db.prepare('INSERT INTO activities (name, requiresNote, active, ownerId, shareToken, createdAt) VALUES (?, 0, 1, ?, ?, ?)');
   const insertMember = db.prepare('INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, ?, ?)');
-  const insertEntry = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insertEntry = db.prepare(`INSERT INTO time_entries (userId, activityId, note, startTime, endTime, durationSeconds, isoDate, dayOfWeek, source)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'import')`);
   // Palette du thème de l'utilisateur qui importe (voir lib/theme.js) — pas
   // une palette libre, pour que les activités importées restent cohérentes
   // avec son mode clair/sombre actuel.

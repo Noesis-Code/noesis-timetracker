@@ -43,6 +43,24 @@ function check(env) {
   return out;
 }
 
+// Courriel de récupération du mot de passe (journal séparé de celui d'Expansion).
+function checkRecovery(env) {
+  const out = [];
+  env = env && typeof env === 'object' ? env : {};
+  const str = (k) => (env[k] === undefined || env[k] === null ? '' : String(env[k]));
+  const set = (k) => str(k).trim().replace(/^["'`]+|["'`]+$/g, '').trim() !== '';
+  // Mot de passe oublié (courriel de récupération) : sans clé Resend, sans expéditeur vérifié ou sans adresse du site, le lien n'arrive jamais (la réponse à l'utilisateur reste neutre).
+  if (str('NODE_ENV') !== 'test' && (str('RAILWAY_ENVIRONMENT_NAME') !== '')) {
+    if (!set('RESEND_API_KEY')) out.push('Mot de passe oublié : RESEND_API_KEY absente, aucun lien de récupération ne partira.');
+    else if (!set('RESEND_FROM')) out.push('Mot de passe oublié : RESEND_FROM absent, expéditeur de test (onboarding@resend.dev) qui n\'écrit qu\'au compte Resend : les utilisateurs ne recevront pas leur lien.');
+    if (!set('APP_BASE_URL') && !set('RAILWAY_PUBLIC_DOMAIN')) out.push('Mot de passe oublié : ni APP_BASE_URL ni RAILWAY_PUBLIC_DOMAIN, aucun lien de récupération ne sera construit.');
+  }
+  return out;
+}
+function logRecoveryAtStartup(env, log) {
+  try { for (const m of checkRecovery(env || process.env)) (log || console.warn)('[config courriel] ' + m); } catch (_) { /* ne bloque jamais le démarrage */ }
+}
+
 function logAtStartup(env, log) {
   // Ne fait jamais planter le démarrage ; ni valeur ni texte d'exception n'est journalisé.
   try {
@@ -52,4 +70,4 @@ function logAtStartup(env, log) {
   }
 }
 
-module.exports = { check, logAtStartup };
+module.exports = { check, logAtStartup, checkRecovery, logRecoveryAtStartup };

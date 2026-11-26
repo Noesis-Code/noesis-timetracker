@@ -7,6 +7,7 @@ const { isoDateOf, dayNameOf, formatElapsed } = require('../lib/dates');
 // sous-projet du 4 septembre 2026, retiré). Toute la validation vit dans
 // ce module partagé avec server/routes/history.js — voir son en-tête.
 const { resolveCategoryKey, categorySummary } = require('../lib/entrycategory');
+const { checkEntryTimes } = require('../lib/entryguard');
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ router.post('/timer/start', (req, res) => {
   // propose le choix pendant que le chrono tourne (POST /timer/category) —
   // mais la route l'accepte pour qu'un autre appelant puisse démarrer
   // directement rattaché.
-  const resolved = resolveCategoryKey(activity.id, req.body.category, null);
+  const resolved = resolveCategoryKey(activity.id, req.body.category, null, user.id);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   // 23 septembre 2026 (chrono hors ligne) : un chrono démarré sans réseau
@@ -123,7 +124,7 @@ router.post('/timer/category', (req, res) => {
   const running = db.prepare('SELECT * FROM running_timers WHERE userId = ?').get(user.id);
   if (!running) return res.status(400).json({ error: 'Aucun chrono en cours.' });
 
-  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory);
+  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory, user.id);
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   db.prepare('UPDATE running_timers SET goalCategory = ? WHERE userId = ?').run(resolved.categoryKey, user.id);
@@ -191,6 +192,11 @@ router.post('/timer/stop', (req, res) => {
   if (stopTime <= startTime) {
     return res.status(400).json({ error: "L'heure de fin doit être après l'heure de début." });
   }
+  // Anti-triche : un arrêt simple (aucune heure saisie) garde sa durée réelle, même d'un chrono oublié. Dès que le début
+  // est corrigé à la main : mêmes règles que l'historique (pas de chevauchement, 24 h au plus, 48 h en arrière).
+  // Le chrono reste en cours si l'arrêt est refusé.
+  const guardMsg = checkEntryTimes(user.id, startTime, stopTime, 0, undefined, { manual: req.body.startTime !== undefined, overlapToleranceMs: 60 * 1000, noMaxDuration: req.body.startTime === undefined, noOverlapCheck: req.body.startTime === undefined });
+  if (guardMsg) return res.status(400).json({ error: guardMsg });
 
   const durationSeconds = Math.max(0, Math.round((stopTime - startTime) / 1000));
   const noteChk = textlimits.clean(req.body.note !== undefined ? req.body.note : running.note, { max: textlimits.LIMITS.SESSION_NOTE, word: 'Note', fem: true, kind: 'text' });
@@ -205,7 +211,7 @@ router.post('/timer/stop', (req, res) => {
   // c'est ce qui permet à l'écran de ne rien envoyer quand il n'a pas pu
   // afficher le sélecteur, plutôt que d'effacer un rattachement par
   // omission. `null` détache explicitement.
-  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory);
+  const resolved = resolveCategoryKey(running.activityId, req.body.category, running.goalCategory, user.id, { require: true });
   if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
 
   // isoDate/dayOfWeek calculés dans le fuseau du TÉLÉPHONE de la personne

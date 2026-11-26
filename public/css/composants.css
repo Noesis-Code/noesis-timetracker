@@ -10,6 +10,7 @@
   --pr: 156; --pg: 140; --pb: 200;           /* composantes du violet : nombres enregistrés (@property), pour fondre vers le blanc rosé en 1 s */
   --purple-rgb: var(--pr), var(--pg), var(--pb);
   --on-action: #15111C;
+  --btn-idle-bg: #544B69; --btn-idle-fg: #B3ADB5; /* R52 : bouton d'action inactif = violet d'action pâli (#9C8CC8 à 50 % sur #0B0A0A), texte atténué (contraste 3,7:1) ; jamais noir, jamais gris */
   --white: #ffffff;
   --black: #0B0A0A;
   --bg: #0B0A0A;
@@ -29,10 +30,15 @@
   --radius-xl: 20px;
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
   --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, .55);   /* fond des pop-ups */
+  --shadow-pop: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --obj-pop-w: 440px;   /* largeur commune des pop-ups de l'arbre (heures, création, modification, 4 semaines, fiche) : une seule valeur (R29) */
   --shadow-topbar: 0 2px 14px rgba(0, 0, 0, 0.4);
   --transition-fast: 0.15s ease;
   --veil: rgba(0, 0, 0, 0.5);
   --cmp-dash: rgba(243, 238, 232, 0.28);    /* pointillés des boutons « + » */
+  --cmp-dashed-lg: 1.5px dashed;    /* épaisseur et motif du pointillé du « + » de la barre des volets (la couleur se pose à part) */
+  --cmp-dashed: 1px dashed var(--cmp-dash);    /* trait pointillé unique du « + » d'ajout (.cmpAdd) et des titres de secteur de l'arbre (couleur du secteur posée à part) */
   --good: #6FC9A0;                          /* R12 : semaine atteinte */
   /* Verre (R14/R17, S1 étape 2) : UNE seule recette de verre calme pour toute l'app, TimeTracker, Expansion et Trade Tracker. */
   --glass-bg: rgba(243, 238, 232, .05);
@@ -52,6 +58,9 @@
   background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
+/* Menus ⋮ (.statsPeriodMenu, 8 nov. 2026, demande d'Émilien) : même verre que .cmpGlass ; ouvert, posé sur la page en position fixe (composants.js) pour passer au-dessus des sections. */
+:root .statsPeriodMenu { background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+:root .statsPeriodMenu.cmpMenuFloat { position: fixed; right: auto; bottom: auto; z-index: 300; }
 
 /* Halo lumineux unique (R11/R29, 24 oct. 2026) : celui du Chrono (cercle violet flou en bas de la page), le même sur toutes les pages et fenêtres.
    À poser sur l'élément plein écran (position fixed ou relative, empilement propre) ; jeton --halo. */
@@ -73,6 +82,9 @@
 .cmpClose:active { transform: scale(0.92); }
 /* ✕ dessiné (14 px), identique sur tous les appareils : la police du glyphe ✕ le rendait plus petit sur téléphone (demande d'Émilien, 25 oct. 2026) */
 .cmpClose::before { content: ''; width: 14px; height: 14px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+/* « Pas encore » (R33) : carte au contour POINTILLÉ gris et au titre atténué (couleur de texte secondaire) ; une fois choisie (.on), elle redevient une carte comme les autres. UNE définition partagée (R29). */
+.aiModeChoice.cmpDashed:not(.on) { border: 1px dashed var(--cmp-dash); box-shadow: none; }
+.cmpDashed:not(.on) .aiModeChoiceTitle { color: var(--text-light); }
 .cmpAdd:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 /* Jamais de carré autour d'une croix ni d'une icône, même au focus (30 oct. 2026, Émilien) : ✕, croix de retrait, crayon, flèche d'envoi, trombone et boutons-icônes. */
 .cmpClose:focus, .cmpClose:focus-visible, .cmpRemove:focus, .cmpRemove:focus-visible, .cmpEdit:focus, .cmpEdit:focus-visible, .cmpSend:focus, .cmpSend:focus-visible,
@@ -91,11 +103,13 @@
 .cmpRemove:disabled { opacity: .5; }
 /* Croix de retrait dans l'angle haut droit de sa cellule (R32, 30 oct. 2026) : la cellule parente est en position: relative. Remplace toute icône de corbeille. */
 .cmpRemove--corner { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
+/* Variante « + » d'ajout (18 nov. 2026) : même pastille que la croix de retrait, violette, croix tournée de 45° ; seuls la couleur et la rotation changent. */
+.cmpRemove--add { background-color: var(--link-blue); transform: rotate(45deg); } /* 18 nov. 2026 : nuance standard plus pâle du violet (--link-blue, R11), moins intense */
 
 /* « + » pointillé large (R19/R23) : bas des listes (pôles, secteurs, activités, règles…) */
 .cmpAdd {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; box-sizing: border-box; min-height: 48px; padding: 11px;
-  border-radius: var(--radius-lg); font: inherit; font-size: 13.5px; color: var(--text); background: none; border: 1px dashed var(--cmp-dash); cursor: pointer;
+  border-radius: var(--radius-lg); font: inherit; font-size: 13.5px; color: var(--text); background: none; border: var(--cmp-dashed); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .cmpAdd b { color: var(--purple); font-size: 20px; font-weight: 700; line-height: 1; }
@@ -131,11 +145,11 @@
   border: 0; border-radius: var(--radius-lg); font: inherit; font-size: 15px; font-weight: 600; background: var(--purple); color: var(--on-action);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.cmpBtn:disabled { opacity: .5; cursor: not-allowed; }
+.cmpBtn:disabled, .cmpBtn.cmpBtnInactif, .cmpSend:disabled, .tasksSaveBtn:disabled, .objStepBtn:disabled, .btn-primary:disabled, .btnBrique:disabled:not(.btnDanger), .offer1PromoBtn:disabled, .btnPrimary:disabled, .sendBtn:disabled, .goalsYearSave:disabled { background: var(--btn-idle-bg); color: var(--btn-idle-fg); box-shadow: none; opacity: 1; cursor: default; } /* R52 : UNE règle pour tout bouton d'action violet inactif (jamais noir ni gris) */
 .cmpBtnDanger { background: var(--danger); }
-/* Enregistrer (R35) : gris tant que rien n'a changé (.cmpBtnIdle), violet dès qu'il y a un changement. */
+/* Enregistrer (R35/R52) : violet pâle tant que rien n'a changé (.cmpBtnInactif ou :disabled), violet d'action dès qu'il y a un changement. .cmpBtnIdle = bouton secondaire neutre (actif). */
 .cmpBtn.cmpBtnIdle { background: var(--card); color: var(--text-light); box-shadow: inset 0 0 0 1px var(--border); }
-.cmpBtn.cmpBtnIdle:disabled { opacity: 1; }
+.cmpBtn.cmpBtnIdle:disabled { opacity: .5; }
 
 /* Fenêtre de confirmation (TMT.ui.confirm) : remplace window.confirm ; verre commun (.cmpGlass), ✕ en haut à droite */
 .cmpConfirmVeil { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--veil, rgba(0, 0, 0, .5)); }
@@ -180,8 +194,12 @@
 .cmpNavLabel { flex: 1; min-width: 0; text-align: center; font-size: 20px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
 .cmpNav--sm .cmpNavArrow { font-size: 18px; }
 .cmpNav--sm .cmpNavLabel { font-size: 14px; font-weight: 600; }
+/* Libellé de largeur FIXE (5 nov. 2026, Émilien) : la zone du libellé garde la largeur maximale que le texte peut prendre (--nav-label-w) ; les flèches, resserrées, collent à ce bloc et ne bougent JAMAIS quand le texte change ; le bloc reste centré. */
+.cmpNav--fixed { justify-content: center; gap: 0; }
+.cmpNav--fixed .cmpNavArrow { width: 32px; }
+.cmpNav--fixed .cmpNavLabel { flex: 0 0 var(--nav-label-w, 10em); width: var(--nav-label-w, 10em); overflow-wrap: normal; white-space: nowrap; }
 
-/* Sélecteur .cmpSeg (R42, décision d'Émilien du 27 oct. 2026) : UN composant pour tout choix entre quelques options (Aujourd'hui | Activités, Catégories | Statistiques, langues, catégories d'un message…).
+/* Sélecteur .cmpSeg (R48, décision d'Émilien du 27 oct. 2026) : UN composant pour tout choix entre quelques options (Aujourd'hui | Activités, Catégories | Statistiques, langues, catégories d'un message…).
    Aucun conteneur (ni fond, ni liseré). Options pleine largeur à parts égales, texte 13 px centré. Option active = pastille de 28 px (rayon 8, --seg-active-bg), texte plein en 600, aucun contour ;
    inactive = texte gris en 500, sans fond. Filet vertical 1×14 px entre les options. Zone de toucher de 44 px (hauteur de l'option). L'option active se marque par .active, .on, aria-pressed ou aria-selected.
    La triple pseudo-classe :root passe devant les anciens styles de boutons de période/thème ; ne jamais redéfinir ce rendu écran par écran. */
@@ -206,20 +224,6 @@
    - Expansion (modeExpansion pendant une demande de la barre d'ajout ; modeExpansionWin tant qu'une fenêtre Expansion est ouverte) : blanc rosé #F0DDE0, réservé à Expansion. */
 /* Fondu de 1 s entre les couleurs de repère (violet, bleu de l'Horaire, blanc rosé d'Expansion), dans les deux sens : les jetons de couleur sont ENREGISTRÉS (@property) pour pouvoir s'animer.
    ⚠️ Ne pas retirer ce bloc : sans lui, les couleurs changent d'un coup (perdu par erreur entre v841 et v851). */
-@property --pr { syntax: '<number>'; inherits: true; initial-value: 156; }
-@property --pg { syntax: '<number>'; inherits: true; initial-value: 140; }
-@property --pb { syntax: '<number>'; inherits: true; initial-value: 200; }
-@property --purple { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
-@property --purple-dark { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
-@property --brique { syntax: '<color>'; inherits: true; initial-value: #9C8CC8; }
-@property --violet-soft { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
-@property --violet-promo { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
-@property --blue { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
-@property --unread { syntax: '<color>'; inherits: true; initial-value: #C4B9E6; }
-@property --halo { syntax: '<color>'; inherits: true; initial-value: rgba(156, 140, 200, .28); }
-:root { --brique-rgb: var(--pr), var(--pg), var(--pb);
-  transition: --pr 1s ease, --pg 1s ease, --pb 1s ease, --purple 1s ease, --purple-dark 1s ease, --brique 1s ease, --violet-soft 1s ease, --violet-promo 1s ease, --blue 1s ease, --unread 1s ease, --halo 1s ease; }
-@media (prefers-reduced-motion: reduce) { :root { transition: none; } }
 :root.modeCreation {
   --purple: #DDE0F8; --pr: 221; --pg: 224; --pb: 248; --purple-dark: #DDE0F8; --brique: #DDE0F8;
   --violet-soft: #DDE0F8; --violet-promo: #DDE0F8; --blue: #DDE0F8; --unread: #DDE0F8; --halo: rgba(221, 224, 248, .16);
@@ -238,6 +242,11 @@
 :root:root:root .cmpSeg > :is(.active, .on, [aria-pressed="true"], [aria-selected="true"]) { color: var(--text); font-weight: 600; }
 :root:root:root .cmpSeg > :is(.active, .on, [aria-pressed="true"], [aria-selected="true"])::before { background: var(--seg-active-bg); }
 :root:root:root .cmpSeg > * + *::after { content: ''; position: absolute; left: 0; top: 15px; width: 1px; height: 14px; border: 0; border-radius: 0; background: var(--seg-sep); }
+/* Tableau 2 × 2 (.cmpGrid) : deux .cmpSeg l'un sous l'autre ; la barre verticale de chaque ligne couvre toute la hauteur de la ligne et la barre horizontale entre les deux lignes la coupe au centre (les traits SE CROISENT). UNE seule définition (R29) : Niveau, Objectifs inférieurs… */
+:root:root:root .cmpGrid { position: relative; margin: 0 0 16px; --seg-sep: var(--sep); }
+:root:root:root .cmpGrid .cmpSeg { margin: 0; }
+:root:root:root .cmpGrid::before { content: ''; position: absolute; left: 0; right: 0; top: 44px; height: 1px; z-index: 1; background: var(--sep); }
+:root:root:root .cmpGrid .cmpSeg > * + *::after { top: 0; bottom: 0; height: auto; }
 .cmpSeg > *:focus-visible { outline: 2px solid var(--purple); outline-offset: -2px; border-radius: 8px; }
 
 /* Sous-catégories d'un écran (.cmpSubTabs, R44, 28 oct. 2026) : texte simple ; la sous-catégorie active est soulignée en violet
@@ -259,7 +268,6 @@
 }
 .cmpSend::before { content: ''; width: 18px; height: 18px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5.5 12L12 5.5 18.5 12'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5.5 12L12 5.5 18.5 12'/%3E%3C/svg%3E") center / contain no-repeat; }
 .cmpSend::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--cmp-hit)); height: max(100%, var(--cmp-hit)); transform: translate(-50%, -50%); }
-.cmpSend:disabled { opacity: 0.35; cursor: default; }
 .cmpSend:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 
 /* Œil « voir / masquer le mot de passe » (26 oct. 2026) : défini une seule fois (R29), posé par app.js sur chaque champ mot de passe ; zone de toucher de 44 px. */
@@ -269,3 +277,67 @@
 .cmpPwdWrap > input.hidden + .cmpEye { display: none; }
 .cmpEye[aria-pressed="true"] { color: var(--purple); }
 .cmpEye[aria-pressed="true"]::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M3 3l18 18'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M3 3l18 18'/%3E%3C/svg%3E"); }
+
+
+/* État vide commun (Répartition du Chrono et des Statistiques de la Feuille de route) : même message sans donnée, centré, au rendu de .hint. */
+.cmpEmpty { text-align: center; }
+
+/* Bouton de statut (S46, P12…) : petit bouton entouré, transparent tant que la période/semaine est à venir ou sans tâche ; coloré (R12) sinon. TMT.ui.statusBtn. */
+.cmpStatus { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-light); font: inherit; font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer; }
+.cmpStatus[aria-disabled="true"] { cursor: default; }
+.cmpStatus::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+.cmpStatus--ok { background: var(--good); border-color: var(--good); color: var(--white); }
+.cmpStatus--mid { background: var(--partial); border-color: var(--partial); color: var(--white); }
+.cmpStatus--bad { background: var(--danger); border-color: var(--danger); color: var(--white); }
+
+
+/* Séparateur de ligne (R22) : trait de 1 px dessiné par ::after, d'un bord à l'autre de la ligne, même opacité partout (--sep) ; contrairement à une bordure du bas il ne disparaît pas aux alignements de pixels fractionnaires (écrans @3x, lignes à hauteur non entière). Mettre la classe sur la ligne. */
+.cmpSepRow { position: relative; border: 0; box-sizing: border-box; }
+.cmpSepRow::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--sep); pointer-events: none; }
+/* R51 : la DERNIÈRE ligne d'une liste, d'une section ou d'un pop-up n'a JAMAIS de trait en dessous. Règle commune (jamais de correction au cas par cas) : .cmpSepRow et toute ligne de liste qui porte un trait du bas le perdent quand elle est la dernière de son conteneur. Un bouton d'action posé APRÈS la liste, dans le même conteneur, est un frère : la ligne n'est alors plus la dernière et garde son trait (le trait sépare la liste du bouton) ; posé hors du conteneur de la liste, il laisse la liste finir sans trait. */
+.cmpSepRow:last-child::after { content: none; }
+:root:root:root :is(.tasksPopRow, .docTasksPopRow, .docTasksRow, .docTasksFileRow, .retTRow, .consentItem, .notifRow, .categoryPickerRow, .categoryDropdownOption, .historyEntryCompact, .subProjectRowHeader, .subProjectItem, .objWeek, .activityEditBar):last-child { border-bottom: 0; }
+:root:root:root :is(#settingsParamsCard .notifRow, #settingsParamsCard .consentItem, #activitiesList .activityEditBar, .catList .activityEditBar):last-child { border-bottom: 0; }
+
+/* Calendrier (bande de la vue Tâches ET grille du calendrier) : numéro de la semaine à gauche de sa rangée, périodes à gauche du mois, jours de la période soulignés. Défini une seule fois (R29). */
+.tasksFilterBtn[aria-expanded="true"]::after, .statsPeriodMenuWrap:has(> .statsPeriodMenu:not(.hidden)) > .caSubProjectBtn::after { content: '\25B4'; } /* bouton « Tous ▾ » des filtres d'activité (Bilan, Tâches, statistiques) : la flèche change de sens à l'ouverture */
+.calWeekRow { position: relative; margin-left: 30px; }
+.calWeekRow > .goalsCalWeek { padding: 4px; border-radius: var(--radius-lg); }
+.calWeekNum, .calWeekNum.cmpStatus { position: absolute; left: 0; top: 50%; transform: translate(calc(-100% - 3px), -50%); z-index: 2; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 0; border: 0; background: none; color: var(--text-light); font-size: 10px; font-weight: 400; line-height: 1.2; text-align: center; }
+.calWeekNum > i { font-style: normal; color: var(--purple); } /* numéro de période sous le S, dans la même pastille sur le trait */ /* numéro de la semaine centré sur le trait gauche du cadre */
+.calWeekRow .goalsCalWeekTitle { text-align: center; padding: 0 22px; } /* titre de l'objectif hebdomadaire : centré, à l'écart du numéro S/P (gauche) et de la pastille (droite), jamais collé aux côtés */
+.goalsCalHead, .tasksWeekHead .goalsCalHead { margin-left: 30px; }
+.goalsCalDays { position: relative; }
+.goalsCalDay { position: relative; z-index: 1; }
+/* R50 : bouton « Enregistrer » d'un pop-up, DÉCOLLÉ du corps et à la place de la barre des volets (TMT.ui.dockEnregistrer, js/composants.js). Même bouton que celui du bas d'Objectifs/Tâches (.tasksSaveBtn, R35 : gris tant que rien n'a changé, violet au changement), mêmes 16 px de marge et 52 px de haut que la barre des volets. */
+.cmpDockSlot { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.cmpDockSave { position: fixed; left: 0; right: 0; margin: 0 auto; width: min(896px, calc(100% - 32px)); box-sizing: border-box; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1; }
+.cmpDockSave.hidden { display: none; }
+.cmpDockSave { pointer-events: none; } .cmpDockSave > * { pointer-events: auto; } /* seul le bouton capte le toucher : le conteneur ne bloque jamais un Retour, une croix ou la barre du bas */
+.cmpDockSave .tasksSaveBtn { display: flex; height: 52px; }
+.cmpDockHost:has(> .cmpDockSave:not(.hidden)) > :not(.cmpDockSave):not(.cmpDockSlot) { margin-bottom: 84px; } /* le contenu de la fenêtre s'arrête au-dessus du bouton */
+:root.dockSaveOn .tabbar { visibility: hidden; } /* le bouton REMPLACE la barre des volets ; elle revient à la fermeture */
+
+/* Tableau standard (R29) : libellé | valeur(s), trait vertical et traits fins ; un seul composant, utilisé par « Ajuste ton temps » et par la Répartition des tâches de la fiche d'une catégorie. .retTable--3 = trois colonnes (nom | heures | pourcentage) ; .retVal--end aligne à droite ; .retInput = champ discret dans la cellule (on touche la valeur pour la modifier, aucune case encadrée). */
+.retTable { margin: 0 -16px; border-top: 1px solid var(--sep); }
+.retTRow { display: grid; grid-template-columns: 1fr 1fr; min-height: 44px; border-bottom: 1px solid var(--sep); }
+.retLabel, .retVal { display: flex; align-items: center; padding: 8px 16px; font-size: 14px; color: var(--text); }
+.retLabel { border-right: 1px solid var(--sep); }
+.retValQuiet { color: var(--text-light); }
+.retTable--3 .retTRow { grid-template-columns: minmax(0, 1fr) 88px 72px; }
+.retTable--3 .retVal:not(:last-child) { border-right: 1px solid var(--sep); }
+.retVal--end { justify-content: flex-end; }
+label.retVal { cursor: text; }
+.retVal:focus-within { background: rgba(var(--purple-rgb), .08); }
+:root .retTable .retInput { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--purple); font: inherit; text-align: right; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.retVal:has(.retInput:not(:disabled)) { color: var(--purple); } /* R54 : le « h » suit la valeur modifiable */
+:root .retTable .retInput:disabled { color: var(--text); }
+:root .retTable .retInput:not(:disabled)::placeholder { color: var(--purple); opacity: 1; } /* R54 : le « 0 » du champ vide est violet comme le « h » */
+.retTotal .retVal { font-weight: 600; }
+/* Pop-up « Ajouter un membre » (19 nov. 2026) : les bulles rondes des suggestions de Communauté (.discoveryCircles) à la ligne, bulle choisie cerclée de violet ; jamais de nouvelle couleur. */
+.discoveryCircles.membresPick { flex-wrap: wrap; overflow: visible; margin: 0 0 16px; }
+.membresPick .discoveryCircleBtn .meta { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.membresPick .discoveryCircleBtn[aria-pressed="true"] .smallAvatar { outline: 2px solid var(--purple); outline-offset: 2px; }
+
+/* Point de pagination (zone tactile 44 px ; le point visuel reste à 7 px). */
+.goalsDotBtn { width: 17px; height: 44px; /* pas de 17 px = écartement d'origine (7 px + 10 px) */ padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }

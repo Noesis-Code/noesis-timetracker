@@ -184,11 +184,6 @@ input[type=time]:focus, select:focus, textarea:focus {
 /* Violet (10 septembre 2026, demande d'Emilien : les liens « Lire les conditions d'utilisation », « J'ai déjà un profil » et « Créer un nouveau profil » passent de bleu à violet) — anciennement var(--blue). */
 .switchLink a { color: var(--purple); text-decoration: none; }
 .switchLink a:hover { text-decoration: underline; }
-/* 11 septembre 2026 (demande d'Emilien) : écran "ajoute Noèsis à ton écran d'accueil", affiché à la place de la création/recherche de profil tant que l'app n'est pas ouverte en mode autonome (raccourci). */
-.onbInstallIcon { display: flex; justify-content: center; margin-bottom: 12px; }
-.onbInstallSteps { text-align: left; margin: 14px 0; padding-left: 22px; color: var(--text); font-size: 14px; line-height: 1.6; }
-.onbInstallSteps li { margin-bottom: 8px; }
-.onbInstallSteps li:last-child { margin-bottom: 0; }
 .userList { max-height: 220px; overflow-y: auto; text-align: left; margin-bottom: 8px; }
 /* Les 3 règles ::-webkit-scrollbar dédiées à .userList (barre grise fine visible) ont été retirées le 3 septembre 2026 : la règle générale plus haut dans ce … */
 .userChip {
@@ -533,6 +528,8 @@ textarea {
   padding: 16px 3px 0; text-align: left;
   box-sizing: border-box; height: auto; min-width: 0;
 }
+.stopConfirmCard { position: relative; }
+#stopCloseBtn { position: absolute; top: 4px; right: 0; }
 .stopConfirmCard > *, .stopConfirmCard .stopDateTimeRow, .stopConfirmCard .categoryPicker { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .stopFieldLabel { font-size: 13px; color: var(--text-light); margin: 10px 0 4px; }
 /* Heure de début/fin en DEUX champs natifs séparés (date + heure) plutôt qu'un seul <input type="datetime-local"> — voir le commentaire détaillé dans app.js (toDateValue/toTimeValue/combineDateTime). */
@@ -566,15 +563,6 @@ textarea {
 #chronoHistoryHeader:hover { filter: brightness(1.12); }
 :root[data-theme="dark"] #chronoHistoryHeader { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
 #chronoHistoryHeader .sectionTitle { margin: 0; }
-/* 29 septembre 2026 (Piste B, volet Feuille de route) : SEUL le bouton Historique de la page 1 devient
-   vitreux (comme celui du Chrono) ; zone d'écriture et puces d'activité restent inchangées (décision d'Emilien). */
-#tab-goals #goalsTasksHistoryHeader {
-  border: 1px solid var(--glass-border); background: var(--glass-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 10px rgba(0, 0, 0, 0.08);
-  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-}
-#tab-goals #goalsTasksHistoryHeader:hover { background: var(--glass-bg); filter: brightness(1.12); }
-:root[data-theme="dark"] #tab-goals #goalsTasksHistoryHeader { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24); }
 #chronoHistoryPanel { margin-top: 10px; }
 .historyNav { margin-bottom: 10px; }
 .historyEditFields { margin-top: 8px; text-align: left; }
@@ -655,6 +643,11 @@ textarea {
 }
 .notifRow:last-child { border-bottom: none; }
 .notifRowLabel { font-size: 14px; color: var(--text); }
+/* Réglages > Modules : liste des volets réordonnable (poignée ≡ à gauche, libellé qui prend la place) ; .catDropLine se positionne dans la liste. */
+#modulesList { position: relative; }
+#modulesList .cmpAdd { margin-bottom: 8px; }
+.modulesRowLabel { flex: 1 1 auto; }
+.modulesRows .notifRow.dragging { opacity: .75; background: var(--card); }
 .toggleSwitch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
 .toggleSwitch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .toggleSwitchTrack {
@@ -709,8 +702,6 @@ textarea {
   transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 .periodBtn.active { background: var(--purple); color: var(--on-action); border-color: var(--purple); }
-#goalsPage2ModeDiscBtn { position: relative; }
-#goalsPage2ModeDiscBtn .notifDot { top: 2px; right: 2px; border-color: var(--card); }
 @media (hover: hover) {
   .periodBtn:hover:not(.active) { background: var(--hover-bg); }
 }
@@ -760,7 +751,7 @@ textarea {
 /* ===== Feuille de temps (heatmap hebdomadaire) — 29 août 2026 ===== */
 .timesheetNav { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .timesheetNav .cmpNav { flex: 1; min-width: 0; }
-.timesheetNav .cmpNavLabel { font-size: 13px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } /* 29 oct. 2026 : le libellé de période tient sur deux lignes au plus */
+.timesheetNav .cmpNavLabel { font-size: 12px; font-weight: 400; line-height: 1.2; overflow-wrap: normal; word-break: normal; hyphens: none; white-space: nowrap; color: var(--text-light); } /* 5 nov. 2026 (Émilien) : texte plus petit, léger, jamais coupé au milieu d'un mot (« Du 26/10 au 01/11 » entier) */ /* 29 oct. 2026 : le libellé de période tient sur deux lignes au plus */
 .timesheetScroll {
   overflow-x: auto; background: var(--card); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card); padding: 10px 8px;
@@ -1256,7 +1247,6 @@ body.scrollLock { overflow: hidden; }
   resize: none; overflow: hidden; line-height: 1.35;
 }
 /* 16 septembre 2026 (discussion "Objectifs — C", 4e passage), demande d'Emilien : « lorsque j'écris, le pointeur se positionne en bas de la case, or je souhaite … */
-#communityDiscussionInput { min-height: 0; padding-left: 40px; }
 /* Trombone : tout à gauche, DANS la zone d'écriture (centré verticalement comme Envoyer). */
 .chatAttachBtn {
   position: absolute; left: 6px; bottom: 8px;
@@ -1291,8 +1281,7 @@ body.scrollLock { overflow: hidden; }
 .btnDanger.btnDanger:hover:not(:disabled) { background: rgba(var(--brique-rgb), 0.14); }
 .chatComposerRow .iconBtn:hover:not(:disabled),
 .btnBrique.btnBrique:hover:not(:disabled) { background: rgba(var(--purple-rgb), 0.14); }
-.chatComposerRow .iconBtn:disabled,
-.btnBrique.btnBrique:disabled { opacity: 0.45; }
+.chatComposerRow .iconBtn:disabled { opacity: 0.45; } /* .btnBrique:disabled : violet pâle commun (R52, css/composants.css) */
 /* Bouton orange brique PLEIN (2e recette de bouton, avec le contour .btnBrique ci-dessus) : fond --brique, texte blanc.
    Seules les dimensions/graisses propres à chaque bouton restent dans leur fichier. */
 .docTasksApplyBtn, .docTasksDriveBtn, .accompCodeOk {
@@ -1300,18 +1289,6 @@ body.scrollLock { overflow: hidden; }
 }
 .chatComposer .msg { text-align: right; margin-top: 6px; }
 .chatComposer .msg:empty { display: none; }
-
-/* ----- Fil d'activité : le composeur tient le bas de l'ÉCRAN ----- */
-#goalsActivitySwitcherScroll.chatMode { overflow-y: hidden; }
-#goalsActivitySwitcherScroll.chatMode #goalsDiscView,
-#goalsActivitySwitcherScroll.chatMode #communityDiscussionBlock {
-  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-}
-#goalsActivitySwitcherScroll.chatMode #communityDiscussionBlock { margin-bottom: 0; }
-#goalsActivitySwitcherScroll.chatMode #communityDiscussionList {
-  flex: 1 1 auto; min-height: 0; max-height: none;
-}
-#goalsActivitySwitcherScroll.chatMode .discussionComposer { flex: 0 0 auto; }
 
 /* Flux "Suivi" (#followingFeed, Communauté) : contrairement à #communityMyPostsList/#profileDiscussionCommunityList (encadrées par .discussionList, boîte à … */
 #followingFeed { display: flex; flex-direction: column; gap: 8px; }
@@ -1411,7 +1388,7 @@ body.scrollLock { overflow: hidden; }
 /* Bouton "Rechercher" DANS la zone de texte : repris tel quel du gabarit .chatComposerRow/.iconBtn (déjà défini plus haut, voir sa note) plutôt qu'une variante … */
 .communitySearchRow { margin-bottom: 8px; }
 /* Barre de recherche de l'onglet Communauté (maquette v2) : loupe à l'intérieur, à gauche ; plus de bouton « Rechercher » (la recherche part avec Entrée). */
-#communitySearchBar .communitySearchRow input[type="text"] { display: block; padding-left: 46px; padding-right: 16px; } /* display: block : sans la marge de descente d'une ligne de texte, la loupe (top: 50 %) est au milieu exact du champ */
+#communitySearchBar .communitySearchRow input[type="text"], .activityMembersSearchWrap .communitySearchRow input[type="text"] { display: block; padding-left: 46px; padding-right: 16px; } /* display: block : sans la marge de descente d'une ligne de texte, la loupe (top: 50 %) est au milieu exact du champ */
 .communitySearchIcon {
   position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
   width: 18px; height: 18px; color: var(--text-light); pointer-events: none; z-index: 1;
@@ -1489,12 +1466,18 @@ body.scrollLock { overflow: hidden; }
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage),
 .goalTaskEditModal { align-items: center; padding: 16px; box-sizing: border-box; }
 .communityMembersModal:not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage) > .communityMembersModalCard,
-.goalTaskEditCard, .goalsDiscSheet { border: 1px solid var(--sheet-line); border-radius: var(--radius-xl); }
+.goalTaskEditCard { border: 1px solid var(--sheet-line); border-radius: var(--radius-xl); }
+/* Pop-up ouvert : le fond ne défile plus, au clavier non plus (Android : le fond et la fenêtre bougeaient quand le clavier s'ouvrait). Un seul verrou pour tous les pop-up centrés. */
+html:has(.communityMembersModal:not(.hidden):not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage)),
+html:has(.communityMembersModal:not(.hidden):not(#activityPage):not(#profilePage):not(#goalsActivitySwitcher):not(#goalsDetailPage)) body { overflow: hidden; overscroll-behavior: none; }
+.communityMembersModal, .communityMembersModalCard { overscroll-behavior: contain; }
 /* Fenêtres imbriquées dans une page plein écran (ex. Membres dans la fenêtre d'activité) : mêmes règles, ligne fine incluse. */
 #activityPage .communityMembersModal > .communityMembersModalCard,
 #profilePage .communityMembersModal > .communityMembersModalCard,
 #goalsActivitySwitcher .communityMembersModal > .communityMembersModalCard,
 #goalsDetailPage .communityMembersModal > .communityMembersModalCard { border: 1px solid var(--glass-border); }
+/* Confirmation « Supprimer le secteur » : au-dessus de la fenêtre Catégories (.editPop, z-index 120). */
+#categoryRemoveModal { z-index: 130; }
 .announcementBody { white-space: pre-wrap; line-height: 1.5; margin: 0; }
 .communityMembersModalHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
@@ -1798,6 +1781,7 @@ button { -webkit-user-select: none; user-select: none; }
 }
 
 /* Suivre + Contact de la page de visite (7 septembre 2026, demande d'Emilien) — voir #viewProfileActionsRow dans index.html et renderViewProfileFollowRow dans app.js. */
+.viewProfileBlockSlot { margin-top: 24px; }
 .viewProfileActionsRow {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
 }
@@ -1849,6 +1833,90 @@ button { -webkit-user-select: none; user-select: none; }
 .viewProfileProjectCase .seekingBadges { margin: 0; }
 /* Panneau de détail UNIQUE, sous la bande — pas un par case, pour que la bande elle-même ne grandisse jamais. */
 .viewProfileProjectDetail { margin-top: 4px; }
+/* Communauté en deux pages (1er nov. 2026) : hôte du glissement, points de pagination au même endroit que ceux du Chrono. */
+#communityPagesHost { position: relative; min-height: calc(100vh - 220px); }
+#communityPageDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 20; bottom: var(--tabbar-h, 64px); display: flex; gap: 0; }
+#communityPageDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+#communityPageDots .goalsDotBtn.on .goalsDot { opacity: 1; }
+#communityPageDots .goalsDotBtn { align-items: flex-end; padding-bottom: 8px; box-sizing: border-box; }
+#tab-community.communityOnPage2 #communitySeekingFilters { display: none; }
+#communityGroupsBlock, #communityMyGroupsBlock { margin-bottom: 24px; }
+#communityGroupCreateBtn { margin-top: 16px; }
+#communityGroupDeleteBtn { margin-top: 12px; }
+/* Réseau des communautés (page 2) : violet seulement (R11), aucune couleur de secteur (R16), verre calme. */
+.netSvg { display: block; margin: 0 0 12px; overflow: visible; }
+.netSvg .netZone { fill: var(--glass-calm-bg); stroke: var(--glass-calm-line); stroke-width: 1; }
+.netSvg .netZoneLabel, .netSvg .netShared { fill: var(--text-light); font-size: var(--netfs, 13px); }
+.netSvg .netZoneLabel { text-anchor: middle; }
+.netSvg .netShared { text-anchor: middle; fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.netSvg .netLink { stroke: var(--purple); stroke-width: 1.5; opacity: .45; }
+.netSvg .netLink.weak { opacity: 0; }
+.netSvg .netLink.on { stroke: var(--purple); stroke-width: 2; opacity: 1; }
+.netSvg .netNode { cursor: pointer; transition: opacity var(--transition-fast); }
+.netSvg .netNode.dim { opacity: .25; }
+.netSvg .netDot { fill: rgba(var(--purple-rgb), .22); stroke: var(--purple); stroke-width: 1; }
+.netSvg .netNode.joined .netDot { fill: var(--purple); }
+.netSvg .netNode.sel .netDot { stroke-width: 3; }
+.netSvg .netLink.netSpoke { opacity: .6; }
+.netSvg .netCenter .netCount { fill: var(--on-action); }
+.netSvg .netNode.netHidden .netDot { fill: none; stroke: var(--text-light); stroke-dasharray: 3 3; }
+.netSvg .netNode.netHidden .netCount { fill: var(--text-light); }
+.netSvg .netNode.netHere .netDot, .netSvg .netCenter .netDot { fill: var(--purple); }
+.netSvg .netNode.netHere .netCount { fill: var(--on-action); }
+#communityMemberPick { min-height: 48px; margin-top: 8px; }
+/* Réseau personnel (page 3) : violet seulement ; les couleurs de la toile sont des couleurs de DONNÉE (palette des pôles, R16). */
+#communityPage3 { padding-bottom: 24px; }
+.netTag { display: inline-block; margin: 4px 4px 0 0; padding: 2px 10px; border: 1px solid var(--glass-calm-line); border-radius: 999px; font-size: 13px; color: var(--link-blue, var(--text)); }
+#netCrmOverview { display: flex; flex-direction: row; gap: 16px; align-items: center; cursor: default; }
+#netCrmOverviewBlock { margin-top: 16px; }
+#netCrmSeeWeb { margin-top: 12px; }
+#netCrmMini { flex: 0 0 150px; width: 150px; height: 110px; }
+.netStats .netBig { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+.netFilters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.netFilters select { min-width: 0; }
+#netCrmPick { margin-top: 8px; min-height: 48px; }
+#netCrmPick .activityRow { margin-top: 8px; }
+.netConnRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; }
+#netCrmSeg, #netCrmBy { margin-bottom: 12px; }
+#netEventName { margin: 0 0 12px; }
+#netCrmAddBtn { margin: 12px 0 0; }
+.netWhen { margin-left: 4px; }
+/* Globe du réseau : violet seulement, un point par contact. */
+.netGlobe { display: block; width: calc(100% + 32px); height: 480px; margin: -56px -16px 8px; touch-action: none; cursor: grab; user-select: none; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent); }
+#netCrmSeg { position: relative; z-index: 2; }
+.netGlobe:active { cursor: grabbing; }
+.netGlobe .gOcean { fill: var(--bg); stroke: var(--glass-calm-line); stroke-width: 1; }
+.netGlobe .gLand { fill: rgba(var(--purple-rgb), .3); stroke: rgba(var(--purple-rgb), .55); stroke-width: .8; stroke-linejoin: round; }
+.netGlobe .gGrat { fill: none; stroke: var(--glass-calm-line); stroke-width: .5; opacity: .6; }
+.netGlobe .gLink { fill: none; stroke: var(--purple); stroke-width: 1; opacity: .3; }
+.netGlobe .gLink.on { stroke-width: 2; }
+.netGlobe .netNode.dim { opacity: .3; }
+.netGlobe .gPin { fill: var(--purple); stroke: var(--bg); stroke-width: 1.5; cursor: pointer; }
+.netGlobe .gPin.sel { stroke: var(--text); stroke-width: 2; }
+.netGlobe .gCount { fill: var(--on-action); font-size: 9px; text-anchor: middle; pointer-events: none; }
+.netGlobe .gName { fill: var(--text); font-size: 11px; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+#netGlobePick { min-height: 48px; }
+#netGlobePick .activityRow { margin-top: 8px; }
+#netContactModal .settingsFieldList, #communityGroupCreateModal .settingsFieldList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#netContactModal input, #netContactModal select, #communityGroupCreateModal input { width: 100%; box-sizing: border-box; }
+#netcSave { margin: 12px 0 0; }
+/* Champs des fenêtres Contact / Créer une communauté : tous la même hauteur, zone de toucher de 44 px ; le champ de date (Relance) perd son habillage natif iPhone, qui le rendait plus large et plus haut que les autres. */
+#netContactModal input, #netContactModal select, #communityGroupCreateModal input { min-height: 44px; min-width: 0; max-width: 100%; display: block; -webkit-appearance: none; appearance: none; }
+#netcFollow { text-align: left; line-height: normal; }
+#netcFollow::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+#netContactModal input, #netContactModal select, #communityGroupCreateModal input { padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); color: var(--text); font-family: inherit; font-size: 14px; } /* même gabarit de champ que .activitySettingsPanel */
+.netSvg .netCount { fill: var(--text); font-size: var(--netfs, 13px); font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+.netSvg .netNode.joined .netCount { fill: var(--on-action); }
+.netSvg .netName { fill: var(--text); font-size: var(--netfs, 13px); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+/* Score d'exécution d'un profil (1er nov. 2026) : violet seulement, espacements 8/12/16. */
+.viewProfileScore { margin-top: 16px; gap: 12px; }
+.viewProfileScoreHead { display: flex; justify-content: space-between; align-items: baseline; font-weight: bold; }
+.viewProfileScoreValue { font-size: 24px; color: var(--purple); }
+.viewProfileScore .hint { margin: 0; }
+.viewProfileScoreRow { margin-top: 12px; }
+.viewProfileScoreRowTop { display: flex; justify-content: space-between; font-size: 14px; }
+.viewProfileScoreBar { height: 6px; margin-top: 8px; border-radius: 3px; background: var(--border); }
+.viewProfileScoreBar i { display: block; height: 6px; border-radius: 3px; background: var(--purple); }
 /* Espace entre la liste de projets et le sélecteur Statistiques/Publications (5 septembre 2026, demande d'Emilien : « je souhaite que les projets des … */
 #viewProfileSectionSwitch { margin-top: 16px; }
 
@@ -1918,10 +1986,6 @@ button { -webkit-user-select: none; user-select: none; }
   flex: 0 0 auto;
 }
 
-.subProjectRowDesc {
-  margin: 4px 0 0;
-  overflow-wrap: anywhere;
-}
 
 /* Barre d'avancement : le remplissage est piloté en JS (style.width), la piste garde la couleur de fond déjà utilisée par les barres de classement (--track-bg, variable de Design). */
 .subProjectProgressTrack {
@@ -1931,17 +1995,7 @@ button { -webkit-user-select: none; user-select: none; }
   overflow: hidden;
 }
 
-.subProjectProgressFill {
-  height: 100%;
-  width: 0;
-  border-radius: 3px;
-  background: var(--purple);
-  transition: width 0.2s ease;
-}
 
-.subProjectRowTrack {
-  margin-top: 6px;
-}
 
 /* Le détail d'un sous-projet est déplacé dans la ligne sélectionnée
    (attachSubProjectDetail) : un léger décalage et une ligne de séparation le
@@ -2012,11 +2066,6 @@ button { -webkit-user-select: none; user-select: none; }
   color: var(--text-light);
 }
 
-/* 28 septembre 2026 (historique de tâches, Page 1 du volet Objectifs, backlog encart 71 puis DEUX refontes le même jour). */
-.historyEditTaskLabel {
-  width: 100%;
-  box-sizing: border-box;
-}
 
 .subProjectItemAdd {
   display: flex;
@@ -2212,46 +2261,13 @@ button { -webkit-user-select: none; user-select: none; }
   border-radius: var(--radius-md);
 }
 
-.activityProgressRing {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  transform: rotate(-90deg);   /* le remplissage part du haut, pas de la droite */
-}
 
-.activityProgressRingBg,
-.activityProgressRingFill {
-  fill: none;
-  stroke-width: 5;
-}
 
-.activityProgressRingBg { stroke: var(--track-bg); }
 
-.activityProgressRingFill {
-  stroke: var(--purple);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.3s ease;
-}
 
-/* Le pourcentage est posé PAR-DESSUS l'anneau, pas dedans : un <text> SVG
-   aurait tourné avec lui (rotate(-90deg) ci-dessus). */
-.activityProgressPercent {
-  position: absolute;
-  left: 14px;
-  width: 44px;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
 
-.activityProgressText { min-width: 0; }
 
-.activityProgressTitle {
-  margin: 0 0 2px;
-  font-weight: 600;
-}
 
-.activityProgressText .meta { margin: 0; }
 
 /* ----- Menu "Ajouter" : une carte étroite et cadrée -----
    Demande d'Emilien : « encadrée dans une section étroite, bien définie ».
@@ -2269,20 +2285,6 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* ⚠️ SEUL élément qui neutralise le geste natif : le reste de la page défile
    normalement, même en mode édition. */
-
-.subProjectDeleteX {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--danger);
-  font-size: 0.9rem;
-  line-height: 1;
-  cursor: pointer;
-}
 
 /* ===================== CHRONO → SOUS-PROJETS (4 septembre 2026) ===================== */
 .chronoSubProjectWrap {
@@ -2493,6 +2495,7 @@ button { -webkit-user-select: none; user-select: none; }
     .topbar { padding-top: max(47px, env(safe-area-inset-top)); }
     .cmpClose.imageViewerClose { top: max(47px, env(safe-area-inset-top)); }
     .activityPageHeader { padding-top: max(47px, env(safe-area-inset-top)); }
+    #profileSettingsPanel.settingsDrill .settingsSubHead { padding-top: calc(max(41px, env(safe-area-inset-top, 0px)) + 6px); } /* le « ‹ Retour » des sous-écrans de Réglages sort de la zone système, comme les autres en-têtes */
   }
 }
 
@@ -2525,8 +2528,6 @@ button { -webkit-user-select: none; user-select: none; }
 @media (hover: hover) {
   .goalMainSaveBtn:hover { background: rgba(var(--purple-rgb), 0.26); }
 }
-
-/* 22 septembre 2026 (discussion "Objectifs — Logique métier") — liste quotidienne, voir renderGoalsDailyPriority() dans app.js. */
 
 /* 17 septembre 2026 (discussion "Objectifs — D"), demande d'Emilien : « bandeau plein largeur » — .goalStatusRow/.goalStatusBtn (3 boutons de statut texte par … */
 
@@ -2881,7 +2882,7 @@ button { -webkit-user-select: none; user-select: none; }
    sous-projets/activités, .danger, retrait de photo…) passent à l'orange brique des boutons Ajouter/Rechercher/Envoyer.
    Les pastilles de notification et indicateurs d'état restent rouges (ce ne sont pas des boutons). */
 .chronoBtn-stop.chronoBtn-stop { background: var(--brique-stop); color: var(--on-action); } /* rouge un peu moins crayeux (demande d'Emilien, 30 sept.) */
-.iconBtn.danger.danger, .activityDeleteX.activityDeleteX, .subProjectDeleteX.subProjectDeleteX {
+.iconBtn.danger.danger, .activityDeleteX.activityDeleteX {
   border-color: var(--danger); color: var(--danger);   /* R12 : rouge = suppression de données */
 }
 .discussionMsgDelete.discussionMsgDelete:hover, .historyRowIconBtn.danger.danger:hover { color: var(--brique-text); }
@@ -2908,6 +2909,7 @@ button { -webkit-user-select: none; user-select: none; }
 
 /* Projets : en mode « + », seul le formulaire d'ajout est visible. */
 #profileProjectsPanel.projectsAddMode #projectsList { display: none; }
+:root #profileProjectsPanel #newProjectCard { background: none !important; border: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; padding: 0 !important; } /* un seul niveau de cadre : la fenêtre Projets, pas une carte dans la fenêtre */
 
 /* 30 sept. 2026 (Sécurité) : « Changer mon code » en gris (comme « Enregistrer » d'Identité / confirmation chrono, .iconBtn) ;
    boutons empilés pleine largeur, écart uniforme de 8px entre « Changer mon code », « Se déconnecter de tous les appareils »
@@ -2996,9 +2998,6 @@ button { -webkit-user-select: none; user-select: none; }
 #onboarding:has(#onbPinStep:not(.hidden)) .onbBackFooter { display: block; }
 #onboarding:has(#onbPinStep:not(.hidden)) .onboarding-card { margin: auto auto 0; }
 #onboarding .onbFooter a { color: var(--text-light); text-decoration: underline; }
-#onboarding .onbInstallIcon { margin-bottom: 6px; }
-#onboarding .onbInstallSteps { margin: 8px 0; font-size: 13px; line-height: 1.4; }
-#onboarding .onbInstallSteps li { margin-bottom: 4px; }
 #onboarding .userList { max-height: 200px; margin-bottom: 4px; }
 #onboarding input[type=text], #onboarding input[type=password], #onboarding input[type=tel], #onboarding input[type=email] {
   padding: 10px 14px; margin-bottom: 8px; color: var(--text);
@@ -3014,12 +3013,8 @@ button { -webkit-user-select: none; user-select: none; }
 @media not (display-mode: standalone) {
   #onboarding { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; width: auto; box-sizing: border-box; }
 }
-#onboarding #onbInstallPwa .lead { text-align: center; }
 #onboarding input::placeholder { color: var(--text-light); }
 #onboarding .switchLink a, #onboarding .onbLegalText a { color: var(--onb-purple); }
-#onboarding .onbInstallIcon svg rect:first-child { fill: var(--onb-purple); }
-#onboarding .onbInstallIcon svg path { stroke: var(--onb-purple); }
-#onboarding .onbInstallIcon svg rect:last-child { fill: var(--onb-purple); }
 .onbLegalCheck { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 12px; text-align: left; margin: 0 0 16px; }
 .onbLegalText { font-size: 14px; line-height: 1.4; color: var(--text); }
 /* 10 oct. 2026 (conformité) : cases facultatives séparées de la case CGU ; invite des comptes existants (deux boutons identiques). */
@@ -3086,6 +3081,32 @@ button { -webkit-user-select: none; user-select: none; }
 .catTitleRow .sectionTitle { margin: 0; }
 .catTitleRow { margin-bottom: 8px; }
 .catNewPole .catNewPoleFields { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 2px; }
+/* Panneau « Stratégie » d'une catégorie (18 nov. 2026) : écarts de la grille (8, 12 px) seulement ; composants existants (.activityEditRow, .cmpSeg, select). */
+.catStrategieBody { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.catStrategieQ { display: flex; flex-direction: column; gap: 8px; }
+.catStrategieQ .hint, .catStrategieBody > .hint { margin: 0; }
+.catStrategieQ select, .catStrategieQ input { width: 100%; min-height: 44px; }
+.catStrategieR { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.catStrategieV { color: var(--link-blue); font-size: 15px; text-align: right; }
+.catStrategieV.inherited { color: var(--grey-violet); opacity: .7; }
+.catStrategieBody > .catStrategieL:last-of-type > .cmpSepRow::after { display: none; } /* R51 : pas de trait sous la dernière option */
+.catStrategieL > .catStrategieQ { padding: 8px 4px 12px; }
+/* Modèle modulable (19 nov. 2026) : familles imbriquées, valeur modifiée = violet clair + petit point, étiquette de règle (texte, aucune couleur nouvelle). Écarts de 8, 12 px. */
+.catStrategieQ.catStrategieF { padding-left: 12px; padding-right: 0; gap: 0; }
+.catStrategieF > .catStrategieL:last-of-type > .cmpSepRow::after, .catStrategieF > .catStrategieL:last-of-type > .catStrategieQ:empty { display: none; }
+.catStrategieV.modified::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: middle; }
+.catStrategieU { color: var(--grey-violet); }
+.catRevert { align-self: flex-start; background: none; border: 0; padding: 12px 0; font: inherit; font-size: 13px; color: var(--purple); text-decoration: underline; cursor: pointer; }
+.catRule.catRuleMine > .cmpSepRow { padding-right: 32px; }
+.catRule { position: relative; }
+.catRuleTitle { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.catRuleTitle small { font-size: 13px; color: var(--grey-violet); }
+.catRuleTag { font-size: 13px; color: var(--grey-violet); }
+.catRuleTag.off { opacity: .5; }
+.catStrategieQ .objTimeRow select, .catStrategieQ .objTimeRow input { width: auto; max-width: 60%; }
+.catStrategieQ .objTimeRow .objHoursVal input { width: 64px; text-align: right; }
+.objTimeRow { align-items: center; }
+.catStrategieQ .objTimeRow input { font: inherit; text-align: right; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--glass-calm-bg); }
 .catNewPole input, .catNewPole textarea { width: 100%; min-width: 0; font-size: 16px; box-sizing: border-box; }
 .catNewPole .catNewPoleActions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .catEditForm .catNewPoleActions > .cmpRemove { margin-right: auto; } /* 5 oct. 2026 : corbeille tout à gauche, comme les historiques */
@@ -3094,11 +3115,9 @@ button { -webkit-user-select: none; user-select: none; }
 
 .catList .catSecteurRow:first-child, .catList.editing .catSecteurRow:first-child { border-top: 0; }
 
-/* Plafonds de temps dans le formulaire en place (7 oct. 2026). */
+/* Bloc du formulaire en place : estimation par membre (les plafonds de catégorie ont été retirés le 20 nov. 2026). */
 .catEditForm .timeCapsBlock { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 .catEditForm .timeCapsBlock .hint { margin: 0; }
-.catEditForm .timeCapsBody { display: flex; flex-direction: column; gap: 6px; }
-.catEditForm .timeCapsBody.hidden { display: none; }
 /* Estimation indicative du temps par membre (activité partagée), sous « Gérer mon temps ». */
 .catEditForm .goalMemberEst { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--sep); }
 .catEditForm .goalMemberEst.hidden { display: none; }
@@ -3166,7 +3185,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Fenêtre membres : barre de recherche aux dimensions de celle de Communauté, et liste qui défile SOUS la barre. */
 #communityMembersModal .activityMembersSearchWrap { padding: 0; position: relative; z-index: 2; margin: 12px 0 0; }
 #communityMembersModal .activityMembersSearchWrap .communitySearchRow { margin-bottom: 0; }
-#communityMembersModal .activityMembersSearchWrap input[type="text"] { padding: 10px 118px 10px 14px; }
+#communityMembersModal .activityMembersSearchWrap input[type="text"] { padding: 10px 118px 10px 46px; } /* 46 px à gauche : la loupe passe avant le texte, comme dans Communauté */
 #communityMembersModal .activityMembersSearchWrap + #communityMembersModalList { margin-top: -54px; padding-top: 62px; position: relative; z-index: 1; }
 #communityMembersModal .activityMembersSearchWrap > .activitiesList:not(:empty), #communityMembersModal .activityMembersSearchWrap > .hint { margin-top: 14px; }
 
@@ -3187,16 +3206,9 @@ button { -webkit-user-select: none; user-select: none; }
 .activityVisChip { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 12px; line-height: 1.5; background: rgba(255,255,255,.06); }
 .activityRow.activityRowDim { opacity: .38; pointer-events: none; }
 .activityEditBubble .catNewPoleFields input[type="text"] { border-radius: 12px; }
-.activityVisRow { display: flex; align-items: center; gap: 10px; padding: 2px 0; cursor: pointer; }
-.activityVisWord { font-size: 14px; color: var(--text); }
-.activityVisNote { margin: 0; }
-.activityEditMerge { align-self: flex-start; }
 .activityRow.activityEditBubble { scroll-margin-bottom: 120px; scroll-margin-top: 12px; }
 .activityEditNameLine { display: flex; align-items: center; gap: 10px; }
 .activityEditNameLine input { flex: 1; min-width: 0; }
-.activityVisLine { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.activityVisLine .activityVisRow { flex: 1; min-width: 0; }
-.activityVisLine .activityEditMerge { margin-left: auto; flex: 0 0 auto; align-self: center; white-space: nowrap; }
 .activityEditNameLine .colorSwatches{margin-left:auto;flex-wrap:nowrap;justify-content:flex-end;min-width:0}
 .activityEditNameLine .colorSwatches.hidden,.activityEditNameLine input.hidden{display:none}
 .activityEditNameLine.colorOpen{border:1px solid rgba(255,255,255,.22);border-radius:12px;padding:6px 8px}
@@ -3212,8 +3224,6 @@ button { -webkit-user-select: none; user-select: none; }
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(8){animation-delay:315ms}
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(9){animation-delay:360ms}
 .activityEditNameLine.colorOpen .colorSwatches .swatch:nth-child(10){animation-delay:405ms}
-.activityVisLine .activityVisRow{padding-left:30px}
-.activityEditBubble .activityVisNote{padding-left:30px}
 
 /* Agenda externe (9 oct. 2026) : bouton « URL enregistrées » (même style que « Gérer mon temps ») et liste à corbeilles. */
 .externalCalendarListBtn { align-self: flex-start; background: none; border: 0; padding: 0; margin-top: 8px; color: var(--purple); text-decoration: underline; font: inherit; font-size: 14px; cursor: pointer; }
@@ -3229,14 +3239,11 @@ button { -webkit-user-select: none; user-select: none; }
 .settingsConsentCard .consentItem .notifRow { border-bottom: none; padding-bottom: 2px; }
 .settingsConsentCard .notifRow:last-child { border-bottom: none; }
 
-/* 10 oct. 2026 : Déconnexion dans le bandeau des Réglages, compacte, à gauche de la croix. */
-.subpageHeader .logoutBtnHeader { margin-left: auto; font-size: 12px; padding: 4px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); }
-#profileSettingsPanel.settingsPanel .logoutBtnHeader ~ #settingsCloseBtn { margin-left: 0; }
-.subpageHeader .logoutBtn.logoutBtnHeader { color: var(--brique-text); border-color: var(--brique); background: transparent; }
-.subpageHeader .logoutBtn.logoutBtnHeader:hover { background: rgba(var(--brique-rgb), 0.14); text-decoration: none; }
 /* 10 oct. 2026 : Identité — moins d'espace entre « Enregistrer » et l'onglet Sécurité. */
 #settingsMsg:empty { min-height: 0; margin: 0; }
 #profileSettingsScroll .settingsCard:has(#settingsSaveBtn) { padding-bottom: 4px; }
+.cmpDockHost:has(> .cmpDockSave:not(.hidden)) #profileSettingsScroll { padding-bottom: 116px; } /* 52 px de bouton + 16 px sous lui + 48 px de marge nette au-dessus : plus rien de collé ni de recouvert */ /* 13 : le bouton Enregistrer fixe ne recouvre plus la ligne Sécurité */
+#profileSettingsPanel.cmpDockHost:has(> .cmpDockSave:not(.hidden)) > .settingsPanelCard { margin-bottom: 0; } /* la marge basse vient du padding de la zone défilante ci-dessus ; une marge sur la carte faisait défiler tout le panneau et remontait le « ‹ Retour » hors de l’écran */
 /* 10 oct. 2026 : fenêtre info IA — titre fixe en haut, texte qui défile, bouton toujours visible. */
 #aiNoticeModal > .communityMembersModalCard { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; max-height: 85dvh; }
 #aiNoticeModal .aiNoticeBody { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
@@ -3269,11 +3276,14 @@ html.kbOpen #onboarding .onboarding-card { margin: 0 auto; }
 .extCalRulesBlock { margin-top: 14px; }
 .extCalRulesBlock.hidden { display: none; }
 .extCalSubTitle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 600; }
+#communityPage1.searchEmpty #followingFeedEmptyHint { display: none; } /* 09 : un seul message d'état vide pendant une recherche sans résultat */
+#calendarExportList .extCalSubTitle { margin-top: 16px; } /* 12 : le titre ne colle plus aux boutons au-dessus */
 .extCalRuleBox { position: relative; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--radius-lg); background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); }
 .extCalLbl { display: block; font-size: 12px; opacity: .75; margin-bottom: 6px; }
 .extCalLine { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .extCalSeg { flex: 1 1 auto; width: auto; margin: 0; }
 .extCalHrs { width: 64px; flex: 0 0 64px; }
+:root .extCalHrs { color: var(--purple); } /* R54 */
 
 /* 18 oct. 2026 : champs de « Répartition selon mon agenda » = transparents comme le reste ; champ des mots plus long, bords très arrondis. */
 .extCalRulesBlock input.calendarFeedUrl { background: transparent; color: var(--text); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); padding: 9px 14px; box-sizing: border-box; font-size: 13px; }
@@ -3293,7 +3303,6 @@ html[data-modules-off~="calendar"] [data-module~="calendar"],
 html[data-modules-off~="ai"] [data-module~="ai"],
 html.noRoadmapBar [data-module~="ai"],
 html[data-modules-off~="notifications"] [data-module~="notifications"],
-html[data-modules-off~="sharing"] #goalsPage2ModeDiscBtn,
 html[data-modules-off~="sharing"] #activitiesList .unreadBadge { display: none !important; }
 
 /* Trace « désactivé dans Modules » : visible seulement quand le module concerné est éteint ; un appui ouvre Réglages > Modules. */
@@ -3305,7 +3314,6 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 .msgMenuPop { position: fixed; z-index: 410; background: var(--pop-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 4px 16px rgba(0,0,0,.3); padding: 4px; }
 .msgMenuPop button { display: block; background: none; border: 0; color: var(--text); font: inherit; font-size: 14px; padding: 8px 14px; cursor: pointer; border-radius: var(--radius-sm); }
 .msgMenuPop button:hover { background: var(--hover-bg); }
-.reportOverlay { position: fixed; inset: 0; z-index: 420; background: var(--veil); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .reportCard { width: 100%; max-width: 360px; background: var(--bg); border: 1px solid var(--border, rgba(128,128,128,.3)); border-radius: var(--radius, 12px); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .reportHead { display: flex; justify-content: space-between; align-items: center; }
 .reportReason { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
@@ -3313,8 +3321,8 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 /* Accessibilité (20 oct. 2026, 390 px) : zone tactile >= 44 px sans changer l'apparence (zone invisible autour du bouton). */
 .whoami::after, .topIconBtn::after,
 #tsPeriodBtn::after,
-#statsPieTodayBtn::after, #chartPeriodBtn::after, #statsVisBtn::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
-#statsVisBtn, #tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }
+#statsPieTodayBtn::after, #chartPeriodBtn::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+#tsPeriodBtn, #statsPieTodayBtn, #chartPeriodBtn { position: relative; }
 
 /* Zone tactile >= 44 px des boutons d'en-tête qui ne sont pas des croix (les croix la portent via .cmpClose). */
 .communityMembersModalHeader .menuBtn, .activityPageHeader .menuBtn, .subpageHeader .menuBtn, .goalTaskEditHeader .menuBtn, .profileSubWindowHeader .menuBtn, .profileSquareBtn { position: relative; }
@@ -3361,3 +3369,7 @@ html[data-modules-off~="calendar"] .moduleOffNote[data-off="calendar"] { display
 .composerBubble > textarea { display: block; width: 100%; box-sizing: border-box; padding-bottom: 56px; margin: 0; }
 .composerBubble > .rowActions { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; }
 .composerBubble > .rowActions > .iconBtn, .composerBubble > .rowActions > .btn { margin-left: auto; margin-top: 0; }
+.timesheetNav .cmpNavArrow { width: 28px; } /* flèches resserrées : le libellé « Du … au … » tient en entier sur une ligne, même à 360 px */
+.timesheetBlock .sectionTitleRow { flex-wrap: wrap; row-gap: 0; } /* le libellé de période descend sous le titre quand la ligne est trop étroite (jamais de mot coupé) */
+.timesheetNav { flex: 1 1 200px; }
+.timesheetNav .cmpNavLabel { min-width: max-content; }

@@ -1,0 +1,43 @@
+// Modification d'un objectif : l'app PROPOSE de réordonner ce qui suit (mêmes règles que la création), « Date fixe » modifiable, rien d'écrit seul ; responsable de catégorie avec héritage.
+process.env.TZ = 'America/Montreal';
+process.env.NOESIS_DATA_DIR = require('./lib/tmpdir').mkTmp('tmt-modif-reorg-');
+process.env.RAILWAY_ENVIRONMENT_NAME = 'staging';
+let failed = 0;
+const assert = (c, l) => { if (c) console.log('  ok  ' + l); else { failed++; console.log('  FAIL ' + l); } };
+const db = require('../server/db');
+const goals = require('../server/lib/goals');
+const categories = require('../server/lib/categories');
+const o = require('../server/lib/objectifs');
+const resp = require('../server/lib/responsables');
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u1', 'Émilien', datetime('now'))").run();
+db.prepare("INSERT INTO users (id, name, createdAt) VALUES ('u2', 'Gaspard', datetime('now'))").run();
+const act = Number(db.prepare("INSERT INTO activities (name, ownerId, createdAt) VALUES ('Atelier', 'u1', '')").run().lastInsertRowid);
+['u1', 'u2'].forEach((u) => db.prepare("INSERT INTO activity_members (activityId, userId, color, joinedAt) VALUES (?, ?, '#fff', '')").run(act, u));
+categories.addCategory(act, 'Production'); const poleKey = goals.categoriesForActivity(act)[0].key;
+categories.addCategory(act, 'Bois', poleKey); const secKey = goals.secteursForPole(act, poleKey)[0].key;
+const mk = (title, s, e) => o.creer('u1', { title, activityId: act, level: 'pole', poleKey, startDate: s, endDate: e });
+const row = (id) => db.prepare('SELECT startDate, endDate FROM user_objectives WHERE id = ?').get(id);
+const A = mk('Premier', '2027-01-01', '2027-02-28'), B = mk('Deuxième', '2027-03-01', '2027-04-30'), C = mk('Troisième', '2027-05-01', '2027-06-30');
+o.modifierEcheance('u1', A.id, '2027-04-15');
+const p = o.reorganisationDe('u1', A.id);
+assert(p.moves.length === 2 && p.moves[0].id === B.id && p.moves[0].apres.startDate === '2027-04-16' && !p.moves.some((m) => m.id === A.id), 'après la modification : ce qui suit est décalé, jamais l’objectif modifié lui-même (' + p.moves.length + ')');
+assert(row(B.id).startDate === '2027-03-01', 'la proposition n’écrit rien');
+const ok = o.appliquerReorganisationDe('u1', A.id, p.moves.map((m) => ({ id: m.id, startDate: m.apres.startDate, endDate: m.apres.endDate })));
+assert(ok.moved.length === 2 && row(B.id).startDate === '2027-04-16' && row(C.id).startDate > row(B.id).endDate, 'application : les dates validées sont écrites');
+o.parametres('u1', C.id, { dateFixe: true });
+assert(JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(C.id).metaJson).dateFixe === true, '« Date fixe » enregistrée à la modification');
+o.parametres('u1', C.id, { dateFixe: false });
+assert(!JSON.parse(db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(C.id).metaJson).dateFixe, '« Date fixe » décochée : l’objectif peut de nouveau bouger');
+// Responsable de catégorie : propre, sinon celui du pôle, sinon le propriétaire de l'activité.
+assert(resp.categorie('u1', act, secKey, poleKey).userId === 'u1' && resp.categorie('u1', act, secKey, poleKey).inherited === true, 'sans choix : le propriétaire de l’activité (hérité)');
+resp.definirCategorie('u1', act, poleKey, 'u2');
+const sec = resp.categorie('u1', act, secKey, poleKey);
+assert(sec.userId === 'u2' && sec.inherited === true && sec.from === 'pole', 'le secteur hérite du responsable de son pôle');
+resp.definirCategorie('u1', act, secKey, 'u1', poleKey);
+assert(resp.categorie('u1', act, secKey, poleKey).userId === 'u1' && !resp.categorie('u1', act, secKey, poleKey).inherited, 'le secteur a son propre responsable');
+resp.definirCategorie('u1', act, secKey, null, poleKey);
+assert(resp.categorie('u1', act, secKey, poleKey).from === 'pole', 'retour à l’héritage');
+let refused = false; try { resp.definirCategorie('u2', act, poleKey, 'u2'); resp.definirCategorie('u2', act, poleKey, 'inconnu'); } catch (e) { refused = true; }
+assert(refused, 'seuls des membres de l’activité peuvent être responsables');
+console.log(failed ? '\nobjectifs-modification-reorg-test : ' + failed + ' ÉCHEC(S)' : '\nobjectifs-modification-reorg-test : OK');
+process.exit(failed ? 1 : 0);

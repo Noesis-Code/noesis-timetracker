@@ -255,7 +255,6 @@ a { color: inherit; text-decoration: none; }
 .sendField input::placeholder { color: var(--text-light); }
 .sendBtn { position: relative; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--purple); color: var(--on-action); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .sendBtn::after { content: ''; position: absolute; inset: -2px; }
-.sendBtn:disabled, .btnPrimary:disabled { opacity: 0.45; cursor: default; }
 .sendBtn:active { transform: scale(0.94); }
 .formMsg { min-height: 18px; margin-top: 8px; font-size: 13px; color: var(--text-light); }
 .formMsg.ok { color: var(--violet-soft); }

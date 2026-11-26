@@ -902,7 +902,7 @@ CREATE INDEX IF NOT EXISTS idx_goal_period_assignees_period ON goal_period_assig
 -- la PERSONNE (qui rejoint l'activité après coup reçoit quand même le sien).
 -- Table neuve, jamais présente dans un schéma antérieur : CREATE TABLE IF
 -- NOT EXISTS suffit, comme goal_period_assignees ci-dessus (pas besoin de
--- migrateGoalsCategorySchema()). Voir server/lib/goalreminders.js.
+-- migrateGoalsCategorySchema()). Table conservée (données intactes) : les rappels de fin de période ont été supprimés le 7 nov. 2026, plus rien ne l'alimente.
 CREATE TABLE IF NOT EXISTS goal_period_due_reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   periodId INTEGER NOT NULL REFERENCES goal_periods(id) ON DELETE CASCADE,
@@ -1746,6 +1746,10 @@ if (tableExists('goal_periods') && !columnExists('goal_periods', 'carriedOverFro
 if (tableExists('goal_periods') && !columnExists('goal_periods', 'mainGoalDescription')) {
   db.exec("ALTER TABLE goal_periods ADD COLUMN mainGoalDescription TEXT NOT NULL DEFAULT ''");
 }
+// ----- Périodes libres (3 nov. 2026) : 'grille' (défaut recommandé) ou 'libre' (dates choisies). Additive. -----
+if (tableExists('goal_periods') && !columnExists('goal_periods', 'kind')) {
+  db.exec("ALTER TABLE goal_periods ADD COLUMN kind TEXT NOT NULL DEFAULT 'grille'");
+}
 if (tableExists('goal_weekly') && !columnExists('goal_weekly', 'description')) {
   db.exec("ALTER TABLE goal_weekly ADD COLUMN description TEXT NOT NULL DEFAULT ''");
 }
@@ -2348,6 +2352,12 @@ if (!columnExists('users', 'stripeCustomerId')) {
 if (!columnExists('activity_members', 'notifyEnabled')) {
   db.exec('ALTER TABLE activity_members ADD COLUMN notifyEnabled INTEGER NOT NULL DEFAULT 1');
 }
+// Statistiques d'activité partagée : « Comparer le chrono » / « Comparer les tâches » (choix PERSONNEL à chaque membre et à chaque activité, défaut 0 = statistiques des membres invisibles).
+// Migration additive. Un membre qui active l'un des deux voit les statistiques de TOUS les membres (comportement existant, aucun consentement par membre).
+if (!columnExists('activity_members', 'compareChrono')) db.exec('ALTER TABLE activity_members ADD COLUMN compareChrono INTEGER NOT NULL DEFAULT 0');
+if (!columnExists('activity_members', 'compareTasks')) db.exec('ALTER TABLE activity_members ADD COLUMN compareTasks INTEGER NOT NULL DEFAULT 0');
+// 18 nov. 2026 (Émilien) : « Arbre des objectifs » — chaque activité est dans l'arbre par défaut (0) ; 1 = MASQUÉE de l'arbre (PERSONNEL à chaque membre ; les objectifs restent en base, rétablissable).
+if (!columnExists('activity_members', 'treeHidden')) db.exec('ALTER TABLE activity_members ADD COLUMN treeHidden INTEGER NOT NULL DEFAULT 0');
 // 5 oct. 2026 (Emilien) : mode « gestion de l'IA » par utilisateur — NULL tant que non choisi (pop-up obligatoire
 // à la première capture), puis 'autonome' | 'partiel' | 'absence'.
 // 6 oct. 2026 (Emilien) : activité Publique (défaut) ou Confidentielle — PERSONNEL à chaque membre.
@@ -2433,8 +2443,93 @@ if (!columnExists('sub_project_items', 'autoCaptured')) {
 if (!columnExists('sub_project_items', 'dueDateAuto')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN dueDateAuto INTEGER NOT NULL DEFAULT 0');
 }
+// Durée d'une tâche (10 nov. 2026, docs/ia/durees-taches.md, phase 1) : fourchette estimée par l'IA, colonnes additives nullables.
+// medianMinutes sert au planning, maxMinutes aux alertes de surcharge ; durSource : 'ia-micro' | 'ia' | 'defaut'.
+['minMinutes INTEGER', 'medianMinutes INTEGER', 'maxMinutes INTEGER', 'durSource TEXT', 'durConfidence INTEGER', 'rawMedianMinutes INTEGER'].forEach((def) => {
+  const col = def.split(' ')[0];
+  if (tableExists('sub_project_items') && !columnExists('sub_project_items', col)) db.exec('ALTER TABLE sub_project_items ADD COLUMN ' + def);
+});
 if (!columnExists('sub_project_items', 'seenAt')) {
   db.exec('ALTER TABLE sub_project_items ADD COLUMN seenAt TEXT');
+}
+// 31 oct. 2026 (score de confiance, Communauté) : origine d'une entrée de temps — 'manuel' (ajout à la main),
+// 'import' (CSV, jamais compté dans le score), NULL = chrono (toutes les entrées existantes).
+// 1er nov. 2026 : le membre choisit d'afficher son score d'exécution sur son profil (0 = privé, par défaut).
+if (!columnExists('users', 'scoreShared')) {
+  db.exec('ALTER TABLE users ADD COLUMN scoreShared INTEGER NOT NULL DEFAULT 0');
+}
+// 1er nov. 2026 : communautés gratuites (Communauté). Un créateur ouvre une communauté autour d'un sujet précis, des
+// membres la rejoignent et y échangent. priceCents = tarif CHOISI par le créateur, affiché seulement : aucun
+// encaissement tant que l'avis juridique (coaching, partage de revenu) n'est pas rendu.
+db.exec(`
+CREATE TABLE IF NOT EXISTS communities (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  topic TEXT NOT NULL DEFAULT '',
+  priceCents INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS community_members (
+  communityId INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joinedAt TEXT NOT NULL,
+  PRIMARY KEY (communityId, userId)
+);
+CREATE TABLE IF NOT EXISTS community_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  communityId INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_community_posts ON community_posts(communityId, id);
+-- Réseau personnel privé (2 nov. 2026) : contacts, liens entre contacts et notes, visibles du seul propriétaire (voir lib/networkcrm.js).
+CREATE TABLE IF NOT EXISTS network_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  company TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT '',
+  whereMet TEXT NOT NULL DEFAULT '',
+  city TEXT NOT NULL DEFAULT '',
+  interests TEXT NOT NULL DEFAULT '[]',
+  skills TEXT NOT NULL DEFAULT '[]',
+  strength INTEGER NOT NULL DEFAULT 3,
+  lastTouchAt TEXT,
+  followUpAt TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_network_contacts_owner ON network_contacts(ownerId);
+CREATE TABLE IF NOT EXISTS network_edges (
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  a INTEGER NOT NULL REFERENCES network_contacts(id) ON DELETE CASCADE,
+  b INTEGER NOT NULL REFERENCES network_contacts(id) ON DELETE CASCADE,
+  PRIMARY KEY (ownerId, a, b),
+  CHECK (a < b)
+);
+CREATE TABLE IF NOT EXISTS network_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  contactId INTEGER NOT NULL REFERENCES network_contacts(id) ON DELETE CASCADE,
+  ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_network_notes_contact ON network_notes(contactId);
+`);
+// Montrer mes autres communautés aux membres de mes communautés (1er nov. 2026) : visible par défaut, le membre peut le cacher.
+if (!columnExists('users', 'communitiesShown')) {
+  db.exec('ALTER TABLE users ADD COLUMN communitiesShown INTEGER NOT NULL DEFAULT 1');
+}
+if (!columnExists('communities', 'sector')) {
+  db.exec("ALTER TABLE communities ADD COLUMN sector TEXT NOT NULL DEFAULT ''");
+}
+// Réseau personnel : ville de travail (3 nov. 2026) ; le globe place un contact à sa ville d'habitation, sinon à celle de travail.
+if (!columnExists('network_contacts', 'workCity')) {
+  db.exec("ALTER TABLE network_contacts ADD COLUMN workCity TEXT NOT NULL DEFAULT ''");
+}
+if (!columnExists('time_entries', 'source')) {
+  db.exec('ALTER TABLE time_entries ADD COLUMN source TEXT');
 }
 
 // ===================== ANNONCES DIFFUSEES A TOUS =====================

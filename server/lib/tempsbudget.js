@@ -1,0 +1,175 @@
+// « Prévu » (heures par semaine) d'un niveau (activité / pôle / secteur) pour l'étape « Temps » de la création d'un objectif (9 nov. 2026, décision d'Émilien).
+// MODÈLE : les heures vivent SUR L'OBJECTIF (metaJson.hoursPerWeek existant), valables pour la période de cet objectif : la case de l'arbre = niveau + période (objectifs.occupant). AUCUNE table de budget.
+//  - Prévu d'un niveau = hoursPerWeek de l'objectif qui occupe sa case, sinon (au premier écran) le Passé ; ligne du dessus = l'objectif PARENT sur la même période (pôle pour un secteur, activité pour un pôle) ;
+//    au niveau activité : capacité hebdomadaire de la personne (manuelle, sinon moyenne Chrono : weekplanner.getWeeklyCapacity).
+//  - « Déplacer » (UN seul tableau Avant / Après) fusionne toutes les sources possibles du temps : les AUTRES cases du même niveau sur la même période (autres secteurs du pôle / autres pôles de l'activité / autres activités ; sans objectif ou à 0 h elles ne sont pas listées)
+//    + « Reste de l'activité » (pôle) / « Reste du pôle » (secteur) = ce qui reste de l'objectif PARENT une fois retirées les heures des cases du niveau (parent − somme des autres cases − le niveau lui-même) ;
+//      Pas de « Reste » au niveau activité (le Chrono des lignes donne déjà le total). Chaque ligne porte son Chrono (lecture seule) et son Avant EFFECTIF (l'objectif de la case, sinon le Chrono) ; le « Reste » n'est gardé que s'il est > 0.
+//  - Passé : moyenne des 4 dernières semaines du Chrono, les 2 dernières comptées double (weeklyavg, fonction partagée), arrondie au QUART D'HEURE ; la capacité par défaut (moyenne Chrono) l'est aussi avant d'être affichée.
+//    Une valeur saisie à la main (hoursPerWeek d'un objectif, capacité manuelle) n'est JAMAIS réarrondie.
+// Rien n'est écrit avant l'appel avec apply = true (« Valider ») ; le niveau choisi n'a pas encore d'objectif : sa valeur part avec la création (hoursPerWeek), les écritures ne touchent que le parent et les voisins.
+const db = require('../db');
+const goals = require('./goals');
+const weekplanner = require('./weekplanner');
+const weeklyavg = require('./weeklyavg'); // moyenne hebdomadaire partagée (4 semaines, les 2 dernières comptées double)
+
+function err(msg, status) { return Object.assign(new Error(msg), { statusCode: status || 400 }); }
+function today() { return require('./dates').userToday(); }
+function objectifs() { return require('./objectifs'); } // chargé à l'appel (évite une dépendance circulaire)
+
+function userActivities(userId) {
+  return db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.name').all(userId);
+}
+function inScope(userId, activityId) {
+  const a = userActivities(userId).find((x) => x.id === Number(activityId));
+  if (!a) throw err('Choisis une de tes activités.');
+  return a;
+}
+// Clés de catégorie comptées pour un nœud : un pôle cumule ses secteurs ; un secteur est seul ; l'activité (null) = tout.
+function keysOf(activityId, key) {
+  if (!key) return null;
+  const poles = goals.categoriesForActivity(activityId) || [];
+  if (poles.some((p) => p.key === key)) return [key].concat((goals.secteursForPole(activityId, key) || []).map((s) => s.key));
+  return [key];
+}
+// Passé : moyenne pondérée (weeklyavg) des minutes chronométrées par semaine, arrondie au quart d'heure (15 min).
+const QUARTER = 15;
+function roundQuarter(m) { return m == null ? null : Math.round(m / QUARTER) * QUARTER; }
+function passeMin(userId, activityId, key) {
+  const keys = activityId == null ? null : keysOf(activityId, key);
+  const m = weeklyavg.weeklyAverage(today(), (s, e) => {
+    let q = 'SELECT COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [userId, s, e];
+    if (activityId != null) { q += ' AND activityId = ?'; args.push(Number(activityId)); }
+    if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
+    return db.prepare(q).get(...args).s / 60;
+  });
+  return m > 0 ? roundQuarter(m) : null;
+}
+// Passé PAR JOUR DE LA SEMAINE (lundi = index 0) : même moyenne pondérée (weeklyavg), mêmes filtres que passeMin ; null sans temps.
+function passeByDay(userId, activityId, key) {
+  const keys = activityId == null ? null : keysOf(activityId, key);
+  return weeklyavg.weeklyByDay(today(), (s, e) => {
+    let q = 'SELECT isoDate, COALESCE(SUM(durationSeconds), 0) AS s FROM time_entries WHERE userId = ? AND isoDate BETWEEN ? AND ? AND durationSeconds >= 60', args = [userId, s, e];
+    if (activityId != null) { q += ' AND activityId = ?'; args.push(Number(activityId)); }
+    if (keys) { q += ' AND goalCategory IN (' + keys.map(() => '?').join(',') + ')'; args = args.concat(keys); }
+    q += ' GROUP BY isoDate';
+    const out = [0, 0, 0, 0, 0, 0, 0];
+    db.prepare(q).all(...args).forEach((r) => { out[(new Date(r.isoDate + 'T00:00:00Z').getUTCDay() + 6) % 7] += r.s / 60; });
+    return out;
+  });
+}
+// Répartition PAR JOUR d'un total hebdomadaire (minutes) : les PROPORTIONS de weights (Passé par jour, ou les anciens jours quand les heures changent), mises à l'échelle pour que la somme = total,
+// arrondies au quart d'heure, l'écart d'arrondi va sur le jour le plus chargé ; sans poids : répartition égale sur les jours ouvrés (lundi à vendredi).
+function defaultByDay(total, weights) {
+  total = Math.round(total);
+  if (!(total > 0)) return [0, 0, 0, 0, 0, 0, 0];
+  const sum = weights ? weights.reduce((a, b) => a + b, 0) : 0;
+  const raw = sum > 0 ? weights.map((v) => v / sum * total) : [1, 1, 1, 1, 1, 0, 0].map((v) => v * total / 5);
+  const out = raw.map((v) => Math.round(v / QUARTER) * QUARTER);
+  let h = 0; raw.forEach((v, i) => { if (v > raw[h]) h = i; });
+  out[h] += total - out.reduce((a, b) => a + b, 0);
+  return out;
+}
+function metaOf(id) { const r = db.prepare('SELECT metaJson FROM user_objectives WHERE id = ?').get(id); try { return JSON.parse((r && r.metaJson) || '{}'); } catch (e) { return {}; } }
+// Case de l'arbre (niveau + période) : l'objectif qui l'occupe et ses heures par semaine (minutes, ou null si aucune).
+function cell(userId, aid, level, pk, ck, endDate, inner) { // inner : « Hebdomadaire » / « Périodique » du secteur (la semaine et la période sont deux cases différentes)
+  // Un périodique / hebdomadaire posé sur un PÔLE ou une activité sans catégorie (cadence) est une case différente de l'annuel du même pôle : la cadence est transmise (12 nov. 2026).
+  const cadence = level !== 'secteur' && inner ? (inner === 'hebdomadaires' ? 'hebdomadaire' : 'periodique') : undefined;
+  const o = objectifs().occupant(userId, { activityId: aid, level, poleKey: pk, categoryKey: ck, endDate, inner: level === 'secteur' ? inner : undefined, cadence });
+  if (!o) return null;
+  const h = Number(metaOf(o.id).hoursPerWeek);
+  return { id: o.id, min: h > 0 ? Math.round(h * 60) : null };
+}
+function writeHours(id, minutes) {
+  const meta = metaOf(id); meta.hoursPerWeek = Math.max(0, Math.round(minutes / 15) / 4);
+  db.prepare('UPDATE user_objectives SET metaJson = ? WHERE id = ?').run(JSON.stringify(meta), id);
+}
+
+// Capacité affichée : la valeur saisie à la main telle quelle ; la capacité par défaut (moyenne Chrono) arrondie au quart d'heure, comme le Passé.
+function capDisplay(cap) { return cap && cap.minutes != null && cap.source !== 'manual' ? roundQuarter(cap.minutes) : (cap ? cap.minutes : null); }
+
+// État d'un niveau : ligne du dessus (lecture seule), ligne du niveau, cases voisines, options.
+function etat(userId, spec) {
+  const act = inScope(userId, spec.activityId), aid = act.id, end = spec.endDate;
+  const poles = goals.categoriesForActivity(aid) || [];
+  const level = ['activite', 'pole', 'secteur'].includes(spec.level) ? spec.level : 'activite';
+  const cap = weekplanner.getWeeklyCapacity(userId) || { minutes: null, source: null, historyMinutes: null };
+  const manual = cap.source === 'manual';
+  const poleKey = level === 'activite' ? null : spec.poleKey || null;
+  const catKey = level === 'secteur' ? spec.categoryKey || null : null;
+  if (level !== 'activite' && !poles.some((p) => p.key === poleKey)) throw err('Choisis un pôle de cette activité.');
+  const sects = poleKey ? (goals.secteursForPole(aid, poleKey) || []) : [];
+  if (level === 'secteur' && !sects.some((s) => s.key === catKey)) throw err('Choisis un secteur de ce pôle.');
+  require('./portee').exigerObjectif(userId, aid, poleKey, catKey); // activité partagée : le budget d'heures suit les objectifs, réservé aux responsables de la portée
+  const label = (k) => { const x = poles.concat(sects).find((p) => p.key === k); return x ? x.label : k; };
+  const out = { level, activityId: aid, poleKey, categoryKey: catKey, manualCapacity: manual };
+  const ownNum = spec.ownMin === undefined || spec.ownMin === null || spec.ownMin === '' ? null : Math.round(Number(spec.ownMin));
+  const inn = ['periodiques', 'hebdomadaires'].includes(spec.inner) ? spec.inner : undefined;
+  const meCell = cell(userId, aid, level, poleKey, catKey, end, inn);
+  const mePrevu = Number.isFinite(ownNum) && ownNum >= 0 ? ownNum : (meCell ? meCell.min : null);
+  let others;
+  if (level === 'activite') {
+    out.up = { kind: 'total', label: null, prevuMin: capDisplay(cap), passeMin: passeMin(userId, null, null) };
+    out.me = { key: null, label: act.name, prevuMin: mePrevu, passeMin: passeMin(userId, aid, null) };
+    others = userActivities(userId).filter((x) => x.id !== aid).map((x) => { const c = cell(userId, x.id, 'activite', null, null, end, inn); return { key: 'a' + x.id, label: x.name, chronoMin: passeMin(userId, x.id, null), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    out.restMin = 0; // plus de « Reste de ta capacité » : le Chrono des lignes donne déjà le total
+  } else {
+    const upCell = level === 'pole' ? cell(userId, aid, 'activite', null, null, end) : cell(userId, aid, 'pole', poleKey, null, end);
+    const upKey = level === 'pole' ? null : poleKey;
+    out.up = { kind: level === 'pole' ? 'activite' : 'pole', label: level === 'pole' ? act.name : label(poleKey), prevuMin: upCell ? upCell.min : null, passeMin: passeMin(userId, aid, upKey) };
+    out.me = { key: level === 'pole' ? poleKey : catKey, label: label(level === 'pole' ? poleKey : catKey), prevuMin: mePrevu, passeMin: passeMin(userId, aid, level === 'pole' ? poleKey : catKey) };
+    const pt = require('./portee'), sib = (level === 'pole' ? poles.filter((p) => p.key !== poleKey) : sects.filter((s) => s.key !== catKey)).filter((x) => pt.objectifVisible(userId, aid, level === 'pole' ? x.key : poleKey, level === 'pole' ? null : x.key)); // activité partagée : seulement les lignes de la portée du responsable
+    others = sib.map((x) => { const c = level === 'pole' ? cell(userId, aid, 'pole', x.key, null, end, inn) : cell(userId, aid, 'secteur', poleKey, x.key, end, inn); return { key: x.key, label: x.label, chronoMin: passeMin(userId, aid, x.key), avantMin: c ? c.min : null, objectifId: c ? c.id : null }; });
+    const used = others.reduce((s, x) => s + (x.avantMin || 0), 0) + (mePrevu || 0);
+    out.restMin = out.up.prevuMin === null ? 0 : Math.max(0, out.up.prevuMin - used);
+    out.restLabel = level === 'pole' ? 'Reste de l’activité' : 'Reste du pôle';
+  }
+  out.others = others;
+  out.valueMin = out.me.prevuMin !== null ? out.me.prevuMin : out.me.passeMin; // valeur par défaut : le Prévu existant, à défaut le Passé
+  out.modes = ['ajouter', 'deplacer']; // deux possibilités à tous les niveaux
+  // « Déplacer » : TOUTES les autres lignes du même niveau, même à 0 h (une ligne sans objectif ne peut que rester à 0), puis la ligne source « Reste … » ; une source ne fait que baisser, jamais sous 0
+  // Chaque ligne : Chrono (lecture seule), objMin = heures de l'objectif de la case (null : « — »), avantMin = Avant EFFECTIF = l'objectif, sinon le Chrono. « Reste … » seulement s'il est > 0 (jamais pour l'activité).
+  out.takeLines = { deplacer: others.map((x) => ({ key: x.key, label: x.label, chronoMin: x.chronoMin, objMin: x.avantMin, avantMin: x.avantMin != null ? x.avantMin : (x.chronoMin || 0), objectifId: x.objectifId })).concat((out.restMin || 0) > 0 ? [{ key: 'reste', label: out.restLabel, chronoMin: null, objMin: out.restMin, avantMin: out.restMin }] : []) };
+  return out;
+}
+
+// Plan : effets d'un changement de valeur. apply = true (« Valider ») écrit, sinon simple aperçu (rien n'est modifié).
+function plan(userId, body, apply) {
+  const e = etat(userId, body);
+  const newMin = Math.round(Number(body.newMin));
+  if (!Number.isFinite(newMin) || newMin < 0) throw err('Heures invalides.');
+  const old = e.valueMin || 0, delta = newMin - old, aid = e.activityId, end = body.endDate;
+  const res = { ok: true, deltaMin: delta, increase: delta > 0, oldMin: old, newMin, lines: [], balanced: true };
+  const cap = weekplanner.getWeeklyCapacity(userId) || { minutes: null, source: null };
+  const chain = []; // cases du dessus qui ont un objectif : elles grandissent de la différence (Ajouter)
+  if (e.level === 'secteur') { const c = cell(userId, aid, 'pole', e.poleKey, null, end); if (c) chain.push({ id: c.id, label: e.up.label, kind: 'pole', prevuMin: c.min || 0 }); }
+  if (e.level !== 'activite') { const c = cell(userId, aid, 'activite', null, null, end); if (c) chain.push({ id: c.id, label: (db.prepare('SELECT name FROM activities WHERE id = ?').get(aid) || {}).name, kind: 'activite', prevuMin: c.min || 0 }); }
+  const mode = delta > 0 ? String(body.mode || '') : '';
+  if (delta > 0 && !['ajouter', 'deplacer'].includes(mode)) { res.balanced = false; res.needsMode = true; }
+  if (delta > 0 && mode && mode !== 'ajouter' && !e.modes.includes(mode)) throw err('Cette possibilité n’existe pas ici.');
+  if (delta > 0 && mode === 'deplacer') {
+    const apres = body.apres && typeof body.apres === 'object' ? body.apres : {};
+    res.lines = e.takeLines.deplacer.map((l) => { const a = apres[l.key] === undefined ? l.avantMin : Math.round(Number(apres[l.key])); return { key: l.key, label: l.label, avantMin: l.avantMin, apresMin: a, objectifId: l.objectifId || null }; });
+    const bad = res.lines.some((l) => !(l.apresMin >= 0 && l.apresMin <= l.avantMin));
+    const taken = res.lines.reduce((s, l) => s + (l.avantMin - l.apresMin), 0);
+    res.balanced = !bad && taken === delta && res.lines.length > 0; // le total du niveau du dessus reste constant
+    res.takenMin = taken;
+  }
+  if (apply) {
+    if (delta > 0 && !mode) throw err('Choisis d’où vient ce temps.');
+    if (delta > 0 && mode !== 'ajouter' && !res.balanced) throw err('Le total du niveau du dessus doit rester constant : équilibre les heures.');
+    db.exec('BEGIN');
+    try {
+      // le niveau choisi n'a pas (encore) d'objectif : sa valeur part avec la création ; une baisse ne touche rien d'autre (le temps libéré reste libre)
+      if (delta > 0 && mode === 'ajouter') {
+        chain.forEach((c) => writeHours(c.id, c.prevuMin + delta));
+        if (cap.source === 'manual') weekplanner.setWeeklyCapacity(userId, (cap.minutes || 0) + delta);
+      }
+      if (delta > 0 && mode === 'deplacer') res.lines.forEach((l) => { if (l.objectifId) writeHours(l.objectifId, l.apresMin); }); // les heures des cases voisines
+      db.exec('COMMIT');
+    } catch (x) { try { db.exec('ROLLBACK'); } catch (y) { /* rien d'ouvert */ } throw x; }
+  }
+  return res;
+}
+
+module.exports = { keysOf, etat, plan, passeMin, passeByDay, defaultByDay, roundQuarter };

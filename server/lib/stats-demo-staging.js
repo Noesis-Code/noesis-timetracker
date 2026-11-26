@@ -444,8 +444,46 @@ function build(u, fakeNames, NAME, NAME_CONF, seed) {
     tasks: nTasks, entries: nEntries, weeklies: weeklies.length, carried: carriedFrom.size, periods: lastP - firstP + 1,
     done: db.prepare('SELECT COUNT(*) AS c FROM sub_project_items i JOIN sub_projects sp ON sp.id = i.subProjectId WHERE sp.activityId = ? AND i.done = 1').get(aid).c,
   };
+  stats.recurring = seedRecurring(aid, members, sec, K, todayIso, D, at, rnd);
+  // Statistiques partagées allumées pour tous les membres (« Comparer le chrono » / « Comparer les tâches ») : la 3e page du Chrono
+  // et la page Groupe de la Feuille de route montrent l'activité de test sans réglage manuel.
+  db.prepare('UPDATE activity_members SET compareChrono = 1, compareTasks = 1 WHERE activityId = ?').run(aid);
   const conf = seedConfidential(u, members[0], todayIso, D, at, NAME_CONF);
   return { activityId: aid, confidentialId: conf, keys: K, members: members.map((m) => m.name), stats };
+}
+
+// Tâches récurrentes de démonstration (partage des tâches, 8 nov. 2026) : pour chacune, des occurrences faites depuis le début de
+// l'année (réparties inégalement entre les membres) et UNE occurrence ouverte qui porte la récurrence, à faire cette semaine.
+const RECURRING = [
+  ['Réunion d\'équipe', 1, 'week', 'communaute', [0.5, 0.3, 0.15, 0.05]],
+  ['Répondre aux courriels', 3, 'perweek', 'marketing', [0.15, 0.55, 0.2, 0.1]],
+  ['Publier sur les réseaux sociaux', 2, 'perweek', 'marketing', [0.1, 0.2, 0.6, 0.1]],
+  ['Vérifier les sauvegardes', 1, 'week', 'serveur', [0.7, 0.1, 0.1, 0.1]],
+  ['Rapport de la semaine', 1, 'week', 'interface', [0.25, 0.25, 0.25, 0.25]],
+  ['Facturation du mois', 1, 'month', 'communaute', [0.2, 0.1, 0.1, 0.6]],
+];
+function seedRecurring(aid, members, sec, K, todayIso, D, at, rnd) {
+  const now = new Date().toISOString();
+  const yStart = goals.yearAnchor(Number(todayIso.slice(0, 4))) > todayIso ? goals.yearAnchor(Number(todayIso.slice(0, 4)) - 1) : goals.yearAnchor(Number(todayIso.slice(0, 4)));
+  const days = goals.daysBetween(yStart, todayIso);
+  const ins = db.prepare(`INSERT INTO sub_project_items (subProjectId, sectionId, label, done, doneBy, doneAt, position, createdAt, dueDate, dueDateAuto, plannedUserId, recurEvery, recurUnit)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`);
+  let n = 0;
+  RECURRING.forEach(([label, every, unit, keyName, weights]) => {
+    const s = sec[keyName];
+    const perWeek = unit === 'perweek' ? every : unit === 'week' ? 1 / every : 12 / 52 / every;
+    const count = Math.max(1, Math.round(perWeek * days / 7));
+    const w = weights.slice(0, members.length); const tot = w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < count; i += 1) {
+      let r = rnd() * tot, k = 0; while (k < w.length - 1 && r > w[k]) { r -= w[k]; k += 1; }
+      const day = D(yStart, Math.min(days - 1, Math.floor((i + 0.5) * days / count)));
+      ins.run(s.subProject.id, s.section.id, label, 1, members[k].id, at(day, 10 + (i % 6), 0), 9000 + n, now, day, members[k].id, null, null);
+      n += 1;
+    }
+    ins.run(s.subProject.id, s.section.id, label, 0, null, null, 9000 + n, now, D(todayIso, 1), null, every, unit);
+    n += 1;
+  });
+  return n;
 }
 
 // 2e activité : CONFIDENTIELLE (jamais listée sur le profil visité), quelques tâches seulement.

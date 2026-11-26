@@ -21,6 +21,7 @@ const { periodRange } = require('../lib/period');
 // filtre de comparaison entre membres devient ?category=, validée contre les
 // catégories RÉELLES de l'activité — voir GET /community/activity-stats.
 const goals = require('../lib/goals');
+const { computeTrustScore } = require('../lib/trustscore');
 
 // Longueur maximale d'un message du fil de discussion : généreuse pour une
 // conversation, mais bornée — le corps de requête d'Express est certes déjà
@@ -65,6 +66,12 @@ router.get('/community', (req, res) => {
 
   const period = ['day', 'week', 'month', 'year'].includes(req.query.period) ? req.query.period : 'week';
   res.json(sharedActivitiesForUser(userId, period, req.query.date || null, req.timezone));
+});
+
+// Mon score d'exécution (calcul serveur, voir lib/trustscore.js). Le score des AUTRES membres n'est pas exposé tant
+// que le partage choisi par le membre n'existe pas.
+router.get('/community/my-score', (req, res) => {
+  res.json(computeTrustScore(req.userId, undefined, req.timezone));
 });
 
 // Détail d'UNE activité partagée précise (section Membres > sélecteur
@@ -199,6 +206,22 @@ router.post('/community/activity-messages/:id/report', async (req, res) => {
     'Motif : ' + messageReports.REASON_LABELS[r.report.reason] + (r.report.detail ? '\nPrécision : ' + r.report.detail : '') +
     '\nSignaleur : ' + userId + ' · auteur : ' + message.userId;
   sendMail({ to: CONTACT_EMAIL, subject: '[Noèsis — Signalement de message] #' + r.report.id, text })
+    .catch((err) => console.error('[signalement] courriel non envoyé : ' + err.message));
+});
+
+// Signalement d'une publication du fil (une seule fois par publication et par membre, idempotent).
+// Masquée pour le signaleur seulement ; l'équipe reçoit un courriel (ids + contenu signalé).
+router.post('/community/posts/:id/report', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ error: 'Non connecté.' });
+  const r = messageReports.reportPost(userId, Number(req.params.id));
+  if (r.error) return res.status(r.status).json({ error: r.error });
+  res.status(r.already ? 200 : 201).json({ ok: true });
+  if (r.already) return;
+  const text = ['Signalement #' + r.report.id + ' : ' + r.report.messageRef,
+    'Publication : ' + r.post.id + ' · auteur : ' + r.post.userId + ' · signalant : ' + userId,
+    'Contenu signalé :', String(r.post.body).slice(0, 2000)].join('\n');
+  sendMail({ to: CONTACT_EMAIL, subject: '[Noèsis — Signalement de publication] #' + r.report.id, text })
     .catch((err) => console.error('[signalement] courriel non envoyé : ' + err.message));
 });
 

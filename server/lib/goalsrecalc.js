@@ -14,7 +14,6 @@ const goals = require('./goals');
 const timecaps = require('./timecaps');
 
 const THRESHOLD = 0.25;
-const COOLDOWN_DAYS = 7;
 
 db.exec(`CREATE TABLE IF NOT EXISTS goal_recalc_proposals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,35 +68,22 @@ function evaluatePeriod(userId, p, today) {
   return ev ? { ...ev, currentTargetMinutes: target } : null;
 }
 
+// Recalcul SILENCIEUX (plus de proposition ni de carte) : seul le TEMPS ESTIMÉ du grand objectif de la période en cours est ajusté, et seulement s'il n'a pas été saisi à la main
+// (source « manual » : jamais modifié). Le texte et les dates des objectifs ne changent jamais ; les propositions en attente d'avant sont classées sans suite.
 function runForUser(userId, activityId, today) {
   const periods = db.prepare(`SELECT * FROM goal_periods WHERE activityId = ? AND startDate <= ? AND endDate >= ?
     AND mainGoalText IS NOT NULL AND TRIM(mainGoalText) != ''`).all(activityId, today, today);
-  let created = 0;
-  const cutoff = new Date(Date.now() - COOLDOWN_DAYS * 86400000).toISOString();
+  let changed = 0;
+  try { changed += require('./goalscarryover').repriseUnmet(activityId, today); } catch (e) { /* non bloquant */ } // passage nocturne : reprise silencieuse des objectifs hebdomadaires non atteints
   periods.forEach((p) => {
+    db.prepare("UPDATE goal_recalc_proposals SET status = 'dismissed', decidedAt = ? WHERE userId = ? AND activityId = ? AND category = ? AND status = 'pending'").run(new Date().toISOString(), userId, activityId, p.category);
+    if (p.mainGoalEstimateSource === 'manual') return;
     const ev = evaluatePeriod(userId, p, today);
-    const pending = db.prepare("SELECT id FROM goal_recalc_proposals WHERE userId = ? AND activityId = ? AND category = ? AND status = 'pending'")
-      .get(userId, activityId, p.category);
-    if (pending) {
-      // Mise à jour de la proposition en attente (jamais un doublon) ; retirée si l'écart a disparu.
-      if (!ev) db.prepare('DELETE FROM goal_recalc_proposals WHERE id = ?').run(pending.id);
-      else db.prepare(`UPDATE goal_recalc_proposals SET periodId = ?, periodNumber = ?, reason = ?, currentTargetMinutes = ?,
-        proposedTargetMinutes = ?, needPerWeekMinutes = ?, actualPerWeekMinutes = ?, weeksLeft = ? WHERE id = ?`)
-        .run(p.id, p.periodNumber, ev.reason, ev.currentTargetMinutes, ev.proposedTargetMinutes, ev.needPerWeekMinutes, ev.actualPerWeekMinutes, ev.weeksLeft, pending.id);
-      return;
-    }
-    if (!ev) return;
-    const refused = db.prepare("SELECT 1 FROM goal_recalc_proposals WHERE userId = ? AND activityId = ? AND category = ? AND status = 'dismissed' AND decidedAt > ?")
-      .get(userId, activityId, p.category, cutoff);
-    if (refused) return;
-    db.prepare(`INSERT INTO goal_recalc_proposals (userId, activityId, category, periodId, periodNumber, createdAt, reason,
-      currentTargetMinutes, proposedTargetMinutes, needPerWeekMinutes, actualPerWeekMinutes, weeksLeft)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(userId, activityId, p.category, p.id, p.periodNumber, new Date().toISOString(), ev.reason,
-        ev.currentTargetMinutes, ev.proposedTargetMinutes, ev.needPerWeekMinutes, ev.actualPerWeekMinutes, ev.weeksLeft);
-    created += 1;
+    if (!ev || ev.proposedTargetMinutes === p.mainGoalEstimateMinutes) return;
+    db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'recalc' WHERE id = ?").run(ev.proposedTargetMinutes, p.id);
+    changed += 1;
   });
-  return created;
+  return changed;
 }
 
 // Passage complet (job nocturne ou déclenchement manuel). Ne modifie aucun objectif.
@@ -111,47 +97,9 @@ function runAll() {
   return created;
 }
 
-function listPending(userId, activityId, poleFilter) {
-  return db.prepare("SELECT * FROM goal_recalc_proposals WHERE userId = ? AND activityId = ? AND status = 'pending' ORDER BY id").all(userId, activityId)
-    .map((r) => ({ ...r, poleKey: goals.resolveToPole(activityId, r.category), label: goals.categoryLabelFor(activityId, r.category) }))
-    .filter((r) => !poleFilter || r.poleKey === poleFilter);
-}
 
-function getOwn(userId, activityId, id) {
-  const r = db.prepare('SELECT * FROM goal_recalc_proposals WHERE id = ? AND userId = ? AND activityId = ?').get(Number(id), userId, activityId);
-  if (!r) throw httpError('Proposition introuvable.', 404);
-  if (r.status !== 'pending') throw httpError('Proposition déjà traitée.', 409);
-  return r;
-}
 
-function apply(userId, activityId, id) {
-  const r = getOwn(userId, activityId, id);
-  const p = db.prepare('SELECT * FROM goal_periods WHERE id = ? AND activityId = ?').get(r.periodId, activityId);
-  const now = new Date().toISOString();
-  if (!p || !p.mainGoalText || p.endDate < todayLocal()) {
-    db.prepare("UPDATE goal_recalc_proposals SET status = 'dismissed', decidedAt = ? WHERE id = ?").run(now, r.id);
-    throw httpError('Cette période n\'est plus d\'actualité.', 409);
-  }
-  db.prepare("UPDATE goal_periods SET mainGoalEstimateMinutes = ?, mainGoalEstimateSource = 'manual', mainGoalEstimateConfidence = 1 WHERE id = ?")
-    .run(r.proposedTargetMinutes, p.id);
-  db.prepare("UPDATE goal_recalc_proposals SET status = 'applied', decidedAt = ? WHERE id = ?").run(now, r.id);
-  // Seules les semaines VIDES sont composées (generateForPeriod ne touche jamais un texte saisi).
-  let filling = false;
-  try {
-    const wa = require('./goalsweeklyauto');
-    if (wa.emptyWeekIndexes(p.id).length) {
-      filling = true;
-      Promise.resolve(wa.generateForPeriod(activityId, userId, p.category, p.periodNumber)).catch(() => {});
-    }
-  } catch (e) { /* IA indisponible : l'estimation est quand même appliquée */ }
-  return { applied: true, newTargetMinutes: r.proposedTargetMinutes, fillingEmptyWeeks: filling };
-}
 
-function dismiss(userId, activityId, id) {
-  const r = getOwn(userId, activityId, id);
-  db.prepare("UPDATE goal_recalc_proposals SET status = 'dismissed', decidedAt = ? WHERE id = ?").run(new Date().toISOString(), r.id);
-  return { dismissed: true };
-}
 
 let started = false;
 // Une exécution par jour, la nuit (heure de Montréal). Désactivable : GOALS_RECALC_CRON=off.
@@ -164,4 +112,4 @@ function startGoalsRecalcCron() {
   }, { timezone: 'America/Montreal' });
 }
 
-module.exports = { startGoalsRecalcCron, runAll, runForUser, listPending, apply, dismiss, evaluate };
+module.exports = { startGoalsRecalcCron, runAll, runForUser, evaluate };

@@ -6,6 +6,7 @@
 // Aucune vérification d'identité ici : c'est à l'APPELANT de l'avoir faite
 // (PIN pour la route, délai d'inactivité + avis préalable pour la tâche).
 const db = require('../db');
+require('./taches-apprentissage'); // crée les tables d'apprentissage du rangement (effacées avec le compte) avant toute suppression
 
 // [table, colonne du compte] : tables à userId sans ON DELETE CASCADE vers users.
 const PERSONAL_NO_FK = [
@@ -16,6 +17,8 @@ const PERSONAL_NO_FK = [
   ['drive_connections', 'userId'], ['drive_folders', 'userId'], ['drive_infra_fails', 'userId'], ['drive_progress', 'userId'],
   ['drive_seen_chunks', 'userId'], ['drive_seen_files', 'userId'], ['drive_seen_tasks', 'userId'], ['drive_seg_done', 'userId'],
   ['drive_skipped', 'userId'], ['drive_sync', 'userId'],
+  ['category_managers', 'userId'], ['hour_allocations', 'userId'], ['objectif_ajuste_refus', 'userId'], ['objectif_ajuste_info', 'userId'], ['objectif_ecart_refus', 'userId'], ['objectif_famille_inconnue', 'userId'], ['objectif_temps_reel', 'userId'], ['retard_rangees', 'userId'], ['task_day_plan', 'userId'], // responsables de catégorie, heures allouées, ajustements/écarts d'objectifs, jour planifié (Loi 25, 20 nov. 2026)
+  ['objectifs_refus', 'userId'],['objectifs_supprimes', 'userId'], ['fusion_absorption', 'userId'], ['user_objectives', 'userId'], ['objectifs_resume_annuel', 'userId'], ['objectifs_ordre', 'userId'], ['objectif_retards', 'userId'], // objectifs de l'arbre (liens parent/enfant, descriptions, refus de fusion)
 ];
 const tableExists = (t) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
 
@@ -28,10 +31,20 @@ function deleteAccountData(user) {
     ? db.prepare('SELECT f.storedName FROM activity_message_files f JOIN activity_messages m ON m.id = f.messageId WHERE m.userId = ?').all(user.id).map((r) => r.storedName)
     : [];
 
+  const portee = require('./portee'); // chargé AVANT la transaction (crée ses tables)
   db.exec('BEGIN');
   try {
     db.prepare('DELETE FROM running_timers WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM goal_classify_examples WHERE userId = ?').run(user.id); // exemples appris du classement IA (propres au compte)
+    try { require('./taches-apprentissage').resetForUser(user.id); } catch (e) { /* retire les contributions anonymes : jamais bloquant */ }
+    db.prepare('DELETE FROM task_rangement_corrections WHERE userId = ?').run(user.id); // journal d'apprentissage du rangement des tâches (propre au compte)
+    try { db.prepare('UPDATE category_strategies SET updatedBy = NULL WHERE updatedBy = ?').run(user.id); } catch (e) { /* table créée à la première utilisation */ } // stratégie de catégorie : le lien auteur seul est retiré
+    try { db.prepare('DELETE FROM task_proposal_refus WHERE userId = ?').run(user.id); } catch (e) { /* table créée à la première utilisation de strategy.js */ } // refus de propositions de tâches (alimentent « à ignorer »)
+    db.prepare('DELETE FROM paliers_delais WHERE userId = ?').run(user.id); // délais réels entre paliers (propres au compte)
+    db.prepare('DELETE FROM rangement_consentement WHERE userId = ?').run(user.id); // consentement à l'amélioration anonyme du modèle
+    if (tableExists('activity_managers')) db.prepare('DELETE FROM activity_managers WHERE userId = ?').run(user.id); // responsables d'activité (le propriétaire reste responsable par sa propriété)
+    if (tableExists('member_scopes')) db.prepare('DELETE FROM member_scopes WHERE userId = ?').run(user.id); // appartenances par catégorie (propres au compte)
+    if (tableExists('goal_objective_examples')) db.prepare('DELETE FROM goal_objective_examples WHERE userId = ?').run(user.id); // choix entre deux objectifs (rattachement IA), propres au compte
     db.prepare('DELETE FROM time_entries WHERE userId = ?').run(user.id);
     db.prepare('DELETE FROM activity_members WHERE userId = ?').run(user.id);
 
@@ -43,8 +56,9 @@ function deleteAccountData(user) {
 
       if (remaining > 0) {
         if (activity.ownerId === user.id) {
+          // Plus ancien responsable d'activité (portee.js) ; supprimer son compte ne se refuse jamais : à défaut, le membre restant le plus ancien.
           const next = db.prepare('SELECT userId FROM activity_members WHERE activityId = ? ORDER BY joinedAt ASC LIMIT 1').get(m.activityId);
-          db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(next ? next.userId : null, m.activityId);
+          db.prepare('UPDATE activities SET ownerId = ? WHERE id = ?').run(portee.successeur(m.activityId, user.id) || (next ? next.userId : null), m.activityId);
         }
         return;
       }

@@ -14,7 +14,9 @@ const { checkPin, LOCK_MESSAGE } = require('../lib/auth');
 // Volontairement PUBLIC (pas de requireAuth) : c'est justement ce qui
 // permet au client de savoir qu'il N'A PAS de session.
 router.get('/session/me', (req, res) => {
-  res.json({ userId: req.userId || null });
+  const out = { userId: req.userId || null };
+  if (require('../lib/diagmesures').active(req.userId)) out.diag = true; // staging seulement : le client envoie ses mesures
+  res.json(out);
 });
 
 router.post('/session/logout', (req, res) => {

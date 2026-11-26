@@ -232,7 +232,7 @@
 #tab-horaire .horaireInput option { background: var(--pop-bg); color: var(--text); }
 .horairePair { display: flex; gap: 8px; }
 #tab-horaire textarea.horaireInput { resize: vertical; min-height: 88px; }
-/* Points de pagination des 4 pages : en bas, au-dessus de la barre des volets (même place et même rendu que #statsPageDots du Chrono) */
+/* Points de pagination des 4 pages : en bas, au-dessus de la barre des volets */
 #horairePageDots, #horaireParamDots { position: fixed; left: 50%; transform: translateX(-50%); z-index: 20; bottom: var(--tabbar-h, 64px); display: flex; gap: 0; }
 #horairePageDots .goalsDot, #horaireParamDots .goalsDot { width: 7px; height: 7px; border-radius: 50%; background: var(--white); opacity: .35; transition: opacity .2s; box-shadow: 0 0 0 1px var(--veil); }
 #horairePageDots .goalsDotBtn.on .goalsDot, #horaireParamDots .goalsDotBtn.on .goalsDot { opacity: 1; }

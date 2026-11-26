@@ -1,0 +1,102 @@
+/* Noèsis TimeTracker — Lignes de tâches : groupes, cases, panneau de modification, répétition, liste plate du volet Tâches (js/taches-ligne.js, js/aujourdhui.js). */
+.goalsTasksGroup.open { padding-top: 12px; }
+.goalsTasksGroup .msg:empty { display: none; }
+
+/* cases rondes ; aucun grisé au toucher/survol d'une tâche (le :hover générique restait collé après un appui). */
+.goalsTasksGroup .subProjectItem input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; width: 28px; height: 28px; border-radius: 50%;
+  background: transparent; border: 2px solid var(--text-light);
+  display: inline-grid; place-content: center; cursor: pointer;
+}
+.goalsTasksGroup .subProjectItem input[type="checkbox"]:checked { background: var(--purple); border-color: var(--purple); }
+.goalsTasksGroup .subProjectItem input[type="checkbox"]:checked::after { content: ""; width: 7px; height: 13px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+.goalsTasksGroup .subProjectItem:hover, .goalsTasksGroup .subProjectItem:active, .goalsTasksGroup .subProjectItem:focus-within { background: transparent; }
+
+/* liste « du jour » (blanches) + « À venir » (grises) + bouton Archives (même gabarit que Historique du Chrono). */
+.goalsDailyGrey .subProjectItemLabel { color: var(--text-light); }
+.goalsDailyWhen { flex: 0 0 auto; font-size: 13px; color: var(--text-light); white-space: nowrap; }
+#goalsTodayArchiveSection { margin-top: 12px; padding-bottom: calc(var(--tabbar-h, 64px) + 76px); } /* espace vide permanent sous « Archives », au-dessus des 3 points */
+#goalsTodayArchiveHeader {
+  margin-top: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+  background: var(--glass-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 2px 10px rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  padding: 12px 16px; display: flex; justify-content: center; width: fit-content;
+  margin-left: auto; margin-right: auto; cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+#goalsTodayArchiveHeader:hover { filter: brightness(1.12); }
+#goalsTodayArchiveHeader .sectionTitle { margin: 0; }
+#goalsTodayArchivePanel { margin-top: 12px; }
+
+/* panneau « modifier une tâche » — case à gauche, crayon à droite, jamais au-dessus/dessous */
+.goalsTasksGroup .subProjectItem { flex-wrap: wrap; align-items: center; }
+.goalsTasksGroup .subProjectItem > input[type="checkbox"] { flex: 0 0 auto; }
+.goalsTasksGroup .subProjectItem > .subProjectItemLabel { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.goalsTasksGroup .subProjectItem > .goalsDailyWhen { flex: 0 0 auto; }
+.goalsTasksGroup .subProjectItem > .goalsTaskEditBtn { flex: 0 0 auto; margin-left: auto; }
+.goalsTaskEditPanel { flex: 0 0 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 4px; }
+.goalsTaskEditPanel input[type="text"], .goalsTaskEditPanel input[type="date"], .goalsTaskEditPanel select { width: 100%; max-width: 320px; font-size: 14px; text-align: center; text-align-last: center; }
+.goalsTaskEditPanel input[type="date"] { display: block; margin: 0 auto; }
+.goalsTaskEditPanel .rowActions { width: 100%; max-width: 320px; }
+
+/* en modification, le texte de la tâche est éditable sur place (pas de doublon),
+   plus de case à cocher ; champs de date arrondis sans contour (aussi dans les historiques) ; Responsable à gauche. */
+.goalsTasksGroup .goalsTaskEditing > input[type="checkbox"], .goalsTasksGroup .goalsTaskEditing > .subProjectItemLabel, .goalsTasksGroup .goalsTaskEditing > .goalsDailyWhen { display: none !important; }
+.goalsTaskEditPanel { padding-top: 16px; position: relative; }
+:root .goalsTaskEditPanel textarea.goalsTaskEditText { resize: none; overflow: hidden; font-family: inherit; line-height: 1.35;} :root .goalsTaskEditPanel textarea.goalsTaskEditText { max-width: none; width: 100%; text-align: left; border: 0 !important; background: transparent !important; padding: 8px 0; font-size: inherit; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root .goalsTaskEditPanel select { border-radius: 999px; border: 0 !important; padding-left: 12px; }
+:root .goalsTaskEditPanel input[type="date"],
+:root .historyReassign input[type="date"],
+:root .historyEditFields input[type="datetime-local"],
+:root .goalsPlacementField input[type="date"] {
+  border: 0 !important; border-radius: 999px !important; outline: none; box-shadow: none;
+}
+:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select { min-height: 44px; padding: 8px 12px; box-sizing: border-box; background: var(--card) !important; -webkit-appearance: none; appearance: none; }
+:root .goalsTaskEditPanel select { text-align: left; text-align-last: left; }
+:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { border: 0 !important; }
+:root .goalsTaskEditPanel.historyEditFields input[type="date"], :root .goalsTaskEditPanel.historyEditFields select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"], :root .goalsPlacementField input[type="date"], :root .goalsPlacementField select {
+  background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; border: 0 !important; border-radius: 999px !important;
+}
+
+/* dates = même bulle arrondie que Responsable (fond verre + liseré fin), partout. */
+:root .goalsTaskEditPanel input[type="date"], :root .goalsTaskEditPanel select, :root .historyReassign input[type="date"], :root .historyEditFields input[type="datetime-local"] { background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line) !important; }
+/* en modification, une bulle arrondie entoure toute la tâche (texte + date + responsable + boutons). */
+:root .goalsTasksGroup .subProjectItem.goalsTaskEditing { box-shadow: inset 0 0 0 1px var(--glass-calm-line); border-radius: var(--radius-xl);
+  padding: 12px 12px; margin: 8px 0; -webkit-backdrop-filter: var(--glass-calm-blur); backdrop-filter: var(--glass-calm-blur);
+}
+/* bulle de modification plus transparente. */
+:root .goalsTasksGroup .subProjectItem.goalsTaskEditing { background: color-mix(in srgb, var(--glass-calm-bg) 40%, transparent); }
+:root .goalsTaskEditPanel textarea.goalsTaskEditText { min-height: 0 !important; }
+/* modification d'une tâche : toutes les bulles (date, répétition, responsable) ont la même largeur, et le texte part de leur bord gauche. */
+:root .goalsTaskEditPanel .recurField, :root .goalsTaskEditPanel textarea.goalsTaskEditText { width: 100%; max-width: 320px; box-sizing: border-box; }
+:root .goalsTaskEditPanel .recurField .recurMode { max-width: 100%; }
+
+/* Tâche récurrente : champ « Répéter » partagé (édition d'une tâche, pop-ups de capture). */
+.recurField { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.recurField .recurMode { width: 100%; max-width: 100%; }
+.recurRow { display: flex; align-items: center; gap: 8px; }
+.recurRow.hidden { display: none; }
+.recurRow .recurNum { width: 72px; flex: 0 0 auto; text-align: center; }
+.recurRow .recurUnit { flex: 1 1 auto; min-width: 0; }
+.recurStop.hidden { display: none; }
+.recurStop { align-self: flex-start; }
+.recurRow .meta { white-space: nowrap; }
+:root .recurField .recurNum { width: 72px; min-height: 44px; padding: 8px 8px; box-sizing: border-box; text-align: center; border: 0 !important; border-radius: 999px !important; background: var(--glass-calm-bg) !important; box-shadow: inset 0 0 0 1px var(--glass-calm-line); color: var(--purple); font-size: 14px; -moz-appearance: textfield; }
+:root .goalsPlacementField .recurField select { min-height: 44px; }
+
+/* LISTE PLATE du volet Tâches (28 oct. 2026) : aucune carte ni cadre autour des secteurs et des tâches ;
+   titre de secteur en gras avec son nombre et sa flèche (R21), cercle à cocher à gauche, date à droite, traits d'un bord à l'autre (R22), 44 px min (R7).
+   Les secteurs ne portent jamais de couleur (R16). */
+:root #tasksListBox .goalsTasksGroup { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; border-radius: 0; padding: 0; gap: 0; }
+#tasksListBox .goalsTasksGroup.open { padding-top: 0; }
+#tasksListBox .goalsTasksGroup .subProjectRowHeader { min-height: 48px; border-bottom: 1px solid var(--sep); }
+#tasksListBox .goalsTasksGroup .activityRowName { font-size: 15px; font-weight: 600; }
+#tasksListBox .goalsTasksGroup .subProjectBadge { font-size: 13px; color: var(--text-light); }
+#tasksListBox .goalsTasksGroup .subProjectItems { gap: 0; }
+#tasksListBox .goalsTasksGroup .subProjectItem { min-height: 52px; padding: 4px 0; gap: 16px; border-radius: 0; border-bottom: 1px solid var(--sep); }
+#tasksListBox .goalsTasksGroup .subProjectItem input[type="checkbox"] { margin-left: 4px; }
+#tasksListBox .goalsTasksGroup .subProjectItem.goalsTaskEditing { border-bottom: 0; }
+:root #goalsTodayArchiveHeader { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; min-height: 44px; align-items: center; }
+#goalsTodayArchiveHeader:hover { filter: none; }
+#goalsTodayArchiveHeader .sectionTitle { font-size: 13px; font-weight: 400; color: var(--text-light); }
+.recurRow .recurKind { flex: 0 0 auto; min-width: 0; }
