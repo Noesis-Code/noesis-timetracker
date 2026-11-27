@@ -54,6 +54,7 @@ const data = (r) => JSON.parse(r.content[0].text);
     const m1 = JSON.parse(r1.metaJson || '{}');
     assert(r1.level === 'pole' && r1.poleKey === poleA && r1.endDate === '2029-12-31', "l'objectif est au niveau pôle, échéance fin décembre");
     assert(m1.hoursPerWeek === 12.5 && m1.dateFixe === true, 'heures par semaine et date fixe enregistrées');
+    assert(m1.description === 'Temps estimé : 12 h/sem', 'la description écrite par l IA est enregistrée sur l objectif');
 
     const o2 = await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'secteur', pole: poleA, secteur: 'Données', titre: 'Le chrono et le suivi', fin: '2027-12-31' });
     assert(!o2.isError && data(o2).objectifId, 'creer_objectif niveau secteur : objectif créé');
@@ -62,6 +63,7 @@ const data = (r) => JSON.parse(r.content[0].text);
     assert(aiCalls === aiAvant, 'aucun appel IA de Noèsis');
     const o3 = await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'secteur', pole: poleA, secteur: 'Données', titre: 'Lointain', fin: '2034-12-31' });
     assert(!o3.isError && db.prepare('SELECT 1 FROM user_objectives WHERE id = ?').get(data(o3).objectifId), 'objectif de secteur en 2034 : créé dans l arbre (même sans période de calendrier)');
+    assert((await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'secteur', pole: poleA, secteur: 'Données', titre: 'Doublon', fin: '2034-12-31' })).isError, 'une case déjà occupée est refusée (rien n est remplacé)');
 
     assert((await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'secteur', pole: poleA, titre: 'sans secteur', fin: '2028-12-31' })).isError, 'niveau secteur sans secteur : refusé');
     assert((await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'secteur', pole: poleA, secteur: 'Inconnu', titre: 'x', fin: '2028-12-31' })).isError, 'secteur inconnu : refusé');

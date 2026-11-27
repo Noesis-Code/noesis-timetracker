@@ -541,6 +541,8 @@ Object.assign(tools, {
       if (h != null && (!Number.isFinite(h) || h <= 0 || h > 1000)) throw toolError('heures_par_semaine : nombre positif (1000 au plus).');
       const obj = require('../lib/objectifs');
       const body = { activityId: a.id, title: titre, level: args.niveau, poleKey: t.key, categoryKey, endDate: args.fin, dateFixe: args.date_fixe !== false, hoursPerWeek: h, description, sansIA: true };
+      const occ = obj.occupant(userId, body); // une case occupée : le connecteur ne remplace jamais un objectif existant
+      if (occ) throw toolError('Cette case est déjà occupée par « ' + occ.title + ' » (objectif ' + occ.id + ') : le connecteur ne remplace aucun objectif.');
       let out;
       try { obj.checkEcheance(body, null, true); out = obj.creer(userId, body); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de créer cet objectif.'); }
       const logId = wlog.record(ctx, 'creer_objectif', a.id, out.id, null, { titre, fin: args.fin, niveau: args.niveau });
