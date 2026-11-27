@@ -649,6 +649,8 @@ async function proposePlacement(userId, label, opts) {
 async function proposePlacementBase(userId, label, opts) {
   const acts =db.prepare('SELECT a.id, a.name FROM activities a JOIN activity_members m ON m.activityId = a.id WHERE m.userId = ? AND a.active = 1 ORDER BY a.name').all(userId);
   const options = [];
+  // Une activité sans aucun pôle (neuve) disparaissait de la liste : impossible de la choisir. Même règle que la création d'un objectif (objectifs.targetCategory) : un pôle du nom de l'activité est posé, seulement là où l'on peut écrire.
+  acts.forEach((a) => { if (!goals.categoriesForActivity(a.id).length && require('./portee').peutEcrireTache(userId, a.id, null)) goals.addCategory(a.id, a.name); });
   acts.forEach((a) => buildClassificationCandidates(a.id).filter((c) => require('./portee').peutEcrireTache(userId, a.id, c.key)).forEach((c) => options.push({ // activité partagée : seulement les catégories où je suis responsable
     key: 'a' + a.id + ':' + c.key, activityId: a.id, activityName: a.name, categoryKey: c.key, categoryLabel: c.label,
     label: a.name + ' → ' + c.label, description: c.description || '', poleDescription: c.poleDescription || '',
