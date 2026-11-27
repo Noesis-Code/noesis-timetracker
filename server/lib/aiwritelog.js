@@ -19,8 +19,11 @@ CREATE TABLE IF NOT EXISTS ai_write_log (
 CREATE INDEX IF NOT EXISTS idx_ai_write_log_user ON ai_write_log(userId, at);
 `);
 
-const WRITES_PER_MINUTE = 20;
-const WRITES_PER_DAY = 300;
+// Plafonds par jeton (27 nov. 2026, demande d'Émilien : 20/min était trop serré ; une écriture coûte quelques ms). Réglables par variables d'environnement.
+const WRITES_PER_MINUTE = Number(process.env.MCP_ECRITURES_PAR_MINUTE) || 120;
+const WRITES_PER_DAY = Number(process.env.MCP_ECRITURES_PAR_JOUR) || 3000;
+const GLOBAL_PER_MINUTE = Number(process.env.MCP_ECRITURES_GLOBALES_PAR_MINUTE) || 600; // garde-fou : tous les jetons ensemble
+const globalMinute = [];
 const UNDO_DAYS = 30;
 const KEEP_DAYS = 90;
 const minute = new Map(); // tokenId -> horodatages
@@ -35,9 +38,11 @@ function takeWriteSlot(tokenId, now) {
   const t = now || Date.now();
   const arr = (minute.get(tokenId) || []).filter((x) => t - x < 60000);
   if (arr.length >= WRITES_PER_MINUTE) { minute.set(tokenId, arr); return false; }
+  while (globalMinute.length && t - globalMinute[0] >= 60000) globalMinute.shift();
+  if (globalMinute.length >= GLOBAL_PER_MINUTE) return false;
   const since = new Date(t - 24 * 3600 * 1000).toISOString();
   if (db.prepare('SELECT COUNT(*) AS n FROM ai_write_log WHERE tokenId = ? AND at > ?').get(tokenId, since).n >= WRITES_PER_DAY) return false;
-  arr.push(t); minute.set(tokenId, arr);
+  arr.push(t); minute.set(tokenId, arr); globalMinute.push(t);
   return true;
 }
 
