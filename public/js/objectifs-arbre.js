@@ -577,6 +577,7 @@
   }
   function render() {
     if (!tree) return;
+    if (!loaded) { tree.textContent = ''; return; } // données pas encore reçues : jamais « Aucun objectif » (l'état vide n'apparaît qu'après une réponse serveur)
     var keepTop = !needBase && gridArea ? gridArea.scrollTop : null, keepLeft = !needBase && scroller ? scroller.scrollLeft : 0;
     document.documentElement.classList.toggle('arbreOn', visible); if (visible) window.scrollTo(0, 0); // page non défilante tant que l'arbre est affiché (aucun élastique)
     tree.textContent = ''; tree.classList.toggle('arWide', window.innerWidth >= 1024); fitTree();
@@ -776,9 +777,13 @@
     kidsAll = {}; items.forEach(function (x) { if (x.parentId != null) (kidsAll[x.parentId] = kidsAll[x.parentId] || []).push(x); });
     setEdit(false); picked = null; lvl = 'activite'; focus = null;
   }
+  var pre = null; // requêtes lancées dès l'ouverture du volet (prefetch), reprises par refresh() : elles n’attendent plus la liste des activités
+  function fetchAll() { return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]); }
+  function prefetch() { if (tree) { pre = { t: Date.now(), p: fetchAll() }; pre.p.catch(function () {}); } }
   function refresh() {
     if (!tree) return Promise.resolve();
-    return Promise.all([TMT.api('GET', '/api/objectifs?filtre=tous&liens=1'), TMT.api('GET', '/api/objectifs/structure').catch(function () { return null; })]).then(function (rs) {
+    var got = pre && Date.now() - pre.t < 8000 ? pre.p : fetchAll(); pre = null;
+    return got.then(function (rs) {
       struct = rs[1]; var hid = (struct && struct.hidden) || []; if (struct && struct.activities) struct = Object.assign({}, struct, { activities: struct.activities.filter(function (a) { return hid.indexOf(a.id) < 0 && (!TMT.portee || TMT.portee.canManage(a.id)); }) }); /* simple membre d'une activité partagée : pas de volet Objectifs pour elle */ /* les colonnes viennent de la structure : l'activité masquée en disparaît aussi */ items = ((rs[0] && rs[0].objectifs) || []).filter(function (o) { return hid.indexOf(o.activity.id) < 0; }); /* activité masquée (réglage « Arbre des objectifs ») : ses objectifs restent en base, absents de l'arbre */ loaded = true; if (openPending) { applyOpen(); openPending = false; } return loadOrdre();
     }).then(function () { render(); }).catch(function () {});
   }
@@ -807,7 +812,7 @@
       return curCols.map(function (c, i) { return { col: c.label, eligible: extEligible(i), objs: (c.objs || []).map(function (o) { return { id: o.id, titre: o.title, niveau: o.level || 'activite', parent: o.parentId, raison: o.isMacro ? 'macro' : o.abandoned ? 'abandonné' : bucketOf(o, today).rank !== ext.rank ? 'autre ligne ' + bucketOf(o, today).rank : 'ok' }; }) }; });
     },
     setEdit: setEdit, isEdit: function () { return editOn; },
-    refresh: refresh, render: render, say: function (m) { say(m); },
+    refresh: refresh, prefetch: prefetch, render: render, say: function (m) { say(m); },
     showBase: function () {
       document.documentElement.classList.remove('calFromTree');
       visible = true; document.documentElement.classList.add('arbreOn');

@@ -2357,7 +2357,7 @@
     else {
       if (TMT.bilanHide) TMT.bilanHide();
       if (tab === 'community') loadCommunity();
-      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(goalsView); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
+      else if (tab === 'goals') { if (TMT.resetGoalsPage1View) TMT.resetGoalsPage1View(goalsView); if (TMT.objectifsArbre && TMT.objectifsArbre.prefetch) TMT.objectifsArbre.prefetch(); TMT.loadGoalsTab(); if (TMT.objectifsArbre && TMT.objectifsArbre.reopen) TMT.objectifsArbre.reopen(); maybeShowAiNotice(); } // 29 oct. 2026 (Émilien) : on revient toujours sur « Aujourd'hui »
       else if (tab === 'chrono') {
         currentHistoryWeekOffset = 0;
         $('chronoHistoryPanel').classList.add('hidden');
