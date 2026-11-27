@@ -12,8 +12,8 @@
   --on-action: #15111C;
   --btn-idle-bg: #544B69; --btn-idle-fg: #B3ADB5; /* R52 : bouton d'action inactif = violet d'action pâli (#9C8CC8 à 50 % sur #0B0A0A), texte atténué (contraste 3,7:1) ; jamais noir, jamais gris */
   --white: #ffffff;
-  --black: #0B0A0A;
-  --bg: #0B0A0A;
+  --black: #15111C;
+  --bg: #15111C;
   --bg-raised: #16141A;
   --card: #16141A;
   --text: #F3EEE8;
@@ -49,7 +49,7 @@
   --glass-calm-line: var(--sep);
   --glass-calm-blur: var(--glass-blur);
   --pop-bg: #16141A;                        /* menus, feuilles : fond sombre uni */
-  --halo: rgba(156, 140, 200, .28);
+  --halo: transparent; /* 27 nov. 2026 (Émilien) : plus de halo violet, fond uni violet profond #15111C (celui de l’icône) */
 }
 
 /* Verre commun (R14/R29, étape 8) : UNE seule opacité de verre pour toute l'app : barre des volets, pop-ups (fond) et fenêtres. Un en-tête de pop-up
