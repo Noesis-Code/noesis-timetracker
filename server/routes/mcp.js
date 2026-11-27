@@ -494,6 +494,59 @@ Object.assign(tools, {
       return done({ activityId: a.id, pole: t.key, periode: n, semaine: w, objectif: texte }, logId);
     },
   },
+  creer_secteur: {
+    write: true, journal: true,
+    description: "Crée un secteur dans un pôle de l'activité (10 secteurs au plus par pôle, nom de 40 caractères au plus). Réservé aux responsables du pôle. Réversible tant que le secteur est vide (annuler_modification).",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string', description: 'Nom ou clé du pôle (pas un secteur).' }, nom: { type: 'string' } }, required: ['activityId', 'pole', 'nom'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      const t = resolveTarget(a.id, args.pole);
+      if (t.key !== t.pole.key) throw toolError('pole : indique un pôle, pas un secteur.');
+      const nom = checkText(args.nom, 40, 'Nom');
+      if (!nom) throw toolError('nom requis.');
+      if (t.secteurs.some((s) => String(s.label).toLowerCase() === nom.toLowerCase())) throw toolError('Ce secteur existe déjà dans ce pôle.');
+      const m = require('../lib/portee').managed(userId, a.id);
+      if (!(m.all || m.has(t.key))) throw toolError('Seuls les responsables peuvent créer un secteur dans ce pôle.');
+      const avant = new Set(t.secteurs.map((s) => s.key));
+      let liste;
+      try { liste = goals.addCategory(a.id, nom, t.key); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de créer ce secteur.'); }
+      const neuf = (liste || []).find((s) => !avant.has(s.key));
+      const logId = wlog.record(ctx, 'creer_secteur', a.id, null, null, { key: neuf ? neuf.key : null, pole: t.key, nom });
+      return done({ activityId: a.id, pole: t.key, secteur: neuf ? neuf.key : null, nom }, logId);
+    },
+  },
+  creer_objectif: {
+    write: true, journal: true,
+    description: "Crée un objectif de l'ARBRE d'une activité, avec une échéance précise (AAAA-MM-JJ, jusqu'à 15 ans). niveau « pole » = objectif annuel du pôle (sa colonne = l'année de l'échéance) ; niveau « secteur » = objectif d'un secteur (sa période). Heures par semaine facultatives. Aucun appel IA de Noèsis. Réversible (annuler_modification) : l'objectif est supprimé.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, niveau: { type: 'string', enum: ['pole', 'secteur'] }, pole: { type: 'string', description: 'Nom ou clé du pôle.' }, secteur: { type: 'string', description: 'Nom ou clé du secteur (obligatoire au niveau « secteur »).' }, titre: { type: 'string' }, fin: { type: 'string', description: 'Échéance précise AAAA-MM-JJ.' }, date_fixe: { type: 'boolean', description: 'Date fixe (défaut : oui).' }, heures_par_semaine: { type: 'number' }, description: { type: 'string' } }, required: ['activityId', 'niveau', 'pole', 'titre', 'fin'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      if (!['pole', 'secteur'].includes(args.niveau)) throw toolError('niveau : pole ou secteur.');
+      const t = resolveTarget(a.id, args.pole);
+      if (t.key !== t.pole.key) throw toolError('pole : indique un pôle, pas un secteur.');
+      let categoryKey = null;
+      if (args.niveau === 'secteur') {
+        const w = String(args.secteur == null ? '' : args.secteur).trim().toLowerCase();
+        const s = w ? t.secteurs.find((x) => x.key.toLowerCase() === w || String(x.label).toLowerCase() === w) : null;
+        if (!s) throw toolError('secteur : inconnu dans ce pôle' + (t.secteurs.length ? ' (' + t.secteurs.map((x) => x.label).join(', ') + ')' : '') + ' ; créer_secteur le crée.');
+        categoryKey = s.key;
+      }
+      const titre = checkText(args.titre, 120, 'Titre');
+      if (!titre) throw toolError('titre requis.');
+      if (!isDay(args.fin)) throw toolError('fin : format AAAA-MM-JJ attendu.');
+      const lim = String(Number(todayLocal().slice(0, 4)) + 15) + '-12-31';
+      if (args.fin > lim) throw toolError('fin : au plus 15 ans après aujourd\'hui.');
+      const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
+      const h = args.heures_par_semaine == null ? null : Number(args.heures_par_semaine);
+      if (h != null && (!Number.isFinite(h) || h <= 0 || h > 1000)) throw toolError('heures_par_semaine : nombre positif (1000 au plus).');
+      const obj = require('../lib/objectifs');
+      const body = { activityId: a.id, title: titre, level: args.niveau, poleKey: t.key, categoryKey, endDate: args.fin, dateFixe: args.date_fixe !== false, hoursPerWeek: h, description, sansIA: true };
+      let out;
+      try { obj.checkEcheance(body, null, true); out = obj.creer(userId, body); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de créer cet objectif.'); }
+      const logId = wlog.record(ctx, 'creer_objectif', a.id, out.id, null, { titre, fin: args.fin, niveau: args.niveau });
+      return done({ activityId: a.id, objectifId: out.id, niveau: args.niveau, pole: t.key, secteur: categoryKey, titre, echeance: out.endDate || args.fin }, logId);
+    },
+  },
   annuler_modification: {
     write: true, journal: true,
     description: "Annule une écriture du journal (le numéro `journal` renvoyé par chaque outil d'écriture), de moins de 30 jours, une seule fois. Rétablit l'état d'avant.",
@@ -544,6 +597,11 @@ Object.assign(tools, {
             goals.setMainGoal(act, before.key, before.periode, before.text, before.description, before.minutes == null ? undefined : before.minutes);
             if (before.debut && before.fin) goals.setPeriodDates(act, before.key, before.periode, before.debut, before.fin);
             break;
+          case 'creer_objectif':
+            require('../lib/objectifs').supprimer(userId, row.targetId, true); break;
+          case 'creer_secteur':
+            if (!after || !after.key) throw toolError('Ce secteur est introuvable.');
+            require('../lib/categories').removeCategory(act, after.key, { mode: 'delete' }); break;
           case 'definir_objectif_hebdomadaire':
             if (before.existait) goals.setWeekly(act, before.key, before.periode, before.semaine, before.text, before.description);
             else goals.deleteWeekly(act, before.key, before.periode, before.semaine);

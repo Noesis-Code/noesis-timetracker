@@ -13,6 +13,7 @@ Un compte gratuit peut tout organiser avec SA propre IA (Claude, ChatGPT...) bra
 - `planifier_jour` : place des tâches sur un jour (plan du jour).
 - `retirer_tache` : retire une tâche, mais garde une copie dans le journal (réversible).
 - `definir_objectif_periodique`, `definir_objectif_hebdomadaire` : écrit l'objectif d'une période ou d'une semaine (jamais de suppression).
+- `creer_secteur` (un secteur dans un pôle dont on est responsable) et `creer_objectif` (un objectif de l'arbre : niveau pôle = annuel, niveau secteur = période ; échéance précise jusqu'à 15 ans, heures par semaine facultatives) : sans appel IA de Noèsis, réversibles (27 nov. 2026).
 - `annuler_modification` : défait n'importe quelle écriture du journal (30 jours).
 Existants inchangés : `marquer_tache_faite`, `ajouter_tache_note`, `notifier`.
 

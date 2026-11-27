@@ -703,8 +703,10 @@ function creer(userId, body) {
     taskIds.push(goalstasks.addCategoryTask(act.id, userId, catKey, label, { dueDate: due }).id);
   });
   db.prepare('UPDATE user_objectives SET taskIdsJson = ? WHERE id = ?').run(JSON.stringify(taskIds), id);
-  setImmediate(() => { expandHints(userId, id); });
-  setImmediate(() => { require('./estimateur').classerObjectif(userId, id); }); /* famille de l'objectif, rangée en silence (estimateur.js) : jamais bloquant, rien d'affiché */
+  if (body.sansIA !== true) { // sansIA : écriture libre par le connecteur de la personne (aucun appel IA de Noèsis, ni notification)
+    setImmediate(() => { expandHints(userId, id); });
+    setImmediate(() => { require('./estimateur').classerObjectif(userId, id); }); /* famille de l'objectif, rangée en silence (estimateur.js) : jamais bloquant, rien d'affiché */
+  }
   if (body.replaceId != null) { const occ = occupants(userId, Object.assign({}, body, { level: lvl.level, poleKey: lvl.poleKey, categoryKey: lvl.categoryKey, __skip: id })).filter((x) => x.id === Number(body.replaceId))[0]; if (occ) { try { supprimer(userId, occ.id, true); } catch (e) { console.warn('[objectifs] remplacement : ancien objectif conservé : ' + (e && e.message)); } } } // remplacé = supprimé (suppression existante : sous-objectifs détachés), APRÈS l'enregistrement du nouveau ; en cas d'échec l'ancien reste
   return get(userId, id);
 }
