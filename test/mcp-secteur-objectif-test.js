@@ -79,9 +79,41 @@ const data = (r) => JSON.parse(r.content[0].text);
     const us = await tool(tokA, 'annuler_modification', { journal: data(s1).journal });
     assert(!us.isError && !goals.secteursForPole(actA, poleA).some((s) => s.key === sKey), 'annuler : le secteur vide est retiré');
 
+    // ---- Envois groupés : un lot = une écriture, tout ou rien, un seul numéro de journal ----
+    const logCount = () => db.prepare("SELECT COUNT(*) n FROM ai_write_log WHERE userId = 'A'").get().n;
+    const objCount = () => db.prepare("SELECT COUNT(*) n FROM user_objectives WHERE userId = 'A'").get().n;
+    const lc0 = logCount();
+    const lotS = await tool(tokA, 'creer_secteurs', { activityId: actA, pole: poleA, noms: ['Alpha', 'Bêta', 'Gamma'] });
+    assert(!lotS.isError && data(lotS).secteurs.length === 3 && logCount() === lc0 + 1, 'creer_secteurs : 3 secteurs en UNE écriture');
+    assert((await tool(tokA, 'creer_secteurs', { activityId: actA, pole: poleA, noms: ['Delta', 'alpha'] })).isError && !goals.secteursForPole(actA, poleA).some((s) => s.label === 'Delta'), 'creer_secteurs : un nom existant refuse tout le lot (rien n est écrit)');
+    const cell = (sec, an) => ({ niveau: 'secteur', pole: poleA, secteur: sec, titre: 'T ' + sec + ' ' + an, fin: an + '-12-31', description: 'Faire : x · Résultat : y' });
+    const lot = [{ niveau: 'pole', pole: poleA, titre: 'Annuel 2031', fin: '2031-12-31', heures_par_semaine: 8 }, cell('Alpha', 2027), cell('Alpha', 2028), cell('Bêta', 2027), cell('Gamma', 2036)];
+    const oc0 = objCount(), lc1 = logCount();
+    const lotO = await tool(tokA, 'creer_objectifs', { activityId: actA, objectifs: lot });
+    assert(!lotO.isError && data(lotO).crees === 5 && objCount() === oc0 + 5, 'creer_objectifs : 5 objectifs créés en UN envoi');
+    assert(logCount() === lc1 + 1, 'creer_objectifs : compté comme UNE écriture dans le journal');
+    assert(db.prepare("SELECT COUNT(*) n FROM user_objectives WHERE title = 'T Gamma 2036' AND endDate = '2036-12-31' AND level = 'secteur'").get().n === 1, 'creer_objectifs : échéance 2036, au niveau secteur');
+    const oc1 = objCount();
+    const bad = await tool(tokA, 'creer_objectifs', { activityId: actA, objectifs: [cell('Bêta', 2030), cell('Inconnu', 2030), cell('Gamma', 2030)] });
+    assert(bad.isError && /objectif 2/.test(bad.content[0].text) && objCount() === oc1, 'creer_objectifs : une erreur au 2e objectif n écrit rien et le dit');
+    assert((await tool(tokA, 'creer_objectifs', { activityId: actA, objectifs: [cell('Bêta', 2030), cell('Bêta', 2030)] })).isError && objCount() === oc1, 'creer_objectifs : deux objectifs du lot dans la même case : refusé');
+    assert((await tool(tokA, 'creer_objectifs', { activityId: actA, objectifs: [cell('Alpha', 2027)] })).isError && objCount() === oc1, 'creer_objectifs : case déjà occupée : refusé (rien n est remplacé)');
+    assert((await tool(tokA, 'creer_objectifs', { activityId: actA, objectifs: Array.from({ length: 101 }, (_, i) => cell('Gamma', 2100 + i)) })).isError, 'creer_objectifs : plus de 100 objectifs refusé');
+    assert((await tool(tokB, 'creer_objectifs', { activityId: actA, objectifs: [cell('Alpha', 2040)] })).isError && objCount() === oc1, "creer_objectifs : dans l'activité d'un autre : refusé");
+    assert((await tool(tokRO, 'creer_objectifs', { activityId: actA, objectifs: [cell('Alpha', 2040)] })).status === 403, 'creer_objectifs : jeton lecture seule refusé');
+    // volume : un objectif de pôle par année (une seule case par année)
+    const volume = []; for (let y = 2037; y <= 2041; y++) volume.push({ niveau: 'pole', pole: poleA, titre: 'Volume ' + y, fin: y + '-12-31' });
+    const t0 = Date.now(); const vol = await tool(tokA, 'creer_objectifs', { activityId: actA, objectifs: volume });
+    assert(!vol.isError && data(vol).crees === 5 && Date.now() - t0 < 5000, 'creer_objectifs : lot de volume rapide (' + (Date.now() - t0) + ' ms)');
+    const uLot = await tool(tokA, 'annuler_modification', { journal: data(lotO).journal });
+    assert(!uLot.isError, 'annuler le lot : accepté');
+    assert(db.prepare("SELECT COUNT(*) n FROM user_objectives WHERE title IN ('T Alpha 2027','T Alpha 2028','T Bêta 2027','T Gamma 2036','Annuel 2031')").get().n === 0, 'annuler : un seul numéro de journal défait tout le lot');
+    const uSec = await tool(tokA, 'annuler_modification', { journal: data(lotS).journal });
+    assert(!uSec.isError && !goals.secteursForPole(actA, poleA).some((s) => ['Alpha', 'Bêta', 'Gamma'].includes(s.label)), 'annuler : un seul numéro défait les 3 secteurs');
+
     const list = await call(tokA.token, { jsonrpc: '2.0', id: ++rid, method: 'tools/list' });
     const names = list.body.result.tools.map((t) => t.name);
-    assert(names.includes('creer_secteur') && names.includes('creer_objectif'), 'les deux outils sont dans tools/list');
+    assert(names.includes('creer_secteur') && names.includes('creer_objectif') && names.includes('creer_secteurs') && names.includes('creer_objectifs'), 'les deux outils sont dans tools/list');
   } catch (e) { failed++; console.log('  FAIL exception : ' + (e && e.stack || e)); }
   console.log(failed ? '\n' + failed + ' échec(s)' : '\nTous les tests passent.');
   process.exit(failed ? 1 : 0);
