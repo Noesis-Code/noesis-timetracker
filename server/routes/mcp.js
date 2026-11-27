@@ -335,6 +335,37 @@ function applyRangement(userId, item, args) {
   } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de ranger la tâche.'); }
 }
 const done = (data, logId) => Object.assign({}, data, { journal: logId });
+const MAX_LOT = 100; // objectifs par envoi groupé
+const MAX_OBJ_24H = 3000; // objectifs créés par l'IA par 24 h (garde-fou, jamais par minute)
+const OBJ_PROPS = { niveau: { type: 'string', enum: ['pole', 'secteur'] }, pole: { type: 'string', description: 'Nom ou clé du pôle (préfère la clé : un secteur peut porter le même nom qu\'un pôle).' }, secteur: { type: 'string', description: 'Nom ou clé du secteur (obligatoire au niveau « secteur »).' }, titre: { type: 'string' }, fin: { type: 'string', description: 'Échéance précise AAAA-MM-JJ.' }, date_fixe: { type: 'boolean', description: 'Date fixe (défaut : oui).' }, heures_par_semaine: { type: 'number' }, description: { type: 'string' } };
+// Valide un objectif demandé par l'IA et renvoie le corps pour objectifs.creer (aucune écriture). i = rang dans un lot (message), null sinon.
+function objectifBody(userId, a, o, i) {
+  const pre = i == null ? '' : 'objectif ' + (i + 1) + ' : ';
+  const bad = (msg) => toolError(pre + msg);
+  if (!o || typeof o !== 'object') throw bad('objet attendu.');
+  if (!['pole', 'secteur'].includes(o.niveau)) throw bad('niveau : pole ou secteur.');
+  const t = resolveTarget(a.id, o.pole);
+  if (t.key !== t.pole.key) throw bad('pole : indique un pôle, pas un secteur.');
+  let categoryKey = null;
+  if (o.niveau === 'secteur') {
+    const w = String(o.secteur == null ? '' : o.secteur).trim().toLowerCase();
+    const s = w ? t.secteurs.find((x) => x.key.toLowerCase() === w || String(x.label).toLowerCase() === w) : null;
+    if (!s) throw bad('secteur : inconnu dans ce pôle' + (t.secteurs.length ? ' (' + t.secteurs.map((x) => x.label).join(', ') + ')' : '') + ' ; creer_secteur le crée.');
+    categoryKey = s.key;
+  }
+  const titre = checkText(o.titre, 120, 'Titre');
+  if (!titre) throw bad('titre requis.');
+  if (!isDay(o.fin)) throw bad('fin : format AAAA-MM-JJ attendu.');
+  const lim = String(Number(todayLocal().slice(0, 4)) + 15) + '-12-31';
+  if (o.fin > lim) throw bad('fin : au plus 15 ans après aujourd\'hui.');
+  const description = o.description === undefined ? undefined : checkText(o.description, MAX_DESC, 'Description');
+  const h = o.heures_par_semaine == null ? null : Number(o.heures_par_semaine);
+  if (h != null && (!Number.isFinite(h) || h <= 0 || h > 1000)) throw bad('heures_par_semaine : nombre positif (1000 au plus).');
+  const body = { activityId: a.id, title: titre, level: o.niveau, poleKey: t.key, categoryKey, endDate: o.fin, dateFixe: o.date_fixe !== false, hoursPerWeek: h, description, sansIA: true };
+  const occ = require('../lib/objectifs').occupant(userId, body); // une case occupée : le connecteur ne remplace jamais un objectif existant
+  if (occ) throw bad('cette case est déjà occupée par « ' + occ.title + ' » (objectif ' + occ.id + ') : le connecteur ne remplace aucun objectif.');
+  return body;
+}
 
 Object.assign(tools, {
   creer_tache: {
@@ -517,36 +548,74 @@ Object.assign(tools, {
   },
   creer_objectif: {
     write: true, journal: true,
-    description: "Crée un objectif de l'ARBRE d'une activité, avec une échéance précise (AAAA-MM-JJ, jusqu'à 15 ans). niveau « pole » = objectif annuel du pôle (sa colonne = l'année de l'échéance) ; niveau « secteur » = objectif d'un secteur (sa période). Heures par semaine facultatives. Aucun appel IA de Noèsis. Réversible (annuler_modification) : l'objectif est supprimé.",
-    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, niveau: { type: 'string', enum: ['pole', 'secteur'] }, pole: { type: 'string', description: 'Nom ou clé du pôle.' }, secteur: { type: 'string', description: 'Nom ou clé du secteur (obligatoire au niveau « secteur »).' }, titre: { type: 'string' }, fin: { type: 'string', description: 'Échéance précise AAAA-MM-JJ.' }, date_fixe: { type: 'boolean', description: 'Date fixe (défaut : oui).' }, heures_par_semaine: { type: 'number' }, description: { type: 'string' } }, required: ['activityId', 'niveau', 'pole', 'titre', 'fin'], additionalProperties: false },
+    description: "Crée un objectif de l'ARBRE d'une activité, avec une échéance précise (AAAA-MM-JJ, jusqu'à 15 ans). niveau « pole » = objectif annuel du pôle (sa colonne = l'année de l'échéance) ; niveau « secteur » = objectif d'un secteur (sa période). Heures par semaine facultatives. Aucun appel IA de Noèsis. Une case déjà occupée est refusée (rien n'est remplacé). Pour plusieurs objectifs, préfère creer_objectifs (un seul envoi). Réversible (annuler_modification).",
+    inputSchema: { type: 'object', properties: Object.assign({ activityId: { type: 'integer' } }, OBJ_PROPS), required: ['activityId', 'niveau', 'pole', 'titre', 'fin'], additionalProperties: false },
     run(userId, args, ctx) {
       const a = memberActivity(userId, args.activityId);
-      if (!['pole', 'secteur'].includes(args.niveau)) throw toolError('niveau : pole ou secteur.');
-      const t = resolveTarget(a.id, args.pole);
-      if (t.key !== t.pole.key) throw toolError('pole : indique un pôle, pas un secteur.');
-      let categoryKey = null;
-      if (args.niveau === 'secteur') {
-        const w = String(args.secteur == null ? '' : args.secteur).trim().toLowerCase();
-        const s = w ? t.secteurs.find((x) => x.key.toLowerCase() === w || String(x.label).toLowerCase() === w) : null;
-        if (!s) throw toolError('secteur : inconnu dans ce pôle' + (t.secteurs.length ? ' (' + t.secteurs.map((x) => x.label).join(', ') + ')' : '') + ' ; créer_secteur le crée.');
-        categoryKey = s.key;
-      }
-      const titre = checkText(args.titre, 120, 'Titre');
-      if (!titre) throw toolError('titre requis.');
-      if (!isDay(args.fin)) throw toolError('fin : format AAAA-MM-JJ attendu.');
-      const lim = String(Number(todayLocal().slice(0, 4)) + 15) + '-12-31';
-      if (args.fin > lim) throw toolError('fin : au plus 15 ans après aujourd\'hui.');
-      const description = args.description === undefined ? undefined : checkText(args.description, MAX_DESC, 'Description');
-      const h = args.heures_par_semaine == null ? null : Number(args.heures_par_semaine);
-      if (h != null && (!Number.isFinite(h) || h <= 0 || h > 1000)) throw toolError('heures_par_semaine : nombre positif (1000 au plus).');
       const obj = require('../lib/objectifs');
-      const body = { activityId: a.id, title: titre, level: args.niveau, poleKey: t.key, categoryKey, endDate: args.fin, dateFixe: args.date_fixe !== false, hoursPerWeek: h, description, sansIA: true };
-      const occ = obj.occupant(userId, body); // une case occupée : le connecteur ne remplace jamais un objectif existant
-      if (occ) throw toolError('Cette case est déjà occupée par « ' + occ.title + ' » (objectif ' + occ.id + ') : le connecteur ne remplace aucun objectif.');
+      const body = objectifBody(userId, a, args, null);
       let out;
       try { obj.checkEcheance(body, null, true); out = obj.creer(userId, body); } catch (e) { throw toolError(e.statusCode ? e.message : 'Impossible de créer cet objectif.'); }
-      const logId = wlog.record(ctx, 'creer_objectif', a.id, out.id, null, { titre, fin: args.fin, niveau: args.niveau });
-      return done({ activityId: a.id, objectifId: out.id, niveau: args.niveau, pole: t.key, secteur: categoryKey, titre, echeance: out.endDate || args.fin }, logId);
+      const logId = wlog.record(ctx, 'creer_objectif', a.id, out.id, null, { titre: body.title, fin: args.fin, niveau: args.niveau });
+      return done({ activityId: a.id, objectifId: out.id, niveau: args.niveau, pole: body.poleKey, secteur: body.categoryKey, titre: body.title, echeance: out.endDate || args.fin }, logId);
+    },
+  },
+  creer_objectifs: {
+    write: true, journal: true,
+    description: "Crée PLUSIEURS objectifs de l'arbre en UN SEUL envoi (" + MAX_LOT + " au plus) : même règles que creer_objectif (niveau, pole, secteur, titre, fin, date_fixe, heures_par_semaine, description), tout ou rien (une seule transaction : une erreur n'écrit rien et dit quel objectif), compté comme UNE écriture, annulable d'un seul numéro de journal. Une case déjà occupée, ou deux objectifs du lot dans la même case, sont refusés. Aucun appel IA de Noèsis.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, objectifs: { type: 'array', maxItems: MAX_LOT, items: { type: 'object', properties: OBJ_PROPS, required: ['niveau', 'pole', 'titre', 'fin'], additionalProperties: false } } }, required: ['activityId', 'objectifs'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      const list = args.objectifs;
+      if (!Array.isArray(list) || !list.length) throw toolError('objectifs : liste non vide requise.');
+      if (list.length > MAX_LOT) throw toolError('objectifs : ' + MAX_LOT + ' au plus par envoi.');
+      const obj = require('../lib/objectifs');
+      const bodies = list.map((o, i) => objectifBody(userId, a, o, i));
+      const seen = new Map();
+      bodies.forEach((b, i) => { const k = [b.level, b.poleKey, b.categoryKey || '', obj.cellKey(b.level, b.endDate, false, false)].join('|'); if (seen.has(k)) throw toolError('objectif ' + (i + 1) + ' : même case que l\'objectif ' + (seen.get(k) + 1) + '.'); seen.set(k, i); });
+      const since = new Date(Date.now() - 86400000).toISOString();
+      if (db.prepare('SELECT COUNT(*) AS n FROM user_objectives WHERE userId = ? AND createdAt > ?').get(userId, since).n + bodies.length > MAX_OBJ_24H) throw toolError('Plafond atteint : ' + MAX_OBJ_24H + ' objectifs créés par l\'IA par 24 h.');
+      const out = []; let cur = 0;
+      db.exec('BEGIN');
+      try {
+        bodies.forEach((b, i) => { cur = i; obj.checkEcheance(b, null, true); out.push(obj.creer(userId, b)); });
+        db.exec('COMMIT');
+      } catch (e) {
+        try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte */ }
+        throw toolError('objectif ' + (cur + 1) + ' : ' + (e.statusCode || e.toolError ? e.message : 'Impossible de créer ce lot.') + ' Rien n\'a été écrit.');
+      }
+      const ids = out.map((o) => o.id);
+      const logId = wlog.record(ctx, 'creer_objectifs', a.id, null, null, { ids });
+      return done({ activityId: a.id, crees: ids.length, objectifs: out.map((o, i) => ({ objectifId: o.id, niveau: bodies[i].level, secteur: bodies[i].categoryKey, titre: bodies[i].title, echeance: bodies[i].endDate })) }, logId);
+    },
+  },
+  creer_secteurs: {
+    write: true, journal: true,
+    description: "Crée PLUSIEURS secteurs d'un pôle en UN SEUL envoi (10 au plus ; 10 secteurs par pôle au total) : même règles que creer_secteur, tout ou rien, compté comme UNE écriture, annulable d'un seul numéro de journal tant que les secteurs sont vides.",
+    inputSchema: { type: 'object', properties: { activityId: { type: 'integer' }, pole: { type: 'string', description: 'Nom ou clé du pôle (pas un secteur).' }, noms: { type: 'array', maxItems: 10, items: { type: 'string' } } }, required: ['activityId', 'pole', 'noms'], additionalProperties: false },
+    run(userId, args, ctx) {
+      const a = memberActivity(userId, args.activityId);
+      const t = resolveTarget(a.id, args.pole);
+      if (t.key !== t.pole.key) throw toolError('pole : indique un pôle, pas un secteur.');
+      if (!Array.isArray(args.noms) || !args.noms.length || args.noms.length > 10) throw toolError('noms : de 1 à 10 noms.');
+      const m = require('../lib/portee').managed(userId, a.id);
+      if (!(m.all || m.has(t.key))) throw toolError('Seuls les responsables peuvent créer un secteur dans ce pôle.');
+      const noms = args.noms.map((n) => checkText(n, 40, 'Nom'));
+      if (noms.some((n) => !n)) throw toolError('noms : aucun nom vide.');
+      const low = noms.map((n) => n.toLowerCase());
+      if (new Set(low).size !== low.length) throw toolError('noms : deux noms identiques dans le lot.');
+      noms.forEach((n) => { if (t.secteurs.some((s) => String(s.label).toLowerCase() === n.toLowerCase())) throw toolError('Le secteur « ' + n + ' » existe déjà dans ce pôle.'); });
+      const keys = []; let cur = 0;
+      db.exec('BEGIN');
+      try {
+        noms.forEach((n, i) => { cur = i; const avant = new Set((goals.secteursForPole(a.id, t.key) || []).map((s) => s.key)); const liste = goals.addCategory(a.id, n, t.key); const neuf = (liste || []).find((s) => !avant.has(s.key)); if (!neuf) throw new Error('secteur introuvable après création'); keys.push(neuf.key); });
+        db.exec('COMMIT');
+      } catch (e) {
+        try { db.exec('ROLLBACK'); } catch (e2) { /* aucune transaction ouverte */ }
+        throw toolError('secteur « ' + noms[cur] + ' » : ' + (e.statusCode ? e.message : 'Impossible de créer ce lot.') + ' Rien n\'a été écrit.');
+      }
+      const logId = wlog.record(ctx, 'creer_secteurs', a.id, null, null, { keys, pole: t.key });
+      return done({ activityId: a.id, pole: t.key, secteurs: keys.map((k, i) => ({ cle: k, nom: noms[i] })) }, logId);
     },
   },
   annuler_modification: {
@@ -601,6 +670,10 @@ Object.assign(tools, {
             break;
           case 'creer_objectif':
             require('../lib/objectifs').supprimer(userId, row.targetId, true); break;
+          case 'creer_objectifs':
+            (after && after.ids || []).slice().reverse().forEach((id) => { try { require('../lib/objectifs').supprimer(userId, id, true); } catch (e) { /* déjà supprimé */ } }); break;
+          case 'creer_secteurs':
+            (after && after.keys || []).forEach((k) => { require('../lib/categories').removeCategory(act, k, { mode: 'delete' }); }); break;
           case 'creer_secteur':
             if (!after || !after.key) throw toolError('Ce secteur est introuvable.');
             require('../lib/categories').removeCategory(act, after.key, { mode: 'delete' }); break;
