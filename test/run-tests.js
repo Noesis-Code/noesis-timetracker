@@ -99,6 +99,7 @@ const SUITE_FILES = [
   'reforme-test.js',
   'recurrence-frequence-test.js',
   'saisie-manuelle-proposition-test.js',
+  'capture-activite-sans-pole-test.js',
   'apprentissage-usage-test.js',
   'estimation-partage-test.js',
   'stripe-tax-test.js',
