@@ -295,8 +295,12 @@ function ownTask(userId, taskId) {
 function resolveTarget(activityId, wanted) {
   const w = String(wanted == null ? '' : wanted).trim().toLowerCase();
   if (!w) throw toolError('pole requis (nom ou clé d\'un pôle ou d\'un secteur, voir lister_activites).');
-  for (const p of goals.categoriesForActivity(activityId)) {
+  const poles = goals.categoriesForActivity(activityId);
+  // Deux passes (27 nov. 2026) : un PÔLE gagne toujours sur un secteur de même nom (ex. pôle « TiMeTracker » et secteur « TimeTracker » d'un autre pôle).
+  for (const p of poles) {
     if (p.key.toLowerCase() === w || String(p.label).toLowerCase() === w) return { key: p.key, pole: p, secteurs: goals.secteursForPole(activityId, p.key) || [] };
+  }
+  for (const p of poles) {
     for (const s of (goals.secteursForPole(activityId, p.key) || [])) {
       if (s.key.toLowerCase() === w || String(s.label).toLowerCase() === w) return { key: s.key, pole: p, secteurs: [] };
     }

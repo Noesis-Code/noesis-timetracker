@@ -111,6 +111,18 @@ const data = (r) => JSON.parse(r.content[0].text);
     const uSec = await tool(tokA, 'annuler_modification', { journal: data(lotS).journal });
     assert(!uSec.isError && !goals.secteursForPole(actA, poleA).some((s) => ['Alpha', 'Bêta', 'Gamma'].includes(s.label)), 'annuler : un seul numéro défait les 3 secteurs');
 
+    // ---- Un pôle gagne sur un secteur de même nom (deux pôles ; un secteur du premier porte le nom du second) ----
+    goals.addCategory(actA, 'Production');
+    const poleP = goals.categoriesForActivity(actA).find((p) => p.label === 'Production').key;
+    goals.addCategory(actA, 'Production', poleA); // secteur du pôle Pilotage, nommé comme le pôle Production
+    const rN = await tool(tokA, 'creer_secteur', { activityId: actA, pole: 'Production', nom: 'Cible' });
+    assert(!rN.isError && goals.secteursForPole(actA, poleP).some((s) => s.label === 'Cible') && !goals.secteursForPole(actA, poleA).some((s) => s.label === 'Cible'), 'par nom : « Production » désigne le PÔLE, pas le secteur du même nom (creer_secteur)');
+    const rP = await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'pole', pole: 'production', titre: 'Annuel du pôle', fin: '2030-12-31' });
+    assert(!rP.isError && db.prepare('SELECT poleKey FROM user_objectives WHERE id = ?').get(data(rP).objectifId).poleKey === poleP, 'par nom : creer_objectif au niveau pôle tombe sur le pôle');
+    const sameName = goals.secteursForPole(actA, poleA).find((s) => s.label === 'Production');
+    const rK = await tool(tokA, 'creer_objectif', { activityId: actA, niveau: 'secteur', pole: poleA, secteur: sameName.key, titre: 'Secteur homonyme', fin: '2030-12-31' });
+    assert(!rK.isError && db.prepare('SELECT categoryKey FROM user_objectives WHERE id = ?').get(data(rK).objectifId).categoryKey === sameName.key, 'par clé : le secteur du même nom reste joignable');
+
     const list = await call(tokA.token, { jsonrpc: '2.0', id: ++rid, method: 'tools/list' });
     const names = list.body.result.tools.map((t) => t.name);
     assert(names.includes('creer_secteur') && names.includes('creer_objectif') && names.includes('creer_secteurs') && names.includes('creer_objectifs'), 'les deux outils sont dans tools/list');
