@@ -149,6 +149,7 @@ const SUITE_FILES = [
   'ia-projection-test.js',
   'mcp-test.js',
   'mcp-ecriture-libre-test.js',
+  'mcp-secteur-objectif-test.js',
   'zone-fichier-test.js',
   'fonctionnel-chrono.js',
   'chrono-horloge-test.js',
