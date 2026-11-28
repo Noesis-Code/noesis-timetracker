@@ -47,13 +47,24 @@
   // 30 sept. 2026 (demande d'Emilien) : palette « B · Minéral (froid dominant) », 9 couleurs, même ordre
   // partout. Les versions claires sont les jumelles (même teinte, éclaircies de 42 %). Toutes les anciennes
   // couleurs (LEGACY_*) restent VALIDES : jamais rejetées ni réécrites en production.
+
+  // 28 nov. 2026 (demande d'Emilien) : palette « Luxe » des activités, 9 couleurs : bordeaux, brique, or vieilli, forêt,
+  // turquoise paon, bleu clair soie, bleu royal, violet royal, rose corail (chaque couleur = le rang LE PLUS FONCÉ de ses 5 nuances). L'app est sombre uniquement : LIGHT_PALETTE = même jeu.
   var DARK_PALETTE = [
-    '#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0',
+    '#531D28', '#7D3C2C', '#957637', '#183F2B', '#1A5854', '#659ECA', '#202E65', '#311B4B', '#9F323A',
   ];
 
-  var LIGHT_PALETTE = [
-    '#C8979B', '#C8A797', '#C8B997', '#B7C897', '#97C8AF', '#97C3C8', '#97AFC8', '#9F97C8', '#BF97C8',
+  var LIGHT_PALETTE = DARK_PALETTE.slice();
+
+  // Ancienne palette B « Minéral » (30 sept. 2026) : ses couleurs restent VALIDES (activités existantes), jamais réécrites.
+  var LEGACY_MINERAL_PALETTE = [
+    '#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0',
   ];
+  // Ancienne couleur Minéral -> nouvelle couleur (teinte la plus proche), pour recolorer sur staging.
+  var MINERAL_TO_LUXE = {
+    '#A04B52': '#531D28', '#A0674B': '#7D3C2C', '#A0864B': '#957637', '#83A04B': '#183F2B', '#4BA075': '#183F2B',
+    '#4B98A0': '#1A5854', '#4B75A0': '#659ECA', '#594BA0': '#202E65', '#914BA0': '#311B4B',
+  };
 
   // Anciennes couleurs d'activité (sombre) : palette d'origine, puis palette « brique » (30 sept.).
   var LEGACY_DARK_PALETTE = [
@@ -138,36 +149,13 @@
     var cacheKey = baseHex + '|' + rank;
     if (poleShadeCache[cacheKey]) return poleShadeCache[cacheKey];
 
-    // Bande de clarté : ni assez claire pour se confondre avec la carte en
-    // thème clair, ni assez foncée pour se confondre avec le fond en thème
-    // sombre. Vérifié : la nuance la plus claire reste à ΔE ≥ 13 du blanc pur,
-    // la plus foncée à ΔE ≥ 18 d'un fond sombre.
-    var LO = 22, HI = 90;      // en clarté CIE L*, pas en luminosité HSL
-    var GAP = 11;              // écart minimal, en L*, avec la couleur de base
-
-    // Teinte ET saturation sont conservées telles quelles : ce sont bien des
-    // nuances de la couleur de l'activité (demande d'Emilien du 4 septembre),
-    // et le balayage de réglages a montré qu'y toucher ne gagnait rien une
-    // fois l'espacement fait dans le bon espace.
+    // 28 nov. 2026 (demande d'Emilien) : la couleur de l'activité est le rang LE PLUS FONCÉ (rang 5) ; les 4 autres s'éclaircissent
+    // régulièrement, en clarté CIE L*, jusqu'à L* 90. Teinte ET saturation conservées.
+    var HI = 90;
     var s = hsl.s;
     var lBase = labLightness(baseHex);
-
-    // Deux segments : au-dessus et en dessous de la zone interdite autour de
-    // la base (réservée au temps « Sans sous-projet »). L'un des deux peut
-    // être vide si la couleur de l'activité est déjà à une extrémité. Les cinq
-    // rangs se répartissent régulièrement sur leur concaténation, du plus clair
-    // au plus foncé.
-    var upLen = Math.max(0, HI - Math.max(lBase + GAP, LO));
-    var loLen = Math.max(0, Math.min(lBase - GAP, HI) - LO);
-    var total = upLen + loLen;
-
-    var target;
-    if (total <= 0) {
-      target = lBase >= (HI + LO) / 2 ? LO : HI;   // cas dégénéré
-    } else {
-      var d = (rank / (POLE_SHADE_COUNT - 1)) * total;
-      target = d <= upLen ? HI - d : Math.min(lBase - GAP, HI) - (d - upLen);
-    }
+    if (rank === POLE_SHADE_COUNT - 1) { poleShadeCache[cacheKey] = baseHex; return baseHex; }
+    var target = HI - (HI - lBase) * rank / (POLE_SHADE_COUNT - 1);
 
     // Dichotomie sur la luminosité HSL pour atteindre la clarté L* visée :
     // L* est monotone en l à teinte et saturation fixées. 28 itérations
@@ -182,5 +170,5 @@
     return out;
   }
 
-  return { poleColor: poleColor, relLuminance: relLuminance, labLightness: labLightness, DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE, LEGACY_PROFILE_PALETTE: LEGACY_PROFILE_PALETTE };
+  return { poleColor: poleColor, LEGACY_MINERAL_PALETTE: LEGACY_MINERAL_PALETTE, MINERAL_TO_LUXE: MINERAL_TO_LUXE, relLuminance: relLuminance, labLightness: labLightness, DARK_PALETTE: DARK_PALETTE, LIGHT_PALETTE: LIGHT_PALETTE, LEGACY_DARK_PALETTE: LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE: LEGACY_LIGHT_PALETTE, LEGACY_PROFILE_PALETTE: LEGACY_PROFILE_PALETTE };
 });

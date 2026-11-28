@@ -11,7 +11,7 @@ const CHALKY_PROFILE = ['#6E9669', '#6A93B5', '#B5604D', '#C49A4A', '#9678AC', '
 // Palette B « Minéral » (profils 9 couleurs ; activités 9 couleurs sombres + jumelles claires).
 const PALE_B_PROFILE = ['#B0787D', '#B08B78', '#B09F78', '#9DB078', '#78B094', '#78ABB0', '#7894B0', '#8178B0', '#A678B0']; // B pâle (3fa87c5)
 const NEW_PROFILE = ['#A04B52', '#A0674B', '#A0864B', '#83A04B', '#4BA075', '#4B98A0', '#4B75A0', '#594BA0', '#914BA0']; // = DARK_PALETTE
-const { DARK_PALETTE, LIGHT_PALETTE, LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE } = require('../../public/theme-palette.js');
+const { DARK_PALETTE, LIGHT_PALETTE, LEGACY_DARK_PALETTE, LEGACY_LIGHT_PALETTE, MINERAL_TO_LUXE } = require('../../public/theme-palette.js');
 
 function applyProfileColorsOnStaging() {
   const env = process.env.RAILWAY_ENVIRONMENT_NAME;
@@ -27,6 +27,8 @@ function applyProfileColorsOnStaging() {
   [[LEGACY_DARK_PALETTE.slice(0, 8), DARK_PALETTE], [LEGACY_DARK_PALETTE.slice(8), DARK_PALETTE], [LEGACY_LIGHT_PALETTE, LIGHT_PALETTE]].forEach((pair) => {
     pair[0].forEach((c, i) => { na += Number(updAct.run(pair[1][i], c).changes || 0); });
   });
+  // Palette « Luxe » (28 nov. 2026) : couleurs Minéral -> Luxe par teinte la plus proche (idempotent : ces hex n'existent plus ensuite).
+  Object.keys(MINERAL_TO_LUXE).forEach((c) => { na += Number(updAct.run(MINERAL_TO_LUXE[c], c).changes || 0); });
   if (na) console.log('[profilecolors-staging] ' + na + ' couleur(s) d\'activité remappée(s) (palette B Minéral)');
   // Compte persistant « Emilien » de staging : couleur forcée si elle n'est pas déjà dans la palette actuelle.
   n += Number(db.prepare("UPDATE users SET color = ? WHERE name LIKE 'Emilien%' AND color NOT IN (" + NEW_PROFILE.map(() => '?').join(',') + ')').run(NEW_PROFILE[2], ...NEW_PROFILE).changes || 0);
